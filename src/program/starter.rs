@@ -27,20 +27,97 @@ struct Entry {
 /// weights, and mat. Loads are conservative starting points to edit.
 const TEMPLATE: &[Entry] = &[
     // pull
-    Entry { slug: "pull_up",           base_sets: 4, rep_low: Some(5),  rep_high: Some(8),  load_kg: None,        hold_s: None },
-    Entry { slug: "ring_row",          base_sets: 3, rep_low: Some(8),  rep_high: Some(12), load_kg: None,        hold_s: None },
+    Entry {
+        slug: "pull_up",
+        base_sets: 4,
+        rep_low: Some(5),
+        rep_high: Some(8),
+        load_kg: None,
+        hold_s: None,
+    },
+    Entry {
+        slug: "ring_row",
+        base_sets: 3,
+        rep_low: Some(8),
+        rep_high: Some(12),
+        load_kg: None,
+        hold_s: None,
+    },
     // push
-    Entry { slug: "ring_dip",          base_sets: 4, rep_low: Some(5),  rep_high: Some(8),  load_kg: None,        hold_s: None },
-    Entry { slug: "push_up",           base_sets: 3, rep_low: Some(12), rep_high: Some(18), load_kg: None,        hold_s: None },
-    Entry { slug: "overhead_press",    base_sets: 3, rep_low: Some(6),  rep_high: Some(10), load_kg: Some(20.0),  hold_s: None },
+    Entry {
+        slug: "ring_dip",
+        base_sets: 4,
+        rep_low: Some(5),
+        rep_high: Some(8),
+        load_kg: None,
+        hold_s: None,
+    },
+    Entry {
+        slug: "push_up",
+        base_sets: 3,
+        rep_low: Some(12),
+        rep_high: Some(18),
+        load_kg: None,
+        hold_s: None,
+    },
+    Entry {
+        slug: "overhead_press",
+        base_sets: 3,
+        rep_low: Some(6),
+        rep_high: Some(10),
+        load_kg: Some(20.0),
+        hold_s: None,
+    },
     // legs
-    Entry { slug: "goblet_squat",      base_sets: 4, rep_low: Some(8),  rep_high: Some(12), load_kg: Some(16.0),  hold_s: None },
-    Entry { slug: "split_squat",       base_sets: 3, rep_low: Some(8),  rep_high: Some(12), load_kg: Some(12.0),  hold_s: None },
+    Entry {
+        slug: "goblet_squat",
+        base_sets: 4,
+        rep_low: Some(8),
+        rep_high: Some(12),
+        load_kg: Some(16.0),
+        hold_s: None,
+    },
+    Entry {
+        slug: "split_squat",
+        base_sets: 3,
+        rep_low: Some(8),
+        rep_high: Some(12),
+        load_kg: Some(12.0),
+        hold_s: None,
+    },
     // core
-    Entry { slug: "hanging_leg_raise", base_sets: 3, rep_low: Some(8),  rep_high: Some(12), load_kg: None,        hold_s: None },
-    Entry { slug: "l_sit",             base_sets: 3, rep_low: None,      rep_high: None,     load_kg: None,        hold_s: Some(15) },
-    Entry { slug: "plank",             base_sets: 3, rep_low: None,      rep_high: None,     load_kg: None,        hold_s: Some(45) },
-    Entry { slug: "dead_hang",         base_sets: 2, rep_low: None,      rep_high: None,     load_kg: None,        hold_s: Some(30) },
+    Entry {
+        slug: "hanging_leg_raise",
+        base_sets: 3,
+        rep_low: Some(8),
+        rep_high: Some(12),
+        load_kg: None,
+        hold_s: None,
+    },
+    Entry {
+        slug: "l_sit",
+        base_sets: 3,
+        rep_low: None,
+        rep_high: None,
+        load_kg: None,
+        hold_s: Some(15),
+    },
+    Entry {
+        slug: "plank",
+        base_sets: 3,
+        rep_low: None,
+        rep_high: None,
+        load_kg: None,
+        hold_s: Some(45),
+    },
+    Entry {
+        slug: "dead_hang",
+        base_sets: 2,
+        rep_low: None,
+        rep_high: None,
+        load_kg: None,
+        hold_s: Some(30),
+    },
 ];
 
 /// Monday of the current ISO week (the default program anchor).

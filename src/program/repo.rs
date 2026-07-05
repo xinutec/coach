@@ -88,10 +88,12 @@ pub async fn create(
 ) -> Result<ProgramDetail> {
     let mut tx = pool.begin().await?;
 
-    sqlx::query("UPDATE programs SET active = 0, updated_at = NOW() WHERE user_id = ? AND active = 1")
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE programs SET active = 0, updated_at = NOW() WHERE user_id = ? AND active = 1",
+    )
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await?;
 
     let res = sqlx::query(
         "INSERT INTO programs (user_id, name, start_date, weeks, deload_week, active) \
@@ -136,10 +138,12 @@ pub async fn set_active(pool: &MySqlPool, user_id: &str, id: i64) -> Result<bool
         return Ok(false);
     }
     let mut tx = pool.begin().await?;
-    sqlx::query("UPDATE programs SET active = 0, updated_at = NOW() WHERE user_id = ? AND active = 1")
-        .bind(user_id)
-        .execute(&mut *tx)
-        .await?;
+    sqlx::query(
+        "UPDATE programs SET active = 0, updated_at = NOW() WHERE user_id = ? AND active = 1",
+    )
+    .bind(user_id)
+    .execute(&mut *tx)
+    .await?;
     sqlx::query("UPDATE programs SET active = 1, updated_at = NOW() WHERE id = ? AND user_id = ?")
         .bind(id)
         .bind(user_id)

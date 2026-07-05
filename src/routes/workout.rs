@@ -40,7 +40,9 @@ pub async fn list(
     Query(q): Query<RecentQuery>,
 ) -> Result<Json<Vec<WorkoutSet>>, AppError> {
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
-    Ok(Json(repo::list_recent(&app.pool, &user.user_id, limit).await?))
+    Ok(Json(
+        repo::list_recent(&app.pool, &user.user_id, limit).await?,
+    ))
 }
 
 /// DELETE /api/sets/{id} → soft-delete a logged set.

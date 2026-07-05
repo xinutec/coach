@@ -22,7 +22,8 @@ pub async fn now(pool: &MySqlPool, user_id: &str) -> Result<PacingNow> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
     let now_local = Utc::now().with_timezone(&tz).naive_local();
-    let to_local = |utc: NaiveDateTime| Utc.from_utc_datetime(&utc).with_timezone(&tz).naive_local();
+    let to_local =
+        |utc: NaiveDateTime| Utc.from_utc_datetime(&utc).with_timezone(&tz).naive_local();
 
     let settings = PacingSettings {
         window_start_hour: s.window_start_hour,

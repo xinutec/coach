@@ -9,9 +9,7 @@ use chrono::{NaiveDateTime, Timelike};
 
 use crate::exercise::types::Pattern;
 
-use super::types::{
-    PacingInput, PacingNow, PacingState, PatternProgress, Suggestion, TargetInfo,
-};
+use super::types::{PacingInput, PacingNow, PacingState, PatternProgress, Suggestion, TargetInfo};
 
 fn ceil_div(a: i32, b: i32) -> i32 {
     debug_assert!(b > 0);
