@@ -1,4 +1,23 @@
 @if (pacing(); as p) {
+  <div class="loc-bar">
+    <mat-form-field appearance="outline" class="loc-select" subscriptSizing="dynamic">
+      <mat-icon matPrefix>place</mat-icon>
+      <mat-select
+        aria-label="Training location"
+        [ngModel]="selectedLocationId()"
+        (ngModelChange)="onLocationChange($event)"
+      >
+        <mat-option [value]="null">Anywhere</mat-option>
+        @for (l of locations(); track l.id) {
+          <mat-option [value]="l.id">{{ l.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <a routerLink="/locations" mat-icon-button aria-label="Manage locations">
+      <mat-icon>tune</mat-icon>
+    </a>
+  </div>
+
   @switch (p.state) {
     @case ("no_program") {
       <mat-card class="cta">
@@ -53,6 +72,19 @@
               <span class="pill accent">{{ patternLabel(s.pattern) }}</span>
               <h3>{{ s.exerciseName }}</h3>
             </div>
+            @if (s.substitutedFor) {
+              <p class="s-sub">
+                <mat-icon>swap_horiz</mat-icon>
+                Swapped in for {{ s.substitutedFor }} — its kit isn't here
+              </p>
+            }
+            @if (suggestionEquipment().length) {
+              <div class="s-equip">
+                @for (name of suggestionEquipment(); track name) {
+                  <span class="pill">{{ name }}</span>
+                }
+              </div>
+            }
             <p class="s-detail">
               {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
               @if (s.repLow !== null) {

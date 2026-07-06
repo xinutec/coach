@@ -2,10 +2,16 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 import { Observable } from "rxjs";
 import {
+  Equipment,
   Exercise,
+  ExerciseDetail,
   ExercisePatch,
+  Location,
+  LocationPatch,
   Me,
+  Muscle,
   NewExercise,
+  NewLocation,
   NewPin,
   NewSet,
   PacingNow,
@@ -38,11 +44,40 @@ export class CoachApi {
     const q = includeInactive ? "?includeInactive=true" : "";
     return this.http.get<Exercise[]>(`/api/exercises${q}`);
   }
-  createExercise(body: NewExercise): Observable<Exercise> {
-    return this.http.post<Exercise>("/api/exercises", body);
+  exercise(id: number): Observable<ExerciseDetail> {
+    return this.http.get<ExerciseDetail>(`/api/exercises/${id}`);
   }
-  patchExercise(id: number, body: ExercisePatch): Observable<Exercise> {
-    return this.http.patch<Exercise>(`/api/exercises/${id}`, body);
+  createExercise(body: NewExercise): Observable<ExerciseDetail> {
+    return this.http.post<ExerciseDetail>("/api/exercises", body);
+  }
+  patchExercise(id: number, body: ExercisePatch): Observable<ExerciseDetail> {
+    return this.http.patch<ExerciseDetail>(`/api/exercises/${id}`, body);
+  }
+  /** URL of an exercise's demo image blob (immutable; ETag-cached by the browser). */
+  exerciseImageUrl(id: number): string {
+    return `/api/exercises/${id}/image`;
+  }
+
+  // Reference catalogs
+  equipment(): Observable<Equipment[]> {
+    return this.http.get<Equipment[]>("/api/equipment");
+  }
+  muscles(): Observable<Muscle[]> {
+    return this.http.get<Muscle[]>("/api/muscles");
+  }
+
+  // Training locations
+  locations(): Observable<Location[]> {
+    return this.http.get<Location[]>("/api/locations");
+  }
+  createLocation(body: NewLocation): Observable<Location> {
+    return this.http.post<Location>("/api/locations", body);
+  }
+  patchLocation(id: number, body: LocationPatch): Observable<Location> {
+    return this.http.patch<Location>(`/api/locations/${id}`, body);
+  }
+  deleteLocation(id: number): Observable<void> {
+    return this.http.delete<void>(`/api/locations/${id}`);
   }
 
   // Programs
@@ -89,7 +124,9 @@ export class CoachApi {
   patchSettings(body: SettingsPatch): Observable<Settings> {
     return this.http.patch<Settings>("/api/settings", body);
   }
-  pacingNow(): Observable<PacingNow> {
-    return this.http.get<PacingNow>("/api/pacing/now");
+  /** The pacing verdict; pass a location id to make the suggestion location-aware. */
+  pacingNow(locationId?: number): Observable<PacingNow> {
+    const q = locationId != null ? `?locationId=${locationId}` : "";
+    return this.http.get<PacingNow>(`/api/pacing/now${q}`);
   }
 }

@@ -1,0 +1,81 @@
+<h2>Locations</h2>
+<p class="hint">
+  A location is a place you train, defined by the kit available there. On Today,
+  pick where you are and the coach shows what you can do — swapping in an
+  equivalent when a goal needs kit you don't have.
+</p>
+
+@if (editingId() !== null) {
+  <div class="editor">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput [ngModel]="formName()" (ngModelChange)="formName.set($event)" />
+    </mat-form-field>
+
+    <mat-slide-toggle [ngModel]="formDefault()" (ngModelChange)="formDefault.set($event)">
+      Default location
+    </mat-slide-toggle>
+
+    <div class="picker">
+      @for (g of grouped(); track g.category) {
+        <div class="cat">
+          <div class="cat-name">{{ g.label }}</div>
+          <div class="chips">
+            @for (e of g.items; track e.id) {
+              <button
+                type="button"
+                class="chip"
+                [class.on]="formEquip().has(e.slug)"
+                (click)="toggleEquip(e.slug)"
+              >
+                @if (formEquip().has(e.slug)) {
+                  <mat-icon>check</mat-icon>
+                }
+                {{ e.name }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="actions">
+      <button mat-button (click)="cancel()">Cancel</button>
+      <button mat-flat-button [disabled]="saving()" (click)="save()">Save</button>
+    </div>
+  </div>
+} @else {
+  @for (loc of locations(); track loc.id) {
+    <div class="loc-card">
+      <div class="loc-head">
+        <span class="loc-name">{{ loc.name }}</span>
+        @if (loc.isDefault) {
+          <span class="pill accent"><mat-icon>star</mat-icon> Default</span>
+        }
+        <span class="spacer"></span>
+        <button mat-icon-button aria-label="Edit" (click)="startEdit(loc)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button mat-icon-button aria-label="Delete" (click)="remove(loc)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+      <div class="chips">
+        @if (loc.equipment.length === 0) {
+          <span class="pill">Bodyweight only</span>
+        }
+        @for (s of loc.equipment; track s) {
+          <span class="pill">{{ equipLabel(s) }}</span>
+        }
+      </div>
+    </div>
+  } @empty {
+    @if (!loading()) {
+      <p class="hint">No locations yet — add your first.</p>
+    }
+  }
+
+  <button mat-flat-button class="add" (click)="startNew()">
+    <mat-icon>add</mat-icon> Add location
+  </button>
+}

@@ -31,9 +31,19 @@ const SETTINGS = {
 };
 
 const EXERCISES = [
-  { id: 1, slug: "pull_up", name: "Pull-up", equipment: "bar", pattern: "pull", metric: "reps", unilateral: false, isActive: true },
-  { id: 6, slug: "ring_dip", name: "Ring dip", equipment: "rings", pattern: "push", metric: "reps", unilateral: false, isActive: true },
-  { id: 11, slug: "goblet_squat", name: "Goblet squat", equipment: "weights", pattern: "legs", metric: "weighted_reps", unilateral: false, isActive: true },
+  { id: 1, slug: "pull_up_bar", name: "Pull-up", variation: "bar", pattern: "pull", metric: "reps", unilateral: false, isActive: true, equipment: ["pull_up_bar"], hasImage: false },
+  { id: 6, slug: "ring_dip", name: "Ring dip", variation: null, pattern: "push", metric: "reps", unilateral: false, isActive: true, equipment: ["gymnastic_rings"], hasImage: false },
+  { id: 11, slug: "goblet_squat", name: "Goblet squat", variation: null, pattern: "legs", metric: "weighted_reps", unilateral: false, isActive: true, equipment: ["dumbbell"], hasImage: false },
+];
+
+const EQUIPMENT = [
+  { id: 1, slug: "pull_up_bar", name: "Pull-up bar", category: "rig" },
+  { id: 2, slug: "gymnastic_rings", name: "Gymnastic rings", category: "rig" },
+  { id: 3, slug: "dumbbell", name: "Dumbbell", category: "free_weight" },
+];
+
+const LOCATIONS = [
+  { id: 1, name: "Home", isDefault: true, equipment: ["pull_up_bar", "gymnastic_rings"] },
 ];
 
 // A busy "active" verdict so Today renders fully (banner, per-pattern bars,
@@ -56,7 +66,7 @@ const PACING = {
     { pattern: "legs", weekTarget: 7, weekDone: 0, todayTarget: 4, todayDone: 0, todayRemaining: 4 },
     { pattern: "core", weekTarget: 11, weekDone: 0, todayTarget: 7, todayDone: 0, todayRemaining: 7 },
   ],
-  suggestion: { exerciseId: 6, exerciseName: "Ring dip", pattern: "push", sets: 2, repLow: 5, repHigh: 8, loadKg: null, holdS: null },
+  suggestion: { exerciseId: 6, exerciseName: "Ring dip", pattern: "push", sets: 2, repLow: 5, repHigh: 8, loadKg: null, holdS: null, substitutedFor: null },
 };
 
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers
@@ -66,8 +76,10 @@ async function mockApi(page: Page): Promise<void> {
     r.request().method() === "GET" ? r.fulfill({ json: [] }) : r.fulfill({ status: 204, body: "" }),
   );
   await page.route("**/api/me", (r) => r.fulfill({ json: ME }));
-  await page.route("**/api/pacing/now", (r) => r.fulfill({ json: PACING }));
+  await page.route("**/api/pacing/now*", (r) => r.fulfill({ json: PACING }));
   await page.route("**/api/exercises*", (r) => r.fulfill({ json: EXERCISES }));
+  await page.route("**/api/equipment", (r) => r.fulfill({ json: EQUIPMENT }));
+  await page.route("**/api/locations", (r) => r.fulfill({ json: LOCATIONS }));
   await page.route("**/api/settings", (r) => r.fulfill({ json: SETTINGS }));
   await page.route("**/api/programs/active", (r) => r.fulfill({ json: null }));
 }
@@ -106,6 +118,25 @@ test("settings — clean + reachable @ phone", async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto("/settings");
   await page.getByRole("button", { name: "Check for updates" }).waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
+  await expectNoOccludedControls(page, testInfo);
+});
+
+test("library — exercise cards render clean @ phone", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto("/library");
+  await page.getByRole("heading", { name: "Exercise library" }).waitFor();
+  await page.getByText("Ring dip").waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
+  await expectNoOccludedControls(page, testInfo);
+});
+
+test("locations — location card + kit chips render clean @ phone", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto("/locations");
+  await page.getByText("Home").waitFor();
   await expectNoTextOverlaps(page, testInfo);
   await expectNoHorizontalOverflow(page, testInfo);
   await expectNoOccludedControls(page, testInfo);

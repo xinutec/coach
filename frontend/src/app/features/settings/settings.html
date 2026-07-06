@@ -70,6 +70,15 @@
   </div>
 }
 
+<a routerLink="/locations" class="nav-link">
+  <mat-icon>place</mat-icon>
+  <span class="nav-link-text">
+    <span class="nav-link-title">Locations</span>
+    <span class="hint">Where you train, and the kit you have there</span>
+  </span>
+  <mat-icon>chevron_right</mat-icon>
+</a>
+
 <div class="updates">
   <button mat-stroked-button (click)="checkUpdates()">Check for updates</button>
   @if (updateMsg()) {

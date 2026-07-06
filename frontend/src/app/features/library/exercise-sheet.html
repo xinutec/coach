@@ -1,0 +1,49 @@
+@if (detail(); as d) {
+  @if (d.hasImage) {
+    <img class="hero" [src]="imageUrl(d.id)" [alt]="d.name" />
+  }
+  <div class="head">
+    <span class="pill accent">{{ patternLabel(d.pattern) }}</span>
+    <h2>{{ displayName(d) }}</h2>
+  </div>
+  @if (d.cue) {
+    <p class="cue">{{ d.cue }}</p>
+  }
+
+  <div class="chips">
+    @if (d.equipment.length === 0) {
+      <span class="pill">Bodyweight</span>
+    }
+    @for (e of d.equipment; track e.id) {
+      <span class="pill"><mat-icon>fitness_center</mat-icon>{{ e.name }}</span>
+    }
+    @if (d.unilateral) {
+      <span class="pill">Unilateral</span>
+    }
+  </div>
+
+  @if (primary(d).length) {
+    <h3>Primary muscles</h3>
+    <div class="chips">
+      @for (m of primary(d); track m.slug) {
+        <span class="pill accent">{{ m.name }}</span>
+      }
+    </div>
+  }
+  @if (secondary(d).length) {
+    <h3>Also works</h3>
+    <div class="chips">
+      @for (m of secondary(d); track m.slug) {
+        <span class="pill">{{ m.name }}</span>
+      }
+    </div>
+  }
+
+  @if (d.demoUrl) {
+    <a mat-stroked-button class="demo" [href]="d.demoUrl" target="_blank" rel="noopener">
+      <mat-icon>play_circle</mat-icon> Watch demo
+    </a>
+  }
+} @else {
+  <mat-progress-bar mode="indeterminate" />
+}

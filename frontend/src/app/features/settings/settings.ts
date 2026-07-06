@@ -1,5 +1,6 @@
 import { Component, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 import { MatButtonModule } from "@angular/material/button";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
@@ -28,6 +29,7 @@ function coachAndroid(): CoachAndroidBridge | null {
   styleUrl: "./settings.scss",
   imports: [
     FormsModule,
+    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,

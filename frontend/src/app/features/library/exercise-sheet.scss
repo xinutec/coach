@@ -1,0 +1,49 @@
+:host {
+  display: block;
+  padding: 0.5rem 0.25rem 1.5rem;
+}
+
+.hero {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+.cue {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0.4rem 0 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+
+  .pill mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+}
+
+h3 {
+  margin-top: 0.9rem;
+}
+
+.demo {
+  margin-top: 1rem;
+}

@@ -1,0 +1,48 @@
+<h2>Exercise library</h2>
+
+<mat-form-field appearance="outline" class="search">
+  <mat-icon matPrefix>search</mat-icon>
+  <mat-label>Search exercises</mat-label>
+  <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" />
+</mat-form-field>
+
+<div class="filters">
+  <button mat-button [class.on]="pattern() === null" (click)="pattern.set(null)">All</button>
+  @for (p of patterns; track p) {
+    <button mat-button [class.on]="pattern() === p" (click)="togglePattern(p)">
+      {{ patternLabel(p) }}
+    </button>
+  }
+</div>
+
+@if (loading()) {
+  <p class="hint">Loading…</p>
+} @else {
+  <p class="count">
+    {{ filtered().length }} exercise{{ filtered().length === 1 ? "" : "s" }}
+  </p>
+  <div class="grid">
+    @for (e of filtered(); track e.id) {
+      <button class="card" (click)="open(e)">
+        @if (e.hasImage) {
+          <img class="thumb" [src]="imageUrl(e.id)" alt="" loading="lazy" />
+        } @else {
+          <div class="thumb placeholder"><mat-icon>fitness_center</mat-icon></div>
+        }
+        <div class="body">
+          <div class="name">{{ displayName(e) }}</div>
+          <div class="chips">
+            <span class="pill accent">{{ patternLabel(e.pattern) }}</span>
+            @if (e.equipment.length === 0) {
+              <span class="pill">Bodyweight</span>
+            }
+            @for (s of e.equipment; track s) {
+              <span class="pill">{{ equipLabel(s) }}</span>
+            }
+          </div>
+        </div>
+        <mat-icon class="chevron">chevron_right</mat-icon>
+      </button>
+    }
+  </div>
+}

@@ -42,6 +42,18 @@ mat-card {
   }
 }
 
+.loc-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+
+  .loc-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .suggestion {
   .s-head {
     display: flex;
@@ -50,6 +62,26 @@ mat-card {
     h3 {
       margin: 0;
     }
+  }
+  .s-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-large);
+    margin: 0.4rem 0 0;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+  .s-equip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0.5rem 0 0;
   }
   .s-detail {
     color: var(--mat-sys-on-surface-variant);
