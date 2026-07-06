@@ -22,8 +22,27 @@ mat-card {
   }
 }
 
-.deload {
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   margin-bottom: 0.5rem;
+}
+
+.pill.readiness {
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+  &.high {
+    background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent);
+    color: var(--mat-sys-on-surface);
+  }
+  &.low {
+    background: color-mix(in srgb, var(--mat-sys-tertiary) 24%, transparent);
+    color: var(--mat-sys-on-tertiary-container);
+  }
 }
 
 .reason mat-card-content {

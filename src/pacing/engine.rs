@@ -17,8 +17,11 @@ use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
 use super::types::{
-    ExerciseInfo, GroupBalance, LastPerf, PacingInput, PacingNow, PacingState, Suggestion,
+    Band, ExerciseInfo, GroupBalance, LastPerf, PacingInput, PacingNow, PacingState, Suggestion,
 };
+
+/// Readiness score below this → hold progression (don't chase PRs on a bad day).
+const READINESS_HOLD_BELOW: f64 = 0.40;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -127,21 +130,33 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
 
 /// Progress an exercise off its last performance: (sets, rep_low, rep_high,
 /// load_kg, hold_s). Double-progression — top of range last time → add load/rep.
+/// When `advance` is false (low readiness) we hold the line: keep last load, no
+/// rep/second bump — recover, don't push for a PR.
 fn progress(
     ex: &ExerciseInfo,
     last: Option<&LastPerf>,
     mode: Mode,
+    advance: bool,
 ) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
     let sets = 3;
+    let (lo, hi) = rep_range(mode, ex.metric);
     match ex.metric {
         Metric::Hold => {
             let base = last.and_then(|l| l.hold_s).unwrap_or(20);
-            (2, None, None, None, Some(base + 5)) // +5 s
+            (
+                2,
+                None,
+                None,
+                None,
+                Some(if advance { base + 5 } else { base }),
+            )
         }
         Metric::WeightedReps => {
-            let (lo, hi) = rep_range(mode, ex.metric);
             let reps = last.and_then(|l| l.reps);
             let load = last.and_then(|l| l.load_kg);
+            if !advance {
+                return (sets, lo, hi, load, None); // repeat last load, no bump
+            }
             match (reps, load, hi) {
                 (Some(r), Some(w), Some(h)) if r >= h => (sets, lo, hi, Some(w + 2.5), None),
                 (Some(r), Some(w), Some(h)) => (sets, Some((r + 1).min(h)), hi, Some(w), None),
@@ -149,7 +164,9 @@ fn progress(
             }
         }
         Metric::Reps => {
-            let (lo, hi) = rep_range(mode, ex.metric);
+            if !advance {
+                return (sets, lo, hi, None, None);
+            }
             match (last.and_then(|l| l.reps), hi) {
                 (Some(r), Some(h)) if r >= h => (sets, hi, hi, None, None),
                 (Some(r), Some(h)) => (sets, Some((r + 1).min(h)), hi, None, None),
@@ -206,8 +223,10 @@ fn pick_for_group(
         (Some(_), Some(i)) if i.id != chosen.id => Some(i.name.clone()),
         _ => None,
     };
+    // Hold progression on a low-readiness day.
+    let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
     let (sets, rep_low, rep_high, load_kg, hold_s) =
-        progress(chosen, input.last_perf.get(&chosen.id), mode);
+        progress(chosen, input.last_perf.get(&chosen.id), mode, advance);
     Some(Suggestion {
         exercise_id: chosen.id,
         exercise_name: chosen.name.clone(),
@@ -272,11 +291,19 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
     }
 
-    // --- auto-deload: recent volume well above the personal weekly average ---
+    // --- one recovery factor on the per-group target ---
+    // Biometric readiness (when health has data) is primary and supersedes the
+    // crude volume-spike proxy; without it we fall back to that proxy.
     let avg_weekly_total: f64 = avg_sum.values().sum::<f64>() / HISTORY_WEEKS as f64;
     let last7_total: f64 = current.values().sum();
-    let deload = avg_weekly_total > 0.0 && last7_total > DELOAD_RATIO * avg_weekly_total;
-    let deload_scale = if deload { DELOAD_SCALE } else { 1.0 };
+    let volume_deload = avg_weekly_total > 0.0 && last7_total > DELOAD_RATIO * avg_weekly_total;
+    let recovery_scale = match input.readiness {
+        Some(r) => 0.75 + 0.5 * r.score, // 0.75 (spent) .. 1.25 (fully recovered)
+        None if volume_deload => DELOAD_SCALE,
+        None => 1.0,
+    };
+    // Only reported (and true) on the no-biometric fallback path.
+    let deload = input.readiness.is_none() && volume_deload;
     let days_scale = (input.days_per_week as f64 / 4.0).clamp(0.5, 2.0);
 
     // --- per-group balance + focus candidates (non-recovering, in deficit) ---
@@ -292,7 +319,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         };
         let base = 0.5 * DEFAULT_WEEKLY_SETS + 0.5 * avg;
         let target =
-            (base * region_mult(input.mode, gm.region) * emph * days_scale * deload_scale).max(3.0);
+            (base * region_mult(input.mode, gm.region) * emph * days_scale * recovery_scale)
+                .max(3.0);
         let deficit = ((target - cur) / target).clamp(0.0, 1.0);
         let recovering = *recent.get(&gm.id).unwrap_or(&0.0) >= RECOVERY_SETS;
         if !recovering && deficit > 0.0 {
@@ -355,6 +383,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let behind = has_work && (done_today as f64) < elapsed * day_target_sets as f64;
     let nudge = within_window && !after_cutoff && has_work && spacing_ok && behind;
 
+    // A short readiness clause, prepended to an active suggestion's reason.
+    let readiness_note = match input.readiness.map(|r| r.band) {
+        Some(Band::High) => Some("Recovered — good day to push."),
+        Some(Band::Low) => Some("Low readiness — keeping it light."),
+        _ => None,
+    };
+
     let reason = if suggestion.is_none() {
         if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
@@ -390,11 +425,19 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else {
         String::new()
     };
+    // Weave the readiness clause in when we're actually suggesting a set to do now.
+    let suggesting_now =
+        suggestion.is_some() && has_work && within_window && !after_cutoff && spacing_ok;
+    let reason = match readiness_note {
+        Some(note) if suggesting_now => format!("{note} {reason}"),
+        _ => reason,
+    };
 
     PacingNow {
         state,
         mode: input.mode,
         deload,
+        readiness: input.readiness,
         nudge,
         reason,
         within_window,

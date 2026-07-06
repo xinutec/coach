@@ -75,6 +75,29 @@ pub struct PacingInput {
     /// Equipment available at the selected location. `None` = no filter; `Some` =
     /// the suggestion must be doable here (a location-blocked ideal is swapped out).
     pub available_equipment: Option<std::collections::HashSet<i64>>,
+    /// Biometric readiness (from health), if available. `None` → the engine falls
+    /// back to the volume-spike deload heuristic.
+    pub readiness: Option<Readiness>,
+}
+
+/// How recovered the user is right now, from biometrics (health-derived).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Band {
+    Low,
+    Normal,
+    High,
+}
+
+/// The readiness verdict coach computes from health's raw recovery data.
+#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Readiness {
+    /// 0 (unrecovered) .. 1 (fully recovered).
+    pub score: f64,
+    pub band: Band,
 }
 
 // ---- output (wire types) ---------------------------------------------------
@@ -134,8 +157,11 @@ pub struct Suggestion {
 pub struct PacingNow {
     pub state: PacingState,
     pub mode: Mode,
-    /// Auto-deload active — volume's been high or performance is dipping.
+    /// Auto-deload active — volume's been high (only the no-biometric fallback;
+    /// suppressed when `readiness` is present, which supersedes it).
     pub deload: bool,
+    /// Biometric readiness driving today's volume/progression, when health had data.
+    pub readiness: Option<Readiness>,
     pub nudge: bool,
     pub reason: String,
     pub within_window: bool,

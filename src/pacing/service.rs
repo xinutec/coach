@@ -22,17 +22,19 @@ use crate::workout::repo as workout_repo;
 
 use super::engine;
 use super::types::{
-    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingNow, PacingSettings, SetRec,
+    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
 };
 
 /// The coach verdict for the user right now. `location_id` makes the suggestion
 /// location-aware; `mode_override` picks a mode for this call (else the user's
-/// saved default).
+/// saved default). `readiness` is the biometric recovery signal (health-derived,
+/// best-effort — `None` when unavailable, and the engine degrades gracefully).
 pub async fn now(
     pool: &MySqlPool,
     user_id: &str,
     location_id: Option<i64>,
     mode_override: Option<Mode>,
+    readiness: Option<Readiness>,
 ) -> Result<PacingNow> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
@@ -138,6 +140,7 @@ pub async fn now(
         settings,
         groups,
         available_equipment,
+        readiness,
     };
     Ok(engine::evaluate(&inp, now_local))
 }

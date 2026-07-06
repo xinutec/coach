@@ -9,7 +9,8 @@ use coach::exercise::types::{Metric, Pattern};
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingSettings, PacingState, SetRec,
+    Band, ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingSettings, PacingState, Readiness,
+    SetRec,
 };
 use coach::settings::types::Mode;
 
@@ -108,6 +109,7 @@ fn input(
         settings: settings(),
         groups: groups(),
         available_equipment: available.map(|v| v.into_iter().collect()),
+        readiness: None,
     }
 }
 
@@ -366,6 +368,132 @@ fn nudges_when_behind_midday() {
     assert!(out.within_window && !out.after_cutoff && out.spacing_ok);
     assert!(out.nudge);
     assert!(out.day_target_sets >= 3);
+}
+
+#[test]
+fn readiness_scales_the_target() {
+    // Same state, high vs low biometric readiness → higher vs lower group target.
+    let mk = |r: Readiness| PacingInput {
+        readiness: Some(r),
+        ..input(
+            Mode::Balanced,
+            catalog(),
+            vec![],
+            HashMap::new(),
+            None,
+            None,
+        )
+    };
+    let high = evaluate(
+        &mk(Readiness {
+            score: 0.9,
+            band: Band::High,
+        }),
+        now(),
+    );
+    let low = evaluate(
+        &mk(Readiness {
+            score: 0.2,
+            band: Band::Low,
+        }),
+        now(),
+    );
+    let ht = high
+        .groups
+        .iter()
+        .find(|g| g.group == "Chest")
+        .unwrap()
+        .target;
+    let lt = low
+        .groups
+        .iter()
+        .find(|g| g.group == "Chest")
+        .unwrap()
+        .target;
+    assert!(
+        ht > lt,
+        "recovered → higher target ({ht}) than spent ({lt})"
+    );
+    assert_eq!(high.readiness.map(|r| r.band), Some(Band::High));
+}
+
+#[test]
+fn low_readiness_holds_progression() {
+    // At the top of the range, but low readiness → keep the load, don't chase a PR.
+    let exs = vec![ex(
+        5,
+        "Barbell row",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![],
+        vec![(20, MuscleRole::Primary)],
+    )];
+    let g = vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }];
+    let mut lp = HashMap::new();
+    lp.insert(
+        5,
+        LastPerf {
+            reps: Some(6),
+            load_kg: Some(60.0),
+            hold_s: None,
+        },
+    );
+    let inp = PacingInput {
+        groups: g,
+        readiness: Some(Readiness {
+            score: 0.2,
+            band: Band::Low,
+        }),
+        ..input(Mode::Strength, exs, vec![], lp, None, None)
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.load_kg, Some(60.0), "held load, no +2.5 bump");
+}
+
+#[test]
+fn readiness_suppresses_volume_deload() {
+    // The volume-spike deload scenario, but with biometric readiness present: the
+    // real recovery signal supersedes the crude proxy, so `deload` stays off.
+    let mut h = vec![];
+    for d in 0..7 {
+        for _ in 0..10 {
+            h.push(set(1, days_ago(d)));
+        }
+    }
+    let inp = PacingInput {
+        readiness: Some(Readiness {
+            score: 0.9,
+            band: Band::High,
+        }),
+        ..input(Mode::Balanced, catalog(), h, HashMap::new(), None, None)
+    };
+    let out = evaluate(&inp, now());
+    assert!(!out.deload, "readiness supersedes the volume-spike deload");
+    assert!(out.readiness.is_some());
+}
+
+#[test]
+fn high_readiness_notes_the_reason() {
+    // A due group + recovered → the reason carries the readiness clause.
+    let mut h = vec![];
+    for d in 2..6 {
+        h.push(set(1, days_ago(d)));
+    }
+    let inp = PacingInput {
+        readiness: Some(Readiness {
+            score: 0.9,
+            band: Band::High,
+        }),
+        ..input(Mode::Balanced, catalog(), h, HashMap::new(), None, None)
+    };
+    let out = evaluate(&inp, now());
+    assert!(out.suggestion.is_some());
+    assert!(out.reason.contains("push"), "reason: {}", out.reason);
 }
 
 #[test]

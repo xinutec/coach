@@ -5,8 +5,9 @@ use axum::extract::{Query, State};
 use serde::Deserialize;
 
 use crate::error::AppError;
-use crate::pacing::service;
-use crate::pacing::types::PacingNow;
+use crate::health;
+use crate::pacing::types::{PacingNow, Readiness};
+use crate::pacing::{readiness, service};
 use crate::session::AuthUser;
 use crate::settings::types::Mode;
 use crate::state::AppState;
@@ -27,7 +28,17 @@ pub async fn now(
     AuthUser(user): AuthUser,
     Query(q): Query<NowQuery>,
 ) -> Result<Json<PacingNow>, AppError> {
+    let readiness = fetch_readiness(&app, &user.user_id).await;
     Ok(Json(
-        service::now(&app.pool, &user.user_id, q.location_id, q.mode).await?,
+        service::now(&app.pool, &user.user_id, q.location_id, q.mode, readiness).await?,
     ))
+}
+
+/// Best-effort biometric readiness from health. Any missing piece (integration
+/// off, health down, no usable biometrics) yields `None` and the engine falls
+/// back to its volume heuristic.
+async fn fetch_readiness(app: &AppState, user_id: &str) -> Option<Readiness> {
+    let (base, token) = app.cfg.health()?;
+    let recovery = health::recovery(&app.http, base, token, user_id).await?;
+    readiness::readiness(&recovery)
 }

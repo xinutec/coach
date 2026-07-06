@@ -29,8 +29,17 @@
     }
   </div>
 
-  @if (p.deload) {
-    <span class="pill deload">Deload — easing off</span>
+  @if (p.readiness || p.deload) {
+    <div class="chips">
+      @if (p.readiness; as r) {
+        <span class="pill readiness {{ r.band }}">
+          <mat-icon>{{ readinessIcon(r.band) }}</mat-icon> {{ readinessLabel(r.band) }}
+        </span>
+      }
+      @if (p.deload) {
+        <span class="pill deload">Deload — easing off</span>
+      }
+    </div>
   }
 
   <mat-card class="reason" [class.is-nudge]="p.nudge">

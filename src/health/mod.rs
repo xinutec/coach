@@ -32,6 +32,26 @@ pub struct CurrentPlace {
     pub id: i64,
 }
 
+/// Latest value + trailing baseline for one biometric (health's raw stats).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Stat {
+    pub latest: f64,
+    pub mean: f64,
+    pub sd: f64,
+    pub n: i64,
+}
+
+/// Raw recovery data from health (`/internal/recovery`) — coach turns this into a
+/// readiness score itself (health stays unopinionated).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recovery {
+    pub sleep_hours: Option<f64>,
+    pub hrv: Option<Stat>,
+    pub resting_hr: Option<Stat>,
+}
+
 const TIMEOUT: Duration = Duration::from_secs(3);
 const HEADER: &str = "X-Service-Token";
 
@@ -62,6 +82,22 @@ pub async fn current_place(
         Ok(v) => v,
         Err(e) => {
             tracing::debug!("health current-place lookup failed: {e:#}");
+            None
+        }
+    }
+}
+
+/// The user's raw recovery data, or `None` (also on any failure).
+pub async fn recovery(
+    http: &reqwest::Client,
+    base: &str,
+    token: &str,
+    user: &str,
+) -> Option<Recovery> {
+    match get::<Recovery>(http, base, "/internal/recovery", token, user).await {
+        Ok(v) => Some(v),
+        Err(e) => {
+            tracing::debug!("health recovery lookup failed: {e:#}");
             None
         }
     }

@@ -2,6 +2,7 @@
 import type { GroupBalance } from "./GroupBalance";
 import type { Mode } from "./Mode";
 import type { PacingState } from "./PacingState";
+import type { Readiness } from "./Readiness";
 import type { Suggestion } from "./Suggestion";
 
 /**
@@ -10,9 +11,14 @@ import type { Suggestion } from "./Suggestion";
  */
 export type PacingNow = { state: PacingState, mode: Mode, 
 /**
- * Auto-deload active — volume's been high or performance is dipping.
+ * Auto-deload active — volume's been high (only the no-biometric fallback;
+ * suppressed when `readiness` is present, which supersedes it).
  */
-deload: boolean, nudge: boolean, reason: string, withinWindow: boolean, afterCutoff: boolean, spacingOk: boolean, minutesSinceLastSet: number | null, 
+deload: boolean, 
+/**
+ * Biometric readiness driving today's volume/progression, when health had data.
+ */
+readiness: Readiness | null, nudge: boolean, reason: string, withinWindow: boolean, afterCutoff: boolean, spacingOk: boolean, minutesSinceLastSet: number | null, 
 /**
  * The computed session-size target + what's been done today (drive the nudge).
  */
