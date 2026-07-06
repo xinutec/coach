@@ -2,6 +2,8 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 import { Observable } from "rxjs";
 import {
+  CurrentLocation,
+  DetectedPlace,
   Equipment,
   Exercise,
   ExerciseDetail,
@@ -78,6 +80,14 @@ export class CoachApi {
   }
   deleteLocation(id: number): Observable<void> {
     return this.http.delete<void>(`/api/locations/${id}`);
+  }
+  /** Places health-sync has detected for the user, to link a location to. */
+  placesDetected(): Observable<DetectedPlace[]> {
+    return this.http.get<DetectedPlace[]>("/api/places/detected");
+  }
+  /** Which location the user is currently at (auto-detected), if any. */
+  locationCurrent(): Observable<CurrentLocation> {
+    return this.http.get<CurrentLocation>("/api/location/current");
   }
 
   // Programs

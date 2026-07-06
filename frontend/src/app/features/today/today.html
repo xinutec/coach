@@ -13,6 +13,9 @@
         }
       </mat-select>
     </mat-form-field>
+    @if (autoDetected()) {
+      <span class="pill auto-pill"><mat-icon>my_location</mat-icon> here</span>
+    }
     <a routerLink="/locations" mat-icon-button aria-label="Manage locations">
       <mat-icon>tune</mat-icon>
     </a>

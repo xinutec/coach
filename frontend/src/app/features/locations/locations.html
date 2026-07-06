@@ -16,6 +16,21 @@
       Default location
     </mat-slide-toggle>
 
+    @if (detectedPlaces().length) {
+      <mat-form-field appearance="outline">
+        <mat-label>Auto-select when I'm at</mat-label>
+        <mat-select
+          [ngModel]="formHealthPlaceId()"
+          (ngModelChange)="formHealthPlaceId.set($event)"
+        >
+          <mat-option [value]="null">— not linked —</mat-option>
+          @for (p of detectedPlaces(); track p.id) {
+            <mat-option [value]="p.id">{{ p.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
     <div class="picker">
       @for (g of grouped(); track g.category) {
         <div class="cat">
@@ -51,6 +66,9 @@
         <span class="loc-name">{{ loc.name }}</span>
         @if (loc.isDefault) {
           <span class="pill accent"><mat-icon>star</mat-icon> Default</span>
+        }
+        @if (loc.healthPlaceId !== null) {
+          <span class="pill"><mat-icon>my_location</mat-icon> {{ placeLabel(loc.healthPlaceId) }}</span>
         }
         <span class="spacer"></span>
         <button mat-icon-button aria-label="Edit" (click)="startEdit(loc)">

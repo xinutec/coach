@@ -8,6 +8,7 @@ pub mod import;
 pub mod locations;
 pub mod muscles;
 pub mod pacing;
+pub mod places;
 pub mod program;
 pub mod settings;
 pub mod workout;
@@ -40,6 +41,9 @@ pub fn router(state: AppState) -> Router {
             "/locations/{id}",
             patch(locations::patch).delete(locations::delete),
         )
+        // health-sync bridge: detected places (for linking) + current location
+        .route("/places/detected", get(places::detected))
+        .route("/location/current", get(places::current))
         // One-time migration import (history + programs)
         .route("/import/nocodb", post(import::nocodb))
         // Programs

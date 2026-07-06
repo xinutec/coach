@@ -1,8 +1,18 @@
 //! Location wire types. `equipment` is the set of equipment slugs available at
 //! the location (the frontend has the full catalog from /api/equipment).
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
+
+/// Distinguish an absent field from an explicit `null` in a PATCH body: absent →
+/// `None` (leave unchanged), `null` → `Some(None)` (clear), value → `Some(Some)`.
+fn double_option<'de, T, D>(de: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    Ok(Some(Option::deserialize(de)?))
+}
 
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +23,9 @@ pub struct Location {
     pub name: String,
     pub is_default: bool,
     pub equipment: Vec<String>,
+    /// health-sync focus_place this location is linked to (for auto-select), if any.
+    #[ts(type = "number | null")]
+    pub health_place_id: Option<i64>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -21,6 +34,7 @@ pub(crate) struct LocationRow {
     pub name: String,
     pub is_default: bool,
     pub equipment_csv: Option<String>,
+    pub health_place_id: Option<i64>,
 }
 
 impl From<LocationRow> for Location {
@@ -34,8 +48,19 @@ impl From<LocationRow> for Location {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.split(',').map(str::to_string).collect())
                 .unwrap_or_default(),
+            health_place_id: r.health_place_id,
         }
     }
+}
+
+/// Which of the user's locations they're currently at (resolved from health's
+/// detected current place), or none.
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CurrentLocation {
+    #[ts(type = "number | null")]
+    pub location_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -47,6 +72,9 @@ pub struct NewLocation {
     pub is_default: bool,
     #[serde(default)]
     pub equipment: Vec<String>,
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub health_place_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -57,4 +85,8 @@ pub struct LocationPatch {
     pub is_default: Option<bool>,
     /// When present, replaces the whole equipment set.
     pub equipment: Option<Vec<String>>,
+    /// Link to a health focus_place: absent → unchanged, `null` → unlink, id → link.
+    #[serde(default, deserialize_with = "double_option")]
+    #[ts(type = "number | null")]
+    pub health_place_id: Option<Option<i64>>,
 }

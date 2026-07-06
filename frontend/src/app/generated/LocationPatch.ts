@@ -4,4 +4,8 @@ export type LocationPatch = { name: string | null, isDefault: boolean | null,
 /**
  * When present, replaces the whole equipment set.
  */
-equipment: Array<string> | null, };
+equipment: Array<string> | null, 
+/**
+ * Link to a health focus_place: absent → unchanged, `null` → unlink, id → link.
+ */
+healthPlaceId: number | null, };

@@ -8,7 +8,7 @@ use super::types::{Location, LocationPatch, LocationRow, NewLocation};
 
 macro_rules! loc_cols {
     () => {
-        "l.id, l.name, l.is_default, \
+        "l.id, l.name, l.is_default, l.health_place_id, \
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM location_equipment le JOIN equipment eq ON eq.id = le.equipment_id \
             WHERE le.location_id = l.id) AS equipment_csv"
@@ -45,12 +45,15 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<
     if n.is_default {
         clear_default(pool, user_id).await?;
     }
-    let res = sqlx::query("INSERT INTO locations (user_id, name, is_default) VALUES (?, ?, ?)")
-        .bind(user_id)
-        .bind(&n.name)
-        .bind(n.is_default)
-        .execute(pool)
-        .await?;
+    let res = sqlx::query(
+        "INSERT INTO locations (user_id, name, is_default, health_place_id) VALUES (?, ?, ?, ?)",
+    )
+    .bind(user_id)
+    .bind(&n.name)
+    .bind(n.is_default)
+    .bind(n.health_place_id)
+    .execute(pool)
+    .await?;
     let id = res.last_insert_id() as i64;
     set_equipment(pool, id, &n.equipment).await?;
     get(pool, user_id, id)
@@ -83,6 +86,16 @@ pub async fn patch(
     .bind(user_id)
     .execute(pool)
     .await?;
+    // Double-option: only touch the link when the field was present; the inner
+    // Option (id or NULL) is written verbatim, so `null` unlinks.
+    if let Some(place) = p.health_place_id {
+        sqlx::query("UPDATE locations SET health_place_id = ? WHERE id = ? AND user_id = ?")
+            .bind(place)
+            .bind(id)
+            .bind(user_id)
+            .execute(pool)
+            .await?;
+    }
     if let Some(slugs) = &p.equipment {
         set_equipment(pool, id, slugs).await?;
     }
@@ -99,6 +112,24 @@ pub async fn delete(pool: &MySqlPool, user_id: &str, id: i64) -> Result<bool> {
     .execute(pool)
     .await?;
     Ok(res.rows_affected() > 0)
+}
+
+/// The user's (active) location linked to the given health focus_place, if any.
+/// Used to auto-select where the user currently is.
+pub async fn by_health_place(
+    pool: &MySqlPool,
+    user_id: &str,
+    health_place_id: i64,
+) -> Result<Option<i64>> {
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT id FROM locations \
+         WHERE user_id = ? AND health_place_id = ? AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(health_place_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(id,)| id))
 }
 
 /// The equipment ids available at a location, if it belongs to the user.

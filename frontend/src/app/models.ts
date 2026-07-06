@@ -18,6 +18,8 @@ export * from "./generated/ExercisePatch";
 export * from "./generated/Location";
 export * from "./generated/NewLocation";
 export * from "./generated/LocationPatch";
+export * from "./generated/CurrentLocation";
+export * from "./generated/DetectedPlace";
 export * from "./generated/ImportSummary";
 export * from "./generated/Program";
 export * from "./generated/ProgramTarget";

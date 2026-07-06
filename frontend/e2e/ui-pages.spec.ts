@@ -80,6 +80,8 @@ async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/exercises*", (r) => r.fulfill({ json: EXERCISES }));
   await page.route("**/api/equipment", (r) => r.fulfill({ json: EQUIPMENT }));
   await page.route("**/api/locations", (r) => r.fulfill({ json: LOCATIONS }));
+  await page.route("**/api/places/detected", (r) => r.fulfill({ json: [] }));
+  await page.route("**/api/location/current", (r) => r.fulfill({ json: { locationId: null } }));
   await page.route("**/api/settings", (r) => r.fulfill({ json: SETTINGS }));
   await page.route("**/api/programs/active", (r) => r.fulfill({ json: null }));
 }
@@ -140,6 +142,17 @@ test("locations — location card + kit chips render clean @ phone", async ({ pa
   await expectNoTextOverlaps(page, testInfo);
   await expectNoHorizontalOverflow(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
+});
+
+// When health reports a current location, Today shows the "here" auto hint.
+test("today — auto-detected location shows the 'here' hint @ phone", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.route("**/api/location/current", (r) => r.fulfill({ json: { locationId: 1 } }));
+  await page.goto("/today");
+  await page.getByText("a bit behind for today", { exact: false }).waitFor();
+  await page.locator(".auto-pill").waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
 });
 
 // The FAB-under-nav bug lives at ≥768px (tablet/landscape), where the phone

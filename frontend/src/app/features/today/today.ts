@@ -38,8 +38,12 @@ export class Today {
   readonly locations = signal<Location[]>([]);
   readonly loading = signal(true);
   readonly starting = signal(false);
-  // null = "Anywhere" (no location filter). Initialised to the default location.
+  // null = "Anywhere" (no location filter). Initialised to the default location,
+  // then upgraded to the auto-detected current location (best-effort) unless the
+  // user has already picked one.
   readonly selectedLocationId = signal<number | null>(null);
+  readonly autoDetected = signal(false);
+  private userPickedLocation = false;
   private equipmentNames = signal<Map<string, string>>(new Map());
 
   constructor() {
@@ -62,8 +66,26 @@ export class Today {
         const def = locations.find((l) => l.isDefault);
         this.selectedLocationId.set(def ? def.id : null);
         this.reloadPacing();
+        this.autoSelect();
       },
       error: () => this.loading.set(false),
+    });
+  }
+
+  /** Best-effort: switch to the auto-detected current location once it resolves,
+   *  unless the user has already picked one. Runs after the fast load so it never
+   *  delays Today (health can be slow/down). */
+  private autoSelect(): void {
+    this.api.locationCurrent().subscribe({
+      next: (cur) => {
+        if (cur.locationId == null || this.userPickedLocation) return;
+        this.autoDetected.set(true);
+        if (cur.locationId !== this.selectedLocationId()) {
+          this.selectedLocationId.set(cur.locationId);
+          this.reloadPacing();
+        }
+      },
+      error: () => {},
     });
   }
 
@@ -78,6 +100,8 @@ export class Today {
   }
 
   onLocationChange(id: number | null): void {
+    this.userPickedLocation = true;
+    this.autoDetected.set(false);
     this.selectedLocationId.set(id);
     this.reloadPacing();
   }

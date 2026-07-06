@@ -36,6 +36,23 @@ pub struct Config {
     /// without Nextcloud. Absent in production → the route 404s. Never set this
     /// in a deployed environment.
     pub dev_login_user: Option<String>,
+
+    /// health-sync integration (optional): the in-cluster base URL of health's
+    /// internal API (e.g. `http://health-auth.health.svc.cluster.local:3000`)
+    /// and the shared `X-Service-Token`. Both must be set for location
+    /// auto-detection; absent → the feature is simply off (manual selection).
+    pub health_internal_url: Option<String>,
+    pub health_service_token: Option<String>,
+}
+
+impl Config {
+    /// The health client config, present only when both the URL and token are set.
+    pub fn health(&self) -> Option<(&str, &str)> {
+        match (&self.health_internal_url, &self.health_service_token) {
+            (Some(url), Some(token)) => Some((url.as_str(), token.as_str())),
+            _ => None,
+        }
+    }
 }
 
 fn env(key: &str) -> Result<String> {
@@ -67,6 +84,10 @@ impl Config {
             static_dir: std::env::var("STATIC_DIR").ok(),
             catalog_dir: env_or("CATALOG_DIR", "data/catalog"),
             dev_login_user: std::env::var("DEV_LOGIN_USER").ok(),
+            health_internal_url: std::env::var("HEALTH_INTERNAL_URL")
+                .ok()
+                .map(|u| u.trim_end_matches('/').to_string()),
+            health_service_token: std::env::var("HEALTH_SERVICE_TOKEN").ok(),
         })
     }
 }
