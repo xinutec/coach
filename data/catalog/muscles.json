@@ -1,0 +1,278 @@
+[
+  {
+    "slug": "pectoralis_major",
+    "name": "Pectoralis major",
+    "group": "chest",
+    "function": "Pushing arms and shoulders forward"
+  },
+  {
+    "slug": "serratus_anterior",
+    "name": "Serratus anterior",
+    "group": "serratus",
+    "function": "Scapula protraction"
+  },
+  {
+    "slug": "latissimus_dorsi",
+    "name": "Latissimus dorsi",
+    "group": "lats",
+    "function": "Pulling arms and shoulders back"
+  },
+  {
+    "slug": "rectus_abdominis",
+    "name": "Rectus abdominis",
+    "group": "abdominals",
+    "function": "Flexion of the trunk"
+  },
+  {
+    "slug": "tensor_fasciae_latae",
+    "name": "Tensor fasciae latae",
+    "group": "glutes",
+    "function": "Hip abduction"
+  },
+  {
+    "slug": "iliopsoas",
+    "name": "Iliopsoas",
+    "group": "hip_flexors",
+    "function": "Hip flexion"
+  },
+  {
+    "slug": "pectineus",
+    "name": "Pectineus",
+    "group": "hip_flexors",
+    "function": "Hip flexion"
+  },
+  {
+    "slug": "sartorius",
+    "name": "Sartorius",
+    "group": "hip_flexors",
+    "function": "Hip flexion"
+  },
+  {
+    "slug": "gracilis",
+    "name": "Gracilis",
+    "group": "adductors",
+    "function": "Pulling legs together"
+  },
+  {
+    "slug": "tibialis_anterior",
+    "name": "Tibialis anterior",
+    "group": "lower_leg",
+    "function": "Ankle flexion"
+  },
+  {
+    "slug": "extensor_digitorum_longus",
+    "name": "Extensor digitorum longus",
+    "group": "lower_leg",
+    "function": "Raising toes"
+  },
+  {
+    "slug": "trapezius",
+    "name": "Trapezius",
+    "group": "traps",
+    "function": "Shoulder elevation (shrug)"
+  },
+  {
+    "slug": "deltoid_anterior",
+    "name": "Deltoid anterior",
+    "group": "deltoids",
+    "function": "Shoulder abduction, raising arms in front"
+  },
+  {
+    "slug": "deltoid_posterior",
+    "name": "Deltoid posterior",
+    "group": "deltoids",
+    "function": "Shoulder abduction, raising arms back"
+  },
+  {
+    "slug": "biceps_brachii",
+    "name": "Biceps brachii",
+    "group": "biceps",
+    "function": "Arm flexion"
+  },
+  {
+    "slug": "triceps_brachii",
+    "name": "Triceps brachii",
+    "group": "triceps",
+    "function": "Arm extension"
+  },
+  {
+    "slug": "brachialis",
+    "name": "Brachialis",
+    "group": "biceps",
+    "function": "Arm flexion"
+  },
+  {
+    "slug": "brachioradialis",
+    "name": "Brachioradialis",
+    "group": "forearms",
+    "function": "Arm flexion"
+  },
+  {
+    "slug": "wrist_extensors",
+    "name": "Wrist extensors",
+    "group": "forearms",
+    "function": "Wrist extension"
+  },
+  {
+    "slug": "external_obliques",
+    "name": "External obliques",
+    "group": "obliques",
+    "function": "Torso rotation"
+  },
+  {
+    "slug": "infraspinatus",
+    "name": "Infraspinatus",
+    "group": "rotator_cuff",
+    "function": "Shoulder external rotation"
+  },
+  {
+    "slug": "teres_minor",
+    "name": "Teres minor",
+    "group": "rotator_cuff",
+    "function": "Shoulder external rotation"
+  },
+  {
+    "slug": "teres_major",
+    "name": "Teres major",
+    "group": "upper_back",
+    "function": "Shoulder adduction, internal rotation"
+  },
+  {
+    "slug": "wrist_flexors",
+    "name": "Wrist flexors",
+    "group": "forearms",
+    "function": "Wrist flexion"
+  },
+  {
+    "slug": "adductor_longus",
+    "name": "Adductor longus",
+    "group": "adductors",
+    "function": "Pulling legs together"
+  },
+  {
+    "slug": "adductor_magnus",
+    "name": "Adductor magnus",
+    "group": "adductors",
+    "function": "Pulling legs together"
+  },
+  {
+    "slug": "vastus_lateralis",
+    "name": "Vastus lateralis",
+    "group": "quadriceps",
+    "function": "Leg extension"
+  },
+  {
+    "slug": "rectus_femoris",
+    "name": "Rectus femoris",
+    "group": "quadriceps",
+    "function": "Leg extension"
+  },
+  {
+    "slug": "vastus_medialis",
+    "name": "Vastus medialis",
+    "group": "quadriceps",
+    "function": "Leg extension"
+  },
+  {
+    "slug": "gluteus_maximus",
+    "name": "Gluteus maximus",
+    "group": "glutes",
+    "function": "Hip extension"
+  },
+  {
+    "slug": "gluteus_medius",
+    "name": "Gluteus medius",
+    "group": "glutes",
+    "function": "Hip extension"
+  },
+  {
+    "slug": "biceps_femoris",
+    "name": "Biceps femoris",
+    "group": "hamstrings",
+    "function": "Leg flexion"
+  },
+  {
+    "slug": "semitendinosus",
+    "name": "Semitendinosus",
+    "group": "hamstrings",
+    "function": "Leg flexion"
+  },
+  {
+    "slug": "semimembranosus",
+    "name": "Semimembranosus",
+    "group": "hamstrings",
+    "function": "Leg flexion"
+  },
+  {
+    "slug": "plantaris",
+    "name": "Plantaris",
+    "group": "calves",
+    "function": "Ankle extension"
+  },
+  {
+    "slug": "gastrocnemius",
+    "name": "Gastrocnemius",
+    "group": "calves",
+    "function": "Ankle extension"
+  },
+  {
+    "slug": "soleus",
+    "name": "Soleus",
+    "group": "calves",
+    "function": "Ankle extension"
+  },
+  {
+    "slug": "rhomboids",
+    "name": "Rhomboids",
+    "group": "upper_back",
+    "function": "Scapula retraction, elevation, rotation"
+  },
+  {
+    "slug": "pectoralis_minor",
+    "name": "Pectoralis minor",
+    "group": "chest",
+    "function": "Scapula protraction"
+  },
+  {
+    "slug": "subscapularis",
+    "name": "Subscapularis",
+    "group": "rotator_cuff",
+    "function": "Shoulder internal rotation"
+  },
+  {
+    "slug": "transversus_abdominis",
+    "name": "Transversus abdominis",
+    "group": "deep_core",
+    "function": "Ipsilateral trunk rotation"
+  },
+  {
+    "slug": "quadratus_lumborum",
+    "name": "Quadratus lumborum",
+    "group": "deep_core",
+    "function": "Lumbar stabilization"
+  },
+  {
+    "slug": "erector_spinae",
+    "name": "Erector spinae",
+    "group": "lower_back",
+    "function": "Back and head extension"
+  },
+  {
+    "slug": "vastus_intermedius",
+    "name": "Vastus intermedius",
+    "group": "quadriceps",
+    "function": "Leg extension"
+  },
+  {
+    "slug": "flexor_digitorum_longus",
+    "name": "Flexor digitorum longus",
+    "group": "lower_leg",
+    "function": "Curling toes"
+  },
+  {
+    "slug": "supraspinatus",
+    "name": "Supraspinatus",
+    "group": "rotator_cuff",
+    "function": "Arm abduction (0-15 degrees)"
+  }
+]

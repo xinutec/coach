@@ -1,0 +1,3834 @@
+[
+  {
+    "slug": "rdl",
+    "name": "RDL",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Neutral grip Romanian dead lift",
+    "demoUrl": "https://youtu.be/3S5rnnI7VSs?t=11",
+    "summary": "hex bar, on floor",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "trap_bar"
+    ],
+    "image": {
+      "file": "rdl.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_both_arms_dumbbell_seated",
+    "name": "Overhead press (OHP)",
+    "variation": "both arms, dumbbell, seated",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "seated",
+    "unilateral": false,
+    "cue": "Seated dumbbell overhead press, both arms",
+    "demoUrl": "https://youtube.be/3GFZpOYu0pQ",
+    "summary": "both arms, seated, dumbbell, on bench",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_both_arms_dumbbell_seated.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "banded_rotation_controlled",
+    "name": "Banded rotation",
+    "variation": "controlled",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "2 seconds each way, stop in the middle (stay under tension)",
+    "demoUrl": "https://youtu.be/5qTMvuj63qA?t=17",
+    "summary": "controlled, standing, band, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "quadratus_lumborum",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "banded_rotation_controlled.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "lateral_lunge",
+    "name": "Lateral lunge",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Goblet hold of kettlebell",
+    "demoUrl": "https://youtu.be/rWKbV7s0bhc",
+    "summary": "standing, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_longus",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gracilis",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "lateral_lunge.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "lat_pull_down_single_arm",
+    "name": "Lat pull down",
+    "variation": "single arm",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": "kneeling",
+    "unilateral": true,
+    "cue": "Single-armed cable pull down, same leg kneels as the pulling arm",
+    "demoUrl": "https://youtu.be/H9pRHdfS5J4",
+    "summary": "single arm, kneeling, cable, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "cable_machine"
+    ],
+    "image": {
+      "file": "lat_pull_down_single_arm.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "knee_tuck",
+    "name": "Knee tuck",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Rings or TRX",
+    "demoUrl": "https://youtu.be/MSHTtUFiTE8?t=2",
+    "summary": "on rings height 14",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "knee_tuck.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "pull_up_l_sit",
+    "name": "Pull-up",
+    "variation": "L-sit",
+    "pattern": "pull",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": "Pronated grip (pull-up, not chin-up)",
+    "demoUrl": "https://youtu.be/QH0dDfyF7QM?t=4",
+    "summary": "L-sit, on pull-up bar",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "subscapularis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "image": {
+      "file": "pull_up_l_sit.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "row_barbell",
+    "name": "Row",
+    "variation": "barbell",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Barbell bent over row",
+    "demoUrl": "https://youtu.be/9Gf-Ourup_k",
+    "summary": "barbell, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell"
+    ],
+    "image": {
+      "file": "row_barbell.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "walking_lunge_overhead_kb_overhead",
+    "name": "Walking lunge overhead KB",
+    "variation": "overhead",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Walking overhead single-arm kettle bell lunge",
+    "demoUrl": "https://youtu.be/KS-LGxk0SAI?t=10",
+    "summary": "overhead, standing, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "walking_lunge_overhead_kb_overhead.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "dips_parallettes",
+    "name": "Dips",
+    "variation": "parallettes",
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Optionally band-supported or weighted",
+    "demoUrl": "https://youtu.be/FCxl2y4nsTA?t=8",
+    "summary": "on high parallettes",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "parallettes"
+    ],
+    "image": {
+      "file": "dips_parallettes.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "good_morning_ghd_prone",
+    "name": "Good morning",
+    "variation": "GHD, prone",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "prone",
+    "unilateral": false,
+    "cue": "Glute Ham Developer good morning (glutes + back)",
+    "demoUrl": "https://youtu.be/6w04Z9dpDMc?t=21",
+    "summary": "prone, on GHD",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "ghd"
+    ],
+    "image": {
+      "file": "good_morning_ghd_prone.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "landmine_rotation",
+    "name": "Landmine rotation",
+    "variation": null,
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/e5DP6961WEk",
+    "summary": "standing, barbell, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell"
+    ],
+    "image": {
+      "file": "landmine_rotation.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "dead_hang_passive",
+    "name": "Dead hang",
+    "variation": "passive",
+    "pattern": "pull",
+    "metric": "hold",
+    "position": "hanging",
+    "unilateral": false,
+    "cue": "Core activation, arms relaxed",
+    "demoUrl": "https://youtu.be/jBZCzK9zlxk?t=10",
+    "summary": "passive, hanging, on pull-up bar",
+    "muscles": [
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "image": {
+      "file": "dead_hang_passive.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "support_hold_rings_turned_out",
+    "name": "Support hold",
+    "variation": "rings turned out",
+    "pattern": "push",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": "Rings turned outwards",
+    "demoUrl": "https://youtu.be/-4IF7z6A71s?t=4",
+    "summary": "rings turned out, on rings height 9",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "wrist_extensors",
+        "role": "primary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "support_hold_rings_turned_out.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "push_up",
+    "name": "Push-up",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/tIbQYnE9Hv8",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "primary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "push_up.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "pull_up_bar",
+    "name": "Pull-up",
+    "variation": "bar",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Pronated grip (pull-up, not chin-up)",
+    "demoUrl": "https://youtu.be/eGo4IYlbE5g?t=165",
+    "summary": "on pull-up bar",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "subscapularis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "image": {
+      "file": "pull_up_bar.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "squat_goblet",
+    "name": "Squat",
+    "variation": "goblet",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/45dZiT5tSD8",
+    "summary": "goblet, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "squat_goblet.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "rdl_single_leg",
+    "name": "RDL",
+    "variation": "single leg",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": true,
+    "cue": "Single-legged Romanian dead lift",
+    "demoUrl": "https://youtu.be/lI8-igvsnVQ?t=9",
+    "summary": "single leg, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "rdl_single_leg.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "row_both_sides",
+    "name": "Row",
+    "variation": "both sides",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Dumbbell bent over row, both arms at the same time",
+    "demoUrl": "https://youtu.be/6gvmcqr226U",
+    "summary": "both sides, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "row_both_sides.webp",
+      "type": "image/webp"
+    }
+  },
+  {
+    "slug": "ab_rollout_ball_prone",
+    "name": "Ab rollout",
+    "variation": "ball, prone",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "prone",
+    "unilateral": false,
+    "cue": "Yoga ball roll forward and back",
+    "demoUrl": "https://youtu.be/n6PyhehLqPI?t=15",
+    "summary": "prone, on yoga ball",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "yoga_ball"
+    ],
+    "image": {
+      "file": "ab_rollout_ball_prone.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "pallof_press_cable_standing",
+    "name": "Pallof press",
+    "variation": "cable, standing",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Anti-rotation on pulley machine, press out and back to centre",
+    "demoUrl": "https://youtu.be/-0N2xTi69t8?t=5",
+    "summary": "standing, cable, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "cable_machine"
+    ],
+    "image": {
+      "file": "pallof_press_cable_standing.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "reverse_hyperextension",
+    "name": "Reverse hyperextension",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "prone",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/ZeRsNzFcQLQ?t=20",
+    "summary": "prone, on bench",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "bench"
+    ],
+    "image": {
+      "file": "reverse_hyperextension.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_both_arms_dumbbell_kneeling",
+    "name": "Overhead press (OHP)",
+    "variation": "both arms, dumbbell, kneeling",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Kneeling dumbbell overhead press, both arms",
+    "demoUrl": "https://youtu.be/HzGql8pCQpg",
+    "summary": "both arms, kneeling, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_both_arms_dumbbell_kneeling.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "rotational_downward_chop",
+    "name": "Rotational downward chop",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "On pulley",
+    "demoUrl": "https://youtu.be/SRygj-VPj_0",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "rotational_downward_chop.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "plank_single_arm",
+    "name": "Plank",
+    "variation": "single arm",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": true,
+    "cue": "Hold 3xn seconds each side (e.g. n=10 means 60 seconds total)",
+    "demoUrl": "https://youtu.be/7r-NgvMgHVI?t=6",
+    "summary": "single arm, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "plank_single_arm.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "leg_raises_supine",
+    "name": "Leg raises",
+    "variation": "supine",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": "Straight legs, lower to ground, raise to 90 degrees",
+    "demoUrl": "https://youtu.be/Wp4BlxcFTkE?t=7",
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "sartorius",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "leg_raises_supine.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_single_arm_dumbbell_standing",
+    "name": "Overhead press (OHP)",
+    "variation": "single arm, dumbbell, standing",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": true,
+    "cue": "Standing overhead dumbbell press, one arm reps, then other arm reps",
+    "demoUrl": "https://youtu.be/5pjGi_6fMz8?t=11",
+    "summary": "single arm, standing, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_single_arm_dumbbell_standing.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "crunches",
+    "name": "Crunches",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": "Lower back straight the whole time",
+    "demoUrl": "https://youtu.be/O0pIQ2UqeCY?t=24",
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "crunches.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "leg_raises_bar_hanging",
+    "name": "Leg raises",
+    "variation": "bar, hanging",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "hanging",
+    "unilateral": false,
+    "cue": "Straight legs, foot to bar, controlled both ways",
+    "demoUrl": "https://youtu.be/ttdkm6ESUjI",
+    "summary": "hanging, on pull-up bar",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "sartorius",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "image": {
+      "file": "leg_raises_bar_hanging.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "farmers_walk",
+    "name": "Farmers walk",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Both hands",
+    "demoUrl": "https://youtu.be/8OtwXwrJizk",
+    "summary": "kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_longus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "farmers_walk.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "plank_to_side_plank",
+    "name": "Plank to side plank",
+    "variation": null,
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": "Hold 2 seconds each side",
+    "demoUrl": "https://youtu.be/QV3SeYdMmIs?t=12",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "plank_to_side_plank.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "hip_thrust_single_leg",
+    "name": "Hip thrust",
+    "variation": "single leg",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": true,
+    "cue": "Single-legged hip thrust on bench (glutes, hamstrings)",
+    "demoUrl": "https://youtu.be/J3qfu-rQgus",
+    "summary": "single leg, dumbbell, on bench",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "image": {
+      "file": "hip_thrust_single_leg.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "arnold_press_butterfly",
+    "name": "Arnold press",
+    "variation": "butterfly",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "seated",
+    "unilateral": false,
+    "cue": "Sitting on the ground in butterfly pose",
+    "demoUrl": "https://youtu.be/R-RTgOxrj88",
+    "summary": "butterfly, seated, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "arnold_press_butterfly.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "good_morning_bench_seated",
+    "name": "Good morning",
+    "variation": "bench, seated",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "seated",
+    "unilateral": false,
+    "cue": "With dumbbell to chest",
+    "demoUrl": "https://youtu.be/mjMGaJGgIyo",
+    "summary": "seated, on bench",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "bench"
+    ],
+    "image": {
+      "file": "good_morning_bench_seated.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "ab_rollout_barbell",
+    "name": "Ab rollout",
+    "variation": "barbell",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Using barbell as wheel",
+    "demoUrl": "https://youtu.be/O-d6HC9gLcw?t=10",
+    "summary": "barbell, kneeling, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "ab_rollout_barbell.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "med_ball_slam",
+    "name": "Med ball slam",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Medicine ball slam",
+    "demoUrl": "https://youtube.be/n1Cb1UOLjCM",
+    "summary": "kneeling, medicine ball, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "medicine_ball"
+    ],
+    "image": {
+      "file": "med_ball_slam.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "banded_rotation_propulsive",
+    "name": "Banded rotation",
+    "variation": "propulsive",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Explosive concentric, slow eccentric",
+    "demoUrl": "https://youtu.be/5qTMvuj63qA?t=17",
+    "summary": "propulsive, standing, band, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "banded_rotation_propulsive.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_both_arms_dumbbell_standing",
+    "name": "Overhead press (OHP)",
+    "variation": "both arms, dumbbell, standing",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Both arms",
+    "demoUrl": "https://youtu.be/S4l5qt_-iwU",
+    "summary": "both arms, standing, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_both_arms_dumbbell_standing.webp",
+      "type": "image/webp"
+    }
+  },
+  {
+    "slug": "ball_knee_tap",
+    "name": "Ball knee-tap",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "prone",
+    "unilateral": false,
+    "cue": "Yoga ball plank, knee taps each side",
+    "demoUrl": "https://youtu.be/MSGC-rbDQJA?t=7",
+    "summary": "prone, on yoga ball",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "yoga_ball"
+    ],
+    "image": {
+      "file": "ball_knee_tap.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "split_squat_front_foot_elevated",
+    "name": "Split squat",
+    "variation": "front foot elevated",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Front foot elevated split squat",
+    "demoUrl": "https://youtu.be/OFmW8Re5Zos",
+    "summary": "front foot elevated, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "split_squat_front_foot_elevated.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "row_single_arm",
+    "name": "Row",
+    "variation": "single arm",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": true,
+    "cue": "Rings or TRX",
+    "demoUrl": "https://youtu.be/s3_t_uJgE8A",
+    "summary": "single arm, on rings height 5",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "row_single_arm.gif",
+      "type": "image/gif"
+    }
+  },
+  {
+    "slug": "side_plank_dynamic",
+    "name": "Side plank",
+    "variation": "dynamic",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": "Dips down from side plank",
+    "demoUrl": "https://youtu.be/p_y9uVCgrJY",
+    "summary": "dynamic, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "side_plank_dynamic.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hamstring_bridge_slide_out_single_leg_eccentric",
+    "name": "Hamstring bridge slide out",
+    "variation": "single leg, eccentric",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": true,
+    "cue": "3-5 second eccentric only, no concentric",
+    "demoUrl": "https://youtu.be/JX9cliOcZGw?t=6",
+    "summary": "single leg, eccentric, supine, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "hamstring_bridge_slide_out_single_leg_eccentric.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "squat",
+    "name": "Squat",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Neutral grip, deficit (stand elevated)",
+    "demoUrl": "https://youtu.be/ezWS07xkIzE",
+    "summary": "hex bar, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "trap_bar"
+    ],
+    "image": {
+      "file": "squat.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "pallof_press_band_standing",
+    "name": "Pallof press",
+    "variation": "band, standing",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/suXbr509tFQ",
+    "summary": "standing, band, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "pallof_press_band_standing.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "farmers_walk_suitcase",
+    "name": "Farmers walk",
+    "variation": "suitcase",
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": true,
+    "cue": "Single arm suitcase walk",
+    "demoUrl": "https://youtu.be/KpYodX6RMfg",
+    "summary": "suitcase, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      },
+      {
+        "slug": "quadratus_lumborum",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_longus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "farmers_walk_suitcase.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hip_thrust_both_legs",
+    "name": "Hip thrust",
+    "variation": "both legs",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Dumbbell or kettle bell also possible",
+    "demoUrl": "https://youtu.be/OgDxMvKDiZY",
+    "summary": "both legs, barbell, on bench",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell",
+      "bench"
+    ],
+    "image": {
+      "file": "hip_thrust_both_legs.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "farmers_walk_waiter",
+    "name": "Farmers walk",
+    "variation": "waiter",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Single arm raised, fully stacked shoulder, kettlebell carry",
+    "demoUrl": "https://youtu.be/6iD-O2_KL5c?t=6",
+    "summary": "waiter, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "wrist_extensors",
+        "role": "primary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_longus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "farmers_walk_waiter.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "pull_up_supine",
+    "name": "Pull-up",
+    "variation": "supine",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": "hanging",
+    "unilateral": false,
+    "cue": "Chin-up",
+    "demoUrl": "https://youtu.be/8mryJ3w2S78",
+    "summary": "supine, hanging, on pull-up bar",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "subscapularis",
+        "role": "primary"
+      },
+      {
+        "slug": "brachioradialis",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "pull_up_bar"
+    ],
+    "image": {
+      "file": "pull_up_supine.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "face_pull",
+    "name": "Face pull",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Shoulders neutral, not elevated, not depressed",
+    "demoUrl": "https://youtu.be/HHZ1_OZKLII",
+    "summary": "standing, band, on floor",
+    "muscles": [
+      {
+        "slug": "teres_minor",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "face_pull.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "squat_back",
+    "name": "Squat",
+    "variation": "back",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Barbell on shoulders",
+    "demoUrl": "https://youtu.be/Rvy12jFLBFo",
+    "summary": "back, barbell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell"
+    ],
+    "image": {
+      "file": "squat_back.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "toe_raises",
+    "name": "Toe raises",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "seated",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/HNa-n4xq8ro?t=27",
+    "summary": "seated, band, on floor",
+    "muscles": [
+      {
+        "slug": "tibialis_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "extensor_digitorum_longus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "toe_raises.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "pallof_press_cable_lunge",
+    "name": "Pallof press",
+    "variation": "cable, lunge",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "lunge",
+    "unilateral": false,
+    "cue": "Stand in low lunge / front split to reduce stability",
+    "demoUrl": "https://youtu.be/uxc5LyZ1Kyw?t=4",
+    "summary": "lunge, cable, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "cable_machine"
+    ],
+    "image": {
+      "file": "pallof_press_cable_lunge.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "squat_goblet_1_5_rep",
+    "name": "Squat",
+    "variation": "goblet, 1.5 rep",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Lower down, hold, raise half way, hold, lower down, hold, raise all the way up",
+    "demoUrl": "https://youtu.be/D1M7vUO-x3E",
+    "summary": "goblet, 1.5 rep, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "squat_goblet_1_5_rep.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "sit_through",
+    "name": "Sit through",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "prone",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/3U8Mj2KFAzQ?t=28",
+    "summary": "prone, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "sit_through.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_single_arm_dumbbell_half_kneeling",
+    "name": "Overhead press (OHP)",
+    "variation": "single arm, dumbbell, half kneeling",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "half kneeling",
+    "unilateral": true,
+    "cue": "Press up with the same arm as kneeling leg",
+    "demoUrl": "https://youtu.be/8Fx7b81Gs1E?t=7",
+    "summary": "single arm, half kneeling, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_single_arm_dumbbell_half_kneeling.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "row_high_plank",
+    "name": "Row",
+    "variation": "high plank",
+    "pattern": "pull",
+    "metric": "hold",
+    "position": "prone",
+    "unilateral": false,
+    "cue": "High plank position, single arm dumbbell row",
+    "demoUrl": "https://youtu.be/Gtc_Ns3qYYo",
+    "summary": "high plank, prone, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "row_high_plank.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "thruster_one_arm",
+    "name": "Thruster",
+    "variation": "one arm",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": true,
+    "cue": "Squat, explosive straightening, most of the energy from legs",
+    "demoUrl": "https://youtu.be/03aX4h5-EkA",
+    "summary": "one arm, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "thruster_one_arm.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "good_morning_barbell_standing",
+    "name": "Good morning",
+    "variation": "barbell, standing",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Use the padded barbell",
+    "demoUrl": "https://youtu.be/nWyx81AfTos",
+    "summary": "standing, barbell, on floor",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell"
+    ],
+    "image": {
+      "file": "good_morning_barbell_standing.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "row_trap_bar_standing",
+    "name": "Row",
+    "variation": "trap bar, standing",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Neutral grip",
+    "demoUrl": "https://youtu.be/LnsvPvaetN0",
+    "summary": "standing, hex bar, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "trap_bar"
+    ],
+    "image": {
+      "file": "row_trap_bar_standing.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "keiser_chest_press_bar_plyometric",
+    "name": "Keiser chest press",
+    "variation": "bar, plyometric",
+    "pattern": "push",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Explosive concentric, relaxed eccentric",
+    "demoUrl": "https://youtu.be/hkkSpLiPtpU",
+    "summary": "bar, plyometric, standing, cable, on floor",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "cable_machine"
+    ],
+    "image": {
+      "file": "keiser_chest_press_bar_plyometric.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "broad_jump",
+    "name": "Broad jump",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Jump and land with both feet",
+    "demoUrl": "https://youtu.be/vPQv1gmrfUo",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "broad_jump.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "battle_rope_slam_both_arms",
+    "name": "Battle rope slam",
+    "variation": "both arms",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Slam as hard as possible each time",
+    "demoUrl": "https://youtu.be/7wDx6mZDxA8",
+    "summary": "both arms, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "battle_rope_slam_both_arms.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hamstring_curls",
+    "name": "Hamstring curls",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/LULmBlzm3bc?t=14",
+    "summary": "supine, on rings height 14",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "hamstring_curls.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "chest_fly",
+    "name": "Chest fly",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/MS7aXcLv59w?si=kEUP5EsT_QJke_L3",
+    "summary": "on rings height 14",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "chest_fly.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "pike_push_up",
+    "name": "Pike push-up",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/T7F6-FEmvrs?si=Hybk2h9C6zlk2wm5",
+    "summary": "on rings height 14",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "pike_push_up.webp",
+      "type": "image/webp"
+    }
+  },
+  {
+    "slug": "l_sit_hang",
+    "name": "L-sit",
+    "variation": "hang",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/Ha0cH7DPymI",
+    "summary": "hang, on rings height 2",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "l_sit_hang.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "l_sit_support_hold",
+    "name": "L-sit",
+    "variation": "support hold",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/lwcHmXvw-T4",
+    "summary": "support hold, on rings height 9",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "l_sit_support_hold.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "tuck_planche",
+    "name": "Tuck planche",
+    "variation": null,
+    "pattern": "push",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/ch0kaD--kIA?t=9",
+    "summary": "on rings height 9",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "tuck_planche.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "front_lever_tuck",
+    "name": "Front lever",
+    "variation": "tuck",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/JxlKAuD9gkA?t=16",
+    "summary": "tuck, on rings height 5",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "front_lever_tuck.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "back_lever_tuck_pronated",
+    "name": "Back lever",
+    "variation": "tuck, pronated",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": "Palms facing forward/upward (pronated)",
+    "demoUrl": "https://youtu.be/SZV1-ts76CM?t=12",
+    "summary": "tuck, pronated, on rings height 5",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "back_lever_tuck_pronated.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "push_up_rings",
+    "name": "Push-up",
+    "variation": "rings",
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/u8tOhNwiL70?t=5",
+    "summary": "on rings height 14",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "push_up_rings.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "reverse_fly",
+    "name": "Reverse fly",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/YcXRSrq7Eh0",
+    "summary": "on rings height 5",
+    "muscles": [
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "reverse_fly.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "dips_rings",
+    "name": "Dips",
+    "variation": "rings",
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/eiQLGHW-tmQ",
+    "summary": "on rings height 9",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "dips_rings.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "leg_raises_full_inversion",
+    "name": "Leg raises",
+    "variation": "full inversion",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Straight body inversion, rest at inversion point, controlled eccentric",
+    "demoUrl": "https://youtu.be/IMWzJ7zkklA",
+    "summary": "full inversion, on rings height 5",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      },
+      {
+        "slug": "sartorius",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "leg_raises_full_inversion.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "pull_up_rings",
+    "name": "Pull-up",
+    "variation": "rings",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/dhalIpVGju0?t=3",
+    "summary": "on rings height 2",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "subscapularis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "pull_up_rings.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "pull_up_typewriter",
+    "name": "Pull-up",
+    "variation": "typewriter",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": true,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cxfS6FU2VeA",
+    "summary": "typewriter, on rings height 2",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "subscapularis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "pull_up_typewriter.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "ab_rollout_rings",
+    "name": "Ab rollout",
+    "variation": "rings",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/or7xH0BirKw",
+    "summary": "on rings height 14",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "ab_rollout_rings.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "row_gorilla",
+    "name": "Row",
+    "variation": "gorilla",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Pause at the top",
+    "demoUrl": "https://youtu.be/ljzLtsz63YM",
+    "summary": "gorilla, kettlebell, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": {
+      "file": "row_gorilla.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "overhead_press_ohp_seesaw",
+    "name": "Overhead press (OHP)",
+    "variation": "seesaw",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": "kneeling",
+    "unilateral": true,
+    "cue": "As one arm comes down, the other goes up",
+    "demoUrl": "https://youtu.be/Ke5Erzd3NjE",
+    "summary": "seesaw, kneeling, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "overhead_press_ohp_seesaw.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "aleknas",
+    "name": "Aleknas",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/9E5ihs7ynhQ",
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "aleknas.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "squat_sky_reach",
+    "name": "Squat sky reach",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Mobility and warmup",
+    "demoUrl": "https://youtu.be/R1DCivEWsxc",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "squat_sky_reach.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "arm_circles",
+    "name": "Arm circles",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "In both directions",
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=12",
+    "summary": "standing, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "arm_circles.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "squat_and_fold",
+    "name": "Squat and fold",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=76",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "squat_and_fold.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "back_bend_standing",
+    "name": "Back bend",
+    "variation": "standing",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=195",
+    "summary": "standing, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "back_bend_standing.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "shoulder_dislocate_pronated",
+    "name": "Shoulder dislocate",
+    "variation": "pronated",
+    "pattern": "push",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=257",
+    "summary": "pronated, standing, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "shoulder_dislocate_pronated.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "shoulder_dislocate_supinated",
+    "name": "Shoulder dislocate",
+    "variation": "supinated",
+    "pattern": "push",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=294",
+    "summary": "supinated, standing, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "shoulder_dislocate_supinated.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "side_bend",
+    "name": "Side bend",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=319",
+    "summary": "standing, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "side_bend.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "wrist_flexor_stretch",
+    "name": "Wrist flexor stretch",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Also add pushes for strengthening within the end range of motion",
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=414",
+    "summary": "kneeling, on floor",
+    "muscles": [
+      {
+        "slug": "wrist_flexors",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "wrist_flexor_stretch.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "wrist_extensor_stretch",
+    "name": "Wrist extensor stretch",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Also add pushes for strengthening within the end range of motion",
+    "demoUrl": "https://youtu.be/cM6in832kqA?t=465",
+    "summary": "kneeling, on floor",
+    "muscles": [
+      {
+        "slug": "wrist_extensors",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "wrist_extensor_stretch.webp",
+      "type": "image/webp"
+    }
+  },
+  {
+    "slug": "dragon_flag",
+    "name": "Dragon flag",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/U5pviWt7sMo?t=20",
+    "summary": "on bench",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "bench"
+    ],
+    "image": {
+      "file": "dragon_flag.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "push_up_pseudo_planche",
+    "name": "Push-up",
+    "variation": "pseudo planche",
+    "pattern": "push",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/Cdmg0CfMZeo",
+    "summary": "pseudo planche, on floor",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "push_up_pseudo_planche.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "snatch",
+    "name": "Snatch",
+    "variation": null,
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": "half kneeling",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/FjwZvluhnLo",
+    "summary": "half kneeling, dumbbell, on floor",
+    "muscles": [],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "snatch.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hollow_body_rocks",
+    "name": "Hollow body rocks",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/p7j02V1fIzU",
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "hollow_body_rocks.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hollow_body_hold",
+    "name": "Hollow body hold",
+    "variation": null,
+    "pattern": "core",
+    "metric": "hold",
+    "position": "supine",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/4xRpGgttca8",
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "hollow_body_hold.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "body_saw",
+    "name": "Body saw",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/U6zUaObgROo",
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "body_saw.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "plank",
+    "name": "Plank",
+    "variation": null,
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/hy6Ap1iH8xw",
+    "summary": "barbell, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "barbell"
+    ],
+    "image": {
+      "file": "plank.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "skin_the_cat",
+    "name": "Skin the cat",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/ABSpTs17ObA",
+    "summary": "on rings height 5",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "skin_the_cat.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "dead_bug",
+    "name": "Dead bug",
+    "variation": null,
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": "supine",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/fpP6aFvSrFc?t=10",
+    "summary": "supine, dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "dead_bug.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "bench_press_dumbbell",
+    "name": "Bench press",
+    "variation": "dumbbell",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/hm_TrCkhJgo",
+    "summary": "dumbbell, on bench",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "image": {
+      "file": "bench_press_dumbbell.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "nordic_curl_eccentric",
+    "name": "Nordic curl",
+    "variation": "eccentric",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/ybiNmYVkOe0",
+    "summary": "eccentric, on floor",
+    "muscles": [
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      },
+      {
+        "slug": "plantaris",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "nordic_curl_eccentric.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "row_both_arms",
+    "name": "Row",
+    "variation": "both arms",
+    "pattern": "pull",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/Pphkx7x9KR0",
+    "summary": "both arms, on rings height 9",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "primary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "row_both_arms.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "med_ball_slam_rotational",
+    "name": "Med ball slam",
+    "variation": "rotational",
+    "pattern": "core",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Rotate around the body, then slam",
+    "demoUrl": "https://youtu.be/2ubF0fUggSc",
+    "summary": "rotational, standing, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "med_ball_slam_rotational.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "side_plank_copenhagen",
+    "name": "Side plank",
+    "variation": "Copenhagen",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": true,
+    "cue": null,
+    "demoUrl": "https://youtu.be/aDsaGBnvDQo",
+    "summary": "Copenhagen, on floor",
+    "muscles": [
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "gracilis",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "side_plank_copenhagen.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "shoulder_band_warm_up",
+    "name": "Shoulder band warm-up",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "position": "standing",
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/Vwn5hSf3WEg",
+    "summary": "standing, band, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "shoulder_band_warm_up.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "bench_press_barbell",
+    "name": "Bench press",
+    "variation": "barbell",
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/hWbUlkb5Ms4",
+    "summary": "barbell, on bench",
+    "muscles": [],
+    "equipment": [
+      "barbell",
+      "bench"
+    ],
+    "image": {
+      "file": "bench_press_barbell.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "split_squat_bulgarian",
+    "name": "Split squat",
+    "variation": "bulgarian",
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/vgn7bSXkgkA?t=21",
+    "summary": "bulgarian, dumbbell, on bench",
+    "muscles": [],
+    "equipment": [
+      "dumbbell",
+      "bench"
+    ],
+    "image": {
+      "file": "split_squat_bulgarian.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "hamstring_curls_single_leg",
+    "name": "Hamstring curls",
+    "variation": "single leg",
+    "pattern": "legs",
+    "metric": "reps",
+    "position": "supine",
+    "unilateral": true,
+    "cue": "1 second concentric, 3 second eccentric",
+    "demoUrl": "https://youtu.be/36v1_kqfolw?t=12",
+    "summary": "single leg, supine, on floor",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": {
+      "file": "hamstring_curls_single_leg.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "triceps_push_down",
+    "name": "Triceps push-down",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Isolation of triceps, no shoulder movement",
+    "demoUrl": "https://youtu.be/-xa-6cQaZKY",
+    "summary": "cable, on floor",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "cable_machine"
+    ],
+    "image": {
+      "file": "triceps_push_down.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "lateral_raise",
+    "name": "Lateral raise",
+    "variation": null,
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/OuG1smZTsQQ",
+    "summary": "dumbbell, on floor",
+    "muscles": [
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "lateral_raise.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "pistol_squat",
+    "name": "Pistol squat",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": true,
+    "cue": null,
+    "demoUrl": "https://youtu.be/R1mxpLzYgxM?t=8",
+    "summary": "on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "pistol_squat.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "box_jump",
+    "name": "Box jump",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/LeiLzSU3OXE",
+    "summary": "on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "box_jump.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "box_step_up",
+    "name": "Box step-up",
+    "variation": null,
+    "pattern": "core",
+    "metric": "weighted_reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Bottom leg toes raised",
+    "demoUrl": "https://youtu.be/37tVohr7LcE",
+    "summary": "kettlebell, on bench",
+    "muscles": [],
+    "equipment": [
+      "kettlebell",
+      "bench"
+    ],
+    "image": {
+      "file": "box_step_up.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "row_tuck_lever",
+    "name": "Row",
+    "variation": "tuck lever",
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/z4RJcgEKRSQ?t=664",
+    "summary": "tuck lever, on rings",
+    "muscles": [],
+    "equipment": [
+      "gymnastic_rings"
+    ],
+    "image": {
+      "file": "row_tuck_lever.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "push_up_archer",
+    "name": "Push-up",
+    "variation": "archer",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": true,
+    "cue": null,
+    "demoUrl": "https://youtu.be/25t7UBYCMbE?t=22",
+    "summary": "archer, on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "push_up_archer.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "side_leg_lifts_both_legs",
+    "name": "Side leg lifts",
+    "variation": "both legs",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/kEgFNDTrJy8?t=13",
+    "summary": "both legs, on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "side_leg_lifts_both_legs.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "arch_body_hold",
+    "name": "Arch body hold",
+    "variation": null,
+    "pattern": "core",
+    "metric": "hold",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/3aar0hnKbcM",
+    "summary": "on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "arch_body_hold.jpg",
+      "type": "image/jpeg"
+    }
+  },
+  {
+    "slug": "long_lunge",
+    "name": "Long lunge",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": "Enter the position from the lowest front split",
+    "demoUrl": "https://www.youtube.com/watch?v=_pykNV65JEQ",
+    "summary": "on floor",
+    "muscles": [],
+    "equipment": [],
+    "image": {
+      "file": "long_lunge.png",
+      "type": "image/png"
+    }
+  },
+  {
+    "slug": "push_up_plyo",
+    "name": "Push-up",
+    "variation": "Plyo",
+    "pattern": "core",
+    "metric": "reps",
+    "position": null,
+    "unilateral": false,
+    "cue": null,
+    "demoUrl": "https://youtu.be/tIbQYnE9Hv8",
+    "summary": "Plyo, band, on floor",
+    "muscles": [],
+    "equipment": [
+      "resistance_band"
+    ],
+    "image": {
+      "file": "push_up_plyo.png",
+      "type": "image/png"
+    }
+  }
+]

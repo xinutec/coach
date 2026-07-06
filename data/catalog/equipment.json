@@ -1,0 +1,67 @@
+[
+  {
+    "slug": "dumbbell",
+    "name": "Dumbbell",
+    "category": "free_weight"
+  },
+  {
+    "slug": "barbell",
+    "name": "Barbell",
+    "category": "free_weight"
+  },
+  {
+    "slug": "kettlebell",
+    "name": "Kettlebell",
+    "category": "free_weight"
+  },
+  {
+    "slug": "trap_bar",
+    "name": "Trap bar",
+    "category": "free_weight"
+  },
+  {
+    "slug": "resistance_band",
+    "name": "Resistance band",
+    "category": "band"
+  },
+  {
+    "slug": "cable_machine",
+    "name": "Cable machine",
+    "category": "machine"
+  },
+  {
+    "slug": "medicine_ball",
+    "name": "Medicine ball",
+    "category": "ball"
+  },
+  {
+    "slug": "pull_up_bar",
+    "name": "Pull-up bar",
+    "category": "rig"
+  },
+  {
+    "slug": "gymnastic_rings",
+    "name": "Gymnastic rings",
+    "category": "rig"
+  },
+  {
+    "slug": "parallettes",
+    "name": "Parallettes",
+    "category": "rig"
+  },
+  {
+    "slug": "bench",
+    "name": "Bench",
+    "category": "bench"
+  },
+  {
+    "slug": "ghd",
+    "name": "GHD",
+    "category": "machine"
+  },
+  {
+    "slug": "yoga_ball",
+    "name": "Yoga ball",
+    "category": "ball"
+  }
+]

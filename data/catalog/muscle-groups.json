@@ -1,0 +1,107 @@
+[
+  {
+    "slug": "chest",
+    "name": "Chest",
+    "region": "chest"
+  },
+  {
+    "slug": "serratus",
+    "name": "Serratus",
+    "region": "chest"
+  },
+  {
+    "slug": "lats",
+    "name": "Lats",
+    "region": "back"
+  },
+  {
+    "slug": "abdominals",
+    "name": "Abdominals",
+    "region": "core"
+  },
+  {
+    "slug": "glutes",
+    "name": "Glutes",
+    "region": "legs"
+  },
+  {
+    "slug": "hip_flexors",
+    "name": "Hip flexors",
+    "region": "legs"
+  },
+  {
+    "slug": "adductors",
+    "name": "Adductors",
+    "region": "legs"
+  },
+  {
+    "slug": "lower_leg",
+    "name": "Lower leg",
+    "region": "legs"
+  },
+  {
+    "slug": "traps",
+    "name": "Trapezius",
+    "region": "back"
+  },
+  {
+    "slug": "deltoids",
+    "name": "Deltoids",
+    "region": "shoulders"
+  },
+  {
+    "slug": "biceps",
+    "name": "Biceps",
+    "region": "arms"
+  },
+  {
+    "slug": "triceps",
+    "name": "Triceps",
+    "region": "arms"
+  },
+  {
+    "slug": "forearms",
+    "name": "Forearms",
+    "region": "forearms"
+  },
+  {
+    "slug": "obliques",
+    "name": "Obliques",
+    "region": "core"
+  },
+  {
+    "slug": "rotator_cuff",
+    "name": "Rotator cuff",
+    "region": "shoulders"
+  },
+  {
+    "slug": "upper_back",
+    "name": "Upper back",
+    "region": "back"
+  },
+  {
+    "slug": "quadriceps",
+    "name": "Quadriceps",
+    "region": "legs"
+  },
+  {
+    "slug": "hamstrings",
+    "name": "Hamstrings",
+    "region": "legs"
+  },
+  {
+    "slug": "calves",
+    "name": "Calves",
+    "region": "legs"
+  },
+  {
+    "slug": "deep_core",
+    "name": "Deep core",
+    "region": "core"
+  },
+  {
+    "slug": "lower_back",
+    "name": "Lower back",
+    "region": "back"
+  }
+]
