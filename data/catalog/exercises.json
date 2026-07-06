@@ -1108,18 +1108,6 @@
     "summary": "single leg, dumbbell, on bench",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
-        "role": "primary"
-      },
-      {
-        "slug": "rectus_femoris",
-        "role": "primary"
-      },
-      {
-        "slug": "vastus_medialis",
-        "role": "primary"
-      },
-      {
         "slug": "gluteus_maximus",
         "role": "primary"
       },
@@ -1128,8 +1116,16 @@
         "role": "primary"
       },
       {
-        "slug": "vastus_intermedius",
-        "role": "primary"
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -1434,20 +1430,24 @@
     "summary": "single leg, eccentric, supine, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "biceps_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "semitendinosus",
         "role": "primary"
       },
       {
-        "slug": "vastus_medialis",
+        "slug": "semimembranosus",
         "role": "primary"
       },
       {
-        "slug": "vastus_intermedius",
-        "role": "primary"
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -1624,18 +1624,6 @@
     "summary": "both legs, barbell, on bench",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
-        "role": "primary"
-      },
-      {
-        "slug": "rectus_femoris",
-        "role": "primary"
-      },
-      {
-        "slug": "vastus_medialis",
-        "role": "primary"
-      },
-      {
         "slug": "gluteus_maximus",
         "role": "primary"
       },
@@ -1644,8 +1632,16 @@
         "role": "primary"
       },
       {
-        "slug": "vastus_intermedius",
-        "role": "primary"
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -2280,19 +2276,15 @@
     "summary": "supine, on rings height 14",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "biceps_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "semitendinosus",
         "role": "primary"
       },
       {
-        "slug": "vastus_medialis",
-        "role": "primary"
-      },
-      {
-        "slug": "vastus_intermedius",
+        "slug": "semimembranosus",
         "role": "primary"
       }
     ],
@@ -3590,19 +3582,15 @@
     "summary": "single leg, supine, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "biceps_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "semitendinosus",
         "role": "primary"
       },
       {
-        "slug": "vastus_medialis",
-        "role": "primary"
-      },
-      {
-        "slug": "vastus_intermedius",
+        "slug": "semimembranosus",
         "role": "primary"
       }
     ],
