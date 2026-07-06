@@ -27,6 +27,11 @@ pub struct Config {
     /// unset the server is API-only — e.g. in dev, where `ng serve` proxies.
     pub static_dir: Option<String>,
 
+    /// Directory of the training-library seed bundle (exercises/muscles/
+    /// equipment/images), loaded into the DB at boot. Default `data/catalog`
+    /// (repo-relative locally; `/app/data/catalog` in the container).
+    pub catalog_dir: String,
+
     /// DEV ONLY. When set, `/dev-login` mints a session for this user id
     /// without Nextcloud. Absent in production → the route 404s. Never set this
     /// in a deployed environment.
@@ -60,6 +65,7 @@ impl Config {
             nc_client_secret: env("NC_CLIENT_SECRET")?,
             nc_redirect_uri: env("NC_REDIRECT_URI")?,
             static_dir: std::env::var("STATIC_DIR").ok(),
+            catalog_dir: env_or("CATALOG_DIR", "data/catalog"),
             dev_login_user: std::env::var("DEV_LOGIN_USER").ok(),
         })
     }

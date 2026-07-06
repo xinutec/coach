@@ -2,7 +2,11 @@
 
 pub mod api;
 pub mod auth;
+pub mod equipment;
 pub mod exercises;
+pub mod import;
+pub mod locations;
+pub mod muscles;
 pub mod pacing;
 pub mod program;
 pub mod settings;
@@ -22,7 +26,22 @@ pub fn router(state: AppState) -> Router {
         .route("/me", get(api::me))
         // Exercise catalog
         .route("/exercises", get(exercises::list).post(exercises::create))
-        .route("/exercises/{id}", patch(exercises::patch))
+        .route(
+            "/exercises/{id}",
+            get(exercises::detail).patch(exercises::patch),
+        )
+        .route("/exercises/{id}/image", get(exercises::image))
+        // Reference catalogs
+        .route("/equipment", get(equipment::list))
+        .route("/muscles", get(muscles::list))
+        // Training locations (equipment inventories you can be "at")
+        .route("/locations", get(locations::list).post(locations::create))
+        .route(
+            "/locations/{id}",
+            patch(locations::patch).delete(locations::delete),
+        )
+        // One-time migration import (history + programs)
+        .route("/import/nocodb", post(import::nocodb))
         // Programs
         .route("/programs", get(program::list))
         .route("/programs/active", get(program::active))

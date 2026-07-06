@@ -41,7 +41,11 @@ RUN groupadd --gid 65532 coach \
 WORKDIR /app
 COPY --from=backend /app/target/release/coach /usr/local/bin/coach
 COPY --from=frontend /fe/dist/coach-web/browser ./public
+# The training-library seed bundle (exercises/muscles/equipment JSON + images),
+# loaded into the DB at boot by the seeder. Read-only.
+COPY data/ ./data
 ENV STATIC_DIR=/app/public \
+    CATALOG_DIR=/app/data/catalog \
     BIND_ADDR=0.0.0.0:8080
 EXPOSE 8080
 USER coach

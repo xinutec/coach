@@ -31,6 +31,8 @@ struct Row<'a> {
     pattern: Pattern,
     exercise_id: i64,
     exercise_name: &'a str,
+    equipment: &'a [i64],
+    primary_muscles: &'a [i64],
     remaining_week: i32,
     today_target: i32,
     today_done: i32,
@@ -145,6 +147,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             pattern: ex.pattern,
             exercise_id: ex.id,
             exercise_name: &ex.name,
+            equipment: ex.equipment.as_slice(),
+            primary_muscles: ex.primary_muscles.as_slice(),
             remaining_week,
             today_target,
             today_done,
@@ -177,33 +181,48 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let day_target_total: i32 = rows.iter().map(|r| r.today_target).sum();
     let day_done_total: i32 = rows.iter().map(|r| r.today_done).sum();
 
-    // Pick the exercise with the most remaining today (tie-break: pattern order,
-    // then id) as the concrete suggestion.
-    let mut best: Option<&Row> = None;
-    for r in rows.iter().filter(|r| r.today_remaining > 0) {
-        best = Some(match best {
-            None => r,
-            Some(b) => {
-                let better = r.today_remaining > b.today_remaining
-                    || (r.today_remaining == b.today_remaining
-                        && pattern_rank(r.pattern) < pattern_rank(b.pattern))
-                    || (r.today_remaining == b.today_remaining
-                        && pattern_rank(r.pattern) == pattern_rank(b.pattern)
-                        && r.exercise_id < b.exercise_id);
-                if better { r } else { b }
-            }
-        });
-    }
-    let suggestion = best.map(|r| Suggestion {
-        exercise_id: r.exercise_id,
-        exercise_name: r.exercise_name.to_string(),
-        pattern: r.pattern,
-        sets: r.today_remaining,
-        rep_low: r.t.rep_low,
-        rep_high: r.t.rep_high,
-        load_kg: r.t.load_kg,
-        hold_s: r.t.hold_s,
+    // Candidates ordered by need: most remaining today first, tie-broken by
+    // pattern order then id.
+    let mut candidates: Vec<&Row> = rows.iter().filter(|r| r.today_remaining > 0).collect();
+    candidates.sort_by(|a, b| {
+        b.today_remaining
+            .cmp(&a.today_remaining)
+            .then(pattern_rank(a.pattern).cmp(&pattern_rank(b.pattern)))
+            .then(a.exercise_id.cmp(&b.exercise_id))
     });
+
+    // At a location, a goal is doable iff all its equipment is available; empty
+    // (bodyweight) is doable anywhere. Without a location, everything is doable.
+    let available = input.available_equipment.as_ref();
+    let doable =
+        |equipment: &[i64]| available.is_none_or(|a| equipment.iter().all(|e| a.contains(e)));
+
+    // Pick the concrete suggestion: the most-needed doable goal, or — when the
+    // most-needed goal's kit is missing here — an equivalent movement (same
+    // pattern, doable, ranked by shared primary muscles) swapped in for it.
+    let mut suggestion = None;
+    for r in candidates {
+        let sug = if doable(r.equipment) {
+            Some((r.exercise_id, r.exercise_name.to_string(), None))
+        } else {
+            find_substitute(input, r, available)
+                .map(|sub| (sub.id, sub.name.clone(), Some(r.exercise_name.to_string())))
+        };
+        if let Some((exercise_id, exercise_name, substituted_for)) = sug {
+            suggestion = Some(Suggestion {
+                exercise_id,
+                exercise_name,
+                pattern: r.pattern,
+                sets: r.today_remaining,
+                rep_low: r.t.rep_low,
+                rep_high: r.t.rep_high,
+                load_kg: r.t.load_kg,
+                hold_s: r.t.hold_s,
+                substituted_for,
+            });
+            break;
+        }
+    }
 
     // Burn-down: how far through the active window are we, and are we behind the
     // ideal pace? Being behind is what triggers a nudge — so nudges cluster
@@ -272,4 +291,32 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
 fn plural(n: i32) -> &'static str {
     if n == 1 { "" } else { "s" }
+}
+
+/// An equivalent movement for a goal exercise that can't be done at the current
+/// location: same pattern, all its equipment available here, ranked by how many
+/// primary muscles it shares with the blocked goal (then by lowest id). `None`
+/// if no location filter is active or nothing suitable is available.
+fn find_substitute<'a>(
+    input: &'a PacingInput,
+    blocked: &Row,
+    available: Option<&std::collections::HashSet<i64>>,
+) -> Option<&'a super::types::ExerciseInfo> {
+    let a = available?;
+    input
+        .exercises
+        .iter()
+        .filter(|e| {
+            e.id != blocked.exercise_id
+                && e.pattern == blocked.pattern
+                && e.equipment.iter().all(|x| a.contains(x))
+        })
+        .max_by_key(|e| {
+            let overlap = e
+                .primary_muscles
+                .iter()
+                .filter(|&&m| blocked.primary_muscles.contains(&m))
+                .count();
+            (overlap, std::cmp::Reverse(e.id))
+        })
 }

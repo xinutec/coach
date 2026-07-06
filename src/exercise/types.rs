@@ -1,17 +1,20 @@
-//! Exercise catalog wire types + the shared movement/equipment/metric enums.
+//! Exercise catalog wire types + the movement/metric/position enums.
 //!
-//! The enums serialize as snake_case to JSON (serde). For the DB they carry
-//! `as_db`/`from_db` string conversions: rows are read into `ExerciseRow` (plain
-//! `String` columns) and converted, and writes bind `as_db()`. This sidesteps
-//! sqlx deriving `Type` for a MySQL `ENUM` column (which compares ENUM variant
-//! sets and rejects the column).
+//! Enums serialize as snake_case to JSON and carry `as_db`/`from_db` string
+//! conversions: rows are read with enum columns as `String` and converted, and
+//! writes bind `as_db()` — sidestepping sqlx deriving `Type` for MySQL `ENUM`.
+//!
+//! An exercise's equipment and muscles are many-to-many (see the `equipment` and
+//! `muscle` modules + the join tables); the lightweight [`Exercise`] list item
+//! carries just equipment slugs, while [`ExerciseDetail`] carries the full sets.
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// Add `as_db`/`from_db` string conversions to a fieldless enum. The literals
-/// are the exact ENUM values stored in the DB.
+use crate::equipment::types::Equipment;
+use crate::muscle::types::{MuscleRole, Region};
+
 macro_rules! db_str {
     ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
         impl $name {
@@ -24,26 +27,6 @@ macro_rules! db_str {
         }
     };
 }
-
-/// Where the exercise is done — also the kit inventory (rings, 2 m bar, weights,
-/// mat, or plain bodyweight).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum Equipment {
-    Rings,
-    Bar,
-    Weights,
-    Mat,
-    Bodyweight,
-}
-db_str!(Equipment {
-    Rings => "rings",
-    Bar => "bar",
-    Weights => "weights",
-    Mat => "mat",
-    Bodyweight => "bodyweight",
-});
 
 /// Movement pattern. Doubles as the recovery grouping: the pacing engine rests a
 /// pattern that was recently worked hard.
@@ -78,7 +61,33 @@ db_str!(Metric {
     Hold => "hold",
 });
 
-/// Public wire type. Built from an [`ExerciseRow`] read from the DB.
+/// Body position the movement is performed in (optional).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum Position {
+    Standing,
+    Seated,
+    Kneeling,
+    HalfKneeling,
+    Prone,
+    Supine,
+    Hanging,
+    Lunge,
+}
+db_str!(Position {
+    Standing => "standing",
+    Seated => "seated",
+    Kneeling => "kneeling",
+    HalfKneeling => "half_kneeling",
+    Prone => "prone",
+    Supine => "supine",
+    Hanging => "hanging",
+    Lunge => "lunge",
+});
+
+/// Lightweight catalog list item. Equipment as slugs; `has_image` gates the
+/// thumbnail without shipping the blob.
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -87,43 +96,138 @@ pub struct Exercise {
     pub id: i64,
     pub slug: String,
     pub name: String,
-    pub equipment: Equipment,
+    pub variation: Option<String>,
     pub pattern: Pattern,
     pub metric: Metric,
     pub unilateral: bool,
     pub is_active: bool,
+    pub equipment: Vec<String>,
+    pub has_image: bool,
 }
 
-/// DB row shape (enum columns as raw strings). Converted to [`Exercise`].
 #[derive(sqlx::FromRow)]
-pub(crate) struct ExerciseRow {
+pub(crate) struct ExerciseListRow {
     pub id: i64,
     pub slug: String,
     pub name: String,
-    pub equipment: String,
+    pub variation: Option<String>,
     pub pattern: String,
     pub metric: String,
     pub unilateral: bool,
     pub is_active: bool,
+    pub equipment_csv: Option<String>,
+    pub has_image: i64,
 }
 
-impl TryFrom<ExerciseRow> for Exercise {
+impl TryFrom<ExerciseListRow> for Exercise {
     type Error = anyhow::Error;
-    fn try_from(r: ExerciseRow) -> Result<Self> {
+    fn try_from(r: ExerciseListRow) -> Result<Self> {
         Ok(Exercise {
             id: r.id,
             slug: r.slug,
             name: r.name,
-            equipment: Equipment::from_db(&r.equipment)
-                .ok_or_else(|| anyhow!("unknown equipment {:?}", r.equipment))?,
+            variation: r.variation,
             pattern: Pattern::from_db(&r.pattern)
                 .ok_or_else(|| anyhow!("unknown pattern {:?}", r.pattern))?,
             metric: Metric::from_db(&r.metric)
                 .ok_or_else(|| anyhow!("unknown metric {:?}", r.metric))?,
             unilateral: r.unilateral,
             is_active: r.is_active,
+            equipment: r
+                .equipment_csv
+                .filter(|s| !s.is_empty())
+                .map(|s| s.split(',').map(str::to_string).collect())
+                .unwrap_or_default(),
+            has_image: r.has_image != 0,
         })
     }
+}
+
+/// A muscle worked by an exercise, with its group/region and role denormalized.
+#[derive(Clone, Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ExerciseMuscle {
+    pub slug: String,
+    pub name: String,
+    pub group: String,
+    pub region: Region,
+    pub role: MuscleRole,
+}
+
+#[derive(sqlx::FromRow)]
+pub(crate) struct ExerciseMuscleRow {
+    pub slug: String,
+    pub name: String,
+    pub group: String,
+    pub region: String,
+    pub role: String,
+}
+
+impl TryFrom<ExerciseMuscleRow> for ExerciseMuscle {
+    type Error = anyhow::Error;
+    fn try_from(r: ExerciseMuscleRow) -> Result<Self> {
+        Ok(ExerciseMuscle {
+            slug: r.slug,
+            name: r.name,
+            group: r.group,
+            region: Region::from_db(&r.region)
+                .ok_or_else(|| anyhow!("unknown region {:?}", r.region))?,
+            role: MuscleRole::from_db(&r.role)
+                .ok_or_else(|| anyhow!("unknown role {:?}", r.role))?,
+        })
+    }
+}
+
+/// Full exercise view: scalar fields + equipment + muscles.
+#[derive(Clone, Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ExerciseDetail {
+    #[ts(type = "number")]
+    pub id: i64,
+    pub slug: String,
+    pub name: String,
+    pub variation: Option<String>,
+    pub pattern: Pattern,
+    pub metric: Metric,
+    pub position: Option<Position>,
+    pub unilateral: bool,
+    pub is_active: bool,
+    pub cue: Option<String>,
+    pub demo_url: Option<String>,
+    pub summary: Option<String>,
+    pub difficulty: Option<i32>,
+    pub has_image: bool,
+    pub equipment: Vec<Equipment>,
+    pub muscles: Vec<ExerciseMuscle>,
+}
+
+#[derive(sqlx::FromRow)]
+pub(crate) struct ExerciseDetailRow {
+    pub id: i64,
+    pub slug: String,
+    pub name: String,
+    pub variation: Option<String>,
+    pub pattern: String,
+    pub metric: String,
+    pub position: Option<String>,
+    pub unilateral: bool,
+    pub is_active: bool,
+    pub cue: Option<String>,
+    pub demo_url: Option<String>,
+    pub summary: Option<String>,
+    pub difficulty: Option<i32>,
+    pub has_image: i64,
+}
+
+/// A muscle link on create/patch: which muscle, in what role.
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MuscleLink {
+    pub slug: String,
+    pub role: MuscleRole,
 }
 
 /// Body for POST /api/exercises (a user-added custom movement).
@@ -132,23 +236,44 @@ impl TryFrom<ExerciseRow> for Exercise {
 #[ts(export)]
 pub struct NewExercise {
     pub name: String,
-    pub equipment: Equipment,
+    #[serde(default)]
+    pub variation: Option<String>,
     pub pattern: Pattern,
     pub metric: Metric,
     #[serde(default)]
+    pub position: Option<Position>,
+    #[serde(default)]
     pub unilateral: bool,
+    #[serde(default)]
+    pub cue: Option<String>,
+    #[serde(default)]
+    pub demo_url: Option<String>,
+    #[serde(default)]
+    pub difficulty: Option<i32>,
+    /// Equipment slugs (all required). Empty = bodyweight.
+    #[serde(default)]
+    pub equipment: Vec<String>,
+    #[serde(default)]
+    pub muscles: Vec<MuscleLink>,
 }
 
-/// Body for PATCH /api/exercises/{id}. Every field optional; only present ones
-/// are written.
+/// Body for PATCH /api/exercises/{id}. Scalar fields COALESCE (only present ones
+/// change); `equipment`/`muscles`, when present, replace the whole link set.
 #[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct ExercisePatch {
     pub name: Option<String>,
-    pub equipment: Option<Equipment>,
+    pub variation: Option<String>,
     pub pattern: Option<Pattern>,
     pub metric: Option<Metric>,
+    pub position: Option<Position>,
     pub unilateral: Option<bool>,
+    pub cue: Option<String>,
+    pub demo_url: Option<String>,
+    pub summary: Option<String>,
+    pub difficulty: Option<i32>,
     pub is_active: Option<bool>,
+    pub equipment: Option<Vec<String>>,
+    pub muscles: Option<Vec<MuscleLink>>,
 }

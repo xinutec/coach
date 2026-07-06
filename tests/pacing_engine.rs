@@ -40,6 +40,8 @@ fn one_exercise() -> Vec<ExerciseInfo> {
         id: 1,
         name: "Pull-up".to_string(),
         pattern: Pattern::Pull,
+        equipment: vec![],
+        primary_muscles: vec![],
     }]
 }
 
@@ -71,6 +73,7 @@ fn input(
         sets_this_week: sets,
         last_set_at: last,
         settings: settings(),
+        available_equipment: None,
     }
 }
 
@@ -226,4 +229,122 @@ fn not_behind_when_on_pace_no_nudge() {
     let out = evaluate(&inp, dt(2026, 6, 29, 20, 0));
     assert!(!out.nudge);
     assert_eq!(out.day_remaining_sets, 0);
+}
+
+// ---- location-aware suggestion + substitution -----------------------------
+
+fn ex(
+    id: i64,
+    name: &str,
+    pattern: Pattern,
+    equipment: Vec<i64>,
+    primary: Vec<i64>,
+) -> ExerciseInfo {
+    ExerciseInfo {
+        id,
+        name: name.to_string(),
+        pattern,
+        equipment,
+        primary_muscles: primary,
+    }
+}
+
+fn target_ex(exercise_id: i64, week: i32, sets: i32) -> TargetInfo {
+    TargetInfo {
+        exercise_id,
+        week_index: week,
+        target_sets: sets,
+        rep_low: Some(5),
+        rep_high: Some(8),
+        load_kg: None,
+        hold_s: None,
+    }
+}
+
+// Program week 1, no history; only the exercises/targets and location vary.
+fn loc_input(
+    exercises: Vec<ExerciseInfo>,
+    targets: Vec<TargetInfo>,
+    available: Option<Vec<i64>>,
+) -> PacingInput {
+    PacingInput {
+        program: Some(program()),
+        exercises,
+        targets,
+        pins: vec![],
+        sets_this_week: vec![],
+        last_set_at: None,
+        settings: settings(),
+        available_equipment: available.map(|v| v.into_iter().collect()),
+    }
+}
+
+#[test]
+fn location_substitutes_when_goal_kit_missing() {
+    // Goal is a barbell row (equipment 1); a bodyweight ring row hits the same
+    // muscles. At a bodyweight-only location the suggestion swaps in the ring row.
+    let exercises = vec![
+        ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100, 101]),
+        ex(11, "Ring row", Pattern::Pull, vec![], vec![100, 101]),
+    ];
+    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
+    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+    let sug = out.suggestion.expect("a substitute is available");
+    assert_eq!(sug.exercise_id, 11);
+    assert_eq!(sug.substituted_for.as_deref(), Some("Barbell row"));
+}
+
+#[test]
+fn substitute_ranked_by_muscle_overlap() {
+    // Two bodyweight alternatives; the one sharing more primary muscles wins.
+    let exercises = vec![
+        ex(
+            10,
+            "Barbell row",
+            Pattern::Pull,
+            vec![1],
+            vec![100, 101, 102],
+        ),
+        ex(11, "Shrug", Pattern::Pull, vec![], vec![100]), // overlap 1
+        ex(12, "Inverted row", Pattern::Pull, vec![], vec![100, 101]), // overlap 2
+    ];
+    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
+    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+    assert_eq!(out.suggestion.unwrap().exercise_id, 12);
+}
+
+#[test]
+fn no_substitute_when_nothing_doable_here() {
+    // Only a barbell movement exists; a bodyweight location can't do it and has
+    // no alternative → no suggestion (but the weekly goal still stands).
+    let exercises = vec![ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100])];
+    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
+    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+    assert!(out.suggestion.is_none());
+    assert_eq!(out.day_remaining_sets, 1); // the goal is unchanged by location
+}
+
+#[test]
+fn doable_goal_suggested_directly_at_location() {
+    // The goal itself is doable here → suggested as-is, no substitution.
+    let exercises = vec![ex(11, "Ring row", Pattern::Pull, vec![], vec![100])];
+    let inp = loc_input(exercises, vec![target_ex(11, 1, 7)], Some(vec![]));
+    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+    let sug = out.suggestion.unwrap();
+    assert_eq!(sug.exercise_id, 11);
+    assert!(sug.substituted_for.is_none());
+}
+
+#[test]
+fn barbell_available_keeps_the_goal() {
+    // With the barbell present, the goal is doable → no substitution.
+    let exercises = vec![
+        ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100, 101]),
+        ex(11, "Ring row", Pattern::Pull, vec![], vec![100, 101]),
+    ];
+    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![1]));
+    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+    let sug = out.suggestion.unwrap();
+    assert_eq!(sug.exercise_id, 10);
+    assert!(sug.substituted_for.is_none());
 }

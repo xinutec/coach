@@ -23,6 +23,8 @@ async fn main() -> Result<()> {
     }
     let pool = db::connect(&cfg.database_url).await?;
     db::migrate(&pool).await?;
+    // Load the global training library (idempotent) after migrations.
+    coach::seed::run(&pool, &cfg.catalog_dir).await?;
 
     // Reap abandoned sessions hourly (the first tick fires immediately, so
     // boot also sweeps). Expiry is otherwise only enforced lazily, when the

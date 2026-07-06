@@ -19,6 +19,10 @@ pub struct ExerciseInfo {
     pub id: i64,
     pub name: String,
     pub pattern: Pattern,
+    /// Equipment ids the movement requires (empty = bodyweight).
+    pub equipment: Vec<i64>,
+    /// Primary muscle ids — used to rank substitutes by overlap.
+    pub primary_muscles: Vec<i64>,
 }
 
 pub struct TargetInfo {
@@ -60,6 +64,10 @@ pub struct PacingInput {
     pub sets_this_week: Vec<SetInfo>,
     pub last_set_at: Option<NaiveDateTime>,
     pub settings: PacingSettings,
+    /// Equipment available at the selected location. `None` = no location filter
+    /// (suggest goal exercises as-is); `Some` = the suggestion must be doable
+    /// here, substituting an equivalent movement when a goal's kit is missing.
+    pub available_equipment: Option<std::collections::HashSet<i64>>,
 }
 
 // ---- output (wire types) ---------------------------------------------------
@@ -103,6 +111,9 @@ pub struct Suggestion {
     pub rep_high: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    /// When set, this exercise was swapped in for a goal exercise whose
+    /// equipment isn't available at the current location (its name).
+    pub substituted_for: Option<String>,
 }
 
 /// The full pacing verdict for an instant. Drives both the Today UI and the

@@ -7,7 +7,10 @@ use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
+use std::collections::HashSet;
+
 use crate::exercise::repo as ex_repo;
+use crate::location::repo as location_repo;
 use crate::program::repo as prog_repo;
 use crate::settings::repo as settings_repo;
 use crate::workout::repo as workout_repo;
@@ -17,8 +20,10 @@ use super::types::{
     ExerciseInfo, PacingInput, PacingNow, PacingSettings, PinInfo, ProgramInfo, SetInfo, TargetInfo,
 };
 
-/// The pacing verdict for the user right now.
-pub async fn now(pool: &MySqlPool, user_id: &str) -> Result<PacingNow> {
+/// The pacing verdict for the user right now. `location_id`, when given, makes
+/// the suggestion location-aware (doable here, substituting when a goal's kit is
+/// missing); an unknown/foreign id falls back to no filter.
+pub async fn now(pool: &MySqlPool, user_id: &str, location_id: Option<i64>) -> Result<PacingNow> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
     let now_local = Utc::now().with_timezone(&tz).naive_local();
@@ -32,6 +37,13 @@ pub async fn now(pool: &MySqlPool, user_id: &str) -> Result<PacingNow> {
         min_rest_min: s.min_rest_min,
     };
 
+    let available_equipment = match location_id {
+        Some(id) => location_repo::equipment_ids(pool, user_id, id)
+            .await?
+            .map(|ids| ids.into_iter().collect::<HashSet<i64>>()),
+        None => None,
+    };
+
     let Some(active) = prog_repo::active(pool, user_id).await? else {
         let inp = PacingInput {
             program: None,
@@ -41,14 +53,19 @@ pub async fn now(pool: &MySqlPool, user_id: &str) -> Result<PacingNow> {
             sets_this_week: Vec::new(),
             last_set_at: None,
             settings,
+            available_equipment,
         };
         return Ok(engine::evaluate(&inp, now_local));
     };
 
+    let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
+    let prim_by_ex = ex_repo::primary_muscles_by_exercise(pool).await?;
     let exercises = ex_repo::list(pool, true)
         .await?
         .into_iter()
         .map(|e| ExerciseInfo {
+            equipment: equip_by_ex.get(&e.id).cloned().unwrap_or_default(),
+            primary_muscles: prim_by_ex.get(&e.id).cloned().unwrap_or_default(),
             id: e.id,
             name: e.name,
             pattern: e.pattern,
@@ -112,6 +129,7 @@ pub async fn now(pool: &MySqlPool, user_id: &str) -> Result<PacingNow> {
         sets_this_week,
         last_set_at,
         settings,
+        available_equipment,
     };
     Ok(engine::evaluate(&inp, now_local))
 }
