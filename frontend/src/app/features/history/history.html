@@ -5,17 +5,23 @@
 }
 
 @for (g of groups(); track g.key) {
-  <h3 class="day">{{ g.label }}</h3>
-  @for (s of g.sets; track s.id) {
-    <div class="set-row">
-      <div class="set-main">
-        <span class="set-name">{{ name(s.exerciseId) }}</span>
-        <span class="set-detail">{{ detail(s) }}</span>
+  <button class="day" (click)="toggle(g.key)" [attr.aria-expanded]="isOpen(g.key)">
+    <mat-icon class="chev">{{ isOpen(g.key) ? "expand_more" : "chevron_right" }}</mat-icon>
+    <span class="day-label">{{ g.label }}</span>
+    <span class="day-count">{{ g.sets.length }} set{{ g.sets.length === 1 ? "" : "s" }}</span>
+  </button>
+  @if (isOpen(g.key)) {
+    @for (s of g.sets; track s.id) {
+      <div class="set-row">
+        <div class="set-main">
+          <span class="set-name">{{ name(s.exerciseId) }}</span>
+          <span class="set-detail">{{ detail(s) }}</span>
+        </div>
+        <span class="set-time">{{ time(s) }}</span>
+        <button mat-icon-button aria-label="Delete set" (click)="del(s)">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
       </div>
-      <span class="set-time">{{ time(s) }}</span>
-      <button mat-icon-button aria-label="Delete set" (click)="del(s)">
-        <mat-icon>delete_outline</mat-icon>
-      </button>
-    </div>
+    }
   }
 }

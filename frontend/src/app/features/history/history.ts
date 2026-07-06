@@ -24,10 +24,19 @@ export class HistoryPage {
   readonly sets = signal<WorkoutSet[]>([]);
   readonly exMap = signal<Map<number, Exercise>>(new Map());
   readonly loading = signal(true);
+  // Which day groups are expanded (terse by default; newest opens on load).
+  readonly expanded = signal<Set<string>>(new Set());
 
   // logged_at is stored UTC; append 'Z' so the browser renders local time.
   private local(loggedAt: string): Date {
     return new Date(loggedAt + "Z");
+  }
+
+  /** Weekday + day + month, plus the year only when it isn't the current one. */
+  private dayLabel(d: Date): string {
+    const opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+    return d.toLocaleDateString([], opts);
   }
 
   readonly groups = computed<DayGroup[]>(() => {
@@ -39,13 +48,9 @@ export class HistoryPage {
       if (list) list.push(s);
       else byDay.set(key, [s]);
     }
-    return [...byDay.values()].map((sets) => ({
-      key: `${this.local(sets[0].loggedAt).getFullYear()}-${this.local(sets[0].loggedAt).getMonth()}-${this.local(sets[0].loggedAt).getDate()}`,
-      label: this.local(sets[0].loggedAt).toLocaleDateString([], {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-      }),
+    return [...byDay.entries()].map(([key, sets]) => ({
+      key,
+      label: this.dayLabel(this.local(sets[0].loggedAt)),
       sets,
     }));
   });
@@ -63,10 +68,24 @@ export class HistoryPage {
       next: ({ sets, exercises }) => {
         this.sets.set(sets);
         this.exMap.set(new Map(exercises.map((e) => [e.id, e])));
+        // Open the most recent day by default; the rest stay collapsed.
+        const first = this.groups()[0];
+        this.expanded.set(new Set(first ? [first.key] : []));
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
     });
+  }
+
+  isOpen(key: string): boolean {
+    return this.expanded().has(key);
+  }
+
+  toggle(key: string): void {
+    const next = new Set(this.expanded());
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this.expanded.set(next);
   }
 
   name(id: number): string {

@@ -49,6 +49,13 @@ const LOCATIONS = [
   { id: 1, name: "Home", isDefault: true, equipment: ["pull_up_bar", "gymnastic_rings"] },
 ];
 
+// Two days of sets (loggedAt is UTC, no 'Z' — the client appends it).
+const SETS = [
+  { id: 1, exerciseId: 6, programId: null, loggedAt: "2024-10-28T09:30:00", reps: 8, loadKg: null, holdS: null, rpe: null, note: null },
+  { id: 2, exerciseId: 11, programId: null, loggedAt: "2024-10-28T09:10:00", reps: 10, loadKg: 20, holdS: null, rpe: null, note: null },
+  { id: 3, exerciseId: 1, programId: null, loggedAt: "2024-10-20T18:00:00", reps: 6, loadKg: null, holdS: null, rpe: null, note: null },
+];
+
 // A busy "active" verdict so Today renders fully (mode bar, reason, suggestion,
 // balance bars, the FAB).
 const GROUPS = [
@@ -152,6 +159,18 @@ test("locations — location card + kit chips render clean @ phone", async ({ pa
   await mockApi(page);
   await page.goto("/locations");
   await page.getByText("Home").waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
+  await expectNoOccludedControls(page, testInfo);
+});
+
+test("history — collapsible days with year on old dates @ phone", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.route(/\/api\/sets(\?|$)/, (r) => r.fulfill({ json: SETS }));
+  await page.goto("/history");
+  // Old dates carry the year; the newest day is expanded so its sets show.
+  await page.getByText("2024", { exact: false }).first().waitFor();
+  await page.getByText("Ring dip").waitFor();
   await expectNoTextOverlaps(page, testInfo);
   await expectNoHorizontalOverflow(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
