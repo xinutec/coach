@@ -5,4 +5,4 @@ import type { Mode } from "./Mode";
  * Body for PATCH /api/settings. Only present fields are written; `emphasis`
  * uses double-option so an explicit `null` clears it.
  */
-export type SettingsPatch = { timezone: string | null, windowStartHour: number | null, windowEndHour: number | null, nightCutoffHour: number | null, minRestMin: number | null, mode: Mode | null, daysPerWeek: number | null, emphasis: string | null, };
+export type SettingsPatch = { timezone: string | null, windowStartHour: number | null, windowEndHour: number | null, minRestMin: number | null, mode: Mode | null, daysPerWeek: number | null, emphasis: string | null, };

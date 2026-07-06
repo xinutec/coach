@@ -246,7 +246,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let s = &input.settings;
     let hour = now.hour() as i32;
     let within_window = hour >= s.window_start_hour && hour < s.window_end_hour;
-    let after_cutoff = hour >= s.night_cutoff_hour;
+    // Past the window's end: coach goes quiet and defers to tomorrow (the single
+    // evening line; you can still train + log, it just won't nudge).
+    let after_window = hour >= s.window_end_hour;
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
     let spacing_ok = minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
 
@@ -381,7 +383,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let elapsed = ((now_min - win_start) / (win_end - win_start)).clamp(0.0, 1.0);
     let has_work = suggestion.is_some() && done_today < day_target_sets;
     let behind = has_work && (done_today as f64) < elapsed * day_target_sets as f64;
-    let nudge = within_window && !after_cutoff && has_work && spacing_ok && behind;
+    // `within_window` already implies before the end, so no separate cutoff check.
+    let nudge = within_window && has_work && spacing_ok && behind;
 
     // A short readiness clause, prepended to an active suggestion's reason.
     let readiness_note = match input.readiness.map(|r| r.band) {
@@ -398,7 +401,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
     } else if !has_work {
         "You're on top of it today — nice work.".to_string()
-    } else if after_cutoff {
+    } else if after_window {
         "It's late — this rolls to tomorrow.".to_string()
     } else if !within_window {
         format!(
@@ -426,8 +429,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         String::new()
     };
     // Weave the readiness clause in when we're actually suggesting a set to do now.
-    let suggesting_now =
-        suggestion.is_some() && has_work && within_window && !after_cutoff && spacing_ok;
+    let suggesting_now = suggestion.is_some() && has_work && within_window && spacing_ok;
     let reason = match readiness_note {
         Some(note) if suggesting_now => format!("{note} {reason}"),
         _ => reason,
@@ -441,7 +443,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         nudge,
         reason,
         within_window,
-        after_cutoff,
+        after_window,
         spacing_ok,
         minutes_since_last_set,
         day_target_sets,

@@ -2,7 +2,13 @@
 import type { Mode } from "./Mode";
 import type { Region } from "./Region";
 
-export type Settings = { timezone: string, windowStartHour: number, windowEndHour: number, nightCutoffHour: number, minRestMin: number, 
+export type Settings = { timezone: string, windowStartHour: number, 
+/**
+ * The single evening line: coach nudges inside `[start, end)`; after `end`
+ * it goes quiet and rolls remaining volume to tomorrow (you can still train
+ * + log any time — the window only governs whether coach nudges you).
+ */
+windowEndHour: number, minRestMin: number, 
 /**
  * The active coach mode.
  */

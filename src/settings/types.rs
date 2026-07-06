@@ -50,8 +50,10 @@ db_str!(Mode {
 pub struct Settings {
     pub timezone: String,
     pub window_start_hour: i32,
+    /// The single evening line: coach nudges inside `[start, end)`; after `end`
+    /// it goes quiet and rolls remaining volume to tomorrow (you can still train
+    /// + log any time — the window only governs whether coach nudges you).
     pub window_end_hour: i32,
-    pub night_cutoff_hour: i32,
     pub min_rest_min: i32,
     /// The active coach mode.
     pub mode: Mode,
@@ -67,7 +69,6 @@ impl Default for Settings {
             timezone: "Europe/London".to_string(),
             window_start_hour: 8,
             window_end_hour: 21,
-            night_cutoff_hour: 21,
             min_rest_min: 20,
             mode: Mode::default(),
             days_per_week: 4,
@@ -82,7 +83,6 @@ pub(crate) struct SettingsRow {
     pub timezone: String,
     pub window_start_hour: i32,
     pub window_end_hour: i32,
-    pub night_cutoff_hour: i32,
     pub min_rest_min: i32,
     pub mode: String,
     pub days_per_week: i32,
@@ -96,7 +96,6 @@ impl TryFrom<SettingsRow> for Settings {
             timezone: r.timezone,
             window_start_hour: r.window_start_hour,
             window_end_hour: r.window_end_hour,
-            night_cutoff_hour: r.night_cutoff_hour,
             min_rest_min: r.min_rest_min,
             mode: Mode::from_db(&r.mode).ok_or_else(|| anyhow!("unknown mode {:?}", r.mode))?,
             days_per_week: r.days_per_week,
@@ -118,7 +117,6 @@ pub struct SettingsPatch {
     pub timezone: Option<String>,
     pub window_start_hour: Option<i32>,
     pub window_end_hour: Option<i32>,
-    pub night_cutoff_hour: Option<i32>,
     pub min_rest_min: Option<i32>,
     pub mode: Option<Mode>,
     pub days_per_week: Option<i32>,

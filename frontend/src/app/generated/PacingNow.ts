@@ -18,7 +18,11 @@ deload: boolean,
 /**
  * Biometric readiness driving today's volume/progression, when health had data.
  */
-readiness: Readiness | null, nudge: boolean, reason: string, withinWindow: boolean, afterCutoff: boolean, spacingOk: boolean, minutesSinceLastSet: number | null, 
+readiness: Readiness | null, nudge: boolean, reason: string, withinWindow: boolean, 
+/**
+ * Past the training window's end — coach defers to tomorrow.
+ */
+afterWindow: boolean, spacingOk: boolean, minutesSinceLastSet: number | null, 
 /**
  * The computed session-size target + what's been done today (drive the nudge).
  */

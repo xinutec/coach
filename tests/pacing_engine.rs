@@ -32,7 +32,6 @@ fn settings() -> PacingSettings {
     PacingSettings {
         window_start_hour: 8,
         window_end_hour: 21,
-        night_cutoff_hour: 21,
         min_rest_min: 20,
     }
 }
@@ -365,7 +364,7 @@ fn nudges_when_behind_midday() {
         &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
         now(),
     );
-    assert!(out.within_window && !out.after_cutoff && out.spacing_ok);
+    assert!(out.within_window && !out.after_window && out.spacing_ok);
     assert!(out.nudge);
     assert!(out.day_target_sets >= 3);
 }
@@ -494,6 +493,53 @@ fn high_readiness_notes_the_reason() {
     let out = evaluate(&inp, now());
     assert!(out.suggestion.is_some());
     assert!(out.reason.contains("push"), "reason: {}", out.reason);
+}
+
+#[test]
+fn outside_the_window_suggests_but_never_nudges() {
+    // A due back group; you can still train + get a suggestion outside the window,
+    // coach just won't nudge — and past the end it defers to tomorrow.
+    let hist = || (2..6).map(|d| set(1, days_ago(d))).collect::<Vec<_>>();
+    let at = |hh| {
+        NaiveDate::from_ymd_opt(2026, 7, 6)
+            .unwrap()
+            .and_hms_opt(hh, 0, 0)
+            .unwrap()
+    };
+
+    // After the window's end (22:00, end=21): defers to tomorrow, no nudge.
+    let late = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            hist(),
+            HashMap::new(),
+            None,
+            None,
+        ),
+        at(22),
+    );
+    assert!(late.after_window && !late.within_window);
+    assert!(!late.nudge);
+    assert!(late.suggestion.is_some(), "still trainable any time");
+    assert!(late.reason.contains("rolls to tomorrow"));
+
+    // Before the window's start (06:00, start=8): neutral, no nudge, no defer.
+    let early = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            hist(),
+            HashMap::new(),
+            None,
+            None,
+        ),
+        at(6),
+    );
+    assert!(!early.within_window && !early.after_window);
+    assert!(!early.nudge);
+    assert!(early.suggestion.is_some());
+    assert!(early.reason.contains("Outside your training window"));
 }
 
 #[test]

@@ -45,7 +45,6 @@ pub async fn now(
     let settings = PacingSettings {
         window_start_hour: s.window_start_hour,
         window_end_hour: s.window_end_hour,
-        night_cutoff_hour: s.night_cutoff_hour,
         min_rest_min: s.min_rest_min,
     };
     let mode = mode_override.unwrap_or(s.mode);

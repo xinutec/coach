@@ -56,7 +56,6 @@ pub struct GroupMeta {
 pub struct PacingSettings {
     pub window_start_hour: i32,
     pub window_end_hour: i32,
-    pub night_cutoff_hour: i32,
     pub min_rest_min: i32,
 }
 
@@ -165,7 +164,8 @@ pub struct PacingNow {
     pub nudge: bool,
     pub reason: String,
     pub within_window: bool,
-    pub after_cutoff: bool,
+    /// Past the training window's end — coach defers to tomorrow.
+    pub after_window: bool,
     pub spacing_ok: bool,
     #[ts(type = "number | null")]
     pub minutes_since_last_set: Option<i64>,
