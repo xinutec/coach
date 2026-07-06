@@ -128,18 +128,43 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
     }
 }
 
+/// The next owned weight strictly above `w`. Unknown inventory (`loads` empty) →
+/// the classic +2.5 kg step; a known inventory with nothing heavier → `None` (hold
+/// — you can't load more than you own).
+fn step_up(loads: &[f64], w: f64) -> Option<f64> {
+    if loads.is_empty() {
+        return Some(w + 2.5);
+    }
+    loads.iter().copied().find(|&x| x > w + 1e-6)
+}
+
+/// Snap a load to the nearest weight you actually own (ties → lighter). Unknown
+/// inventory → unchanged.
+fn snap(loads: &[f64], w: f64) -> f64 {
+    loads
+        .iter()
+        .copied()
+        .min_by(|a, b| (a - w).abs().total_cmp(&(b - w).abs()))
+        .unwrap_or(w)
+}
+
 /// Progress an exercise off its last performance: (sets, rep_low, rep_high,
 /// load_kg, hold_s). Double-progression — top of range last time → add load/rep.
 /// When `advance` is false (low readiness) we hold the line: keep last load, no
-/// rep/second bump — recover, don't push for a PR.
+/// rep/second bump — recover, don't push for a PR. `loads` are the discrete
+/// weights owned here (sorted asc): suggestions snap to them, and "add load"
+/// steps to the next weight you own rather than an abstract +2.5 kg.
 fn progress(
     ex: &ExerciseInfo,
     last: Option<&LastPerf>,
     mode: Mode,
     advance: bool,
+    loads: &[f64],
 ) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
     let sets = 3;
     let (lo, hi) = rep_range(mode, ex.metric);
+    // A load to suggest when there's no history: the lightest weight you own.
+    let cold = loads.first().copied();
     match ex.metric {
         Metric::Hold => {
             let base = last.and_then(|l| l.hold_s).unwrap_or(20);
@@ -155,12 +180,20 @@ fn progress(
             let reps = last.and_then(|l| l.reps);
             let load = last.and_then(|l| l.load_kg);
             if !advance {
-                return (sets, lo, hi, load, None); // repeat last load, no bump
+                // Repeat last load (snapped to an owned weight), no bump.
+                return (sets, lo, hi, load.map(|w| snap(loads, w)).or(cold), None);
             }
             match (reps, load, hi) {
-                (Some(r), Some(w), Some(h)) if r >= h => (sets, lo, hi, Some(w + 2.5), None),
-                (Some(r), Some(w), Some(h)) => (sets, Some((r + 1).min(h)), hi, Some(w), None),
-                (_, w, _) => (sets, lo, hi, w, None),
+                (Some(r), Some(w), Some(h)) if r >= h => match step_up(loads, w) {
+                    // Top of range: step to the next weight you own, reps reset.
+                    Some(nw) => (sets, lo, hi, Some(nw), None),
+                    // Nothing heavier owned: hold the top weight + top reps.
+                    None => (sets, Some(h), hi, Some(snap(loads, w)), None),
+                },
+                (Some(r), Some(w), Some(h)) => {
+                    (sets, Some((r + 1).min(h)), hi, Some(snap(loads, w)), None)
+                }
+                (_, w, _) => (sets, lo, hi, w.map(|x| snap(loads, x)).or(cold), None),
             }
         }
         Metric::Reps => {
@@ -225,8 +258,24 @@ fn pick_for_group(
     };
     // Hold progression on a low-readiness day.
     let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
-    let (sets, rep_low, rep_high, load_kg, hold_s) =
-        progress(chosen, input.last_perf.get(&chosen.id), mode, advance);
+    // Weights actually owned here for this exercise's kit (union over its
+    // load-bearing equipment), so the suggested load is one you can load.
+    let mut loads: Vec<f64> = chosen
+        .equipment
+        .iter()
+        .filter_map(|id| input.equipment_loads.get(id))
+        .flatten()
+        .copied()
+        .collect();
+    loads.sort_by(f64::total_cmp);
+    loads.dedup();
+    let (sets, rep_low, rep_high, load_kg, hold_s) = progress(
+        chosen,
+        input.last_perf.get(&chosen.id),
+        mode,
+        advance,
+        &loads,
+    );
     Some(Suggestion {
         exercise_id: chosen.id,
         exercise_name: chosen.name.clone(),

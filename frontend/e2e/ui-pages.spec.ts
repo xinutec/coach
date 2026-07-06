@@ -82,7 +82,9 @@ const LOCATIONS = [
 		id: 1,
 		name: "Home",
 		isDefault: true,
-		equipment: ["pull_up_bar", "gymnastic_rings"],
+		equipment: ["pull_up_bar", "gymnastic_rings", "dumbbell"],
+		equipmentOptions: [{ slug: "dumbbell", weights: [10, 15, 20], labels: [] }],
+		healthPlaceId: null,
 	},
 ];
 

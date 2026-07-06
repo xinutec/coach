@@ -43,6 +43,45 @@
   margin-top: 0.5rem;
 }
 
+// Per-equipment specifics (owned weights / band variants).
+.specifics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  .spec-hint {
+    margin: 0;
+  }
+  .spec-row .spec-name {
+    font: var(--mat-sys-label-medium);
+    color: var(--mat-sys-on-surface-variant);
+    margin-bottom: 0.25rem;
+  }
+  // A number/text field that reads as one more chip in the row.
+  .spec-in {
+    min-width: 4.5rem;
+    max-width: 6rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    border: 1px dashed var(--mat-sys-outline);
+    background: transparent;
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-label-large);
+  }
+}
+
+// Specifics shown on the location card.
+.spec-view {
+  margin-top: 0.35rem;
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
+
+  .spec-view-name {
+    color: var(--mat-sys-on-surface);
+    margin-right: 0.3rem;
+  }
+}
+
 .editor {
   display: flex;
   flex-direction: column;

@@ -74,6 +74,10 @@ pub struct PacingInput {
     /// Equipment available at the selected location. `None` = no filter; `Some` =
     /// the suggestion must be doable here (a location-blocked ideal is swapped out).
     pub available_equipment: Option<std::collections::HashSet<i64>>,
+    /// Discrete owned weights (kg, sorted asc) per equipment id at the selected
+    /// location — the engine snaps load suggestions to these. Empty for an
+    /// equipment (or no location) → classic +2.5 kg progression, no snapping.
+    pub equipment_loads: HashMap<i64, Vec<f64>>,
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,

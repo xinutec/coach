@@ -54,6 +54,55 @@
       }
     </div>
 
+    @if (weightedSlugs().length || bandSlugs().length) {
+      <div class="specifics">
+        <div class="cat-name">Which ones?</div>
+        <p class="hint spec-hint">
+          Add the exact weights / bands you have, so coach only suggests a load you
+          can actually pick up. Leave blank if you'd rather not.
+        </p>
+        @for (slug of weightedSlugs(); track slug) {
+          <div class="spec-row">
+            <div class="spec-name">{{ equipLabel(slug) }} — weights (kg)</div>
+            <div class="chips">
+              @for (w of weightsOf(slug); track w) {
+                <button type="button" class="chip on" (click)="removeWeight(slug, w)">
+                  {{ w }} <mat-icon>close</mat-icon>
+                </button>
+              }
+              <input
+                #wIn
+                class="spec-in"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                placeholder="+ kg"
+                (keyup.enter)="addWeight(slug, wIn.value); wIn.value = ''"
+              />
+            </div>
+          </div>
+        }
+        @for (slug of bandSlugs(); track slug) {
+          <div class="spec-row">
+            <div class="spec-name">{{ equipLabel(slug) }} — which</div>
+            <div class="chips">
+              @for (l of labelsOf(slug); track l) {
+                <button type="button" class="chip on" (click)="removeLabel(slug, l)">
+                  {{ l }} <mat-icon>close</mat-icon>
+                </button>
+              }
+              <input
+                #lIn
+                class="spec-in"
+                placeholder="+ e.g. light"
+                (keyup.enter)="addLabel(slug, lIn.value); lIn.value = ''"
+              />
+            </div>
+          </div>
+        }
+      </div>
+    }
+
     <div class="actions">
       <button mat-button (click)="cancel()">Cancel</button>
       <button mat-flat-button [disabled]="saving()" (click)="save()">Save</button>
@@ -86,6 +135,17 @@
           <span class="pill">{{ equipLabel(s) }}</span>
         }
       </div>
+      @for (o of loc.equipmentOptions; track o.slug) {
+        <div class="spec-view">
+          <span class="spec-view-name">{{ equipLabel(o.slug) }}:</span>
+          @if (o.weights.length) {
+            <span>{{ o.weights.join(", ") }} kg</span>
+          }
+          @if (o.labels.length) {
+            <span>{{ o.labels.join(", ") }}</span>
+          }
+        </div>
+      }
     </div>
   } @empty {
     @if (!loading()) {

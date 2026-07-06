@@ -14,6 +14,19 @@ where
     Ok(Some(Option::deserialize(de)?))
 }
 
+/// Per-equipment specifics at a location: which discrete weights (free weights)
+/// or named variants (bands) you actually own. Empty vecs = no specifics given.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EquipmentOption {
+    pub slug: String,
+    /// Discrete weights owned (kg) — coach snaps load suggestions to these.
+    pub weights: Vec<f64>,
+    /// Named variants owned (e.g. band tensions) — informational.
+    pub labels: Vec<String>,
+}
+
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -23,6 +36,9 @@ pub struct Location {
     pub name: String,
     pub is_default: bool,
     pub equipment: Vec<String>,
+    /// Specifics for equipment that has them (weights/band variants). Only
+    /// equipment with at least one option appears here.
+    pub equipment_options: Vec<EquipmentOption>,
     /// health-sync focus_place this location is linked to (for auto-select), if any.
     #[ts(type = "number | null")]
     pub health_place_id: Option<i64>,
@@ -48,6 +64,7 @@ impl From<LocationRow> for Location {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.split(',').map(str::to_string).collect())
                 .unwrap_or_default(),
+            equipment_options: Vec::new(), // filled by the repo (separate query)
             health_place_id: r.health_place_id,
         }
     }
@@ -73,6 +90,8 @@ pub struct NewLocation {
     #[serde(default)]
     pub equipment: Vec<String>,
     #[serde(default)]
+    pub equipment_options: Vec<EquipmentOption>,
+    #[serde(default)]
     #[ts(type = "number | null")]
     pub health_place_id: Option<i64>,
 }
@@ -85,6 +104,8 @@ pub struct LocationPatch {
     pub is_default: Option<bool>,
     /// When present, replaces the whole equipment set.
     pub equipment: Option<Vec<String>>,
+    /// When present, replaces all per-equipment specifics (weights/band variants).
+    pub equipment_options: Option<Vec<EquipmentOption>>,
     /// Link to a health focus_place: absent → unchanged, `null` → unlink, id → link.
     #[serde(default, deserialize_with = "double_option")]
     #[ts(type = "number | null")]

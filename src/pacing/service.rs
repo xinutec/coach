@@ -55,6 +55,11 @@ pub async fn now(
             .map(|ids| ids.into_iter().collect::<HashSet<i64>>()),
         None => None,
     };
+    // Discrete owned weights per equipment at this location (for load snapping).
+    let equipment_loads = match location_id {
+        Some(id) => location_repo::equipment_loads(pool, id).await?,
+        None => std::collections::HashMap::new(),
+    };
 
     // Exercise metadata: equipment ids, muscle-group contributions, skill flag.
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
@@ -139,6 +144,7 @@ pub async fn now(
         settings,
         groups,
         available_equipment,
+        equipment_loads,
         readiness,
     };
     Ok(engine::evaluate(&inp, now_local))

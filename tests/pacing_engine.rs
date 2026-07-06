@@ -108,6 +108,7 @@ fn input(
         settings: settings(),
         groups: groups(),
         available_equipment: available.map(|v| v.into_iter().collect()),
+        equipment_loads: HashMap::new(),
         readiness: None,
     }
 }
@@ -540,6 +541,60 @@ fn outside_the_window_suggests_but_never_nudges() {
     assert!(!early.nudge);
     assert!(early.suggestion.is_some());
     assert!(early.reason.contains("Outside your training window"));
+}
+
+#[test]
+fn snaps_load_to_the_weights_you_own() {
+    // A dumbbell exercise (equipment id 3); you own 10 / 15 / 20 kg here.
+    let exs = vec![ex(
+        5,
+        "DB row",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![3],
+        vec![(20, MuscleRole::Primary)],
+    )];
+    let g = vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }];
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![10.0, 15.0, 20.0])]);
+    let sug = |lp: HashMap<i64, LastPerf>| {
+        let inp = PacingInput {
+            groups: g.clone(),
+            equipment_loads: owned.clone(),
+            ..input(Mode::Strength, exs.clone(), vec![], lp, None, Some(vec![3]))
+        };
+        evaluate(&inp, now()).suggestion.unwrap()
+    };
+    let last = |reps, load| {
+        HashMap::from([(
+            5i64,
+            LastPerf {
+                reps: Some(reps),
+                load_kg: Some(load),
+                hold_s: None,
+            },
+        )])
+    };
+
+    // Top of range at 15 → step to the next weight owned (20), reps reset — not 17.5.
+    let up = sug(last(6, 15.0));
+    assert_eq!(up.load_kg, Some(20.0));
+    assert_eq!(up.rep_low, Some(3));
+
+    // An unowned last load (16) snaps to the nearest owned (15).
+    assert_eq!(sug(last(4, 16.0)).load_kg, Some(15.0));
+
+    // At the heaviest owned (20) with nothing heavier → hold weight + top reps.
+    let capped = sug(last(6, 20.0));
+    assert_eq!(capped.load_kg, Some(20.0));
+    assert_eq!(capped.rep_low, capped.rep_high);
+
+    // No history → suggest the lightest weight you own (10), not nothing.
+    assert_eq!(sug(HashMap::new()).load_kg, Some(10.0));
 }
 
 #[test]
