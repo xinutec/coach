@@ -17,3 +17,12 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<Muscle>> {
     .map(Muscle::try_from)
     .collect()
 }
+
+/// Muscle groups as (id, name, region-string) — for the engine's per-group volume.
+pub async fn groups(pool: &MySqlPool) -> Result<Vec<(i64, String, String)>> {
+    Ok(
+        sqlx::query_as("SELECT id, name, region FROM muscle_groups ORDER BY region, name")
+            .fetch_all(pool)
+            .await?,
+    )
+}

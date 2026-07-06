@@ -8,6 +8,31 @@
   </p>
 
   <div class="sheet-form">
+    <div class="pair">
+      <mat-form-field appearance="outline">
+        <mat-label>Default mode</mat-label>
+        <mat-select [(ngModel)]="f.mode">
+          @for (m of modes; track m) {
+            <mat-option [value]="m">{{ label(m) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Days / week</mat-label>
+        <input matInput type="number" min="1" max="7" [(ngModel)]="f.daysPerWeek" />
+      </mat-form-field>
+    </div>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Emphasis</mat-label>
+      <mat-select [(ngModel)]="f.emphasis">
+        <mat-option [value]="null">None — balanced</mat-option>
+        @for (r of regions; track r) {
+          <mat-option [value]="r">{{ label(r) }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
     <mat-form-field appearance="outline">
       <mat-label>Timezone</mat-label>
       <input matInput [(ngModel)]="f.timezone" />
@@ -69,15 +94,6 @@
     </div>
   </div>
 }
-
-<a routerLink="/locations" class="nav-link">
-  <mat-icon>place</mat-icon>
-  <span class="nav-link-text">
-    <span class="nav-link-title">Locations</span>
-    <span class="hint">Where you train, and the kit you have there</span>
-  </span>
-  <mat-icon>chevron_right</mat-icon>
-</a>
 
 <div class="updates">
   <button mat-stroked-button (click)="checkUpdates()">Check for updates</button>

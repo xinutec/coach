@@ -43,7 +43,7 @@ export class App {
 
   readonly nav: NavItem[] = [
     { path: "/today", icon: "bolt", label: "Today" },
-    { path: "/program", icon: "calendar_month", label: "Program" },
+    { path: "/balance", icon: "equalizer", label: "Balance" },
     { path: "/library", icon: "fitness_center", label: "Library" },
     { path: "/history", icon: "history", label: "History" },
     { path: "/settings", icon: "settings", label: "Settings" },

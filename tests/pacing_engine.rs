@@ -1,20 +1,30 @@
-//! Pacing-engine tests. Integration tests (public API) rather than an inline
-//! `#[cfg(test)] mod` in src/ — `evaluate` + its input/output types are public,
-//! so the engine is exercised through the same surface callers use.
+//! Dynamic-engine tests. Integration tests against the public `evaluate` + its
+//! input/output types — the engine is a pure function, exercised through the same
+//! surface `service::now` uses.
 
-use chrono::{NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
+use std::collections::HashMap;
 
-use coach::exercise::types::Pattern;
+use coach::exercise::types::{Metric, Pattern};
+use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    ExerciseInfo, PacingInput, PacingSettings, PacingState, PinInfo, ProgramInfo, SetInfo,
-    TargetInfo,
+    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingSettings, PacingState, SetRec,
 };
+use coach::settings::types::Mode;
 
-fn dt(y: i32, m: u32, d: u32, h: u32, min: u32) -> NaiveDateTime {
-    NaiveDate::from_ymd_opt(y, m, d)
+// Fixed "now": Mon 2026-07-06 12:00 (inside an 08:00–21:00 window).
+fn now() -> NaiveDateTime {
+    NaiveDate::from_ymd_opt(2026, 7, 6)
         .unwrap()
-        .and_time(NaiveTime::from_hms_opt(h, min, 0).unwrap())
+        .and_hms_opt(12, 0, 0)
+        .unwrap()
+}
+fn days_ago(d: i64) -> NaiveDateTime {
+    now() - Duration::days(d)
+}
+fn hours_ago(h: i64) -> NaiveDateTime {
+    now() - Duration::hours(h)
 }
 
 fn settings() -> PacingSettings {
@@ -26,325 +36,354 @@ fn settings() -> PacingSettings {
     }
 }
 
-// Program starts Mon 2026-06-29, 4 weeks, deload wk4.
-fn program() -> ProgramInfo {
-    ProgramInfo {
-        start_date: NaiveDate::from_ymd_opt(2026, 6, 29).unwrap(),
-        weeks: 4,
-        deload_week: Some(4),
+// Group ids/meta: 10 Chest(chest), 20 Lats(back), 30 Quads(legs).
+fn groups() -> Vec<GroupMeta> {
+    vec![
+        GroupMeta {
+            id: 10,
+            name: "Chest".into(),
+            region: Region::Chest,
+        },
+        GroupMeta {
+            id: 20,
+            name: "Lats".into(),
+            region: Region::Back,
+        },
+        GroupMeta {
+            id: 30,
+            name: "Quadriceps".into(),
+            region: Region::Legs,
+        },
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn ex(
+    id: i64,
+    name: &str,
+    pattern: Pattern,
+    metric: Metric,
+    is_skill: bool,
+    equipment: Vec<i64>,
+    grps: Vec<(i64, MuscleRole)>,
+) -> ExerciseInfo {
+    ExerciseInfo {
+        id,
+        name: name.into(),
+        pattern,
+        metric,
+        is_skill,
+        equipment,
+        groups: grps,
     }
 }
 
-fn one_exercise() -> Vec<ExerciseInfo> {
-    vec![ExerciseInfo {
-        id: 1,
-        name: "Pull-up".to_string(),
-        pattern: Pattern::Pull,
-        equipment: vec![],
-        primary_muscles: vec![],
-    }]
-}
-
-// 7 sets/week of exercise 1, for the given week.
-fn target(week: i32, sets: i32) -> TargetInfo {
-    TargetInfo {
-        exercise_id: 1,
-        week_index: week,
-        target_sets: sets,
-        rep_low: Some(5),
-        rep_high: Some(8),
+fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
+    SetRec {
+        exercise_id,
+        logged_at: at,
+        reps: Some(8),
         load_kg: None,
         hold_s: None,
     }
 }
 
 fn input(
-    program: Option<ProgramInfo>,
-    targets: Vec<TargetInfo>,
-    pins: Vec<PinInfo>,
-    sets: Vec<SetInfo>,
-    last: Option<NaiveDateTime>,
-) -> PacingInput {
-    PacingInput {
-        program,
-        exercises: one_exercise(),
-        targets,
-        pins,
-        sets_this_week: sets,
-        last_set_at: last,
-        settings: settings(),
-        available_equipment: None,
-    }
-}
-
-#[test]
-fn no_program() {
-    let inp = input(None, vec![], vec![], vec![], None);
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    assert_eq!(out.state, PacingState::NoProgram);
-    assert!(!out.nudge);
-    assert!(out.suggestion.is_none());
-}
-
-#[test]
-fn not_started() {
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    // Day before the program starts.
-    let out = evaluate(&inp, dt(2026, 6, 28, 10, 0));
-    assert_eq!(out.state, PacingState::NotStarted);
-    assert!(!out.nudge);
-}
-
-#[test]
-fn complete_after_last_week() {
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    // 4 weeks from Mon 06-29 → week 5 starts 07-27.
-    let out = evaluate(&inp, dt(2026, 7, 27, 10, 0));
-    assert_eq!(out.state, PacingState::Complete);
-    assert_eq!(out.week_index, Some(5));
-    assert!(!out.nudge);
-}
-
-#[test]
-fn week_index_and_deload_detected() {
-    let inp = input(Some(program()), vec![target(4, 3)], vec![], vec![], None);
-    // Week 4 (deload): Mon 07-20.
-    let out = evaluate(&inp, dt(2026, 7, 20, 10, 0));
-    assert_eq!(out.week_index, Some(4));
-    assert!(out.is_deload);
-}
-
-#[test]
-fn behind_early_in_window_nudges() {
-    // Monday 10:00, nothing done. 7/week over 7 days → 1 due today; the
-    // window is ~15% elapsed with 0 done, so we're behind → nudge.
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    assert_eq!(out.state, PacingState::Active);
-    assert_eq!(out.day_remaining_sets, 1);
-    assert_eq!(out.week_remaining_sets, 7);
-    assert!(out.within_window && !out.after_cutoff && out.spacing_ok);
-    assert!(out.nudge);
-    let sug = out.suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 1);
-    assert_eq!(sug.sets, 1);
-}
-
-#[test]
-fn right_at_window_open_not_behind() {
-    // 08:00 exactly: window progress 0, ideal done 0 → not behind → no nudge,
-    // even though there's work. Gives the morning a grace period.
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    let out = evaluate(&inp, dt(2026, 6, 29, 8, 0));
-    assert!(out.day_remaining_sets > 0);
-    assert!(!out.nudge);
-}
-
-#[test]
-fn spacing_blocks_nudge() {
-    // Behind, but a set was logged 5 min ago (< 20 min rest) → no nudge.
-    let last = dt(2026, 6, 29, 9, 55);
-    let inp = input(
-        Some(program()),
-        vec![target(1, 7)],
-        vec![],
-        vec![],
-        Some(last),
-    );
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    assert!(!out.spacing_ok);
-    assert!(!out.nudge);
-}
-
-#[test]
-fn after_cutoff_no_nudge_rolls_over() {
-    // 21:30, behind, but past the night cutoff → no nudge, roll-over reason.
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    let out = evaluate(&inp, dt(2026, 6, 29, 21, 30));
-    assert!(out.after_cutoff);
-    assert!(!out.nudge);
-    assert!(out.reason.contains("roll to tomorrow"));
-}
-
-#[test]
-fn done_for_today_when_target_met() {
-    // Did today's 1 set → nothing remaining today → no nudge, done reason.
-    let sets = vec![SetInfo {
-        exercise_id: 1,
-        logged_at: dt(2026, 6, 29, 9, 0),
-    }];
-    let inp = input(
-        Some(program()),
-        vec![target(1, 7)],
-        vec![],
-        sets,
-        Some(dt(2026, 6, 29, 9, 0)),
-    );
-    let out = evaluate(&inp, dt(2026, 6, 29, 12, 0));
-    assert_eq!(out.day_remaining_sets, 0);
-    assert!(!out.nudge);
-    assert!(out.reason.contains("done for today"));
-    // One of 7 weekly sets done.
-    assert_eq!(out.week_remaining_sets, 6);
-}
-
-#[test]
-fn pin_raises_today_target() {
-    // Pin 3 sets of exercise 1 to Monday (weekday 0). Today is Monday →
-    // today's target is at least 3 (vs the fair share of 1).
-    let pins = vec![PinInfo {
-        exercise_id: 1,
-        weekday: 0,
-        sets: 3,
-    }];
-    let inp = input(Some(program()), vec![target(1, 7)], pins, vec![], None);
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    assert_eq!(out.day_remaining_sets, 3);
-}
-
-#[test]
-fn fair_share_rounds_up_midweek() {
-    // Thursday (weekday 3) of week 1, 7 sets none done → 4 days left,
-    // ceil(7/4)=2 due today.
-    let inp = input(Some(program()), vec![target(1, 7)], vec![], vec![], None);
-    let out = evaluate(&inp, dt(2026, 7, 2, 10, 0)); // Thu
-    assert_eq!(out.day_remaining_sets, 2);
-}
-
-#[test]
-fn not_behind_when_on_pace_no_nudge() {
-    // Late in the window (20:00) having done today's 1 set earlier → on pace,
-    // nothing left → no nudge.
-    let sets = vec![SetInfo {
-        exercise_id: 1,
-        logged_at: dt(2026, 6, 29, 9, 0),
-    }];
-    let inp = input(
-        Some(program()),
-        vec![target(1, 7)],
-        vec![],
-        sets,
-        Some(dt(2026, 6, 29, 9, 0)),
-    );
-    let out = evaluate(&inp, dt(2026, 6, 29, 20, 0));
-    assert!(!out.nudge);
-    assert_eq!(out.day_remaining_sets, 0);
-}
-
-// ---- location-aware suggestion + substitution -----------------------------
-
-fn ex(
-    id: i64,
-    name: &str,
-    pattern: Pattern,
-    equipment: Vec<i64>,
-    primary: Vec<i64>,
-) -> ExerciseInfo {
-    ExerciseInfo {
-        id,
-        name: name.to_string(),
-        pattern,
-        equipment,
-        primary_muscles: primary,
-    }
-}
-
-fn target_ex(exercise_id: i64, week: i32, sets: i32) -> TargetInfo {
-    TargetInfo {
-        exercise_id,
-        week_index: week,
-        target_sets: sets,
-        rep_low: Some(5),
-        rep_high: Some(8),
-        load_kg: None,
-        hold_s: None,
-    }
-}
-
-// Program week 1, no history; only the exercises/targets and location vary.
-fn loc_input(
+    mode: Mode,
     exercises: Vec<ExerciseInfo>,
-    targets: Vec<TargetInfo>,
+    history: Vec<SetRec>,
+    last_perf: HashMap<i64, LastPerf>,
+    emphasis: Option<Region>,
     available: Option<Vec<i64>>,
 ) -> PacingInput {
+    let last_set_at = history.iter().map(|s| s.logged_at).max();
     PacingInput {
-        program: Some(program()),
+        mode,
+        days_per_week: 4,
+        emphasis,
         exercises,
-        targets,
-        pins: vec![],
-        sets_this_week: vec![],
-        last_set_at: None,
+        history,
+        last_perf,
+        last_set_at,
         settings: settings(),
+        groups: groups(),
         available_equipment: available.map(|v| v.into_iter().collect()),
     }
 }
 
+// A catalog covering all three groups, bodyweight (doable anywhere).
+fn catalog() -> Vec<ExerciseInfo> {
+    vec![
+        ex(
+            1,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            3,
+            "Squat",
+            Pattern::Legs,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(30, MuscleRole::Primary)],
+        ),
+    ]
+}
+
 #[test]
-fn location_substitutes_when_goal_kit_missing() {
-    // Goal is a barbell row (equipment 1); a bodyweight ring row hits the same
-    // muscles. At a bodyweight-only location the suggestion swaps in the ring row.
-    let exercises = vec![
-        ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100, 101]),
-        ex(11, "Ring row", Pattern::Pull, vec![], vec![100, 101]),
+fn fresh_when_no_history() {
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            vec![],
+            HashMap::new(),
+            None,
+            None,
+        ),
+        now(),
+    );
+    assert_eq!(out.state, PacingState::Fresh);
+    assert!(
+        out.suggestion.is_some(),
+        "cold start still suggests something"
+    );
+    assert_eq!(out.groups.len(), 3);
+}
+
+#[test]
+fn surfaces_the_lagging_group() {
+    // Chest + legs trained a lot this week; back untouched → back is the focus.
+    let mut h = vec![];
+    for d in 1..6 {
+        h.push(set(1, days_ago(d))); // push-up (chest)
+        h.push(set(3, days_ago(d))); // squat (legs)
+    }
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
+        now(),
+    );
+    assert_eq!(out.state, PacingState::Active);
+    let sug = out.suggestion.unwrap();
+    assert_eq!(sug.exercise_id, 2); // ring row — the back exercise
+    assert_eq!(sug.group, "Lats");
+}
+
+#[test]
+fn recovery_gate_skips_a_just_worked_group() {
+    // Back hammered 6h ago (recovering); chest untouched → chest surfaces.
+    let mut h = vec![];
+    for _ in 0..4 {
+        h.push(set(2, hours_ago(6))); // ring row (back), recent
+    }
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
+        now(),
+    );
+    let sug = out.suggestion.unwrap();
+    assert_ne!(sug.group, "Lats", "the just-worked group is gated out");
+    let back = out.groups.iter().find(|g| g.group == "Lats").unwrap();
+    assert!(back.recovering);
+}
+
+#[test]
+fn mode_changes_the_bias() {
+    // Two back exercises: a loaded barbell row and a bodyweight ring skill.
+    let exs = vec![
+        ex(
+            5,
+            "Barbell row",
+            Pattern::Pull,
+            Metric::WeightedReps,
+            false,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            6,
+            "Front lever row",
+            Pattern::Pull,
+            Metric::Reps,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
     ];
-    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    let sug = out.suggestion.expect("a substitute is available");
-    assert_eq!(sug.exercise_id, 11);
+    let g = vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }];
+    let mk = |mode| PacingInput {
+        groups: g.clone(),
+        ..input(mode, exs.clone(), vec![], HashMap::new(), None, None)
+    };
+    let strength = evaluate(&mk(Mode::Strength), now()).suggestion.unwrap();
+    let skills = evaluate(&mk(Mode::Skills), now()).suggestion.unwrap();
+    assert_eq!(strength.exercise_id, 5, "strength favours the loaded row");
+    assert_eq!(skills.exercise_id, 6, "skills favours the ring skill");
+}
+
+#[test]
+fn location_substitutes_the_ideal() {
+    // Strength → barbell row is ideal, but the barbell (id 101) isn't here; the
+    // ring row (bodyweight) is swapped in.
+    let exs = vec![
+        ex(
+            5,
+            "Barbell row",
+            Pattern::Pull,
+            Metric::WeightedReps,
+            false,
+            vec![101],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+    ];
+    let g = vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }];
+    let inp = PacingInput {
+        groups: g,
+        ..input(
+            Mode::Strength,
+            exs,
+            vec![],
+            HashMap::new(),
+            None,
+            Some(vec![]),
+        )
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.exercise_id, 2);
     assert_eq!(sug.substituted_for.as_deref(), Some("Barbell row"));
 }
 
 #[test]
-fn substitute_ranked_by_muscle_overlap() {
-    // Two bodyweight alternatives; the one sharing more primary muscles wins.
-    let exercises = vec![
-        ex(
-            10,
-            "Barbell row",
-            Pattern::Pull,
-            vec![1],
-            vec![100, 101, 102],
-        ),
-        ex(11, "Shrug", Pattern::Pull, vec![], vec![100]), // overlap 1
-        ex(12, "Inverted row", Pattern::Pull, vec![], vec![100, 101]), // overlap 2
-    ];
-    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    assert_eq!(out.suggestion.unwrap().exercise_id, 12);
+fn progression_bumps_load_at_top_of_range() {
+    // Last session hit the top of the strength range at 60kg → +2.5kg, reps reset.
+    let exs = vec![ex(
+        5,
+        "Barbell row",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![],
+        vec![(20, MuscleRole::Primary)],
+    )];
+    let g = vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }];
+    let mut lp = HashMap::new();
+    lp.insert(
+        5,
+        LastPerf {
+            reps: Some(6),
+            load_kg: Some(60.0),
+            hold_s: None,
+        },
+    ); // 6 = top of Strength weighted range
+    let inp = PacingInput {
+        groups: g,
+        ..input(Mode::Strength, exs, vec![], lp, None, None)
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.load_kg, Some(62.5));
+    assert_eq!(sug.rep_low, Some(3));
 }
 
 #[test]
-fn no_substitute_when_nothing_doable_here() {
-    // Only a barbell movement exists; a bodyweight location can't do it and has
-    // no alternative → no suggestion (but the weekly goal still stands).
-    let exercises = vec![ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100])];
-    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![]));
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
+fn rest_when_everything_recovered() {
+    // Every group trained hard in the last day → nothing due → Rest.
+    let mut h = vec![];
+    for _ in 0..5 {
+        h.push(set(1, hours_ago(10)));
+        h.push(set(2, hours_ago(10)));
+        h.push(set(3, hours_ago(10)));
+    }
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
+        now(),
+    );
+    assert_eq!(out.state, PacingState::Rest);
     assert!(out.suggestion.is_none());
-    assert_eq!(out.day_remaining_sets, 1); // the goal is unchanged by location
+    assert!(out.reason.contains("rest"));
 }
 
 #[test]
-fn doable_goal_suggested_directly_at_location() {
-    // The goal itself is doable here → suggested as-is, no substitution.
-    let exercises = vec![ex(11, "Ring row", Pattern::Pull, vec![], vec![100])];
-    let inp = loc_input(exercises, vec![target_ex(11, 1, 7)], Some(vec![]));
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    let sug = out.suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 11);
-    assert!(sug.substituted_for.is_none());
+fn auto_deload_when_volume_spikes() {
+    // Almost all volume is in the last 7 days (far above the 8-week average).
+    let mut h = vec![];
+    for d in 0..7 {
+        for _ in 0..10 {
+            h.push(set(1, days_ago(d)));
+        }
+    }
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
+        now(),
+    );
+    assert!(out.deload, "a recent volume spike triggers auto-deload");
 }
 
 #[test]
-fn barbell_available_keeps_the_goal() {
-    // With the barbell present, the goal is doable → no substitution.
-    let exercises = vec![
-        ex(10, "Barbell row", Pattern::Pull, vec![1], vec![100, 101]),
-        ex(11, "Ring row", Pattern::Pull, vec![], vec![100, 101]),
-    ];
-    let inp = loc_input(exercises, vec![target_ex(10, 1, 7)], Some(vec![1]));
-    let out = evaluate(&inp, dt(2026, 6, 29, 10, 0));
-    let sug = out.suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 10);
-    assert!(sug.substituted_for.is_none());
+fn nudges_when_behind_midday() {
+    // A due group + nothing done today + spacing ok → behind → nudge.
+    let mut h = vec![];
+    for d in 2..6 {
+        h.push(set(1, days_ago(d)));
+    }
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
+        now(),
+    );
+    assert!(out.within_window && !out.after_cutoff && out.spacing_ok);
+    assert!(out.nudge);
+    assert!(out.day_target_sets >= 3);
+}
+
+#[test]
+fn emphasis_biases_a_region() {
+    // Nothing done; legs emphasis pushes the quads target up so legs leads.
+    let inp = input(
+        Mode::Balanced,
+        catalog(),
+        vec![],
+        HashMap::new(),
+        Some(Region::Legs),
+        None,
+    );
+    let out = evaluate(&inp, now());
+    let quads = out.groups.iter().find(|g| g.group == "Quadriceps").unwrap();
+    let chest = out.groups.iter().find(|g| g.group == "Chest").unwrap();
+    assert!(
+        quads.target > chest.target,
+        "emphasised region has a higher target"
+    );
 }

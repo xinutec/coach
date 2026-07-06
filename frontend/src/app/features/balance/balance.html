@@ -1,0 +1,22 @@
+<h2>Balance</h2>
+<p class="hint">
+  Rolling volume (last 7 days) vs your target per muscle group — the picture the
+  coach reasons over when it picks what's next. Dimmed = still recovering.
+</p>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" />
+} @else {
+  @for (r of byRegion(); track r.region) {
+    <h3>{{ regionLabel(r.region) }}</h3>
+    @for (g of r.groups; track g.group) {
+      <div class="bal-row" [class.recovering]="g.recovering">
+        <div class="bal-line">
+          <span>{{ g.group }}</span>
+          <span class="bal-count">{{ round1(g.current) }} / {{ round0(g.target) }}</span>
+        </div>
+        <mat-progress-bar mode="determinate" [value]="pct(g.current, g.target)" />
+      </div>
+    }
+  }
+}

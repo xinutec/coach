@@ -1,10 +1,10 @@
 import { Component, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { RouterLink } from "@angular/router";
 import { MatButtonModule } from "@angular/material/button";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
+import { MatSelectModule } from "@angular/material/select";
 
 import { CoachApi } from "../../coach-api";
 import { Settings } from "../../models";
@@ -29,16 +29,22 @@ function coachAndroid(): CoachAndroidBridge | null {
   styleUrl: "./settings.scss",
   imports: [
     FormsModule,
-    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
   ],
 })
 export class SettingsPage {
   private api = inject(CoachApi);
   private swUpdates = inject(SwUpdates);
+
+  readonly modes = ["balanced", "strength", "skills", "conditioning"] as const;
+  readonly regions = ["chest", "back", "shoulders", "arms", "forearms", "core", "legs"] as const;
+  label(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
 
   // Signal so a zoneless view refreshes when the async load/save resolves. The
   // form fields two-way-bind to the held object's properties (mutating them in

@@ -3,18 +3,22 @@
 use anyhow::Result;
 use sqlx::MySqlPool;
 
-use super::types::{Settings, SettingsPatch};
+use super::types::{Settings, SettingsPatch, SettingsRow};
 
 /// Current settings, or defaults if the user has never saved any.
 pub async fn get(pool: &MySqlPool, user_id: &str) -> Result<Settings> {
-    let row = sqlx::query_as::<_, Settings>(
-        "SELECT timezone, window_start_hour, window_end_hour, night_cutoff_hour, min_rest_min \
+    let row = sqlx::query_as::<_, SettingsRow>(
+        "SELECT timezone, window_start_hour, window_end_hour, night_cutoff_hour, \
+                min_rest_min, mode, days_per_week, emphasis \
          FROM settings WHERE user_id = ?",
     )
     .bind(user_id)
     .fetch_optional(pool)
     .await?;
-    Ok(row.unwrap_or_default())
+    match row {
+        Some(r) => Settings::try_from(r),
+        None => Ok(Settings::default()),
+    }
 }
 
 /// Apply a patch over the current (or default) settings and upsert the row.
@@ -35,16 +39,29 @@ pub async fn upsert(pool: &MySqlPool, user_id: &str, p: &SettingsPatch) -> Resul
     if let Some(v) = p.min_rest_min {
         s.min_rest_min = v;
     }
+    if let Some(v) = p.mode {
+        s.mode = v;
+    }
+    if let Some(v) = p.days_per_week {
+        s.days_per_week = v;
+    }
+    if let Some(v) = p.emphasis {
+        s.emphasis = v; // double-option: present → set (a region or null)
+    }
     sqlx::query(
         "INSERT INTO settings \
-           (user_id, timezone, window_start_hour, window_end_hour, night_cutoff_hour, min_rest_min, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, NOW()) \
+           (user_id, timezone, window_start_hour, window_end_hour, night_cutoff_hour, \
+            min_rest_min, mode, days_per_week, emphasis, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()) \
          ON DUPLICATE KEY UPDATE \
            timezone = VALUES(timezone), \
            window_start_hour = VALUES(window_start_hour), \
            window_end_hour = VALUES(window_end_hour), \
            night_cutoff_hour = VALUES(night_cutoff_hour), \
            min_rest_min = VALUES(min_rest_min), \
+           mode = VALUES(mode), \
+           days_per_week = VALUES(days_per_week), \
+           emphasis = VALUES(emphasis), \
            updated_at = NOW()",
     )
     .bind(user_id)
@@ -53,6 +70,9 @@ pub async fn upsert(pool: &MySqlPool, user_id: &str, p: &SettingsPatch) -> Resul
     .bind(s.window_end_hour)
     .bind(s.night_cutoff_hour)
     .bind(s.min_rest_min)
+    .bind(s.mode.as_db())
+    .bind(s.days_per_week)
+    .bind(s.emphasis.map(|r| r.as_db()))
     .execute(pool)
     .await?;
     Ok(s)

@@ -11,8 +11,10 @@ import { MatSelectModule } from "@angular/material/select";
 import { forkJoin } from "rxjs";
 
 import { CoachApi } from "../../coach-api";
-import { Exercise, Location, PacingNow } from "../../models";
+import { Exercise, GroupBalance, Location, Mode, PacingNow } from "../../models";
 import { LogSheet, LogSheetData } from "../log/log-sheet";
+
+const MODES: Mode[] = ["balanced", "strength", "skills", "conditioning"];
 
 @Component({
   selector: "app-today",
@@ -37,10 +39,12 @@ export class Today {
   readonly exercises = signal<Exercise[]>([]);
   readonly locations = signal<Location[]>([]);
   readonly loading = signal(true);
-  readonly starting = signal(false);
-  // null = "Anywhere" (no location filter). Initialised to the default location,
-  // then upgraded to the auto-detected current location (best-effort) unless the
-  // user has already picked one.
+
+  readonly modes = MODES;
+  readonly selectedMode = signal<Mode>("balanced");
+
+  // null = "Anywhere". Initialised to the default location, then upgraded to the
+  // auto-detected current location (best-effort) unless the user has picked one.
   readonly selectedLocationId = signal<number | null>(null);
   readonly autoDetected = signal(false);
   private userPickedLocation = false;
@@ -50,19 +54,19 @@ export class Today {
     this.loadAll();
   }
 
-  /** Load the static context (exercises, locations, kit names) then the pacing
-   *  verdict for the default location. */
   loadAll(): void {
     this.loading.set(true);
     forkJoin({
       exercises: this.api.exercises(),
       locations: this.api.locations(),
       equipment: this.api.equipment(),
+      settings: this.api.settings(),
     }).subscribe({
-      next: ({ exercises, locations, equipment }) => {
+      next: ({ exercises, locations, equipment, settings }) => {
         this.exercises.set(exercises);
         this.locations.set(locations);
         this.equipmentNames.set(new Map(equipment.map((e) => [e.slug, e.name])));
+        this.selectedMode.set(settings.mode);
         const def = locations.find((l) => l.isDefault);
         this.selectedLocationId.set(def ? def.id : null);
         this.reloadPacing();
@@ -72,9 +76,7 @@ export class Today {
     });
   }
 
-  /** Best-effort: switch to the auto-detected current location once it resolves,
-   *  unless the user has already picked one. Runs after the fast load so it never
-   *  delays Today (health can be slow/down). */
+  /** Best-effort: switch to the auto-detected current location once it resolves. */
   private autoSelect(): void {
     this.api.locationCurrent().subscribe({
       next: (cur) => {
@@ -90,7 +92,7 @@ export class Today {
   }
 
   reloadPacing(): void {
-    this.api.pacingNow(this.selectedLocationId() ?? undefined).subscribe({
+    this.api.pacingNow(this.selectedLocationId() ?? undefined, this.selectedMode()).subscribe({
       next: (p) => {
         this.pacing.set(p);
         this.loading.set(false);
@@ -106,6 +108,19 @@ export class Today {
     this.reloadPacing();
   }
 
+  /** Switch mode: reflect immediately, persist as the new default, re-evaluate. */
+  onModeChange(m: Mode): void {
+    if (m === this.selectedMode()) return;
+    this.selectedMode.set(m);
+    this.api.patchSettings({ mode: m }).subscribe({ error: () => {} });
+    this.reloadPacing();
+  }
+
+  /** The most-relevant groups for the Today balance strip (top of the sorted list). */
+  topGroups(p: PacingNow): GroupBalance[] {
+    return p.groups.slice(0, 6);
+  }
+
   /** Equipment (display names) the suggested exercise needs, for pills. */
   suggestionEquipment(): string[] {
     const s = this.pacing()?.suggestion;
@@ -115,23 +130,18 @@ export class Today {
     return ex.equipment.map((slug) => this.equipmentNames().get(slug) ?? slug);
   }
 
-  patternLabel(p: string): string {
-    return p.charAt(0).toUpperCase() + p.slice(1);
+  modeLabel(m: string): string {
+    return m.charAt(0).toUpperCase() + m.slice(1);
   }
 
-  pct(done: number, target: number): number {
-    return target > 0 ? Math.min(100, Math.round((done / target) * 100)) : 0;
+  pct(current: number, target: number): number {
+    return target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
   }
-
-  startStarter(): void {
-    this.starting.set(true);
-    this.api.createStarter().subscribe({
-      next: () => {
-        this.starting.set(false);
-        this.reloadPacing();
-      },
-      error: () => this.starting.set(false),
-    });
+  round1(n: number): string {
+    return (Math.round(n * 10) / 10).toString();
+  }
+  round0(n: number): string {
+    return Math.round(n).toString();
   }
 
   openLog(fromSuggestion = false): void {

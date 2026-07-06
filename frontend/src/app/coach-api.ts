@@ -11,20 +11,14 @@ import {
   Location,
   LocationPatch,
   Me,
+  Mode,
   Muscle,
   NewExercise,
   NewLocation,
-  NewPin,
   NewSet,
   PacingNow,
-  Program,
-  ProgramDetail,
-  ProgramPin,
-  ProgramTarget,
   Settings,
   SettingsPatch,
-  StarterRequest,
-  TargetPatch,
   WorkoutSet,
 } from "./models";
 
@@ -90,32 +84,6 @@ export class CoachApi {
     return this.http.get<CurrentLocation>("/api/location/current");
   }
 
-  // Programs
-  programs(): Observable<Program[]> {
-    return this.http.get<Program[]>("/api/programs");
-  }
-  activeProgram(): Observable<ProgramDetail | null> {
-    return this.http.get<ProgramDetail | null>("/api/programs/active");
-  }
-  program(id: number): Observable<ProgramDetail> {
-    return this.http.get<ProgramDetail>(`/api/programs/${id}`);
-  }
-  createStarter(body: StarterRequest = { startDate: null }): Observable<ProgramDetail> {
-    return this.http.post<ProgramDetail>("/api/programs/starter", body);
-  }
-  activateProgram(id: number): Observable<void> {
-    return this.http.post<void>(`/api/programs/${id}/activate`, {});
-  }
-  patchTarget(id: number, body: TargetPatch): Observable<ProgramTarget> {
-    return this.http.patch<ProgramTarget>(`/api/program-targets/${id}`, body);
-  }
-  upsertPin(programId: number, body: NewPin): Observable<ProgramPin> {
-    return this.http.post<ProgramPin>(`/api/programs/${programId}/pins`, body);
-  }
-  deletePin(programId: number, pinId: number): Observable<void> {
-    return this.http.delete<void>(`/api/programs/${programId}/pins/${pinId}`);
-  }
-
   // Micro-log
   sets(limit = 50): Observable<WorkoutSet[]> {
     return this.http.get<WorkoutSet[]>(`/api/sets?limit=${limit}`);
@@ -131,12 +99,15 @@ export class CoachApi {
   settings(): Observable<Settings> {
     return this.http.get<Settings>("/api/settings");
   }
-  patchSettings(body: SettingsPatch): Observable<Settings> {
+  patchSettings(body: Partial<SettingsPatch>): Observable<Settings> {
     return this.http.patch<Settings>("/api/settings", body);
   }
-  /** The pacing verdict; pass a location id to make the suggestion location-aware. */
-  pacingNow(locationId?: number): Observable<PacingNow> {
-    const q = locationId != null ? `?locationId=${locationId}` : "";
-    return this.http.get<PacingNow>(`/api/pacing/now${q}`);
+  /** The coach verdict; pass a location (for doability) and/or a mode override. */
+  pacingNow(locationId?: number, mode?: Mode): Observable<PacingNow> {
+    const q = new URLSearchParams();
+    if (locationId != null) q.set("locationId", String(locationId));
+    if (mode) q.set("mode", mode);
+    const s = q.toString();
+    return this.http.get<PacingNow>(`/api/pacing/now${s ? `?${s}` : ""}`);
   }
 }

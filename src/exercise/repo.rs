@@ -13,6 +13,7 @@ use super::types::{
     ExerciseMuscleRow, ExercisePatch, NewExercise,
 };
 use crate::equipment::types::{Equipment, EquipmentRow};
+use crate::muscle::types::MuscleRole;
 
 // Equipment slugs (comma-joined) + image presence, as correlated subqueries so
 // the list stays one row per exercise without a GROUP BY. A macro (not a const)
@@ -314,6 +315,28 @@ pub async fn primary_muscles_by_exercise(pool: &MySqlPool) -> Result<HashMap<i64
     let mut map: HashMap<i64, Vec<i64>> = HashMap::new();
     for (ex, mus) in rows {
         map.entry(ex).or_default().push(mus);
+    }
+    Ok(map)
+}
+
+/// exercise id → its muscle GROUPS with the strongest role, for crediting rolling
+/// volume per group. Several muscles of an exercise can share a group (e.g. three
+/// quad heads → quadriceps); `MIN(role)` collapses to one row per group taking the
+/// strongest role ('primary' < 'secondary' < 'stabilizer' lexically).
+pub async fn muscle_groups_by_exercise(
+    pool: &MySqlPool,
+) -> Result<HashMap<i64, Vec<(i64, MuscleRole)>>> {
+    let rows: Vec<(i64, i64, String)> = sqlx::query_as(
+        "SELECT xm.exercise_id, m.muscle_group_id AS grp, MIN(xm.role) AS role \
+         FROM exercise_muscle xm JOIN muscles m ON m.id = xm.muscle_id \
+         GROUP BY xm.exercise_id, m.muscle_group_id",
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut map: HashMap<i64, Vec<(i64, MuscleRole)>> = HashMap::new();
+    for (ex, grp, role) in rows {
+        let role = MuscleRole::from_db(&role).ok_or_else(|| anyhow!("unknown role {role:?}"))?;
+        map.entry(ex).or_default().push((grp, role));
     }
     Ok(map)
 }

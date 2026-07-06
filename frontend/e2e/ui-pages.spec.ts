@@ -28,6 +28,9 @@ const SETTINGS = {
   windowEndHour: 21,
   nightCutoffHour: 21,
   minRestMin: 20,
+  mode: "balanced",
+  daysPerWeek: 4,
+  emphasis: null,
 };
 
 const EXERCISES = [
@@ -46,27 +49,38 @@ const LOCATIONS = [
   { id: 1, name: "Home", isDefault: true, equipment: ["pull_up_bar", "gymnastic_rings"] },
 ];
 
-// A busy "active" verdict so Today renders fully (banner, per-pattern bars,
-// suggestion card, the FAB).
+// A busy "active" verdict so Today renders fully (mode bar, reason, suggestion,
+// balance bars, the FAB).
+const GROUPS = [
+  { group: "Lats", region: "back", current: 2, target: 10, deficit: 0.8, recovering: false },
+  { group: "Chest", region: "chest", current: 6, target: 10, deficit: 0.4, recovering: false },
+  { group: "Quadriceps", region: "legs", current: 8, target: 12, deficit: 0.33, recovering: true },
+];
 const PACING = {
   state: "active",
-  weekIndex: 1,
-  isDeload: false,
+  mode: "balanced",
+  deload: false,
   nudge: true,
-  reason: "2 sets of Ring dip — you're a bit behind for today.",
+  reason: "2 × Ring dip (Chest) — you're a bit light there this week.",
   withinWindow: true,
   afterCutoff: false,
   spacingOk: true,
   minutesSinceLastSet: 33,
-  dayRemainingSets: 20,
-  weekRemainingSets: 34,
-  patterns: [
-    { pattern: "push", weekTarget: 10, weekDone: 0, todayTarget: 6, todayDone: 0, todayRemaining: 6 },
-    { pattern: "pull", weekTarget: 7, weekDone: 1, todayTarget: 4, todayDone: 1, todayRemaining: 3 },
-    { pattern: "legs", weekTarget: 7, weekDone: 0, todayTarget: 4, todayDone: 0, todayRemaining: 4 },
-    { pattern: "core", weekTarget: 11, weekDone: 0, todayTarget: 7, todayDone: 0, todayRemaining: 7 },
-  ],
-  suggestion: { exerciseId: 6, exerciseName: "Ring dip", pattern: "push", sets: 2, repLow: 5, repHigh: 8, loadKg: null, holdS: null, substitutedFor: null },
+  dayTargetSets: 6,
+  dayDoneSets: 1,
+  groups: GROUPS,
+  suggestion: {
+    exerciseId: 6,
+    exerciseName: "Ring dip",
+    pattern: "push",
+    sets: 2,
+    repLow: 5,
+    repHigh: 8,
+    loadKg: null,
+    holdS: null,
+    group: "Chest",
+    substitutedFor: null,
+  },
 };
 
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers
@@ -83,7 +97,6 @@ async function mockApi(page: Page): Promise<void> {
   await page.route("**/api/places/detected", (r) => r.fulfill({ json: [] }));
   await page.route("**/api/location/current", (r) => r.fulfill({ json: { locationId: null } }));
   await page.route("**/api/settings", (r) => r.fulfill({ json: SETTINGS }));
-  await page.route("**/api/programs/active", (r) => r.fulfill({ json: null }));
 }
 
 test("the suite really runs at phone geometry", async ({ page }) => {
@@ -95,7 +108,7 @@ test("the suite really runs at phone geometry", async ({ page }) => {
 test("today — busy composition: clean + all controls reachable @ phone", async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto("/today");
-  await page.getByText("a bit behind for today", { exact: false }).waitFor();
+  await page.getByText("a bit light", { exact: false }).waitFor();
   await page.locator(".add-fab").waitFor();
   await expectNoTextOverlaps(page, testInfo);
   await expectNoHorizontalOverflow(page, testInfo);
@@ -144,12 +157,22 @@ test("locations — location card + kit chips render clean @ phone", async ({ pa
   await expectNoOccludedControls(page, testInfo);
 });
 
+test("balance — muscle-group volume bars render clean @ phone", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto("/balance");
+  await page.getByRole("heading", { name: "Balance" }).waitFor();
+  await page.getByText("Lats").waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
+  await expectNoOccludedControls(page, testInfo);
+});
+
 // When health reports a current location, Today shows the "here" auto hint.
 test("today — auto-detected location shows the 'here' hint @ phone", async ({ page }, testInfo) => {
   await mockApi(page);
   await page.route("**/api/location/current", (r) => r.fulfill({ json: { locationId: 1 } }));
   await page.goto("/today");
-  await page.getByText("a bit behind for today", { exact: false }).waitFor();
+  await page.getByText("a bit light", { exact: false }).waitFor();
   await page.locator(".auto-pill").waitFor();
   await expectNoTextOverlaps(page, testInfo);
   await expectNoHorizontalOverflow(page, testInfo);

@@ -1,11 +1,15 @@
+// App shell: a fixed-height flex column — topbar, a scrolling content region,
+// then the nav. The content scrolls BETWEEN the two bars, so no page content is
+// ever drawn under the nav (the FAB is the only fixed overlay).
 :host {
-  display: block;
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .topbar {
-  position: sticky;
-  top: 0;
+  flex: none;
   z-index: 10;
   background: var(--mat-sys-surface-container);
   color: var(--mat-sys-on-surface);
@@ -32,12 +36,14 @@
 }
 
 .content {
-  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 0.75rem 0.9rem;
-  // Clear the fixed bottom nav (+ any home-indicator inset).
-  padding-bottom: calc(64px + env(safe-area-inset-bottom) + 1rem);
+  // Room for the log-a-set FAB (fixed) to clear the last content.
+  padding: 0.75rem 0.9rem calc(64px + 1rem);
 }
 
 .signin {
@@ -73,8 +79,7 @@
 }
 
 .bottom-nav {
-  position: fixed;
-  inset: auto 0 0 0;
+  flex: none;
   z-index: 10;
   display: flex;
   justify-content: space-around;

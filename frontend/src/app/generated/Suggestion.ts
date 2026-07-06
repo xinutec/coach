@@ -3,7 +3,11 @@ import type { Pattern } from "./Pattern";
 
 export type Suggestion = { exerciseId: number, exerciseName: string, pattern: Pattern, sets: number, repLow: number | null, repHigh: number | null, loadKg: number | null, holdS: number | null, 
 /**
- * When set, this exercise was swapped in for a goal exercise whose
- * equipment isn't available at the current location (its name).
+ * The muscle group this targets (for the reason text).
+ */
+group: string, 
+/**
+ * When set, the ideal exercise for this group isn't doable at the current
+ * location, so an equivalent was swapped in (the ideal's name).
  */
 substitutedFor: string | null, };

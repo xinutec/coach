@@ -1,49 +1,56 @@
-//! Pacing engine input (plain data, assembled from repos) and output (wire
-//! types). The engine [`super::engine::evaluate`] is a pure function over these.
+//! Dynamic-coach engine input (plain data, assembled from repos) and output
+//! (wire types). The engine [`super::engine::evaluate`] is a pure function over
+//! these: it computes what to do now from **history + the active mode**, with no
+//! program. Rolling muscle-group volume + recovery + progression, location-aware.
 
-use chrono::{NaiveDate, NaiveDateTime};
+use std::collections::HashMap;
+
+use chrono::NaiveDateTime;
 use serde::Serialize;
 use ts_rs::TS;
 
-use crate::exercise::types::Pattern;
+use crate::exercise::types::{Metric, Pattern};
+use crate::muscle::types::{MuscleRole, Region};
+use crate::settings::types::Mode;
 
 // ---- inputs (internal; not wire types) -------------------------------------
 
-pub struct ProgramInfo {
-    pub start_date: NaiveDate,
-    pub weeks: i32,
-    pub deload_week: Option<i32>,
-}
-
+#[derive(Clone)]
 pub struct ExerciseInfo {
     pub id: i64,
     pub name: String,
     pub pattern: Pattern,
-    /// Equipment ids the movement requires (empty = bodyweight).
+    pub metric: Metric,
+    /// Ring/parallette or hold work — biased in Skills mode.
+    pub is_skill: bool,
+    /// Equipment ids required (empty = bodyweight).
     pub equipment: Vec<i64>,
-    /// Primary muscle ids — used to rank substitutes by overlap.
-    pub primary_muscles: Vec<i64>,
+    /// Muscle groups this exercise trains, with the strongest role for each.
+    pub groups: Vec<(i64, MuscleRole)>,
 }
 
-pub struct TargetInfo {
+/// A logged set in the trailing history window (rich enough for volume + progression).
+pub struct SetRec {
     pub exercise_id: i64,
-    pub week_index: i32,
-    pub target_sets: i32,
-    pub rep_low: Option<i32>,
-    pub rep_high: Option<i32>,
+    pub logged_at: NaiveDateTime,
+    pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
 }
 
-pub struct PinInfo {
-    pub exercise_id: i64,
-    pub weekday: i32,
-    pub sets: i32,
+/// The top set of an exercise's most recent session — the progression basis.
+pub struct LastPerf {
+    pub reps: Option<i32>,
+    pub load_kg: Option<f64>,
+    pub hold_s: Option<i32>,
 }
 
-pub struct SetInfo {
-    pub exercise_id: i64,
-    pub logged_at: NaiveDateTime,
+/// Muscle-group identity for output labelling + the balance view.
+#[derive(Clone)]
+pub struct GroupMeta {
+    pub id: i64,
+    pub name: String,
+    pub region: Region,
 }
 
 pub struct PacingSettings {
@@ -53,20 +60,20 @@ pub struct PacingSettings {
     pub min_rest_min: i32,
 }
 
-/// Everything the engine needs, already fetched. `sets_this_week` are the live
-/// sets logged in the current program week; `last_set_at` is the most recent set
-/// overall (for the spacing gate).
+/// Everything the engine needs, already fetched.
 pub struct PacingInput {
-    pub program: Option<ProgramInfo>,
+    pub mode: Mode,
+    pub days_per_week: i32,
+    pub emphasis: Option<Region>,
     pub exercises: Vec<ExerciseInfo>,
-    pub targets: Vec<TargetInfo>,
-    pub pins: Vec<PinInfo>,
-    pub sets_this_week: Vec<SetInfo>,
+    /// Trailing history (≈8 weeks) — reps/load/hold carried for progression.
+    pub history: Vec<SetRec>,
+    pub last_perf: HashMap<i64, LastPerf>,
     pub last_set_at: Option<NaiveDateTime>,
     pub settings: PacingSettings,
-    /// Equipment available at the selected location. `None` = no location filter
-    /// (suggest goal exercises as-is); `Some` = the suggestion must be doable
-    /// here, substituting an equivalent movement when a goal's kit is missing.
+    pub groups: Vec<GroupMeta>,
+    /// Equipment available at the selected location. `None` = no filter; `Some` =
+    /// the suggestion must be doable here (a location-blocked ideal is swapped out).
     pub available_equipment: Option<std::collections::HashSet<i64>>,
 }
 
@@ -76,26 +83,27 @@ pub struct PacingInput {
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum PacingState {
-    /// No active program.
-    NoProgram,
-    /// The active program's start date is in the future.
-    NotStarted,
-    /// Past the last week of the mesocycle.
-    Complete,
-    /// A live program week.
+    /// A concrete thing to do now.
     Active,
+    /// Everything due is recovered/at target — rest, or an optional light set.
+    Rest,
+    /// No history yet — a cold-start suggestion to get going.
+    Fresh,
 }
 
+/// Rolling volume vs target for one muscle group — drives the balance view.
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
-pub struct PatternProgress {
-    pub pattern: Pattern,
-    pub week_target: i32,
-    pub week_done: i32,
-    pub today_target: i32,
-    pub today_done: i32,
-    pub today_remaining: i32,
+pub struct GroupBalance {
+    pub group: String,
+    pub region: Region,
+    /// Effective sets over the trailing 7 days (primary 1.0, secondary 0.5).
+    pub current: f64,
+    pub target: f64,
+    /// (target − current)/target, clamped 0..1.
+    pub deficit: f64,
+    pub recovering: bool,
 }
 
 #[derive(Clone, Debug, Serialize, TS)]
@@ -111,22 +119,23 @@ pub struct Suggestion {
     pub rep_high: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
-    /// When set, this exercise was swapped in for a goal exercise whose
-    /// equipment isn't available at the current location (its name).
+    /// The muscle group this targets (for the reason text).
+    pub group: String,
+    /// When set, the ideal exercise for this group isn't doable at the current
+    /// location, so an equivalent was swapped in (the ideal's name).
     pub substituted_for: Option<String>,
 }
 
-/// The full pacing verdict for an instant. Drives both the Today UI and the
-/// Android nudge (which fires only when `nudge` is true AND the phone's geofence
-/// says you're home).
+/// The full coach verdict for an instant. Drives the Today UI and the Android
+/// nudge (fired only when `nudge` AND the phone's geofence says you're home).
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct PacingNow {
     pub state: PacingState,
-    pub week_index: Option<i32>,
-    pub is_deload: bool,
-    /// True → a good moment to remind (subject to the caller's home gate).
+    pub mode: Mode,
+    /// Auto-deload active — volume's been high or performance is dipping.
+    pub deload: bool,
     pub nudge: bool,
     pub reason: String,
     pub within_window: bool,
@@ -134,8 +143,9 @@ pub struct PacingNow {
     pub spacing_ok: bool,
     #[ts(type = "number | null")]
     pub minutes_since_last_set: Option<i64>,
-    pub day_remaining_sets: i32,
-    pub week_remaining_sets: i32,
-    pub patterns: Vec<PatternProgress>,
+    /// The computed session-size target + what's been done today (drive the nudge).
+    pub day_target_sets: i32,
+    pub day_done_sets: i32,
+    pub groups: Vec<GroupBalance>,
     pub suggestion: Option<Suggestion>,
 }

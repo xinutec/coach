@@ -1,45 +1,228 @@
-//! The pacing engine: a pure function from (fetched state, instant) to a pacing
-//! verdict. No I/O, no clock — the caller passes `now` (already in the user's
-//! local tz). This is where the "spread it across the day, don't cram at 10pm"
-//! behaviour lives; the tests below pin every branch.
+//! The dynamic coaching engine: a pure function from (history, mode, instant) to
+//! a verdict. No I/O, no clock — the caller passes `now` (user-local tz). It
+//! computes rolling muscle-group volume, gates on recovery, sets per-group
+//! targets from the active **mode** blended with the user's own history, picks
+//! the biggest recovered deficit, chooses a location-doable exercise, and
+//! progresses it off the last performance. No program, no weekly plan.
+//!
+//! All coefficients below are labelled heuristics, tunable — targets are anchored
+//! to the user's own history to avoid false-precision absolute landmarks.
 
 use std::collections::HashMap;
 
-use chrono::{NaiveDateTime, Timelike};
+use chrono::{Duration, NaiveDateTime, Timelike};
 
-use crate::exercise::types::Pattern;
+use crate::exercise::types::Metric;
+use crate::muscle::types::{MuscleRole, Region};
+use crate::settings::types::Mode;
 
-use super::types::{PacingInput, PacingNow, PacingState, PatternProgress, Suggestion, TargetInfo};
+use super::types::{
+    ExerciseInfo, GroupBalance, LastPerf, PacingInput, PacingNow, PacingState, Suggestion,
+};
 
-fn ceil_div(a: i32, b: i32) -> i32 {
-    debug_assert!(b > 0);
-    (a + b - 1) / b
-}
+// ---- tunable heuristics ----------------------------------------------------
+const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
+const HISTORY_WEEKS: i64 = 8; // personal-average window
+const RECOVERY_HOURS: i64 = 36; // a group hit hard within this is still recovering
+const RECOVERY_SETS: f64 = 3.0; // effective sets within RECOVERY_HOURS → recovering
+const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
+const SECONDARY_CREDIT: f64 = 0.5; // a secondary muscle counts half a set
+const EMPHASIS_MULT: f64 = 1.5;
+const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
+const DELOAD_SCALE: f64 = 0.6;
 
-fn pattern_rank(p: Pattern) -> i32 {
-    match p {
-        Pattern::Push => 0,
-        Pattern::Pull => 1,
-        Pattern::Legs => 2,
-        Pattern::Core => 3,
+/// Per-region volume weighting for a mode. Balanced = flat; the others tilt
+/// toward what the mode is for.
+fn region_mult(mode: Mode, r: Region) -> f64 {
+    use Region::*;
+    match mode {
+        Mode::Balanced => 1.0,
+        Mode::Strength => match r {
+            Legs => 1.3,
+            Back => 1.2,
+            Chest => 1.2,
+            Shoulders => 1.1,
+            Core => 0.9,
+            Arms => 0.7,
+            Forearms => 0.6,
+        },
+        Mode::Skills => match r {
+            Core => 1.4,
+            Shoulders => 1.3,
+            Forearms => 1.3,
+            Arms => 1.1,
+            Back => 1.1,
+            Chest => 0.9,
+            Legs => 0.8,
+        },
+        Mode::Conditioning => match r {
+            Legs => 1.2,
+            Core => 1.2,
+            Chest | Back | Shoulders => 1.0,
+            Arms => 0.9,
+            Forearms => 0.8,
+        },
     }
 }
 
-/// Per-exercise working row (internal to a single evaluation).
-struct Row<'a> {
-    t: &'a TargetInfo,
-    pattern: Pattern,
-    exercise_id: i64,
-    exercise_name: &'a str,
-    equipment: &'a [i64],
-    primary_muscles: &'a [i64],
-    remaining_week: i32,
-    today_target: i32,
-    today_done: i32,
-    today_remaining: i32,
+/// Rep range for a mode + metric (holds are seconds, handled in `progress`).
+fn rep_range(mode: Mode, metric: Metric) -> (Option<i32>, Option<i32>) {
+    if metric == Metric::Hold {
+        return (None, None);
+    }
+    let weighted = metric == Metric::WeightedReps;
+    match mode {
+        Mode::Strength => {
+            if weighted {
+                (Some(3), Some(6))
+            } else {
+                (Some(5), Some(8))
+            }
+        }
+        Mode::Balanced => {
+            if weighted {
+                (Some(6), Some(10))
+            } else {
+                (Some(8), Some(12))
+            }
+        }
+        Mode::Skills => (Some(3), Some(6)),
+        Mode::Conditioning => {
+            if weighted {
+                (Some(12), Some(20))
+            } else {
+                (Some(15), Some(25))
+            }
+        }
+    }
 }
 
-/// Evaluate the pacing state for `now` (local time).
+/// How well an exercise fits the mode's style (for ranking within a group).
+fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
+    match mode {
+        Mode::Strength => {
+            if ex.metric == Metric::WeightedReps {
+                1.0
+            } else if ex.is_skill {
+                0.2
+            } else {
+                0.6
+            }
+        }
+        Mode::Skills => {
+            if ex.is_skill || ex.metric == Metric::Hold {
+                1.0
+            } else {
+                0.4
+            }
+        }
+        Mode::Conditioning => match ex.metric {
+            Metric::Reps => 1.0,
+            Metric::WeightedReps => 0.7,
+            Metric::Hold => 0.3,
+        },
+        Mode::Balanced => 0.8,
+    }
+}
+
+/// Progress an exercise off its last performance: (sets, rep_low, rep_high,
+/// load_kg, hold_s). Double-progression — top of range last time → add load/rep.
+fn progress(
+    ex: &ExerciseInfo,
+    last: Option<&LastPerf>,
+    mode: Mode,
+) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
+    let sets = 3;
+    match ex.metric {
+        Metric::Hold => {
+            let base = last.and_then(|l| l.hold_s).unwrap_or(20);
+            (2, None, None, None, Some(base + 5)) // +5 s
+        }
+        Metric::WeightedReps => {
+            let (lo, hi) = rep_range(mode, ex.metric);
+            let reps = last.and_then(|l| l.reps);
+            let load = last.and_then(|l| l.load_kg);
+            match (reps, load, hi) {
+                (Some(r), Some(w), Some(h)) if r >= h => (sets, lo, hi, Some(w + 2.5), None),
+                (Some(r), Some(w), Some(h)) => (sets, Some((r + 1).min(h)), hi, Some(w), None),
+                (_, w, _) => (sets, lo, hi, w, None),
+            }
+        }
+        Metric::Reps => {
+            let (lo, hi) = rep_range(mode, ex.metric);
+            match (last.and_then(|l| l.reps), hi) {
+                (Some(r), Some(h)) if r >= h => (sets, hi, hi, None, None),
+                (Some(r), Some(h)) => (sets, Some((r + 1).min(h)), hi, None, None),
+                _ => (sets, lo, hi, None, None),
+            }
+        }
+    }
+}
+
+/// Choose the best exercise for a muscle group given mode + location, or `None`
+/// if nothing that trains it as a primary is doable here.
+fn pick_for_group(
+    input: &PacingInput,
+    group_id: i64,
+    group_name: &str,
+    now: NaiveDateTime,
+) -> Option<Suggestion> {
+    let mode = input.mode;
+    let avail = input.available_equipment.as_ref();
+    let doable = |eq: &[i64]| avail.is_none_or(|a| eq.iter().all(|e| a.contains(e)));
+    let trains = |e: &ExerciseInfo| {
+        e.groups
+            .iter()
+            .any(|(g, r)| *g == group_id && *r == MuscleRole::Primary)
+    };
+    // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
+    let recency = |id: i64| -> f64 {
+        match input
+            .history
+            .iter()
+            .filter(|s| s.exercise_id == id)
+            .map(|s| s.logged_at)
+            .max()
+        {
+            Some(t) => ((now - t).num_hours() as f64 / 24.0).min(21.0) / 21.0,
+            None => 1.0,
+        }
+    };
+    let score = |e: &ExerciseInfo| mode_fit(mode, e) * 2.0 + recency(e.id);
+
+    // Deterministic best (score desc, id asc) over a filter.
+    let best = |f: &dyn Fn(&ExerciseInfo) -> bool| -> Option<&ExerciseInfo> {
+        input.exercises.iter().filter(|e| f(e)).max_by(|a, b| {
+            score(a)
+                .partial_cmp(&score(b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(b.id.cmp(&a.id)) // lower id wins ties (reverse in max)
+        })
+    };
+
+    let ideal = best(&|e| trains(e));
+    let chosen = best(&|e| trains(e) && doable(&e.equipment))?;
+    let substituted_for = match (avail, ideal) {
+        (Some(_), Some(i)) if i.id != chosen.id => Some(i.name.clone()),
+        _ => None,
+    };
+    let (sets, rep_low, rep_high, load_kg, hold_s) =
+        progress(chosen, input.last_perf.get(&chosen.id), mode);
+    Some(Suggestion {
+        exercise_id: chosen.id,
+        exercise_name: chosen.name.clone(),
+        pattern: chosen.pattern,
+        sets,
+        rep_low,
+        rep_high,
+        load_kg,
+        hold_s,
+        group: group_name.to_string(),
+        substituted_for,
+    })
+}
+
+/// Evaluate the coach verdict for `now` (local time).
 pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let s = &input.settings;
     let hour = now.hour() as i32;
@@ -48,202 +231,140 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
     let spacing_ok = minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
 
-    let base = |state, week_index, is_deload, reason: String| PacingNow {
-        state,
-        week_index,
-        is_deload,
-        nudge: false,
-        reason,
-        within_window,
-        after_cutoff,
-        spacing_ok,
-        minutes_since_last_set,
-        day_remaining_sets: 0,
-        week_remaining_sets: 0,
-        patterns: Vec::new(),
-        suggestion: None,
-    };
+    let ex_by_id: HashMap<i64, &ExerciseInfo> = input.exercises.iter().map(|e| (e.id, e)).collect();
 
-    let Some(prog) = &input.program else {
-        return base(
-            PacingState::NoProgram,
-            None,
-            false,
-            "No active program — start one to get going.".to_string(),
-        );
-    };
-
-    let days_since = (now.date() - prog.start_date).num_days();
-    if days_since < 0 {
-        return base(
-            PacingState::NotStarted,
-            None,
-            false,
-            format!("Your program starts {}.", prog.start_date),
-        );
-    }
-    let week_index = (days_since / 7) as i32 + 1;
-    if week_index > prog.weeks {
-        return base(
-            PacingState::Complete,
-            Some(week_index),
-            false,
-            "Program complete — time for a new block.".to_string(),
-        );
-    }
-    let is_deload = prog.deload_week == Some(week_index);
-    let weekday_index = (days_since % 7) as i32; // 0 = program week's first day
-    let days_left = 7 - weekday_index; // includes today; 1..=7
-
-    let ex_by_id: HashMap<i64, &super::types::ExerciseInfo> =
-        input.exercises.iter().map(|e| (e.id, e)).collect();
-
+    // --- credit volume into rolling / 8-week-avg / recovery windows ---
+    let roll_cut = now - Duration::days(ROLLING_DAYS);
+    let hist_cut = now - Duration::days(HISTORY_WEEKS * 7);
+    let recov_cut = now - Duration::hours(RECOVERY_HOURS);
     let today = now.date();
-    let mut done_week: HashMap<i64, i32> = HashMap::new();
-    let mut done_today: HashMap<i64, i32> = HashMap::new();
-    for set in &input.sets_this_week {
-        *done_week.entry(set.exercise_id).or_default() += 1;
-        if set.logged_at.date() == today {
-            *done_today.entry(set.exercise_id).or_default() += 1;
-        }
-    }
 
-    let mut rows: Vec<Row> = Vec::new();
-    for t in input.targets.iter().filter(|t| t.week_index == week_index) {
-        let Some(ex) = ex_by_id.get(&t.exercise_id) else {
+    let mut current: HashMap<i64, f64> = HashMap::new();
+    let mut avg_sum: HashMap<i64, f64> = HashMap::new();
+    let mut recent: HashMap<i64, f64> = HashMap::new();
+    let mut done_today = 0i32;
+    let mut raw_hist = 0i32;
+    for set in &input.history {
+        let Some(ex) = ex_by_id.get(&set.exercise_id) else {
             continue;
         };
-        let dw = *done_week.get(&t.exercise_id).unwrap_or(&0);
-        let dt = *done_today.get(&t.exercise_id).unwrap_or(&0);
-        let remaining_week = (t.target_sets - dw).max(0);
-
-        let pin_today: i32 = input
-            .pins
-            .iter()
-            .filter(|p| p.exercise_id == t.exercise_id && p.weekday == weekday_index)
-            .map(|p| p.sets)
-            .sum();
-        let future_pin: i32 = input
-            .pins
-            .iter()
-            .filter(|p| p.exercise_id == t.exercise_id && p.weekday > weekday_index)
-            .map(|p| p.sets)
-            .sum();
-
-        // Today's quota is computed from what remained at the START of today, so
-        // it's stable through the day (logging a set doesn't ratchet the quota
-        // up) while still catching up for volume missed on earlier days.
-        let remaining_start = (t.target_sets - (dw - dt)).max(0);
-        let floating_pool = (remaining_start - future_pin).max(0);
-        let floating_today = ceil_div(floating_pool, days_left);
-        // The bigger of the fair share and today's pin, capped at what's left.
-        let quota = remaining_start.min(floating_today.max(pin_today));
-        let today_done = dt;
-        let today_remaining = (quota - dt).max(0);
-        let today_target = quota.max(dt);
-
-        rows.push(Row {
-            t,
-            pattern: ex.pattern,
-            exercise_id: ex.id,
-            exercise_name: &ex.name,
-            equipment: ex.equipment.as_slice(),
-            primary_muscles: ex.primary_muscles.as_slice(),
-            remaining_week,
-            today_target,
-            today_done,
-            today_remaining,
-        });
-    }
-
-    // Per-pattern aggregation, in a stable push/pull/legs/core order.
-    let mut patterns: Vec<PatternProgress> = Vec::new();
-    for pat in [Pattern::Push, Pattern::Pull, Pattern::Legs, Pattern::Core] {
-        let rs: Vec<&Row> = rows.iter().filter(|r| r.pattern == pat).collect();
-        if rs.is_empty() {
-            continue;
+        if set.logged_at.date() == today {
+            done_today += 1;
         }
-        patterns.push(PatternProgress {
-            pattern: pat,
-            week_target: rs.iter().map(|r| r.t.target_sets).sum(),
-            week_done: rs
-                .iter()
-                .map(|r| *done_week.get(&r.exercise_id).unwrap_or(&0))
-                .sum(),
-            today_target: rs.iter().map(|r| r.today_target).sum(),
-            today_done: rs.iter().map(|r| r.today_done).sum(),
-            today_remaining: rs.iter().map(|r| r.today_remaining).sum(),
-        });
+        if set.logged_at >= hist_cut {
+            raw_hist += 1;
+        }
+        for (g, role) in &ex.groups {
+            let credit = if *role == MuscleRole::Primary {
+                1.0
+            } else {
+                SECONDARY_CREDIT
+            };
+            if set.logged_at >= hist_cut {
+                *avg_sum.entry(*g).or_default() += credit;
+            }
+            if set.logged_at >= roll_cut {
+                *current.entry(*g).or_default() += credit;
+            }
+            if set.logged_at >= recov_cut {
+                *recent.entry(*g).or_default() += credit;
+            }
+        }
     }
 
-    let day_remaining_sets: i32 = rows.iter().map(|r| r.today_remaining).sum();
-    let week_remaining_sets: i32 = rows.iter().map(|r| r.remaining_week).sum();
-    let day_target_total: i32 = rows.iter().map(|r| r.today_target).sum();
-    let day_done_total: i32 = rows.iter().map(|r| r.today_done).sum();
+    // --- auto-deload: recent volume well above the personal weekly average ---
+    let avg_weekly_total: f64 = avg_sum.values().sum::<f64>() / HISTORY_WEEKS as f64;
+    let last7_total: f64 = current.values().sum();
+    let deload = avg_weekly_total > 0.0 && last7_total > DELOAD_RATIO * avg_weekly_total;
+    let deload_scale = if deload { DELOAD_SCALE } else { 1.0 };
+    let days_scale = (input.days_per_week as f64 / 4.0).clamp(0.5, 2.0);
 
-    // Candidates ordered by need: most remaining today first, tie-broken by
-    // pattern order then id.
-    let mut candidates: Vec<&Row> = rows.iter().filter(|r| r.today_remaining > 0).collect();
+    // --- per-group balance + focus candidates (non-recovering, in deficit) ---
+    let mut balances: Vec<GroupBalance> = Vec::new();
+    let mut candidates: Vec<(i64, String, f64)> = Vec::new();
+    for gm in &input.groups {
+        let cur = *current.get(&gm.id).unwrap_or(&0.0);
+        let avg = avg_sum.get(&gm.id).copied().unwrap_or(0.0) / HISTORY_WEEKS as f64;
+        let emph = if input.emphasis == Some(gm.region) {
+            EMPHASIS_MULT
+        } else {
+            1.0
+        };
+        let base = 0.5 * DEFAULT_WEEKLY_SETS + 0.5 * avg;
+        let target =
+            (base * region_mult(input.mode, gm.region) * emph * days_scale * deload_scale).max(3.0);
+        let deficit = ((target - cur) / target).clamp(0.0, 1.0);
+        let recovering = *recent.get(&gm.id).unwrap_or(&0.0) >= RECOVERY_SETS;
+        if !recovering && deficit > 0.0 {
+            candidates.push((gm.id, gm.name.clone(), deficit));
+        }
+        balances.push(GroupBalance {
+            group: gm.name.clone(),
+            region: gm.region,
+            current: cur,
+            target,
+            deficit,
+            recovering,
+        });
+    }
+    // Balance view: most-in-deficit first.
+    balances.sort_by(|a, b| {
+        b.deficit
+            .partial_cmp(&a.deficit)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    // Focus order: biggest deficit first, tie-break group id.
     candidates.sort_by(|a, b| {
-        b.today_remaining
-            .cmp(&a.today_remaining)
-            .then(pattern_rank(a.pattern).cmp(&pattern_rank(b.pattern)))
-            .then(a.exercise_id.cmp(&b.exercise_id))
+        b.2.partial_cmp(&a.2)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
     });
 
-    // At a location, a goal is doable iff all its equipment is available; empty
-    // (bodyweight) is doable anywhere. Without a location, everything is doable.
-    let available = input.available_equipment.as_ref();
-    let doable =
-        |equipment: &[i64]| available.is_none_or(|a| equipment.iter().all(|e| a.contains(e)));
-
-    // Pick the concrete suggestion: the most-needed doable goal, or — when the
-    // most-needed goal's kit is missing here — an equivalent movement (same
-    // pattern, doable, ranked by shared primary muscles) swapped in for it.
+    // First focus group with a doable exercise wins.
     let mut suggestion = None;
-    for r in candidates {
-        let sug = if doable(r.equipment) {
-            Some((r.exercise_id, r.exercise_name.to_string(), None))
-        } else {
-            find_substitute(input, r, available)
-                .map(|sub| (sub.id, sub.name.clone(), Some(r.exercise_name.to_string())))
-        };
-        if let Some((exercise_id, exercise_name, substituted_for)) = sug {
-            suggestion = Some(Suggestion {
-                exercise_id,
-                exercise_name,
-                pattern: r.pattern,
-                sets: r.today_remaining,
-                rep_low: r.t.rep_low,
-                rep_high: r.t.rep_high,
-                load_kg: r.t.load_kg,
-                hold_s: r.t.hold_s,
-                substituted_for,
-            });
+    for (gid, gname, _) in &candidates {
+        if let Some(sug) = pick_for_group(input, *gid, gname, now) {
+            suggestion = Some(sug);
             break;
         }
     }
 
-    // Burn-down: how far through the active window are we, and are we behind the
-    // ideal pace? Being behind is what triggers a nudge — so nudges cluster
-    // earlier when you're falling behind, never dumping the day at night.
+    let state = if input.history.is_empty() {
+        PacingState::Fresh
+    } else if suggestion.is_some() {
+        PacingState::Active
+    } else {
+        PacingState::Rest
+    };
+
+    // --- session-size target from personal weekly volume, for the burn-down ---
+    let avg_weekly_sets = if raw_hist > 0 {
+        raw_hist as f64 / HISTORY_WEEKS as f64
+    } else {
+        24.0 // cold-start default ≈ 6 sets × 4 days
+    };
+    let day_target_sets =
+        ((avg_weekly_sets / input.days_per_week.max(1) as f64).round() as i32).clamp(3, 15);
+
+    // Burn-down vs window elapsed → nudge when behind (never dump the day at night).
     let now_min = (hour * 60 + now.minute() as i32) as f64;
     let win_start = (s.window_start_hour * 60) as f64;
     let win_end = (s.window_end_hour * 60).max(s.window_start_hour * 60 + 1) as f64;
-    let progress = ((now_min - win_start) / (win_end - win_start)).clamp(0.0, 1.0);
-    let has_work = day_remaining_sets > 0;
-    let behind = has_work && (day_done_total as f64) < progress * (day_target_total as f64);
-
+    let elapsed = ((now_min - win_start) / (win_end - win_start)).clamp(0.0, 1.0);
+    let has_work = suggestion.is_some() && done_today < day_target_sets;
+    let behind = has_work && (done_today as f64) < elapsed * day_target_sets as f64;
     let nudge = within_window && !after_cutoff && has_work && spacing_ok && behind;
 
-    let reason = if !has_work {
-        "You're done for today — nice work.".to_string()
+    let reason = if suggestion.is_none() {
+        if state == PacingState::Rest {
+            "You're balanced and recovered — rest up, or an easy optional set.".to_string()
+        } else {
+            "Nothing doable here right now.".to_string()
+        }
+    } else if !has_work {
+        "You're on top of it today — nice work.".to_string()
     } else if after_cutoff {
-        format!(
-            "{} set{} left, but it's late — they'll roll to tomorrow.",
-            day_remaining_sets,
-            plural(day_remaining_sets)
-        )
+        "It's late — this rolls to tomorrow.".to_string()
     } else if !within_window {
         format!(
             "Outside your training window ({:02}:00–{:02}:00).",
@@ -257,66 +378,32 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else if let Some(sug) = &suggestion {
         if behind {
             format!(
-                "{} set{} of {} — you're a bit behind for today.",
-                sug.sets,
-                plural(sug.sets),
-                sug.exercise_name
+                "{} × {} ({}) — you're a bit light there this week.",
+                sug.sets, sug.exercise_name, sug.group
             )
         } else {
             format!(
-                "On track. Next up: {} × {} when you're ready.",
-                sug.sets, sug.exercise_name
+                "Next up: {} × {} ({}).",
+                sug.sets, sug.exercise_name, sug.group
             )
         }
     } else {
-        "On track.".to_string()
+        String::new()
     };
 
     PacingNow {
-        state: PacingState::Active,
-        week_index: Some(week_index),
-        is_deload,
+        state,
+        mode: input.mode,
+        deload,
         nudge,
         reason,
         within_window,
         after_cutoff,
         spacing_ok,
         minutes_since_last_set,
-        day_remaining_sets,
-        week_remaining_sets,
-        patterns,
+        day_target_sets,
+        day_done_sets: done_today,
+        groups: balances,
         suggestion,
     }
-}
-
-fn plural(n: i32) -> &'static str {
-    if n == 1 { "" } else { "s" }
-}
-
-/// An equivalent movement for a goal exercise that can't be done at the current
-/// location: same pattern, all its equipment available here, ranked by how many
-/// primary muscles it shares with the blocked goal (then by lowest id). `None`
-/// if no location filter is active or nothing suitable is available.
-fn find_substitute<'a>(
-    input: &'a PacingInput,
-    blocked: &Row,
-    available: Option<&std::collections::HashSet<i64>>,
-) -> Option<&'a super::types::ExerciseInfo> {
-    let a = available?;
-    input
-        .exercises
-        .iter()
-        .filter(|e| {
-            e.id != blocked.exercise_id
-                && e.pattern == blocked.pattern
-                && e.equipment.iter().all(|x| a.contains(x))
-        })
-        .max_by_key(|e| {
-            let overlap = e
-                .primary_muscles
-                .iter()
-                .filter(|&&m| blocked.primary_muscles.contains(&m))
-                .count();
-            (overlap, std::cmp::Reverse(e.id))
-        })
 }

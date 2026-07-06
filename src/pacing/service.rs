@@ -1,29 +1,39 @@
-//! Assemble the pacing engine's input from the DB and run it. All timezone
-//! handling lives here: `logged_at` is stored UTC, the window/day math is done
-//! in the user's local tz.
+//! Assemble the dynamic engine's input from the DB and run it. All timezone
+//! handling lives here: `logged_at` is stored UTC, everything the engine sees is
+//! the user's local tz. No program is loaded — the engine works off history +
+//! the active mode.
 
-use anyhow::Result;
+use std::collections::HashSet;
+
+use anyhow::{Result, anyhow};
 use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
-use std::collections::HashSet;
-
+use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
+use crate::exercise::types::Metric;
 use crate::location::repo as location_repo;
-use crate::program::repo as prog_repo;
+use crate::muscle::repo as muscle_repo;
+use crate::muscle::types::Region;
 use crate::settings::repo as settings_repo;
+use crate::settings::types::Mode;
 use crate::workout::repo as workout_repo;
 
 use super::engine;
 use super::types::{
-    ExerciseInfo, PacingInput, PacingNow, PacingSettings, PinInfo, ProgramInfo, SetInfo, TargetInfo,
+    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingNow, PacingSettings, SetRec,
 };
 
-/// The pacing verdict for the user right now. `location_id`, when given, makes
-/// the suggestion location-aware (doable here, substituting when a goal's kit is
-/// missing); an unknown/foreign id falls back to no filter.
-pub async fn now(pool: &MySqlPool, user_id: &str, location_id: Option<i64>) -> Result<PacingNow> {
+/// The coach verdict for the user right now. `location_id` makes the suggestion
+/// location-aware; `mode_override` picks a mode for this call (else the user's
+/// saved default).
+pub async fn now(
+    pool: &MySqlPool,
+    user_id: &str,
+    location_id: Option<i64>,
+    mode_override: Option<Mode>,
+) -> Result<PacingNow> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
     let now_local = Utc::now().with_timezone(&tz).naive_local();
@@ -36,6 +46,7 @@ pub async fn now(pool: &MySqlPool, user_id: &str, location_id: Option<i64>) -> R
         night_cutoff_hour: s.night_cutoff_hour,
         min_rest_min: s.min_rest_min,
     };
+    let mode = mode_override.unwrap_or(s.mode);
 
     let available_equipment = match location_id {
         Some(id) => location_repo::equipment_ids(pool, user_id, id)
@@ -44,91 +55,88 @@ pub async fn now(pool: &MySqlPool, user_id: &str, location_id: Option<i64>) -> R
         None => None,
     };
 
-    let Some(active) = prog_repo::active(pool, user_id).await? else {
-        let inp = PacingInput {
-            program: None,
-            exercises: Vec::new(),
-            targets: Vec::new(),
-            pins: Vec::new(),
-            sets_this_week: Vec::new(),
-            last_set_at: None,
-            settings,
-            available_equipment,
-        };
-        return Ok(engine::evaluate(&inp, now_local));
-    };
-
+    // Exercise metadata: equipment ids, muscle-group contributions, skill flag.
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
-    let prim_by_ex = ex_repo::primary_muscles_by_exercise(pool).await?;
-    let exercises = ex_repo::list(pool, true)
+    let groups_by_ex = ex_repo::muscle_groups_by_exercise(pool).await?;
+    let skill_equip: HashSet<i64> = equipment_repo::list(pool)
         .await?
         .into_iter()
-        .map(|e| ExerciseInfo {
-            equipment: equip_by_ex.get(&e.id).cloned().unwrap_or_default(),
-            primary_muscles: prim_by_ex.get(&e.id).cloned().unwrap_or_default(),
-            id: e.id,
-            name: e.name,
-            pattern: e.pattern,
+        .filter(|e| e.slug == "gymnastic_rings" || e.slug == "parallettes")
+        .map(|e| e.id)
+        .collect();
+    let exercises: Vec<ExerciseInfo> = ex_repo::list(pool, false)
+        .await?
+        .into_iter()
+        .map(|e| {
+            let equipment = equip_by_ex.get(&e.id).cloned().unwrap_or_default();
+            let is_skill =
+                e.metric == Metric::Hold || equipment.iter().any(|id| skill_equip.contains(id));
+            ExerciseInfo {
+                id: e.id,
+                name: e.name,
+                pattern: e.pattern,
+                metric: e.metric,
+                is_skill,
+                equipment,
+                groups: groups_by_ex.get(&e.id).cloned().unwrap_or_default(),
+            }
         })
         .collect();
 
-    let targets = prog_repo::targets(pool, active.id)
-        .await?
-        .into_iter()
-        .map(|t| TargetInfo {
-            exercise_id: t.exercise_id,
-            week_index: t.week_index,
-            target_sets: t.target_sets,
-            rep_low: t.rep_low,
-            rep_high: t.rep_high,
-            load_kg: t.load_kg,
-            hold_s: t.hold_s,
-        })
-        .collect();
-
-    let pins = prog_repo::pins(pool, active.id)
-        .await?
-        .into_iter()
-        .map(|p| PinInfo {
-            exercise_id: p.exercise_id,
-            weekday: p.weekday,
-            sets: p.sets,
-        })
-        .collect();
-
-    // Start of the current program week, in local time, converted to UTC for the
-    // query (logged_at is stored UTC).
-    let days_since = (now_local.date() - active.start_date).num_days().max(0);
-    let week_start_date = active.start_date + Duration::days((days_since / 7) * 7);
-    let week_start_local = week_start_date.and_hms_opt(0, 0, 0).unwrap();
-    let week_start_utc = tz
-        .from_local_datetime(&week_start_local)
-        .single()
-        .map(|d| d.with_timezone(&Utc).naive_utc())
-        .unwrap_or(week_start_local);
-
-    let raw_sets = workout_repo::list_since(pool, user_id, week_start_utc).await?;
-    let sets_this_week: Vec<SetInfo> = raw_sets
+    // History over the trailing 8 weeks (logged_at is UTC). Convert to local for
+    // the engine's date/hour math.
+    let since_utc = Utc::now().naive_utc() - Duration::weeks(8);
+    let raw = workout_repo::list_since(pool, user_id, since_utc).await?;
+    let history: Vec<SetRec> = raw
         .iter()
-        .map(|w| SetInfo {
+        .map(|w| SetRec {
             exercise_id: w.exercise_id,
             logged_at: to_local(w.logged_at),
+            reps: w.reps,
+            load_kg: w.load_kg,
+            hold_s: w.hold_s,
         })
         .collect();
-    let last_set_at = raw_sets.iter().map(|w| w.logged_at).max().map(to_local);
+    let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);
+
+    let last_perf = workout_repo::last_performance_by_exercise(pool, user_id)
+        .await?
+        .into_iter()
+        .map(|(id, lp)| {
+            (
+                id,
+                LastPerf {
+                    reps: lp.reps,
+                    load_kg: lp.load_kg,
+                    hold_s: lp.hold_s,
+                },
+            )
+        })
+        .collect();
+
+    let groups = muscle_repo::groups(pool)
+        .await?
+        .into_iter()
+        .map(|(id, name, region)| {
+            Ok(GroupMeta {
+                id,
+                name,
+                region: Region::from_db(&region)
+                    .ok_or_else(|| anyhow!("unknown region {region:?}"))?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     let inp = PacingInput {
-        program: Some(ProgramInfo {
-            start_date: active.start_date,
-            weeks: active.weeks,
-            deload_week: active.deload_week,
-        }),
+        mode,
+        days_per_week: s.days_per_week,
+        emphasis: s.emphasis,
         exercises,
-        targets,
-        pins,
-        sets_this_week,
+        history,
+        last_perf,
         last_set_at,
         settings,
+        groups,
         available_equipment,
     };
     Ok(engine::evaluate(&inp, now_local))
