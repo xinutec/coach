@@ -29,13 +29,17 @@ pub struct ExerciseInfo {
     pub groups: Vec<(i64, MuscleRole)>,
 }
 
-/// A logged set in the trailing history window (rich enough for volume + progression).
+/// A logged set in the trailing history window (rich enough for volume,
+/// progression, and the ability estimate). `rpe` (when logged) makes the e1RM
+/// estimate effort-aware — a set left with reps in reserve implies more strength
+/// than a grinding one at the same load.
 pub struct SetRec {
     pub exercise_id: i64,
     pub logged_at: NaiveDateTime,
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    pub rpe: Option<i32>,
 }
 
 /// The top set of an exercise's most recent session — the progression basis.

@@ -101,6 +101,7 @@ pub async fn now(
             reps: w.reps,
             load_kg: w.load_kg,
             hold_s: w.hold_s,
+            rpe: w.rpe,
         })
         .collect();
     let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);

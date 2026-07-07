@@ -2,6 +2,7 @@
 //! function (unit-tested); `service::now` assembles its input from the DB and
 //! applies the user's timezone.
 
+pub mod ability;
 pub mod engine;
 pub mod readiness;
 pub mod service;

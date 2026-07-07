@@ -85,6 +85,7 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
         reps: Some(8),
         load_kg: None,
         hold_s: None,
+        rpe: None,
     }
 }
 
