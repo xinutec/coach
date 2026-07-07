@@ -70,15 +70,26 @@
                   {{ w }} <mat-icon>close</mat-icon>
                 </button>
               }
-              <input
-                #wIn
-                class="spec-in"
-                type="number"
-                inputmode="decimal"
-                min="0"
-                placeholder="+ kg"
-                (keyup.enter)="addWeight(slug, wIn.value); wIn.value = ''"
-              />
+              <span class="spec-add">
+                <input
+                  #wIn
+                  class="spec-in"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  placeholder="kg"
+                  (keyup.enter)="addWeight(slug, wIn.value); wIn.value = ''"
+                  (blur)="addWeight(slug, wIn.value); wIn.value = ''"
+                />
+                <button
+                  type="button"
+                  class="spec-add-btn"
+                  aria-label="Add weight"
+                  (click)="addWeight(slug, wIn.value); wIn.value = ''"
+                >
+                  <mat-icon>add</mat-icon>
+                </button>
+              </span>
             </div>
           </div>
         }
@@ -91,12 +102,23 @@
                   {{ l }} <mat-icon>close</mat-icon>
                 </button>
               }
-              <input
-                #lIn
-                class="spec-in"
-                placeholder="+ e.g. light"
-                (keyup.enter)="addLabel(slug, lIn.value); lIn.value = ''"
-              />
+              <span class="spec-add">
+                <input
+                  #lIn
+                  class="spec-in wide"
+                  placeholder="e.g. light"
+                  (keyup.enter)="addLabel(slug, lIn.value); lIn.value = ''"
+                  (blur)="addLabel(slug, lIn.value); lIn.value = ''"
+                />
+                <button
+                  type="button"
+                  class="spec-add-btn"
+                  aria-label="Add band"
+                  (click)="addLabel(slug, lIn.value); lIn.value = ''"
+                >
+                  <mat-icon>add</mat-icon>
+                </button>
+              </span>
             </div>
           </div>
         }

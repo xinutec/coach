@@ -57,16 +57,48 @@
     color: var(--mat-sys-on-surface-variant);
     margin-bottom: 0.25rem;
   }
-  // A number/text field that reads as one more chip in the row.
-  .spec-in {
-    min-width: 4.5rem;
-    max-width: 6rem;
-    padding: 0.3rem 0.7rem;
+  // An input paired with a tap-to-add button — one more "chip" in the row.
+  // The pill border wraps both; the field is borderless inside it.
+  .spec-add {
+    display: inline-flex;
+    align-items: center;
     border-radius: 999px;
     border: 1px dashed var(--mat-sys-outline);
+  }
+  .spec-in {
+    width: 3rem;
+    padding: 0.3rem 0.2rem 0.3rem 0.7rem;
+    border: none;
     background: transparent;
     color: var(--mat-sys-on-surface);
     font: var(--mat-sys-label-large);
+
+    &.wide {
+      width: 5rem;
+    }
+    &:focus {
+      outline: none;
+    }
+  }
+  // Tap target to commit the typed value without a physical keyboard.
+  .spec-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin-right: 0.15rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+    cursor: pointer;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
   }
 }
 
