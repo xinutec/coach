@@ -35,10 +35,14 @@ nudge that spreads sets through the day.
 
 **Gap.** `LastPerf` is the top set of the most recent session, however old.
 After 18 months off, the engine happily prescribes your 2024 number +1 rep.
-RPE is logged but read by nothing. A never-done exercise gets "the lightest
-weight you own" and the bottom of the rep range — a guess, not an estimate.
-This is the root gap: a trainer that doesn't know what you can do today can't
-plan today.
+Worse, that "top set" may never have happened: it's assembled from independent
+per-column maxima over the last day trained (`MAX(reps)`, `MAX(load_kg)` in
+`last_performance_by_exercise`) — log 10×20 kg and 5×40 kg in one session and
+the progression basis is a fictitious 10×40 kg, which double progression then
+tries to beat. RPE is logged but read by nothing. A never-done exercise gets
+"the lightest weight you own" and the bottom of the rep range — a guess, not an
+estimate. This is the root gap: a trainer that doesn't know what you can do
+today can't plan today.
 
 **Design.** A pure `ability(history, now) -> HashMap<ExerciseId, Ability>`:
 
@@ -51,9 +55,10 @@ plan today.
   exercise, then −1.5 %/week, floored at 60 % — the detraining curve: strength
   holds for a couple of weeks, then erodes. The decayed value is the *working
   ability* every prescription derives from.
-- **Confidence**: `High` ≥ 3 sessions of the exercise in the last 6 weeks,
-  `Medium` 1–2, `Low` only-stale data, `None` never done. Confidence — not
-  cold-start defaults — decides whether the engine prescribes or assesses (G3).
+- **Confidence**: `High` ≥ 3 sessions of the exercise in the last 6 weeks
+  (a session = a distinct local day with ≥ 1 set of it), `Medium` 1–2, `Low`
+  only-stale data, `None` never done. Confidence — not cold-start defaults —
+  decides whether the engine prescribes or assesses (G3).
 - **Cross-exercise prior** (later stage): `None`-confidence exercises inherit a
   first estimate from a sibling (same pattern + same primary group) via a fixed
   variation-ratio table, so a first session on an incline press doesn't start
@@ -65,9 +70,16 @@ weights. With fresh, consistent data this reduces to today's double progression
 (+1 rep / next owned weight); with gaps, misses, or high RPE it self-corrects
 instead of blindly bumping.
 
+Ability derives from **per-set history, not `LastPerf`** — the max is taken
+over real sets, which also kills the chimera bug above. Implementation note:
+the service fetches 8 weeks of history while `last_perf` is unbounded; ability
+needs one defined lookback ≥ its decay horizon, so the fetch window widens (or
+ability floors at "assess me" past it).
+
 **Provable**: pure function, table-driven tests — stale history decays, RPE 10
 counts less than RPE 7 at the same load, a 2024-only history never prescribes
-above its decayed floor.
+above its decayed floor, a 10×20 kg + 5×40 kg day never yields a 10×40 kg
+basis.
 
 ### G2 — One suggestion is not a plan, and there's no ordering
 
@@ -124,7 +136,8 @@ prescribe → observe → correct, all deterministic.
 ### G4 — Progression ignores how the sets actually went
 
 **Gap.** `progress()` always advances: missed reps still get +1 next time, a
-grinding RPE-10 set is treated like an easy one. Plateaus are invisible.
+grinding RPE-10 set is treated like an easy one, and holds creep +5 s every
+session, unbounded, forever. Plateaus are invisible.
 
 **Design.** Feedback-aware progression rules on top of the ability model:
 
@@ -139,37 +152,70 @@ grinding RPE-10 set is treated like an easy one. Plateaus are invisible.
 
 ### G5 — Catalog data isn't rich enough to drive the above
 
-**Gap.** Only 2 of 119 catalog entries are de-facto warm-up moves, and nothing
+**Gap.** Only a handful of the 119 catalog entries are de-facto warm-up moves
+(arm circles, shoulder dislocates, wrist stretches, band work) and nothing
 marks them as such — today they'd credit volume like any set. `unilateral` is
 stored but unused (a flat `sets = 3` means half the volume per side).
+`difficulty` is wired through schema and API but null on **every** entry and
+read by nothing (G7 needs it). And "skill" isn't catalog data at all — the
+service infers it from hardcoded equipment slugs (`gymnastic_rings`,
+`parallettes` in `pacing/service.rs`), a magic-string classification the
+catalog should own.
 
 **Design.** Bounded catalog curation: add `warmup: true` to suitable mobility /
 band / activation moves (and add the few missing ones needed to cover all 7
-regions); seeder reconciliation (hash-gated, already in place) carries it to
-the DB. Engine: warm-up-tagged exercises are excluded from balance targets and
-selectable only by the warm-up block; unilateral exercises count sets per side.
+regions); populate `difficulty` (1–5, relative within a pattern — drives G7);
+add `skill: true` where it belongs and drop the slug sniff. Seeder
+reconciliation (hash-gated, already in place) carries it all to the DB. Engine:
+warm-up-tagged exercises are excluded from balance targets and selectable only
+by the warm-up block; unilateral exercises count sets per side.
 
 ### G6 — Recovery is a binary gate
 
 **Gap.** ≥ 3 effective sets within 36 h blocks a group outright, the same for
 delts as for quads. Real recovery is graded and size-dependent.
 
+Related: the biometric `recovery_scale` reaches the per-group targets but not
+`day_target_sets`, so on a low-readiness day the burn-down still demands the
+same number of sets — just lighter ones.
+
 **Design** (refinement, last stage): replace the boolean with a recovery
 fraction per group — linear ramp over a per-region recovery horizon (larger
 regions recover slower; labelled per-region constants) — and scale the group's
 deficit by it. The gate falls out as the fraction-≈0 case; behaviour with a
-fully-recovered group is unchanged (regression-tested).
+fully-recovered group is unchanged (regression-tested). Scale `day_target_sets`
+by the same recovery factor as the group targets.
+
+### G7 — Bodyweight and hold work dead-end at the top of the range
+
+**Gap.** A weighted move that tops its rep range steps to the next owned
+weight. A `reps` move that tops its range is prescribed the top **forever** —
+`progress()` has no next step — and holds just creep (G4). There is no notion
+of one exercise being the harder variation of another, so the engine can never
+say "you've outgrown incline push-ups; do full push-ups".
+
+**Design.** Deterministic variation ladders, driven by the curated `difficulty`
+field (G5): when an exercise is topped out — top of range at `High` confidence
+(and, once G4 lands, at RPE ≤ 8) — the planner offers the next-harder catalog
+entry sharing the pattern + primary group as an explicit "level up" item, its
+first prescription seeded by the cross-exercise prior (G1 tail). Nothing harder
+doable at the location → hold top of range and say so in the reason line.
+**Provable**: a topped-out incline push-up with a harder press variant
+available yields the variant; without one, it holds.
 
 ## Staging
 
 Each stage ships alone and keeps every existing test green.
 
 1. **Ability model (G1)** — pure `ability.rs`, staleness + RPE, prescriptions
-   derived from it. Kills the stale-PR bug; biggest correctness win.
+   derived from it. Kills the stale-PR and chimera-top-set bugs; biggest
+   correctness win.
 2. **Assessment items (G3)** — needs only confidence from stage 1 plus the
    `Assess` kind on the wire.
 3. **Session plan + ordering (G2, sans warm-up)** — engine emits the ordered
    plan, Today renders the checklist, set counts sized to deficits.
-4. **Warm-up block + catalog curation (G2a, G5)**.
-5. **Feedback progression + plateau (G4)**, **graded recovery (G6)**,
-   **cross-exercise priors (G1 tail)** — independent refinements, any order.
+4. **Warm-up block + catalog curation (G2a, G5)** — warm-up tags, difficulty,
+   skill flag, unilateral handling.
+5. **Feedback progression + plateau (G4)**, **variation ladders (G7)**,
+   **graded recovery (G6)**, **cross-exercise priors (G1 tail)** — independent
+   refinements, any order.
