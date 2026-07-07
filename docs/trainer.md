@@ -63,10 +63,24 @@ today can't plan today.
   (a session = a distinct local day with ≥ 1 set of it), `Medium` 1–2, `Low`
   only-stale data, `None` never done. Confidence — not cold-start defaults —
   decides whether the engine prescribes or assesses (G3, next stage).
-- **Cross-exercise prior** (later stage): `None`-confidence exercises inherit a
-  first estimate from a sibling (same pattern + same primary group) via a fixed
-  variation-ratio table, so a first session on an incline press doesn't start
-  from zero when the flat press is known.
+- **Cross-exercise prior** (attempted, shelved — *blocked on `difficulty` data*):
+  the intent — a `None`-confidence exercise inherits a first estimate from a
+  sibling (same pattern + same primary group), so a first incline press doesn't
+  start from zero when the flat press is known. A first cut (a flat 0.85
+  variation discount over any pattern+group sibling, prescribing when the sibling
+  was `High`) was built and immediately **back-tested against the real history
+  (E1)** — which caught it producing unsafe/degenerate prescriptions: a *62 kg
+  Good morning* prescribed as work off the RDL estimate (a never-performed,
+  higher-risk movement at 85 % of a different lift), and a *0 kg Farmers walk*
+  (a sibling with a zero-load entry). Root cause: a flat ratio across
+  loosely-defined siblings doesn't capture that RDL→Good-morning or
+  deadlift→farmers-walk share a group but *not* a strength/risk profile — that
+  distinction lives in the unpopulated `difficulty` field (G5/G7). And
+  auto-prescribing a weight for a never-performed movement violates the "measure
+  when unsure" principle regardless. **Reverted**; correct sequence is: populate
+  `difficulty` (G5 tail) → derive real variation ratios → and even then, a prior
+  only *seeds the assessment's starting load*, never skips the assessment. E1
+  earned its keep on its first real use.
 
 Prescription comes **from ability, not from the last set** (shipped, `engine::prescribe`):
 the working load is derived from the decayed e1RM — the weight whose top-of-range
