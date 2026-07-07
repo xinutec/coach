@@ -1,4 +1,4 @@
-//! One-time migration import endpoint (per-user history + programs).
+//! One-time migration import endpoint (per-user training history).
 
 use axum::Json;
 use axum::extract::State;
@@ -8,9 +8,8 @@ use crate::import::{Bundle, ImportSummary};
 use crate::session::AuthUser;
 use crate::state::AppState;
 
-/// POST /api/import/nocodb → ingest the caller's history + programs bundle.
-/// Idempotent (skips a non-empty log / existing program names); returns a
-/// summary of what it did.
+/// POST /api/import/nocodb → ingest the caller's training-history bundle.
+/// Idempotent (skips a non-empty log); returns a summary of what it did.
 pub async fn nocodb(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,

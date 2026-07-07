@@ -6,25 +6,18 @@ use axum::http::StatusCode;
 use serde::Deserialize;
 
 use crate::error::AppError;
-use crate::program::repo as program_repo;
 use crate::session::AuthUser;
 use crate::state::AppState;
 use crate::workout::repo;
 use crate::workout::types::{NewSet, WorkoutSet};
 
-/// POST /api/sets → log a set. It's stamped with the active program so it burns
-/// down that program's targets.
+/// POST /api/sets → log a set.
 pub async fn create(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,
     Json(body): Json<NewSet>,
 ) -> Result<Json<WorkoutSet>, AppError> {
-    let program_id = program_repo::active(&app.pool, &user.user_id)
-        .await?
-        .map(|p| p.id);
-    Ok(Json(
-        repo::create(&app.pool, &user.user_id, program_id, &body).await?,
-    ))
+    Ok(Json(repo::create(&app.pool, &user.user_id, &body).await?))
 }
 
 #[derive(Deserialize)]

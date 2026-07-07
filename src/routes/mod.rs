@@ -9,7 +9,6 @@ pub mod locations;
 pub mod muscles;
 pub mod pacing;
 pub mod places;
-pub mod program;
 pub mod settings;
 pub mod workout;
 
@@ -44,17 +43,8 @@ pub fn router(state: AppState) -> Router {
         // health-sync bridge: detected places (for linking) + current location
         .route("/places/detected", get(places::detected))
         .route("/location/current", get(places::current))
-        // One-time migration import (history + programs)
+        // One-time migration import (history)
         .route("/import/nocodb", post(import::nocodb))
-        // Programs
-        .route("/programs", get(program::list))
-        .route("/programs/active", get(program::active))
-        .route("/programs/starter", post(program::create_starter))
-        .route("/programs/{id}", get(program::detail))
-        .route("/programs/{id}/activate", post(program::activate))
-        .route("/programs/{id}/pins", post(program::upsert_pin))
-        .route("/programs/{id}/pins/{pinId}", delete(program::delete_pin))
-        .route("/program-targets/{id}", patch(program::patch_target))
         // Micro-log
         .route("/sets", get(workout::list).post(workout::create))
         .route("/sets/{id}", delete(workout::delete))

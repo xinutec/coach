@@ -1,4 +1,4 @@
-//! Authenticated API surface. Grows the exercise / program / set-logging and
+//! Authenticated API surface. Grows the exercise / set-logging and
 //! pacing endpoints later; for now just the identity echo.
 
 use axum::Json;

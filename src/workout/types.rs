@@ -12,8 +12,6 @@ pub struct WorkoutSet {
     pub id: i64,
     #[ts(type = "number")]
     pub exercise_id: i64,
-    #[ts(type = "number | null")]
-    pub program_id: Option<i64>,
     pub logged_at: NaiveDateTime,
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
@@ -31,8 +29,7 @@ pub struct LastPerformance {
     pub hold_s: Option<i32>,
 }
 
-/// Body for POST /api/sets. `loggedAt` defaults to now; `programId` is filled
-/// server-side from the active program.
+/// Body for POST /api/sets. `loggedAt` defaults to now.
 #[derive(Debug, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]

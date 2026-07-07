@@ -98,7 +98,6 @@ const SETS = [
 	{
 		id: 1,
 		exerciseId: 6,
-		programId: null,
 		loggedAt: "2024-10-28T09:30:00",
 		reps: 8,
 		loadKg: null,
@@ -109,7 +108,6 @@ const SETS = [
 	{
 		id: 2,
 		exerciseId: 11,
-		programId: null,
 		loggedAt: "2024-10-28T09:10:00",
 		reps: 10,
 		loadKg: 20,
@@ -120,7 +118,6 @@ const SETS = [
 	{
 		id: 3,
 		exerciseId: 1,
-		programId: null,
 		loggedAt: "2024-10-20T18:00:00",
 		reps: 6,
 		loadKg: null,

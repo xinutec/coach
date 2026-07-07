@@ -3,7 +3,7 @@
 /**
  * What the importer did — reported back so the one-time run is auditable.
  */
-export type ImportSummary = { historySetsInserted: bigint, historySkippedExisting: boolean, programsCreated: bigint, programsSkipped: bigint, 
+export type ImportSummary = { historySetsInserted: bigint, historySkippedExisting: boolean, 
 /**
  * Bundle slugs that don't resolve to a catalog exercise (should be empty).
  */

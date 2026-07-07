@@ -9,24 +9,17 @@ use sqlx::MySqlPool;
 
 use super::types::{LastPerformance, NewSet, WorkoutSet};
 
-/// Insert a logged set. `program_id` is the active program at log time (or None
-/// for an off-program set). `logged_at` defaults to now when the client omits it.
-pub async fn create(
-    pool: &MySqlPool,
-    user_id: &str,
-    program_id: Option<i64>,
-    n: &NewSet,
-) -> Result<WorkoutSet> {
+/// Insert a logged set. `logged_at` defaults to now when the client omits it.
+pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewSet) -> Result<WorkoutSet> {
     let res = sqlx::query(
         // logged_at defaults to UTC (UTC_TIMESTAMP), so the pacing engine's
         // local-tz day/window math is correct regardless of server tz.
         "INSERT INTO workout_sets \
-           (user_id, exercise_id, program_id, logged_at, reps, load_kg, hold_s, rpe, note) \
-         VALUES (?, ?, ?, COALESCE(?, UTC_TIMESTAMP()), ?, ?, ?, ?, ?)",
+           (user_id, exercise_id, logged_at, reps, load_kg, hold_s, rpe, note) \
+         VALUES (?, ?, COALESCE(?, UTC_TIMESTAMP()), ?, ?, ?, ?, ?)",
     )
     .bind(user_id)
     .bind(n.exercise_id)
-    .bind(program_id)
     .bind(n.logged_at)
     .bind(n.reps)
     .bind(n.load_kg)
@@ -42,7 +35,7 @@ pub async fn create(
 
 pub async fn get(pool: &MySqlPool, user_id: &str, id: i64) -> Result<Option<WorkoutSet>> {
     Ok(sqlx::query_as::<_, WorkoutSet>(
-        "SELECT id, exercise_id, program_id, logged_at, reps, load_kg, hold_s, rpe, note \
+        "SELECT id, exercise_id, logged_at, reps, load_kg, hold_s, rpe, note \
          FROM workout_sets WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
     )
     .bind(id)
@@ -54,7 +47,7 @@ pub async fn get(pool: &MySqlPool, user_id: &str, id: i64) -> Result<Option<Work
 /// Most-recent sets first, capped at `limit`.
 pub async fn list_recent(pool: &MySqlPool, user_id: &str, limit: i64) -> Result<Vec<WorkoutSet>> {
     Ok(sqlx::query_as::<_, WorkoutSet>(
-        "SELECT id, exercise_id, program_id, logged_at, reps, load_kg, hold_s, rpe, note \
+        "SELECT id, exercise_id, logged_at, reps, load_kg, hold_s, rpe, note \
          FROM workout_sets WHERE user_id = ? AND deleted_at IS NULL \
          ORDER BY logged_at DESC LIMIT ?",
     )
@@ -72,7 +65,7 @@ pub async fn list_since(
     since: NaiveDateTime,
 ) -> Result<Vec<WorkoutSet>> {
     Ok(sqlx::query_as::<_, WorkoutSet>(
-        "SELECT id, exercise_id, program_id, logged_at, reps, load_kg, hold_s, rpe, note \
+        "SELECT id, exercise_id, logged_at, reps, load_kg, hold_s, rpe, note \
          FROM workout_sets WHERE user_id = ? AND deleted_at IS NULL AND logged_at >= ? \
          ORDER BY logged_at ASC",
     )

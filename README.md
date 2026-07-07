@@ -5,10 +5,14 @@ of `life`: Rust (axum) backend + Angular 22 frontend + its own MariaDB, served
 from one image and deployed to k3s on isis. Public at `coach.xinutec.org`, gated
 by Nextcloud OAuth login.
 
-Tracks a periodized program (weekly volume pool + optional day pins) across the
-kit — rings on a 2 m bar, adjustable weights, a mat — and nudges you to spread
-your sets through the day instead of cramming them at night. Reminders fire from
-the Android app's on-device geofence (only when you're home).
+There's no stored plan or program. On every request the pacing engine recomputes
+what to do from first principles: your logged set history (rolling muscle-group
+volume + recovery), your settings, your biometric readiness, and the kit at your
+current location — rings on a 2 m bar, adjustable weights, a mat. It picks the
+biggest recovered deficit, chooses an exercise you can actually do there, and
+progresses it off your last performance — then nudges you to spread your sets
+through the day instead of cramming them at night. Reminders fire from the
+Android app's on-device geofence (only when you're home).
 
 ## Layout
 
