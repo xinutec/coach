@@ -19,6 +19,9 @@ jobs:
     container: rust:1-bookworm
     steps:
       - uses: actions/checkout@v6
+      # Cache ~/.cargo + target/ (keyed on Cargo.lock) — else the container
+      # re-downloads and re-compiles the whole dep tree every push.
+      - uses: Swatinem/rust-cache@v2
       - run: rustup component add clippy
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
@@ -33,6 +36,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
       # ui-check builds (prod) then runs the shared layout harness (text overlap,
@@ -58,4 +63,5 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
           cache-from: type=registry,ref=xinutec/coach:cache
-          cache-to: type=registry,ref=xinutec/coach:cache
+          # mode=max persists the builder-stage layers (npm ci, cargo deps) too.
+          cache-to: type=registry,ref=xinutec/coach:cache,mode=max
