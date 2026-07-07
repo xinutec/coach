@@ -25,9 +25,10 @@ volume per muscle group vs a target blended from a literature anchor and your
 own 8-week average, tilted by mode/emphasis/days-per-week; a 36 h recovery gate
 per group; biometric readiness (sleep/HRV/RHR from health-sync) scaling volume
 and gating progression; one greedy suggestion — best exercise for the biggest
-recovered deficit, doable at the current location, loads snapped to owned
-weights — progressed by double progression off the last top set; a burn-down
-nudge that spreads sets through the day.
+recovered deficit, doable at the current location; a burn-down nudge that
+spreads sets through the day. Prescription derives from the **ability model**
+(G1, shipped): an RPE-aware, staleness-decayed e1RM estimate per exercise, from
+which the working load is autoregulated and snapped to the weights you own.
 
 ## Gaps and designs
 
@@ -44,42 +45,53 @@ tries to beat. RPE is logged but read by nothing. A never-done exercise gets
 estimate. This is the root gap: a trainer that doesn't know what you can do
 today can't plan today.
 
-**Design.** A pure `ability(history, now) -> HashMap<ExerciseId, Ability>`:
+**Design** — *shipped* as `pacing/ability.rs`, a pure
+`abilities(history, now) -> HashMap<ExerciseId, Ability>`:
 
 - **Estimate per metric.** `weighted_reps`: estimated 1RM per set via Epley,
   RPE-aware — `e1rm = load × (1 + (reps + rir)/30)` with `rir = 10 − rpe`
-  (missing RPE → rir 0, i.e. the set is taken at face value); the exercise's
-  raw ability is the max over the recent window. `reps`: best single-set reps,
-  same RPE adjustment. `hold`: best hold seconds.
-- **Staleness decay** (heuristic, labelled): full trust ≤ 2 weeks idle on that
-  exercise, then −1.5 %/week, floored at 60 % — the detraining curve: strength
-  holds for a couple of weeks, then erodes. The decayed value is the *working
-  ability* every prescription derives from.
+  (missing RPE → rir 0, i.e. the set is taken at face value). `reps`: best
+  effective reps (`reps + rir`). `hold`: best hold seconds.
+- **Per-set staleness decay** (heuristic, labelled): each set's estimate is
+  scaled by *its own* age — full trust ≤ 2 weeks, then −1.5 %/week, floored at
+  60 % (the detraining curve) — and the exercise's ability is the **max of the
+  decayed estimates**. Decaying per set *then* maxing (rather than max-then-decay)
+  makes ability provably monotone under idleness while still trusting a genuine
+  old PR down to the floor rather than forgetting it.
 - **Confidence**: `High` ≥ 3 sessions of the exercise in the last 6 weeks
   (a session = a distinct local day with ≥ 1 set of it), `Medium` 1–2, `Low`
   only-stale data, `None` never done. Confidence — not cold-start defaults —
-  decides whether the engine prescribes or assesses (G3).
+  decides whether the engine prescribes or assesses (G3, next stage).
 - **Cross-exercise prior** (later stage): `None`-confidence exercises inherit a
   first estimate from a sibling (same pattern + same primary group) via a fixed
   variation-ratio table, so a first session on an incline press doesn't start
   from zero when the flat press is known.
 
-Prescription then comes **from ability, not from the last set**: pick the load
-matching the mode's rep range as a %-of-e1RM (inverse Epley), snapped to owned
-weights. With fresh, consistent data this reduces to today's double progression
-(+1 rep / next owned weight); with gaps, misses, or high RPE it self-corrects
-instead of blindly bumping.
+Prescription comes **from ability, not from the last set** (shipped, `engine::prescribe`):
+the working load is derived from the decayed e1RM — the weight whose top-of-range
+reps the estimate supports (inverse Epley at `TARGET_RIR` reserve) — then snapped
+to the **nearest weight you own**. This is *autoregulated load*: a layoff decays
+the estimate and eases the start automatically, and low readiness adds reserve
+(a lighter day). Because the target snaps to discrete owned weights, it **earns**
+the classic double-progression step: reps climb to the top of the range at the
+current weight, and the load only moves up once logged sets raise the e1RM past
+the next owned plate — never a blind +2.5 kg the reps don't support. Bodyweight
+`reps` work climbs the range off the decayed best; `hold` work off the best hold.
 
-Ability derives from **per-set history, not `LastPerf`** — the max is taken
-over real sets, which also kills the chimera bug above. Implementation note:
-the service fetches 8 weeks of history while `last_perf` is unbounded; ability
-needs one defined lookback ≥ its decay horizon, so the fetch window widens (or
-ability floors at "assess me" past it).
+Ability derives from **per-set history, not a `LastPerf` roll-up** — the old
+column-wise `MAX(reps), MAX(load)` (the chimera) is deleted; the estimate maxes
+over *real* sets. The service now loads 26 weeks of history (was 8) so the decay
+curve sees a returning athlete's recent-ish PRs; a set older than that simply
+doesn't inform today's estimate, and an exercise with no recent set falls to
+`None`/`Low` confidence rather than being bumped from an ancient number.
 
-**Provable**: pure function, table-driven tests — stale history decays, RPE 10
-counts less than RPE 7 at the same load, a 2024-only history never prescribes
-above its decayed floor, a 10×20 kg + 5×40 kg day never yields a 10×40 kg
-basis.
+**Proven** (pure tests, `tests/ability.rs` + `tests/pacing_engine.rs`): stale
+history decays and floors, RPE 10 counts less than RPE 7 at the same load,
+ability is monotone under idleness, a 10×20 kg + 5×40 kg day never yields a
+10×40 kg basis, a fresh top set is prescribed at demonstrated capacity (no blind
+jump), a stronger history earns a heavier *owned* weight, a 200-day-stale PR is
+prescribed below its old weight, and low readiness never prescribes heavier than
+a good day.
 
 ### G2 — One suggestion is not a plan, and there's no ordering
 
@@ -135,14 +147,17 @@ prescribe → observe → correct, all deterministic.
 
 ### G4 — Progression ignores how the sets actually went
 
-**Gap.** `progress()` always advances: missed reps still get +1 next time, a
-grinding RPE-10 set is treated like an easy one, and holds creep +5 s every
-session, unbounded, forever. Plateaus are invisible.
+**Gap.** Stage 1 made prescription RPE-aware (a grinding set no longer inflates
+the estimate), but the ability estimate is a **max** over decayed sets, so a
+*miss* pulls nothing down — a bad day is silently ignored rather than answered.
+There's no back-off after repeated misses and no plateau detection, and
+`prescribe` still creeps holds +5 s and bodyweight reps +1 every advance with no
+feedback other than the range ceiling.
 
 **Design.** Feedback-aware progression rules on top of the ability model:
 
-- top-of-range at RPE ≤ 7 → step load (as now, but allowed a double step when
-  the e1RM says the next owned weight is still < the target intensity);
+- top-of-range at RPE ≤ 7 → step load (allowed a double step when the e1RM says
+  the next owned weight is still < the target intensity);
 - missed the rep floor or RPE ≥ 9.5 → repeat, don't bump;
 - two consecutive misses on an exercise → back off ~10 % (one deterministic
   step down the owned-weights ladder) and rebuild;
@@ -188,11 +203,11 @@ by the same recovery factor as the group targets.
 
 ### G7 — Bodyweight and hold work dead-end at the top of the range
 
-**Gap.** A weighted move that tops its rep range steps to the next owned
-weight. A `reps` move that tops its range is prescribed the top **forever** —
-`progress()` has no next step — and holds just creep (G4). There is no notion
-of one exercise being the harder variation of another, so the engine can never
-say "you've outgrown incline push-ups; do full push-ups".
+**Gap.** A weighted move that tops its rep range earns the next owned weight
+(the e1RM ratchet). But a `reps` move that tops its range is prescribed the top
+**forever** — `prescribe` has no next step — and holds just creep (G4). There
+is no notion of one exercise being the harder variation of another, so the
+engine can never say "you've outgrown incline push-ups; do full push-ups".
 
 **Design.** Deterministic variation ladders, driven by the curated `difficulty`
 field (G5): when an exercise is topped out — top of range at `High` confidence
@@ -280,9 +295,9 @@ the debugging story: "why did it tell me to do X?" is answerable exactly.
 
 Each stage ships alone and keeps every existing test green.
 
-1. **Ability model (G1)** — pure `ability.rs`, staleness + RPE, prescriptions
-   derived from it. Kills the stale-PR and chimera-top-set bugs; biggest
-   correctness win.
+1. **Ability model (G1)** — ✅ *shipped*. Pure `ability.rs` (staleness + RPE),
+   `engine::prescribe` derives the autoregulated load from it, `LastPerf` and
+   the chimera query deleted. Killed the stale-PR and chimera-top-set bugs.
 2. **Assessment items (G3)** — needs only confidence from stage 1 plus the
    `Assess` kind on the wire.
 3. **Session plan + ordering (G2, sans warm-up)** — engine emits the ordered

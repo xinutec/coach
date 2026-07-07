@@ -42,13 +42,6 @@ pub struct SetRec {
     pub rpe: Option<i32>,
 }
 
-/// The top set of an exercise's most recent session — the progression basis.
-pub struct LastPerf {
-    pub reps: Option<i32>,
-    pub load_kg: Option<f64>,
-    pub hold_s: Option<i32>,
-}
-
 /// Muscle-group identity for output labelling + the balance view.
 #[derive(Clone)]
 pub struct GroupMeta {
@@ -69,9 +62,9 @@ pub struct PacingInput {
     pub days_per_week: i32,
     pub emphasis: Option<Region>,
     pub exercises: Vec<ExerciseInfo>,
-    /// Trailing history (≈8 weeks) — reps/load/hold carried for progression.
+    /// Trailing history (≈6 months) — every set's reps/load/hold/rpe, feeding
+    /// both rolling volume and the ability estimate (which decays old sets).
     pub history: Vec<SetRec>,
-    pub last_perf: HashMap<i64, LastPerf>,
     pub last_set_at: Option<NaiveDateTime>,
     pub settings: PacingSettings,
     pub groups: Vec<GroupMeta>,

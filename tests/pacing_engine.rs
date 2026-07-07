@@ -9,8 +9,7 @@ use coach::exercise::types::{Metric, Pattern};
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingSettings, PacingState, Readiness,
-    SetRec,
+    Band, ExerciseInfo, GroupMeta, PacingInput, PacingSettings, PacingState, Readiness, SetRec,
 };
 use coach::settings::types::Mode;
 
@@ -78,6 +77,7 @@ fn ex(
     }
 }
 
+/// A bodyweight set (reps only) — for volume/recovery scenarios.
 fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
     SetRec {
         exercise_id,
@@ -89,11 +89,23 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
     }
 }
 
+/// A weighted set (load + reps) — feeds the ability estimate that prescription
+/// derives from.
+fn wset(exercise_id: i64, at: NaiveDateTime, load: f64, reps: i32) -> SetRec {
+    SetRec {
+        exercise_id,
+        logged_at: at,
+        reps: Some(reps),
+        load_kg: Some(load),
+        hold_s: None,
+        rpe: None,
+    }
+}
+
 fn input(
     mode: Mode,
     exercises: Vec<ExerciseInfo>,
     history: Vec<SetRec>,
-    last_perf: HashMap<i64, LastPerf>,
     emphasis: Option<Region>,
     available: Option<Vec<i64>>,
 ) -> PacingInput {
@@ -104,7 +116,6 @@ fn input(
         emphasis,
         exercises,
         history,
-        last_perf,
         last_set_at,
         settings: settings(),
         groups: groups(),
@@ -147,19 +158,30 @@ fn catalog() -> Vec<ExerciseInfo> {
     ]
 }
 
+// A single barbell-row exercise (weighted) on the back group, for prescription
+// tests. `loads` is the owned inventory at equipment id 3.
+fn barbell_row() -> ExerciseInfo {
+    ex(
+        5,
+        "Barbell row",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![3],
+        vec![(20, MuscleRole::Primary)],
+    )
+}
+fn back_only() -> Vec<GroupMeta> {
+    vec![GroupMeta {
+        id: 20,
+        name: "Lats".into(),
+        region: Region::Back,
+    }]
+}
+
 #[test]
 fn fresh_when_no_history() {
-    let out = evaluate(
-        &input(
-            Mode::Balanced,
-            catalog(),
-            vec![],
-            HashMap::new(),
-            None,
-            None,
-        ),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
     assert_eq!(out.state, PacingState::Fresh);
     assert!(
         out.suggestion.is_some(),
@@ -176,10 +198,7 @@ fn surfaces_the_lagging_group() {
         h.push(set(1, days_ago(d))); // push-up (chest)
         h.push(set(3, days_ago(d))); // squat (legs)
     }
-    let out = evaluate(
-        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     assert_eq!(out.state, PacingState::Active);
     let sug = out.suggestion.unwrap();
     assert_eq!(sug.exercise_id, 2); // ring row — the back exercise
@@ -193,10 +212,7 @@ fn recovery_gate_skips_a_just_worked_group() {
     for _ in 0..4 {
         h.push(set(2, hours_ago(6))); // ring row (back), recent
     }
-    let out = evaluate(
-        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     let sug = out.suggestion.unwrap();
     assert_ne!(sug.group, "Lats", "the just-worked group is gated out");
     let back = out.groups.iter().find(|g| g.group == "Lats").unwrap();
@@ -226,14 +242,9 @@ fn mode_changes_the_bias() {
             vec![(20, MuscleRole::Primary)],
         ),
     ];
-    let g = vec![GroupMeta {
-        id: 20,
-        name: "Lats".into(),
-        region: Region::Back,
-    }];
     let mk = |mode| PacingInput {
-        groups: g.clone(),
-        ..input(mode, exs.clone(), vec![], HashMap::new(), None, None)
+        groups: back_only(),
+        ..input(mode, exs.clone(), vec![], None, None)
     };
     let strength = evaluate(&mk(Mode::Strength), now()).suggestion.unwrap();
     let skills = evaluate(&mk(Mode::Skills), now()).suggestion.unwrap();
@@ -265,21 +276,9 @@ fn location_substitutes_the_ideal() {
             vec![(20, MuscleRole::Primary)],
         ),
     ];
-    let g = vec![GroupMeta {
-        id: 20,
-        name: "Lats".into(),
-        region: Region::Back,
-    }];
     let inp = PacingInput {
-        groups: g,
-        ..input(
-            Mode::Strength,
-            exs,
-            vec![],
-            HashMap::new(),
-            None,
-            Some(vec![]),
-        )
+        groups: back_only(),
+        ..input(Mode::Strength, exs, vec![], None, Some(vec![]))
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert_eq!(sug.exercise_id, 2);
@@ -287,38 +286,145 @@ fn location_substitutes_the_ideal() {
 }
 
 #[test]
-fn progression_bumps_load_at_top_of_range() {
-    // Last session hit the top of the strength range at 60kg → +2.5kg, reps reset.
-    let exs = vec![ex(
-        5,
-        "Barbell row",
-        Pattern::Pull,
-        Metric::WeightedReps,
-        false,
-        vec![],
-        vec![(20, MuscleRole::Primary)],
-    )];
-    let g = vec![GroupMeta {
-        id: 20,
-        name: "Lats".into(),
-        region: Region::Back,
-    }];
-    let mut lp = HashMap::new();
-    lp.insert(
-        5,
-        LastPerf {
-            reps: Some(6),
-            load_kg: Some(60.0),
-            hold_s: None,
-        },
-    ); // 6 = top of Strength weighted range
+fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
+    // One fresh top set of 6 × 60 kg (top of the Strength range). The old engine
+    // blindly bumped to 62.5 kg; ability-derived prescription won't exceed what
+    // the reps support — it holds 60 kg at the top of the range until a better
+    // set raises the estimate.
     let inp = PacingInput {
-        groups: g,
-        ..input(Mode::Strength, exs, vec![], lp, None, None)
+        groups: back_only(),
+        ..input(
+            Mode::Strength,
+            vec![barbell_row()],
+            vec![wset(5, days_ago(2), 60.0, 6)],
+            None,
+            None,
+        )
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
-    assert_eq!(sug.load_kg, Some(62.5));
+    assert_eq!(
+        sug.load_kg,
+        Some(60.0),
+        "no blind +2.5 the reps don't support"
+    );
+    assert_eq!(sug.rep_high, Some(6));
+    assert!(sug.rep_low.unwrap() >= 3 && sug.rep_low.unwrap() <= 6);
+}
+
+#[test]
+fn a_stronger_history_earns_a_heavier_owned_weight() {
+    // Same exercise, owned 15/17.5/20 kg. A weaker recent history prescribes a
+    // lighter owned weight than a stronger one — the load step is *earned* by the
+    // logged sets raising the e1RM past the next weight, never a blind bump.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![15.0, 17.5, 20.0])]);
+    let sug = |hist: Vec<SetRec>| {
+        let inp = PacingInput {
+            groups: back_only(),
+            equipment_loads: owned.clone(),
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                hist,
+                None,
+                Some(vec![3]),
+            )
+        };
+        evaluate(&inp, now()).suggestion.unwrap()
+    };
+    let weak = sug(vec![wset(5, days_ago(2), 15.0, 8)]); // e1RM ≈ 19
+    let strong = sug(vec![wset(5, days_ago(2), 20.0, 5)]); // e1RM ≈ 23.3
+    assert!(
+        strong.load_kg.unwrap() > weak.load_kg.unwrap(),
+        "stronger history → heavier owned weight ({:?} > {:?})",
+        strong.load_kg,
+        weak.load_kg
+    );
+    // Every prescribed load is a weight actually owned here.
+    for s in [&weak, &strong] {
+        assert!(
+            owned[&3].contains(&s.load_kg.unwrap()),
+            "prescribed {:?} must be an owned weight",
+            s.load_kg
+        );
+    }
+}
+
+#[test]
+fn a_stale_pr_is_not_prescribed_at_face_value() {
+    // A 6 × 60 kg top set from 200 days ago and nothing since: the old engine
+    // would prescribe ~60 kg + a rep. Staleness decays the estimate, so the
+    // prescription is conservatively lighter — a returning athlete rebuilds.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![40.0, 50.0, 60.0])]);
+    let inp = PacingInput {
+        groups: back_only(),
+        equipment_loads: owned,
+        ..input(
+            Mode::Strength,
+            vec![barbell_row()],
+            vec![wset(5, days_ago(200), 60.0, 6)],
+            None,
+            Some(vec![3]),
+        )
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert!(
+        sug.load_kg.unwrap() < 60.0,
+        "stale PR decayed below its old weight, got {:?}",
+        sug.load_kg
+    );
+}
+
+#[test]
+fn cold_start_suggests_the_lightest_owned_weight() {
+    // No history for a weighted lift → the lightest weight you own + the full
+    // range, not nothing.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![10.0, 15.0, 20.0])]);
+    let inp = PacingInput {
+        groups: back_only(),
+        equipment_loads: owned,
+        ..input(
+            Mode::Strength,
+            vec![barbell_row()],
+            vec![],
+            None,
+            Some(vec![3]),
+        )
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.load_kg, Some(10.0));
     assert_eq!(sug.rep_low, Some(3));
+}
+
+#[test]
+fn low_readiness_prescribes_lighter_than_a_good_day() {
+    // Identical history + inventory; a low-readiness day leaves more in reserve,
+    // so the working load is lighter (never heavier) than a normal day.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![40.0, 45.0, 50.0, 55.0, 60.0])]);
+    let mk = |r: Option<Readiness>| {
+        let inp = PacingInput {
+            groups: back_only(),
+            equipment_loads: owned.clone(),
+            readiness: r,
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                vec![wset(5, days_ago(2), 55.0, 6)],
+                None,
+                Some(vec![3]),
+            )
+        };
+        evaluate(&inp, now()).suggestion.unwrap().load_kg.unwrap()
+    };
+    let normal = mk(None);
+    let low = mk(Some(Readiness {
+        score: 0.2,
+        band: Band::Low,
+    }));
+    assert!(
+        low <= normal,
+        "low readiness ({low}) not heavier than normal ({normal})"
+    );
+    assert!(low < normal, "low readiness should ease the load off");
 }
 
 #[test]
@@ -330,10 +436,7 @@ fn rest_when_everything_recovered() {
         h.push(set(2, hours_ago(10)));
         h.push(set(3, hours_ago(10)));
     }
-    let out = evaluate(
-        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     assert_eq!(out.state, PacingState::Rest);
     assert!(out.suggestion.is_none());
     assert!(out.reason.contains("rest"));
@@ -348,10 +451,7 @@ fn auto_deload_when_volume_spikes() {
             h.push(set(1, days_ago(d)));
         }
     }
-    let out = evaluate(
-        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     assert!(out.deload, "a recent volume spike triggers auto-deload");
 }
 
@@ -362,10 +462,7 @@ fn nudges_when_behind_midday() {
     for d in 2..6 {
         h.push(set(1, days_ago(d)));
     }
-    let out = evaluate(
-        &input(Mode::Balanced, catalog(), h, HashMap::new(), None, None),
-        now(),
-    );
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     assert!(out.within_window && !out.after_window && out.spacing_ok);
     assert!(out.nudge);
     assert!(out.day_target_sets >= 3);
@@ -376,14 +473,7 @@ fn readiness_scales_the_target() {
     // Same state, high vs low biometric readiness → higher vs lower group target.
     let mk = |r: Readiness| PacingInput {
         readiness: Some(r),
-        ..input(
-            Mode::Balanced,
-            catalog(),
-            vec![],
-            HashMap::new(),
-            None,
-            None,
-        )
+        ..input(Mode::Balanced, catalog(), vec![], None, None)
     };
     let high = evaluate(
         &mk(Readiness {
@@ -419,44 +509,6 @@ fn readiness_scales_the_target() {
 }
 
 #[test]
-fn low_readiness_holds_progression() {
-    // At the top of the range, but low readiness → keep the load, don't chase a PR.
-    let exs = vec![ex(
-        5,
-        "Barbell row",
-        Pattern::Pull,
-        Metric::WeightedReps,
-        false,
-        vec![],
-        vec![(20, MuscleRole::Primary)],
-    )];
-    let g = vec![GroupMeta {
-        id: 20,
-        name: "Lats".into(),
-        region: Region::Back,
-    }];
-    let mut lp = HashMap::new();
-    lp.insert(
-        5,
-        LastPerf {
-            reps: Some(6),
-            load_kg: Some(60.0),
-            hold_s: None,
-        },
-    );
-    let inp = PacingInput {
-        groups: g,
-        readiness: Some(Readiness {
-            score: 0.2,
-            band: Band::Low,
-        }),
-        ..input(Mode::Strength, exs, vec![], lp, None, None)
-    };
-    let sug = evaluate(&inp, now()).suggestion.unwrap();
-    assert_eq!(sug.load_kg, Some(60.0), "held load, no +2.5 bump");
-}
-
-#[test]
 fn readiness_suppresses_volume_deload() {
     // The volume-spike deload scenario, but with biometric readiness present: the
     // real recovery signal supersedes the crude proxy, so `deload` stays off.
@@ -471,7 +523,7 @@ fn readiness_suppresses_volume_deload() {
             score: 0.9,
             band: Band::High,
         }),
-        ..input(Mode::Balanced, catalog(), h, HashMap::new(), None, None)
+        ..input(Mode::Balanced, catalog(), h, None, None)
     };
     let out = evaluate(&inp, now());
     assert!(!out.deload, "readiness supersedes the volume-spike deload");
@@ -490,7 +542,7 @@ fn high_readiness_notes_the_reason() {
             score: 0.9,
             band: Band::High,
         }),
-        ..input(Mode::Balanced, catalog(), h, HashMap::new(), None, None)
+        ..input(Mode::Balanced, catalog(), h, None, None)
     };
     let out = evaluate(&inp, now());
     assert!(out.suggestion.is_some());
@@ -511,14 +563,7 @@ fn outside_the_window_suggests_but_never_nudges() {
 
     // After the window's end (22:00, end=21): defers to tomorrow, no nudge.
     let late = evaluate(
-        &input(
-            Mode::Balanced,
-            catalog(),
-            hist(),
-            HashMap::new(),
-            None,
-            None,
-        ),
+        &input(Mode::Balanced, catalog(), hist(), None, None),
         at(22),
     );
     assert!(late.after_window && !late.within_window);
@@ -527,17 +572,7 @@ fn outside_the_window_suggests_but_never_nudges() {
     assert!(late.reason.contains("rolls to tomorrow"));
 
     // Before the window's start (06:00, start=8): neutral, no nudge, no defer.
-    let early = evaluate(
-        &input(
-            Mode::Balanced,
-            catalog(),
-            hist(),
-            HashMap::new(),
-            None,
-            None,
-        ),
-        at(6),
-    );
+    let early = evaluate(&input(Mode::Balanced, catalog(), hist(), None, None), at(6));
     assert!(!early.within_window && !early.after_window);
     assert!(!early.nudge);
     assert!(early.suggestion.is_some());
@@ -545,70 +580,9 @@ fn outside_the_window_suggests_but_never_nudges() {
 }
 
 #[test]
-fn snaps_load_to_the_weights_you_own() {
-    // A dumbbell exercise (equipment id 3); you own 10 / 15 / 20 kg here.
-    let exs = vec![ex(
-        5,
-        "DB row",
-        Pattern::Pull,
-        Metric::WeightedReps,
-        false,
-        vec![3],
-        vec![(20, MuscleRole::Primary)],
-    )];
-    let g = vec![GroupMeta {
-        id: 20,
-        name: "Lats".into(),
-        region: Region::Back,
-    }];
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![10.0, 15.0, 20.0])]);
-    let sug = |lp: HashMap<i64, LastPerf>| {
-        let inp = PacingInput {
-            groups: g.clone(),
-            equipment_loads: owned.clone(),
-            ..input(Mode::Strength, exs.clone(), vec![], lp, None, Some(vec![3]))
-        };
-        evaluate(&inp, now()).suggestion.unwrap()
-    };
-    let last = |reps, load| {
-        HashMap::from([(
-            5i64,
-            LastPerf {
-                reps: Some(reps),
-                load_kg: Some(load),
-                hold_s: None,
-            },
-        )])
-    };
-
-    // Top of range at 15 → step to the next weight owned (20), reps reset — not 17.5.
-    let up = sug(last(6, 15.0));
-    assert_eq!(up.load_kg, Some(20.0));
-    assert_eq!(up.rep_low, Some(3));
-
-    // An unowned last load (16) snaps to the nearest owned (15).
-    assert_eq!(sug(last(4, 16.0)).load_kg, Some(15.0));
-
-    // At the heaviest owned (20) with nothing heavier → hold weight + top reps.
-    let capped = sug(last(6, 20.0));
-    assert_eq!(capped.load_kg, Some(20.0));
-    assert_eq!(capped.rep_low, capped.rep_high);
-
-    // No history → suggest the lightest weight you own (10), not nothing.
-    assert_eq!(sug(HashMap::new()).load_kg, Some(10.0));
-}
-
-#[test]
 fn emphasis_biases_a_region() {
     // Nothing done; legs emphasis pushes the quads target up so legs leads.
-    let inp = input(
-        Mode::Balanced,
-        catalog(),
-        vec![],
-        HashMap::new(),
-        Some(Region::Legs),
-        None,
-    );
+    let inp = input(Mode::Balanced, catalog(), vec![], Some(Region::Legs), None);
     let out = evaluate(&inp, now());
     let quads = out.groups.iter().find(|g| g.group == "Quadriceps").unwrap();
     let chest = out.groups.iter().find(|g| g.group == "Chest").unwrap();

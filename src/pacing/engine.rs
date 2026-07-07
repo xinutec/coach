@@ -16,12 +16,26 @@ use crate::exercise::types::Metric;
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
+use super::ability::{self, Ability};
 use super::types::{
-    Band, ExerciseInfo, GroupBalance, LastPerf, PacingInput, PacingNow, PacingState, Suggestion,
+    Band, ExerciseInfo, GroupBalance, PacingInput, PacingNow, PacingState, Suggestion,
 };
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
 const READINESS_HOLD_BELOW: f64 = 0.40;
+
+/// Reps in reserve the working load targets at the top of the rep range. `0` =
+/// prescribe to demonstrated capacity: a load whose top-of-range reps match your
+/// estimated e1RM. Progression is then *earned* — the load only steps up when
+/// logged sets raise the e1RM enough to cross the next owned weight — never a
+/// blind +2.5 kg the reps don't support.
+const TARGET_RIR: f64 = 0.0;
+/// Extra reps-in-reserve on a low-readiness day → a lighter working load.
+const LOW_READINESS_EXTRA_RIR: f64 = 2.0;
+/// Cold-start hold (seconds) when an isometric has no history yet.
+const COLD_HOLD_S: i32 = 20;
+/// Seconds added to a hold when progressing (bounded properly in a later stage).
+const HOLD_STEP_S: i32 = 5;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -128,83 +142,85 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
     }
 }
 
-/// The next owned weight strictly above `w`. Unknown inventory (`loads` empty) →
-/// the classic +2.5 kg step; a known inventory with nothing heavier → `None` (hold
-/// — you can't load more than you own).
-fn step_up(loads: &[f64], w: f64) -> Option<f64> {
-    if loads.is_empty() {
-        return Some(w + 2.5);
-    }
-    loads.iter().copied().find(|&x| x > w + 1e-6)
-}
-
 /// Snap a load to the nearest weight you actually own (ties → lighter). Unknown
-/// inventory → unchanged.
+/// inventory → the raw load rounded to the nearest 0.5 kg (a cleaner number than
+/// an inverse-Epley decimal, and the smallest plate step that's universal).
 fn snap(loads: &[f64], w: f64) -> f64 {
     loads
         .iter()
         .copied()
         .min_by(|a, b| (a - w).abs().total_cmp(&(b - w).abs()))
-        .unwrap_or(w)
+        .unwrap_or((w * 2.0).round() / 2.0)
 }
 
-/// Progress an exercise off its last performance: (sets, rep_low, rep_high,
-/// load_kg, hold_s). Double-progression — top of range last time → add load/rep.
-/// When `advance` is false (low readiness) we hold the line: keep last load, no
-/// rep/second bump — recover, don't push for a PR. `loads` are the discrete
-/// weights owned here (sorted asc): suggestions snap to them, and "add load"
-/// steps to the next weight you own rather than an abstract +2.5 kg.
-fn progress(
+/// The load whose top-set of `reps` reps (leaving `rir` in reserve) matches an
+/// estimated 1-rep-max of `e1rm` — inverse Epley.
+fn load_for(e1rm: f64, reps: f64, rir: f64) -> f64 {
+    e1rm / (1.0 + (reps + rir) / 30.0)
+}
+
+/// Reps within reach at `load` (leaving `rir` in reserve) given `e1rm` — Epley,
+/// solved for reps. The dual of [`load_for`].
+fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
+    30.0 * (e1rm / load - 1.0) - rir
+}
+
+/// Prescribe (sets, rep_low, rep_high, load_kg, hold_s) for an exercise from the
+/// athlete's **ability** — not the last set. Weighted work autoregulates: the
+/// working load is derived from the decayed e1RM so a layoff self-corrects to a
+/// lighter start, and the load only steps up when logged sets raise the estimate
+/// past the next owned weight (double progression, but *earned* and snapped to
+/// what you own). `advance = false` (low readiness) leaves more in reserve —
+/// keep it light, don't chase a PR. No estimate yet → a conservative cold start.
+fn prescribe(
     ex: &ExerciseInfo,
-    last: Option<&LastPerf>,
+    ability: Option<&Ability>,
     mode: Mode,
     advance: bool,
     loads: &[f64],
 ) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
     let sets = 3;
     let (lo, hi) = rep_range(mode, ex.metric);
-    // A load to suggest when there's no history: the lightest weight you own.
     let cold = loads.first().copied();
+    let reserve = if advance {
+        TARGET_RIR
+    } else {
+        TARGET_RIR + LOW_READINESS_EXTRA_RIR
+    };
     match ex.metric {
-        Metric::Hold => {
-            let base = last.and_then(|l| l.hold_s).unwrap_or(20);
-            (
-                2,
-                None,
-                None,
-                None,
-                Some(if advance { base + 5 } else { base }),
-            )
-        }
         Metric::WeightedReps => {
-            let reps = last.and_then(|l| l.reps);
-            let load = last.and_then(|l| l.load_kg);
-            if !advance {
-                // Repeat last load (snapped to an owned weight), no bump.
-                return (sets, lo, hi, load.map(|w| snap(loads, w)).or(cold), None);
-            }
-            match (reps, load, hi) {
-                (Some(r), Some(w), Some(h)) if r >= h => match step_up(loads, w) {
-                    // Top of range: step to the next weight you own, reps reset.
-                    Some(nw) => (sets, lo, hi, Some(nw), None),
-                    // Nothing heavier owned: hold the top weight + top reps.
-                    None => (sets, Some(h), hi, Some(snap(loads, w)), None),
-                },
-                (Some(r), Some(w), Some(h)) => {
-                    (sets, Some((r + 1).min(h)), hi, Some(snap(loads, w)), None)
+            let (lo_v, hi_v) = (lo.unwrap_or(6), hi.unwrap_or(10));
+            match ability.and_then(|a| a.e1rm) {
+                Some(e) => {
+                    // Working load: the weight you own nearest the one that puts
+                    // the top of the range within reach at the target reserve.
+                    let w = snap(loads, load_for(e, hi_v as f64, reserve));
+                    // At that (discrete) weight, how many reps are actually in
+                    // reach? Clamped into the range — this is the rep target that
+                    // climbs to the top before the weight is allowed to step.
+                    let target = (reps_at(e, w, reserve).round() as i32).clamp(lo_v, hi_v);
+                    (sets, Some(target), hi, Some(w), None)
                 }
-                (_, w, _) => (sets, lo, hi, w.map(|x| snap(loads, x)).or(cold), None),
+                // Never done / no recent estimate → lightest owned + full range.
+                None => (sets, lo, hi, cold, None),
             }
         }
         Metric::Reps => {
-            if !advance {
-                return (sets, lo, hi, None, None);
-            }
-            match (last.and_then(|l| l.reps), hi) {
-                (Some(r), Some(h)) if r >= h => (sets, hi, hi, None, None),
-                (Some(r), Some(h)) => (sets, Some((r + 1).min(h)), hi, None, None),
-                _ => (sets, lo, hi, None, None),
-            }
+            // Only lever is reps: climb toward the top of the range off the
+            // decayed best; hold (no climb) on a low-readiness day.
+            let target = match ability.and_then(|a| a.best_reps) {
+                Some(best) => {
+                    let aim = if advance { best + 1 } else { best };
+                    aim.clamp(lo.unwrap_or(8), hi.unwrap_or(12))
+                }
+                None => lo.unwrap_or(8),
+            };
+            (sets, Some(target), hi, None, None)
+        }
+        Metric::Hold => {
+            let base = ability.and_then(|a| a.best_hold).unwrap_or(COLD_HOLD_S);
+            let secs = if advance { base + HOLD_STEP_S } else { base };
+            (2, None, None, None, Some(secs))
         }
     }
 }
@@ -213,6 +229,7 @@ fn progress(
 /// if nothing that trains it as a primary is doable here.
 fn pick_for_group(
     input: &PacingInput,
+    abilities: &std::collections::HashMap<i64, Ability>,
     group_id: i64,
     group_name: &str,
     now: NaiveDateTime,
@@ -269,13 +286,8 @@ fn pick_for_group(
         .collect();
     loads.sort_by(f64::total_cmp);
     loads.dedup();
-    let (sets, rep_low, rep_high, load_kg, hold_s) = progress(
-        chosen,
-        input.last_perf.get(&chosen.id),
-        mode,
-        advance,
-        &loads,
-    );
+    let (sets, rep_low, rep_high, load_kg, hold_s) =
+        prescribe(chosen, abilities.get(&chosen.id), mode, advance, &loads);
     Some(Suggestion {
         exercise_id: chosen.id,
         exercise_name: chosen.name.clone(),
@@ -302,6 +314,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let spacing_ok = minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
 
     let ex_by_id: HashMap<i64, &ExerciseInfo> = input.exercises.iter().map(|e| (e.id, e)).collect();
+
+    // Per-exercise ability (RPE-aware e1RM / best reps / best hold, decayed for
+    // staleness) — the basis every prescription derives from. Computed once.
+    let abilities = ability::abilities(&input.history, now);
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     let roll_cut = now - Duration::days(ROLLING_DAYS);
@@ -402,7 +418,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // First focus group with a doable exercise wins.
     let mut suggestion = None;
     for (gid, gname, _) in &candidates {
-        if let Some(sug) = pick_for_group(input, *gid, gname, now) {
+        if let Some(sug) = pick_for_group(input, &abilities, *gid, gname, now) {
             suggestion = Some(sug);
             break;
         }

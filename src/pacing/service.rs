@@ -22,8 +22,14 @@ use crate::workout::repo as workout_repo;
 
 use super::engine;
 use super::types::{
-    ExerciseInfo, GroupMeta, LastPerf, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
+    ExerciseInfo, GroupMeta, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
 };
+
+/// How far back to load set history. Wide enough that the ability model's
+/// staleness decay (which floors around ~30 weeks idle) sees a returning
+/// athlete's recent-ish PRs; the engine's own 7-day / 8-week windows filter
+/// within it. A set older than this simply doesn't inform today's estimate.
+const HISTORY_WEEKS: i64 = 26;
 
 /// The coach verdict for the user right now. `location_id` makes the suggestion
 /// location-aware; `mode_override` picks a mode for this call (else the user's
@@ -89,9 +95,9 @@ pub async fn now(
         })
         .collect();
 
-    // History over the trailing 8 weeks (logged_at is UTC). Convert to local for
+    // History over the trailing window (logged_at is UTC). Convert to local for
     // the engine's date/hour math.
-    let since_utc = Utc::now().naive_utc() - Duration::weeks(8);
+    let since_utc = Utc::now().naive_utc() - Duration::weeks(HISTORY_WEEKS);
     let raw = workout_repo::list_since(pool, user_id, since_utc).await?;
     let history: Vec<SetRec> = raw
         .iter()
@@ -105,21 +111,6 @@ pub async fn now(
         })
         .collect();
     let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);
-
-    let last_perf = workout_repo::last_performance_by_exercise(pool, user_id)
-        .await?
-        .into_iter()
-        .map(|(id, lp)| {
-            (
-                id,
-                LastPerf {
-                    reps: lp.reps,
-                    load_kg: lp.load_kg,
-                    hold_s: lp.hold_s,
-                },
-            )
-        })
-        .collect();
 
     let groups = muscle_repo::groups(pool)
         .await?
@@ -140,7 +131,6 @@ pub async fn now(
         emphasis: s.emphasis,
         exercises,
         history,
-        last_perf,
         last_set_at,
         settings,
         groups,

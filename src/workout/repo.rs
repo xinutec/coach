@@ -1,13 +1,11 @@
 //! Workout-set queries. Soft-deletes (deleted_at) so history stays intact.
 //! SQL is `&'static str` literal (sqlx 0.9 SqlSafeStr); no interpolation.
 
-use std::collections::HashMap;
-
 use anyhow::{Result, anyhow};
 use chrono::NaiveDateTime;
 use sqlx::MySqlPool;
 
-use super::types::{LastPerformance, NewSet, WorkoutSet};
+use super::types::{NewSet, WorkoutSet};
 
 /// Insert a logged set. `logged_at` defaults to now when the client omits it.
 pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewSet) -> Result<WorkoutSet> {
@@ -73,42 +71,6 @@ pub async fn list_since(
     .bind(since)
     .fetch_all(pool)
     .await?)
-}
-
-/// exercise id → the top set of its most recent session (max reps/load/hold on the
-/// last day it was trained), the basis for progression. One query for all exercises.
-pub async fn last_performance_by_exercise(
-    pool: &MySqlPool,
-    user_id: &str,
-) -> Result<HashMap<i64, LastPerformance>> {
-    // (exercise_id, reps, load_kg, hold_s)
-    type Row = (i64, Option<i32>, Option<f64>, Option<i32>);
-    let rows: Vec<Row> = sqlx::query_as(
-        "SELECT w.exercise_id, MAX(w.reps) AS reps, MAX(w.load_kg) AS load_kg, MAX(w.hold_s) AS hold_s \
-         FROM workout_sets w \
-         JOIN (SELECT exercise_id, MAX(DATE(logged_at)) AS d FROM workout_sets \
-               WHERE user_id = ? AND deleted_at IS NULL GROUP BY exercise_id) last \
-           ON last.exercise_id = w.exercise_id AND DATE(w.logged_at) = last.d \
-         WHERE w.user_id = ? AND w.deleted_at IS NULL \
-         GROUP BY w.exercise_id",
-    )
-    .bind(user_id)
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
-    Ok(rows
-        .into_iter()
-        .map(|(ex, reps, load_kg, hold_s)| {
-            (
-                ex,
-                LastPerformance {
-                    reps,
-                    load_kg,
-                    hold_s,
-                },
-            )
-        })
-        .collect())
 }
 
 /// Soft-delete a set. Returns false if nothing matched (wrong user / already gone).
