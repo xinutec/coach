@@ -28,8 +28,8 @@ macro_rules! db_str {
     };
 }
 
-/// Movement pattern. Doubles as the recovery grouping: the pacing engine rests a
-/// pattern that was recently worked hard.
+/// Movement pattern. Classification + display; recovery is gated per muscle
+/// group, not per pattern (see `pacing::engine`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(export)]

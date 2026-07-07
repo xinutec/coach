@@ -18,8 +18,12 @@ Android app's on-device geofence (only when you're home).
 
 - `src/` — Rust backend (see module docs). `pacing/engine.rs` is the pure,
   unit-tested core; `pacing/service.rs` assembles its input + applies your tz.
+- `docs/trainer.md` — the trainer model: design principles, known gaps, and the
+  staged roadmap toward a full deterministic trainer (ability model, ordered
+  daily plan, calibration tasks).
 - `migrations/` — sqlx migrations, run at boot. Append-only.
-- `frontend/` — Angular app (Today burn-down, program editor, history, settings).
+- `frontend/` — Angular app (Today burn-down, log, history, balance, exercise
+  library, locations, settings).
 - `android/` — WebView wrapper + native geofence/notification layer (WIP).
 - `k8s/` — namespace, PVC, MariaDB, app, ingress, DB network policy + deploy
   scripts.
