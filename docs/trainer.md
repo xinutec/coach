@@ -203,6 +203,79 @@ doable at the location → hold top of range and say so in the reason line.
 **Provable**: a topped-out incline push-up with a harder press variant
 available yields the variant; without one, it holds.
 
+## Engineering rigor — how we know it's right
+
+The gaps above are the product design. These are the mechanisms that make
+"provably correct" and "gets finer over time" *verified properties* rather than
+aspirations. All of them exist because the engine is a pure function — none
+would be possible with a stored plan.
+
+### E1 — Back-test every engine change against real history
+
+Any change to the engine (a constant, a formula, a new stage) can be **replayed
+over the full real logged history**: evaluate the verdict at each historical
+instant (every log event, plus sampled hours between), before vs after, and
+diff. A small `backtest` binary + committed baseline, exactly the health-sync
+golden pattern: fixtures from real data, gate = no *unexplained* drift. No
+heuristic gets tuned blind; every diff in prescriptions is inspected before it
+ships. This is the single highest-leverage piece — it turns "I think this
+constant is better" into evidence.
+
+### E2 — Property tests for the invariants
+
+Table tests pin behaviours; **property tests** (`proptest`, arbitrary histories)
+pin the *invariants* that must hold for every input, not just the ones we
+thought of:
+
+- determinism: same input → byte-identical verdict;
+- logging a set never *increases* that group's deficit;
+- suggested loads ∈ the owned-weights set (when known); reps within the mode's
+  range; targets within their clamps;
+- ability is monotone under decay — more idle time never raises it;
+- warm-up cover ⊇ the plan's primary groups (G2a); plan set-count ≤ the day
+  budget;
+- degradation: stripping any optional input (readiness, location, history)
+  yields a verdict, never a panic, and never *widens* claims (e.g. no load
+  suggestion appears when the inventory vanished).
+
+### E3 — Athlete simulation: convergence as a regression test
+
+A deterministic **virtual athlete** (a simple dose-response model: true
+ability per exercise, performs the prescription with an outcome derived from
+true ability, fatigue, and a fixed recovery curve — all closed-form, seeded, no
+randomness needed) run against the engine for simulated months. Assertions:
+
+- **convergence**: after N assessment/prescription cycles, prescription error
+  vs true ability falls below a threshold and stays there;
+- **stability**: prescriptions don't oscillate (no ping-ponging between loads);
+- **bounded ramp**: weekly volume growth stays under a labelled cap;
+- **recovery honesty**: the simulated athlete is never prescribed work the
+  model says it cannot recover from.
+
+This is what makes "becomes a close-to-perfect trainer over time" a tested
+property of the system instead of a hope.
+
+### E4 — Prediction-error ledger (the self-correction signal)
+
+Every prescription is a **prediction** ("you can do 8 × 40 kg"). The logged
+outcome makes the residual computable from history alone — still stateless.
+Surfaced per exercise, it (a) drives G3 re-assessment (persistent misses →
+confidence drops → re-measure), and (b) later calibrates the labelled constants
+*per user*: pick, from a small labelled grid of candidate constants (decay
+rate, progression step), the one minimising historical residual. Deterministic,
+reproducible, inspectable — calibration, not learning: the model form never
+changes, only which labelled constant is active, and E1 shows exactly what the
+switch does.
+
+### E5 — Explanations as data, not prose
+
+The `reason` string becomes a **structured trace**: each factor (deficit,
+recovery state, readiness, recency, mode fit, ability + its confidence + its
+staleness decay) with its value and contribution to the decision. The UI can
+then cite the derivation of every number it shows, the prose renders *from* the
+trace, and tests assert on the trace instead of string-matching sentences. Also
+the debugging story: "why did it tell me to do X?" is answerable exactly.
+
 ## Staging
 
 Each stage ships alone and keeps every existing test green.
@@ -219,3 +292,9 @@ Each stage ships alone and keeps every existing test green.
 5. **Feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **graded recovery (G6)**, **cross-exercise priors (G1 tail)** — independent
    refinements, any order.
+
+Rigor lands alongside, not after: **E1 (back-test) + E2 (properties) arrive
+with stage 1** and gate every later stage; **E5 (trace)** rides stage 3 (the
+plan needs explaining anyway); **E3 (simulation)** follows stage 3, once there
+is a plan to simulate; **E4 (residual ledger)** rides stages 2–5 — assessment
+uses it first, calibration last.
