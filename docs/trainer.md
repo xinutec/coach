@@ -112,16 +112,19 @@ warm-up block (G2a), which waits on catalog curation (G5, next stage):
   ③ heavy compound weighted work → ④ bodyweight/isolation accessories →
   ⑤ core/conditioning finishers. Within a tier: deficit desc, id asc.
   (Not yet: swapping adjacent same-group items apart — a later refinement.)
-- **G2a Warm-up block** (pending, stage 4), derived from the plan itself: the
-  union of the main items' primary muscle groups must be covered by the block.
-  Catalog moves tagged `warmup: true` (mobility, band work — see G5) are chosen
-  to cover that set; the first heavy weighted item additionally gets a ramp-in
-  set at ~50 % of its working load. Warm-up sets credit no training volume, so
-  they never eat the day's targets. **Provable**: a test asserts
-  `cover(warmup_block) ⊇ primaries(main_items)` for arbitrary plans.
+- **G2a Warm-up block** ✅ (shipped, `engine::build_warmup`), derived from the
+  plan: mobility drills (catalog `warmup: true` moves — see G5) for the session's
+  primary muscle groups, one per group so drills don't stack, doable at the
+  location; plus a ~50 % ramp-in set on the first heavy lift. Warm-up sets credit
+  no training volume, so they never eat the day's targets, and warm-up-tagged
+  moves are excluded from work selection. The block leads the plan (tier 1);
+  `suggestion` (the nudge/Android head) points at the first *training* item, not
+  the warm-up. (The current cover rule is "one drill per session group that has a
+  warm-up move" + the ramp-in; a strict `cover ⊇ primaries` for *every* region
+  awaits catalog mobility moves for legs/arms — the ramp-in covers those for now.)
 - **Wire** ✅: `PacingNow.plan: Vec<Suggestion>` (reusing `Suggestion` + its
-  `SuggestionKind`; `Warmup` joins the kind in stage 4). The Today page renders
-  the ordered list as the session; `suggestion` stays as its head for the nudge
+  `SuggestionKind`, now `Warmup | Work | Assess`). The Today page renders the
+  ordered list as the session; `suggestion` stays as its head for the nudge
   + Android trigger.
 
 ### G3 — When the engine doesn't know, it should ask ✅ *shipped*
@@ -172,21 +175,22 @@ feedback other than the range ceiling.
 
 **Gap.** Only a handful of the 119 catalog entries are de-facto warm-up moves
 (arm circles, shoulder dislocates, wrist stretches, band work) and nothing
-marks them as such — today they'd credit volume like any set. `unilateral` is
-stored but unused (a flat `sets = 3` means half the volume per side).
-`difficulty` is wired through schema and API but null on **every** entry and
-read by nothing (G7 needs it). And "skill" isn't catalog data at all — the
-service infers it from hardcoded equipment slugs (`gymnastic_rings`,
-`parallettes` in `pacing/service.rs`), a magic-string classification the
-catalog should own.
+marked them as such — they'd credit volume like any set (fixed: `warmup` flag).
+`unilateral` is stored but still unused (a flat `sets = 3` means half the volume
+per side). `difficulty` is wired through schema and API but null on **every**
+entry and read by nothing (G7 needs it). "skill" used to be inferred from
+hardcoded equipment slugs (`gymnastic_rings`/`parallettes`) — now a catalog
+`skill` flag (magic strings gone).
 
-**Design.** Bounded catalog curation: add `warmup: true` to suitable mobility /
-band / activation moves (and add the few missing ones needed to cover all 7
-regions); populate `difficulty` (1–5, relative within a pattern — drives G7);
-add `skill: true` where it belongs and drop the slug sniff. Seeder
-reconciliation (hash-gated, already in place) carries it all to the DB. Engine:
-warm-up-tagged exercises are excluded from balance targets and selectable only
-by the warm-up block; unilateral exercises count sets per side.
+**Design.** Bounded catalog curation. **Shipped**: `warmup: true` on the mobility
+/ activation moves (6 tagged) + `skill: true` on the ring/parallette work (22
+tagged), both seeded and reconciled via new `exercises.warmup`/`exercises.skill`
+columns (migration 0015); the service reads `skill` from the catalog and the
+slug sniff is gone; warm-up-tagged moves are excluded from work selection and
+credit no volume. **Still pending**: populate `difficulty` (1–5, relative within
+a pattern — drives G7); count `unilateral` sets per side; author the few missing
+mobility moves to cover legs/arms in the warm-up block. Seeder reconciliation
+(hash-gated) already carries flag corrections to existing rows.
 
 ### G6 — Recovery is a binary gate
 
@@ -306,8 +310,10 @@ Each stage ships alone and keeps every existing test green.
 3. **Session plan + ordering (G2, sans warm-up)** — ✅ *shipped*. Engine emits
    `plan: Vec<Suggestion>` tiered + sized to deficits; Today renders the session
    list; `suggestion` stays as the head.
-4. **Warm-up block + catalog curation (G2a, G5)** — warm-up tags, difficulty,
-   skill flag, unilateral handling. ← next
+4. **Warm-up block + catalog curation (G2a, G5)** — ✅ *mostly shipped*: the
+   warm-up block, `warmup`/`skill` catalog flags + migration 0015, volume
+   exclusion. Remaining: `difficulty` population, `unilateral` per-side sets,
+   author leg/arm mobility moves.
 5. **Feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **graded recovery (G6)**, **cross-exercise priors (G1 tail)** — independent
    refinements, any order.
