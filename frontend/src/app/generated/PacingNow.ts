@@ -26,4 +26,15 @@ afterWindow: boolean, spacingOk: boolean, minutesSinceLastSet: number | null,
 /**
  * The computed session-size target + what's been done today (drive the nudge).
  */
-dayTargetSets: number, dayDoneSets: number, groups: Array<GroupBalance>, suggestion: Suggestion | null, };
+dayTargetSets: number, dayDoneSets: number, groups: Array<GroupBalance>, 
+/**
+ * The head of `plan` — "next up" — kept for the nudge + the Android trigger.
+ */
+suggestion: Suggestion | null, 
+/**
+ * The ordered session for today: each in-deficit, recovered group resolved to
+ * a doable exercise, sets sized to its deficit share of the day budget, and
+ * ordered by training tier (skill/hold → heavy compound → accessory → core).
+ * Recomputed statelessly each call, so logging a set reshapes it live.
+ */
+plan: Array<Suggestion>, };

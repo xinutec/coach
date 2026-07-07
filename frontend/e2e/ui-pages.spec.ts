@@ -173,6 +173,7 @@ const PACING = {
 		exerciseId: 6,
 		exerciseName: "Ring dip",
 		pattern: "push",
+		kind: "work",
 		sets: 2,
 		repLow: 5,
 		repHigh: 8,
@@ -181,6 +182,35 @@ const PACING = {
 		group: "Chest",
 		substitutedFor: null,
 	},
+	// The ordered session: a work item (the head, "Next up") + a calibration item.
+	plan: [
+		{
+			exerciseId: 6,
+			exerciseName: "Ring dip",
+			pattern: "push",
+			kind: "work",
+			sets: 2,
+			repLow: 5,
+			repHigh: 8,
+			loadKg: null,
+			holdS: null,
+			group: "Chest",
+			substitutedFor: null,
+		},
+		{
+			exerciseId: 11,
+			exerciseName: "Goblet squat",
+			pattern: "legs",
+			kind: "assess",
+			sets: 1,
+			repLow: 5,
+			repHigh: 5,
+			loadKg: 20,
+			holdS: null,
+			group: "Quadriceps",
+			substitutedFor: null,
+		},
+	],
 };
 
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers

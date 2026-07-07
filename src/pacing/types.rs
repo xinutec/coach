@@ -190,5 +190,11 @@ pub struct PacingNow {
     pub day_target_sets: i32,
     pub day_done_sets: i32,
     pub groups: Vec<GroupBalance>,
+    /// The head of `plan` — "next up" — kept for the nudge + the Android trigger.
     pub suggestion: Option<Suggestion>,
+    /// The ordered session for today: each in-deficit, recovered group resolved to
+    /// a doable exercise, sets sized to its deficit share of the day budget, and
+    /// ordered by training tier (skill/hold → heavy compound → accessory → core).
+    /// Recomputed statelessly each call, so logging a set reshapes it live.
+    pub plan: Vec<Suggestion>,
 }

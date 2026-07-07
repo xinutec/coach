@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 use chrono::{Duration, NaiveDateTime, Timelike};
 
-use crate::exercise::types::Metric;
+use crate::exercise::types::{Metric, Pattern};
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
@@ -40,6 +40,9 @@ const HOLD_STEP_S: i32 = 5;
 /// A calibration set for a weighted lift: build up to a hard-but-clean set of
 /// this many reps and log load/reps/RPE — the measurement the estimate needs.
 const ASSESS_WEIGHTED_REPS: i32 = 5;
+/// Fewest sets a work item in the plan is ever sized to — below this the stimulus
+/// isn't worth a plan slot.
+const WORK_MIN_SETS: i32 = 2;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -265,6 +268,65 @@ fn assess(
     }
 }
 
+/// Which block of the session an exercise belongs in — the classic order that
+/// puts demanding, technical work while the nervous system is fresh and leaves
+/// finishers for last. Lower runs earlier. Tier 1 is reserved for the warm-up
+/// block (a later stage).
+fn tier(ex: &ExerciseInfo) -> u8 {
+    if ex.is_skill || ex.metric == Metric::Hold {
+        2 // skill / hold work — needs a fresh CNS
+    } else if ex.metric == Metric::WeightedReps && ex.pattern != Pattern::Core {
+        3 // heavy compound weighted
+    } else if ex.pattern == Pattern::Core {
+        5 // core / conditioning finisher
+    } else {
+        4 // bodyweight / isolation accessory
+    }
+}
+
+/// Size and order the resolved candidates into the day's plan. Work items get a
+/// share of the `budget` sets proportional to their muscle-group deficit (at
+/// least `WORK_MIN_SETS`); Assess (calibration) and Hold items keep their own
+/// counts. Items are added biggest-deficit-first until the budget is spent, then
+/// re-sorted into training order (tier, then deficit, then id) so the list reads
+/// top-to-bottom as a sensible session — the athlete starts at the top or picks
+/// any item. Recomputed statelessly each call, so logging a set reshapes it.
+fn build_plan(mut resolved: Vec<(Suggestion, f64, u8)>, budget: i32) -> Vec<Suggestion> {
+    if budget <= 0 {
+        return Vec::new();
+    }
+    // Fund the biggest deficits first.
+    resolved.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.exercise_id.cmp(&b.0.exercise_id))
+    });
+    let total_def: f64 = resolved.iter().map(|(_, d, _)| d).sum::<f64>().max(1e-9);
+    let mut left = budget;
+    let mut chosen: Vec<(Suggestion, f64, u8)> = Vec::new();
+    for (mut sug, def, t) in resolved {
+        if left <= 0 {
+            break;
+        }
+        // Weighted / bodyweight *work* is sized to its deficit share; assess and
+        // hold items keep their fixed counts but still draw down the budget.
+        let resizeable = sug.kind == SuggestionKind::Work && sug.hold_s.is_none();
+        if resizeable {
+            let share = ((budget as f64) * def / total_def).round() as i32;
+            sug.sets = share.max(WORK_MIN_SETS).min(left);
+        }
+        left -= sug.sets;
+        chosen.push((sug, def, t));
+    }
+    // Present in training order.
+    chosen.sort_by(|a, b| {
+        a.2.cmp(&b.2)
+            .then(b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal))
+            .then(a.0.exercise_id.cmp(&b.0.exercise_id))
+    });
+    chosen.into_iter().map(|(s, _, _)| s).collect()
+}
+
 /// Choose the best exercise for a muscle group given mode + location, or `None`
 /// if nothing that trains it as a primary is doable here.
 fn pick_for_group(
@@ -471,14 +533,27 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             .then(a.0.cmp(&b.0))
     });
 
-    // First focus group with a doable exercise wins.
-    let mut suggestion = None;
-    for (gid, gname, _) in &candidates {
+    // --- session-size target from personal weekly volume (sizes the plan) ---
+    let avg_weekly_sets = if raw_hist > 0 {
+        raw_hist as f64 / HISTORY_WEEKS as f64
+    } else {
+        24.0 // cold-start default ≈ 6 sets × 4 days
+    };
+    let day_target_sets =
+        ((avg_weekly_sets / input.days_per_week.max(1) as f64).round() as i32).clamp(3, 15);
+
+    // --- build the ordered session plan ---
+    // Resolve each in-deficit, recovered group to a doable exercise; size + order
+    // into the day's plan. The head is "next up"; the rest is the session.
+    let mut resolved: Vec<(Suggestion, f64, u8)> = Vec::new();
+    for (gid, gname, deficit) in &candidates {
         if let Some(sug) = pick_for_group(input, &abilities, *gid, gname, now) {
-            suggestion = Some(sug);
-            break;
+            let t = ex_by_id.get(&sug.exercise_id).map(|e| tier(e)).unwrap_or(4);
+            resolved.push((sug, *deficit, t));
         }
     }
+    let plan = build_plan(resolved, day_target_sets);
+    let suggestion = plan.first().cloned();
 
     let state = if input.history.is_empty() {
         PacingState::Fresh
@@ -487,15 +562,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else {
         PacingState::Rest
     };
-
-    // --- session-size target from personal weekly volume, for the burn-down ---
-    let avg_weekly_sets = if raw_hist > 0 {
-        raw_hist as f64 / HISTORY_WEEKS as f64
-    } else {
-        24.0 // cold-start default ≈ 6 sets × 4 days
-    };
-    let day_target_sets =
-        ((avg_weekly_sets / input.days_per_week.max(1) as f64).round() as i32).clamp(3, 15);
 
     // Burn-down vs window elapsed → nudge when behind (never dump the day at night).
     let now_min = (hour * 60 + now.minute() as i32) as f64;
@@ -571,5 +637,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         day_done_sets: done_today,
         groups: balances,
         suggestion,
+        plan,
     }
 }

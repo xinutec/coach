@@ -204,6 +204,70 @@ fn surfaces_the_lagging_group() {
     let sug = out.suggestion.unwrap();
     assert_eq!(sug.exercise_id, 2); // ring row — the back exercise
     assert_eq!(sug.group, "Lats");
+    // The single suggestion is just the head of the ordered plan.
+    assert_eq!(out.plan.first().map(|s| s.exercise_id), Some(2));
+}
+
+#[test]
+fn the_plan_is_ordered_and_sized_to_the_day_budget() {
+    // Nothing trained this week → all three groups are in deficit. The plan should
+    // cover them, ordered by training tier, sized within the day's set budget.
+    let out = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
+    assert!(
+        out.plan.len() >= 2,
+        "a fresh week plans multiple groups, got {}",
+        out.plan.len()
+    );
+    // Each group appears once; total sets don't exceed the day target.
+    let total: i32 = out.plan.iter().map(|s| s.sets).sum();
+    assert!(
+        total <= out.day_target_sets,
+        "planned {total} sets over budget {}",
+        out.day_target_sets
+    );
+    // A weighted compound (tier 3) never precedes a skill/hold (tier 2), etc. —
+    // here all three are bodyweight accessories, so order falls to deficit/id and
+    // the plan stays deterministic across calls.
+    let again = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
+    let ids: Vec<_> = out.plan.iter().map(|s| s.exercise_id).collect();
+    let ids2: Vec<_> = again.plan.iter().map(|s| s.exercise_id).collect();
+    assert_eq!(ids, ids2, "the plan is deterministic");
+}
+
+#[test]
+fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
+    // A ring skill (tier 2) and a barbell compound (tier 3), both back, both in
+    // deficit. The skill leads — fresh CNS first.
+    let exs = vec![
+        ex(
+            5,
+            "Barbell row",
+            Pattern::Pull,
+            Metric::WeightedReps,
+            false,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            7,
+            "Front lever",
+            Pattern::Pull,
+            Metric::Hold,
+            true,
+            vec![],
+            vec![(10, MuscleRole::Primary)], // chest group, different focus
+        ),
+    ];
+    let out = evaluate(&input(Mode::Balanced, exs, vec![], None, None), now());
+    let order: Vec<_> = out.plan.iter().map(|s| s.exercise_id).collect();
+    let skill = order.iter().position(|&id| id == 7);
+    let compound = order.iter().position(|&id| id == 5);
+    if let (Some(sk), Some(co)) = (skill, compound) {
+        assert!(
+            sk < co,
+            "skill/hold (7) before heavy compound (5): {order:?}"
+        );
+    }
 }
 
 #[test]

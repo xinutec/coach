@@ -49,56 +49,65 @@
     </mat-card-content>
   </mat-card>
 
-  @if (p.suggestion; as s) {
-    <mat-card class="suggestion" [class.assess]="s.kind === 'assess'">
-      <mat-card-content>
-        <div class="s-head">
-          @if (s.kind === "assess") {
-            <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
-          }
-          <span class="pill accent">{{ s.group }}</span>
-          <h3>{{ s.exerciseName }}</h3>
-        </div>
-        @if (s.substitutedFor) {
-          <p class="s-sub">
-            <mat-icon>swap_horiz</mat-icon>
-            Swapped in for {{ s.substitutedFor }} — its kit isn't here
-          </p>
-        }
-        @if (suggestionEquipment().length) {
-          <div class="s-equip">
-            @for (name of suggestionEquipment(); track name) {
-              <span class="pill">{{ name }}</span>
+  @if (p.plan.length) {
+    <div class="plan-head">
+      <h3>Today's session</h3>
+      <span class="plan-count">{{ p.dayDoneSets }} / {{ p.dayTargetSets }} sets</span>
+    </div>
+    @for (s of p.plan; track s.exerciseId; let first = $first) {
+      <mat-card class="suggestion" [class.assess]="s.kind === 'assess'" [class.next]="first">
+        <mat-card-content>
+          <div class="s-head">
+            @if (first) {
+              <span class="pill next-pill">Next up</span>
             }
+            @if (s.kind === "assess") {
+              <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
+            }
+            <span class="pill accent">{{ s.group }}</span>
+            <h3>{{ s.exerciseName }}</h3>
           </div>
-        }
-        @if (s.kind === "assess") {
-          <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
-          @if (s.loadKg !== null) {
-            <p class="s-detail">Start around {{ s.loadKg }} kg</p>
+          @if (s.substitutedFor) {
+            <p class="s-sub">
+              <mat-icon>swap_horiz</mat-icon>
+              Swapped in for {{ s.substitutedFor }} — its kit isn't here
+            </p>
           }
-          <button mat-flat-button (click)="openLog(true)">
-            <mat-icon>science</mat-icon> Log the calibration set
-          </button>
-        } @else {
-          <p class="s-detail">
-            {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
-            @if (s.repLow !== null) {
-              · {{ s.repLow }}–{{ s.repHigh }} reps
-            }
+          @if (equipmentFor(s.exerciseId).length) {
+            <div class="s-equip">
+              @for (name of equipmentFor(s.exerciseId); track name) {
+                <span class="pill">{{ name }}</span>
+              }
+            </div>
+          }
+          @if (s.kind === "assess") {
+            <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
             @if (s.loadKg !== null) {
-              · {{ s.loadKg }} kg
+              <p class="s-detail">Start around {{ s.loadKg }} kg</p>
             }
-            @if (s.holdS !== null) {
-              · {{ s.holdS }}s hold
-            }
-          </p>
-          <button mat-flat-button (click)="openLog(true)">
-            <mat-icon>add</mat-icon> Log this set
-          </button>
-        }
-      </mat-card-content>
-    </mat-card>
+            <button mat-flat-button (click)="openLog(s)">
+              <mat-icon>science</mat-icon> Log the calibration set
+            </button>
+          } @else {
+            <p class="s-detail">
+              {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
+              @if (s.repLow !== null) {
+                · {{ s.repLow }}–{{ s.repHigh }} reps
+              }
+              @if (s.loadKg !== null) {
+                · {{ s.loadKg }} kg
+              }
+              @if (s.holdS !== null) {
+                · {{ s.holdS }}s hold
+              }
+            </p>
+            <button mat-flat-button (click)="openLog(s)">
+              <mat-icon>add</mat-icon> Log this set
+            </button>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
   }
 
   <h3 class="bal-title">This week's balance</h3>

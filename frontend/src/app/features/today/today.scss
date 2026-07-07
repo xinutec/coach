@@ -85,7 +85,32 @@ mat-card {
   }
 }
 
+.plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 1rem 0 0.5rem;
+  h3 {
+    margin: 0;
+  }
+  .plan-count {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-large);
+  }
+}
+
 .suggestion {
+  margin-bottom: 0.6rem;
+
+  // The head of the plan — the thing to do next — gets a touch more presence.
+  &.next {
+    border-left: 3px solid var(--mat-sys-primary);
+  }
+  .next-pill {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
   .s-head {
     display: flex;
     align-items: center;

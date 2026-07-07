@@ -9,7 +9,7 @@ import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSelectModule } from "@angular/material/select";
 import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
-import type { Band, GroupBalance, Mode, PacingNow } from "../../models";
+import type { Band, GroupBalance, Mode, PacingNow, Suggestion } from "../../models";
 import { EquipmentStore, ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { LogSheet, type LogSheetData } from "../log/log-sheet";
 
@@ -135,11 +135,9 @@ export class Today {
 		return p.groups.slice(0, 6);
 	}
 
-	/** Equipment (display names) the suggested exercise needs, for pills. */
-	suggestionEquipment(): string[] {
-		const s = this.pacing()?.suggestion;
-		if (!s) return [];
-		const ex = this.exercises().find((e) => e.id === s.exerciseId);
+	/** Equipment (display names) an exercise needs, for pills. */
+	equipmentFor(exerciseId: number): string[] {
+		const ex = this.exercises().find((e) => e.id === exerciseId);
 		if (!ex) return [];
 		return ex.equipment.map((slug) => this.equipmentNames().get(slug) ?? slug);
 	}
@@ -182,15 +180,15 @@ export class Today {
 		return Math.round(n).toString();
 	}
 
-	openLog(fromSuggestion = false): void {
-		const p = this.pacing();
+	/** Open the log sheet, optionally prefilled from a specific plan item. */
+	openLog(from?: Suggestion): void {
 		const data: LogSheetData = { exercises: this.exercises() };
-		if (fromSuggestion && p?.suggestion) {
+		if (from) {
 			data.prefill = {
-				exerciseId: p.suggestion.exerciseId,
-				reps: p.suggestion.repLow,
-				loadKg: p.suggestion.loadKg,
-				holdS: p.suggestion.holdS,
+				exerciseId: from.exerciseId,
+				reps: from.repLow,
+				loadKg: from.loadKg,
+				holdS: from.holdS,
 			};
 		}
 		this.sheet
