@@ -25,8 +25,6 @@ Android app's on-device geofence (only when you're home).
 - `frontend/` — Angular app (Today burn-down, log, history, balance, exercise
   library, locations, settings).
 - `android/` — WebView wrapper + native geofence/notification layer (WIP).
-- `k8s/` — namespace, PVC, MariaDB, app, ingress, DB network policy + deploy
-  scripts.
 
 ## Develop
 
