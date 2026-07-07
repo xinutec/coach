@@ -56,9 +56,20 @@ today can't plan today.
 - **Per-set staleness decay** (heuristic, labelled): each set's estimate is
   scaled by *its own* age — full trust ≤ 2 weeks, then −1.5 %/week, floored at
   60 % (the detraining curve) — and the exercise's ability is the **max of the
-  decayed estimates**. Decaying per set *then* maxing (rather than max-then-decay)
-  makes ability provably monotone under idleness while still trusting a genuine
-  old PR down to the floor rather than forgetting it.
+  decayed estimates** *within the most-recent training block*. Decaying per set
+  *then* maxing (rather than max-then-decay) makes ability provably monotone under
+  idleness while still trusting a genuine old PR down to the floor.
+- **Training-block reset** (safety, labelled `BLOCK_GAP_WEEKS = 8`): a break in an
+  exercise's history longer than eight weeks splits it into a new block, and only
+  the **most-recent block** estimates ability. So after a real interruption — a
+  long layoff, a health setback — your current level is read from your *return*,
+  never from a pre-break PR (even decayed) that no longer describes you: the
+  estimate can't sit above what you've shown since, so a recovering body is never
+  prescribed its old loads. Continuous training is one block (unchanged
+  behaviour), and same-day sets never split (the chimera guard holds). Proven in
+  `tests/ability.rs` — a long break resets to the return level; a light set
+  *within* a block never erases a heavier one — and back-tested as a no-op on
+  continuous history.
 - **Confidence**: `High` ≥ 3 sessions of the exercise in the last 6 weeks
   (a session = a distinct local day with ≥ 1 set of it), `Medium` 1–2, `Low`
   only-stale data, `None` never done. Confidence — not cold-start defaults —

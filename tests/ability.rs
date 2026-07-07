@@ -146,6 +146,52 @@ fn a_recent_set_can_override_a_decayed_old_pr() {
 }
 
 #[test]
+fn a_long_break_resets_ability_to_the_recent_block() {
+    // A strong old block, a long layoff, then a lighter return. Ability must read
+    // from the *return*, not the decayed old PR — prescribing the old load to a
+    // weaker (recovering) body would be unsafe. This is the case that matters most.
+    let recent_light = e1rm(40.0, 5, None); // ≈ 47, the honest return level
+    let old_pr = e1rm(100.0, 5, None) * DECAY_FLOOR; // the decayed 2024 ghost, far higher
+    let a = abilities(
+        &[
+            weighted(1, 400, 100.0, 5, None), // old block, > a year ago
+            weighted(1, 380, 100.0, 5, None),
+            weighted(1, 3, 40.0, 5, None), // return block, this week
+            weighted(1, 1, 40.0, 5, None),
+        ],
+        base(),
+    );
+    let est = a[&1].e1rm.unwrap();
+    assert!(
+        (est - recent_light).abs() < 1e-9,
+        "estimate {est} must be the return level {recent_light}, not the old PR"
+    );
+    assert!(
+        old_pr > recent_light,
+        "the old ghost ({old_pr}) really is higher — the point of the reset"
+    );
+}
+
+#[test]
+fn a_light_set_within_a_block_does_not_erase_a_heavier_one() {
+    // No break: a light technique/warm-up set today must not lower the estimate
+    // below a heavier set a few days ago — within a block, the best set wins. (The
+    // reset is for real interruptions, not normal training variation.)
+    let heavy = e1rm(80.0, 5, None); // ≈ 93
+    let a = abilities(
+        &[
+            weighted(1, 4, 80.0, 5, None), // heavy, 4 days ago
+            weighted(1, 1, 30.0, 5, None), // light, today (same block)
+        ],
+        base(),
+    );
+    assert!(
+        (a[&1].e1rm.unwrap() - heavy).abs() < 1e-9,
+        "the heavier set in the block still defines ability"
+    );
+}
+
+#[test]
 fn confidence_counts_distinct_recent_days() {
     // Three separate days in the last six weeks → High.
     let high = abilities(

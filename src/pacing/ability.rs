@@ -42,6 +42,14 @@ const DECAY_FLOOR: f64 = 0.60;
 /// A set left of this window no longer counts toward *confidence* (it still
 /// contributes a decayed estimate — see the module note).
 const CONFIDENCE_WEEKS: i64 = 6;
+/// A break in an exercise's history longer than this splits it into a new
+/// training block. **Only the most-recent block estimates ability** — so after a
+/// real interruption (a long layoff, a health setback), your current level is
+/// read from your *return*, not from a pre-break PR that no longer describes you.
+/// Continuous training leaves everything in one block (the former behaviour). Set
+/// beyond normal rotation/rest so an ordinary week off never resets you, but well
+/// under the detraining timescale so a genuine break does.
+const BLOCK_GAP_WEEKS: i64 = 8;
 /// Recent sessions (distinct days) needed for `High` / `Medium` confidence.
 const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
@@ -111,15 +119,49 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
     }
     let window_cut = now - Duration::weeks(CONFIDENCE_WEEKS);
 
+    let block_gap = Duration::weeks(BLOCK_GAP_WEEKS);
+
     by_ex
         .into_iter()
-        .map(|(id, sets)| {
+        .map(|(id, mut sets)| {
+            // The most-recent contiguous training block: walk back from the newest
+            // set until a gap longer than `BLOCK_GAP_WEEKS`. Only this block
+            // estimates ability, so a pre-break PR can't raise the estimate — or a
+            // prescription — above what your return has actually shown. Continuous
+            // training is one block (the former decayed-max over everything), and
+            // sets on the same day never split (they're one session, so the chimera
+            // guard still holds). Confidence still counts recent days across *all*
+            // sets. Provably: still monotone under idleness and never above a real
+            // set — see tests/ability.rs.
+            sets.sort_by_key(|s| std::cmp::Reverse(s.logged_at)); // newest first
+            let block_cut = {
+                let mut cut = sets.first().map(|s| s.logged_at);
+                let mut prev: Option<NaiveDateTime> = None;
+                for s in &sets {
+                    if let Some(p) = prev
+                        && p - s.logged_at > block_gap
+                    {
+                        break; // this set is on the far side of a real break
+                    }
+                    cut = Some(s.logged_at);
+                    prev = Some(s.logged_at);
+                }
+                cut
+            };
+
             let mut e1rm = None;
             let mut best_reps = None;
             let mut best_hold = None;
             let mut recent_days: HashSet<_> = HashSet::new();
 
             for s in &sets {
+                // Confidence sees every recent set; the estimate only the block.
+                if s.logged_at >= window_cut {
+                    recent_days.insert(s.logged_at.date());
+                }
+                if block_cut.is_some_and(|c| s.logged_at < c) {
+                    continue; // pre-break history — doesn't estimate today's ability
+                }
                 let age = (now - s.logged_at).num_seconds().max(0) as f64 / 86_400.0;
                 let d = decay(age);
                 match (s.load_kg, s.reps, s.hold_s) {
@@ -136,9 +178,6 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
                 // A hold set (isometric) carries hold_s regardless of the above.
                 if let Some(h) = s.hold_s {
                     best_hold = max_opt(best_hold, h as f64 * d);
-                }
-                if s.logged_at >= window_cut {
-                    recent_days.insert(s.logged_at.date());
                 }
             }
 
