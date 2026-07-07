@@ -6,4 +6,4 @@
  * or only stale data), it can't prescribe honestly — so it asks you to measure:
  * the logged set *is* the assessment, and the next verdict prescribes from it.
  */
-export type SuggestionKind = "work" | "assess";
+export type SuggestionKind = "warmup" | "work" | "assess";

@@ -43,6 +43,10 @@ const ASSESS_WEIGHTED_REPS: i32 = 5;
 /// Fewest sets a work item in the plan is ever sized to — below this the stimulus
 /// isn't worth a plan slot.
 const WORK_MIN_SETS: i32 = 2;
+/// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
+const WARMUP_SETS: i32 = 1;
+/// A ramp-in set runs at this fraction of the first heavy lift's working load.
+const RAMP_FRACTION: f64 = 0.5;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -327,6 +331,125 @@ fn build_plan(mut resolved: Vec<(Suggestion, f64, u8)>, budget: i32) -> Vec<Sugg
     chosen.into_iter().map(|(s, _, _)| s).collect()
 }
 
+/// The discrete weights owned here for an exercise's kit (union over its
+/// load-bearing equipment, sorted asc, deduped) — the set loads snap to.
+fn owned_loads(ex: &ExerciseInfo, equipment_loads: &HashMap<i64, Vec<f64>>) -> Vec<f64> {
+    let mut loads: Vec<f64> = ex
+        .equipment
+        .iter()
+        .filter_map(|id| equipment_loads.get(id))
+        .flatten()
+        .copied()
+        .collect();
+    loads.sort_by(f64::total_cmp);
+    loads.dedup();
+    loads
+}
+
+/// Build the warm-up block for a work plan: a little joint/mobility prep for the
+/// muscle groups the session trains, plus a light ramp-in set on the first heavy
+/// lift. Warm-ups credit no volume and are the only place warm-up-tagged moves
+/// appear. Ordered first (they're what you do before the session). Deterministic:
+/// mobility by exercise id, one per not-yet-covered session group.
+fn build_warmup(
+    work: &[Suggestion],
+    input: &PacingInput,
+    ex_by_id: &HashMap<i64, &ExerciseInfo>,
+    group_name: &HashMap<i64, String>,
+) -> Vec<Suggestion> {
+    if work.is_empty() {
+        return Vec::new();
+    }
+    // The muscle groups this session trains (primary work).
+    let mut session_groups: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    for w in work {
+        if let Some(ex) = ex_by_id.get(&w.exercise_id) {
+            for (g, r) in &ex.groups {
+                if *r == MuscleRole::Primary {
+                    session_groups.insert(*g);
+                }
+            }
+        }
+    }
+    let avail = input.available_equipment.as_ref();
+    let doable = |eq: &[i64]| avail.is_none_or(|a| eq.iter().all(|e| a.contains(e)));
+
+    // Mobility: warm-up-tagged moves for the session's groups, doable here. Take
+    // one per still-uncovered group so we don't stack redundant drills.
+    let mut movers: Vec<&ExerciseInfo> = input
+        .exercises
+        .iter()
+        .filter(|e| {
+            e.warmup
+                && doable(&e.equipment)
+                && e.groups
+                    .iter()
+                    .any(|(g, r)| *r == MuscleRole::Primary && session_groups.contains(g))
+        })
+        .collect();
+    movers.sort_by_key(|e| e.id);
+    let mut covered: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut out: Vec<Suggestion> = Vec::new();
+    for e in movers {
+        let primaries: Vec<i64> = e
+            .groups
+            .iter()
+            .filter(|(_, r)| *r == MuscleRole::Primary)
+            .map(|(g, _)| *g)
+            .collect();
+        // Include only if it warms a session group nothing chosen yet covers.
+        if primaries
+            .iter()
+            .any(|g| session_groups.contains(g) && !covered.contains(g))
+        {
+            for g in &primaries {
+                covered.insert(*g);
+            }
+            let gname = primaries
+                .iter()
+                .find_map(|g| group_name.get(g).cloned())
+                .unwrap_or_default();
+            out.push(Suggestion {
+                exercise_id: e.id,
+                exercise_name: e.name.clone(),
+                pattern: e.pattern,
+                kind: SuggestionKind::Warmup,
+                sets: WARMUP_SETS,
+                rep_low: None,
+                rep_high: None,
+                load_kg: None,
+                hold_s: None,
+                group: gname,
+                substituted_for: None,
+            });
+        }
+    }
+
+    // Ramp-in: the first weighted work item gets one light set (~half load) to
+    // groove the movement before the working sets.
+    if let Some(w) = work
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work && s.load_kg.is_some())
+        && let (Some(ex), Some(load)) = (ex_by_id.get(&w.exercise_id), w.load_kg)
+    {
+        let loads = owned_loads(ex, &input.equipment_loads);
+        out.push(Suggestion {
+            exercise_id: w.exercise_id,
+            exercise_name: w.exercise_name.clone(),
+            pattern: w.pattern,
+            kind: SuggestionKind::Warmup,
+            sets: WARMUP_SETS,
+            rep_low: w.rep_high, // an easy set of the top of the range
+            rep_high: w.rep_high,
+            load_kg: Some(snap(&loads, load * RAMP_FRACTION)),
+            hold_s: None,
+            group: w.group.clone(),
+            substituted_for: None,
+        });
+    }
+    out
+}
+
 /// Choose the best exercise for a muscle group given mode + location, or `None`
 /// if nothing that trains it as a primary is doable here.
 fn pick_for_group(
@@ -380,17 +503,7 @@ fn pick_for_group(
     };
     // Hold progression on a low-readiness day.
     let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
-    // Weights actually owned here for this exercise's kit (union over its
-    // load-bearing equipment), so the suggested load is one you can load.
-    let mut loads: Vec<f64> = chosen
-        .equipment
-        .iter()
-        .filter_map(|id| input.equipment_loads.get(id))
-        .flatten()
-        .copied()
-        .collect();
-    loads.sort_by(f64::total_cmp);
-    loads.dedup();
+    let loads = owned_loads(chosen, &input.equipment_loads);
     // Untrusted ability (never done, or only stale data) → measure instead of
     // prescribing a false-precision number.
     let ability = abilities.get(&chosen.id);
@@ -560,8 +673,22 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             resolved.push((sug, *deficit, t));
         }
     }
-    let plan = build_plan(resolved, day_target_sets);
-    let suggestion = plan.first().cloned();
+    let work = build_plan(resolved, day_target_sets);
+    // Prepend the warm-up block (mobility for the session's groups + a ramp-in on
+    // the first heavy lift). Warm-ups lead; the head becomes "start here".
+    let group_name: HashMap<i64, String> = input
+        .groups
+        .iter()
+        .map(|g| (g.id, g.name.clone()))
+        .collect();
+    let warmup = build_warmup(&work, input, &ex_by_id, &group_name);
+    let plan: Vec<Suggestion> = warmup.into_iter().chain(work).collect();
+    // "Next up" for the nudge + Android trigger is the first *training* item, not
+    // the warm-up that leads the visible plan.
+    let suggestion = plan
+        .iter()
+        .find(|s| s.kind != SuggestionKind::Warmup)
+        .cloned();
 
     let state = if input.history.is_empty() {
         PacingState::Fresh

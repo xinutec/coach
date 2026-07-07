@@ -140,6 +140,8 @@ pub struct GroupBalance {
 #[serde(rename_all = "snake_case")]
 #[ts(export)]
 pub enum SuggestionKind {
+    /// A mobility/activation move or a light ramp-in set — prep, not training.
+    Warmup,
     /// A prescription derived from a trusted ability estimate.
     Work,
     /// A calibration set — the engine is measuring what you can do.

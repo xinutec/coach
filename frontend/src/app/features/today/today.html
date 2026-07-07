@@ -55,11 +55,19 @@
       <span class="plan-count">{{ p.dayDoneSets }} / {{ p.dayTargetSets }} sets</span>
     </div>
     @for (s of p.plan; track s.exerciseId; let first = $first) {
-      <mat-card class="suggestion" [class.assess]="s.kind === 'assess'" [class.next]="first">
+      <mat-card
+        class="suggestion"
+        [class.assess]="s.kind === 'assess'"
+        [class.warmup]="s.kind === 'warmup'"
+        [class.next]="first"
+      >
         <mat-card-content>
           <div class="s-head">
             @if (first) {
               <span class="pill next-pill">Next up</span>
+            }
+            @if (s.kind === "warmup") {
+              <span class="pill warmup-pill"><mat-icon>waves</mat-icon> Warm-up</span>
             }
             @if (s.kind === "assess") {
               <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
@@ -80,7 +88,9 @@
               }
             </div>
           }
-          @if (s.kind === "assess") {
+          @if (s.kind === "warmup") {
+            <p class="s-detail">{{ warmupNote(s) }}</p>
+          } @else if (s.kind === "assess") {
             <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
             @if (s.loadKg !== null) {
               <p class="s-detail">Start around {{ s.loadKg }} kg</p>

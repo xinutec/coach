@@ -152,6 +152,22 @@ mat-card {
   &.assess {
     border-left: 3px solid var(--mat-sys-tertiary);
   }
+  // A warm-up card is muted — prep, not the main event.
+  &.warmup:not(.next) {
+    opacity: 0.8;
+  }
+  .warmup-pill {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
   .assess-pill {
     background: var(--mat-sys-tertiary-container);
     color: var(--mat-sys-on-tertiary-container);

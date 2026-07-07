@@ -42,8 +42,10 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  // Room for the log-a-set FAB (fixed) to clear the last content.
-  padding: 0.75rem 0.9rem calc(64px + 1rem);
+  // Room for the fixed log-a-set FAB strip (the FAB sits ~60px above the nav and
+  // is ~56px tall) so the last plan control always clears it, however long the
+  // session plan gets.
+  padding: 0.75rem 0.9rem calc(120px + env(safe-area-inset-bottom));
 }
 
 .signin {

@@ -310,6 +310,89 @@ fn warmups_are_never_picked_as_work_and_credit_no_volume() {
 }
 
 #[test]
+fn the_warmup_block_leads_and_covers_the_session_groups() {
+    // A back work exercise + a warm-up mobility move for the back group. The plan
+    // should open with the warm-up (tier 1), covering the group we're training.
+    let exs = vec![
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        warmup_ex(9, "Band pull-apart", 20), // warms the back group
+    ];
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            ..input(Mode::Balanced, exs, vec![], None, None)
+        },
+        now(),
+    );
+    let head = out.plan.first().unwrap();
+    assert_eq!(head.kind, SuggestionKind::Warmup);
+    assert_eq!(head.exercise_id, 9, "warm-up leads the session");
+    // The training item (id 2, never done → an assessment) still follows.
+    assert!(
+        out.plan
+            .iter()
+            .any(|s| s.exercise_id == 2 && s.kind != SuggestionKind::Warmup)
+    );
+    // No warm-up is offered for a group we're not training.
+    assert_eq!(
+        out.plan
+            .iter()
+            .filter(|s| s.kind == SuggestionKind::Warmup)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
+    // A weighted work item → the warm-up block adds a light ramp-in set (~half the
+    // working load) of that same lift.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![20.0, 30.0, 40.0, 50.0, 60.0])]);
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            equipment_loads: owned,
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                vec![
+                    wset(5, days_ago(2), 60.0, 5),
+                    wset(5, days_ago(5), 60.0, 5),
+                    wset(5, days_ago(9), 60.0, 5),
+                ],
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    );
+    let work = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work)
+        .unwrap();
+    let ramp = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 5)
+        .expect("a ramp-in warm-up of the lift");
+    assert!(
+        ramp.load_kg.unwrap() < work.load_kg.unwrap(),
+        "ramp-in ({:?}) lighter than the working load ({:?})",
+        ramp.load_kg,
+        work.load_kg
+    );
+}
+
+#[test]
 fn recovery_gate_skips_a_just_worked_group() {
     // Back hammered 6h ago (recovering); chest untouched → chest surfaces.
     let mut h = vec![];

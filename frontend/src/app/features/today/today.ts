@@ -142,6 +142,12 @@ export class Today {
 		return ex.equipment.map((slug) => this.equipmentNames().get(slug) ?? slug);
 	}
 
+	/** One-line description for a warm-up item: a ramp-in set vs a mobility drill. */
+	warmupNote(s: Suggestion): string {
+		if (s.loadKg !== null) return `Ramp-in set · ${s.loadKg} kg — groove the movement`;
+		return "Mobility — loosen up the muscles you're about to train";
+	}
+
 	/**
 	 * The calibration instruction for an `assess` suggestion — what to actually do
 	 * so the logged set measures your ability. Metric comes from the catalog (the
