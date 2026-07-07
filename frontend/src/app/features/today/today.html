@@ -95,9 +95,6 @@
             @if (s.loadKg !== null) {
               <p class="s-detail">Start around {{ s.loadKg }} kg</p>
             }
-            <button mat-flat-button (click)="openLog(s)">
-              <mat-icon>science</mat-icon> Log the calibration set
-            </button>
           } @else {
             <p class="s-detail">
               {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
@@ -111,9 +108,28 @@
                 · {{ s.holdS }}s hold
               }
             </p>
-            <button mat-flat-button (click)="openLog(s)">
-              <mat-icon>add</mat-icon> Log this set
-            </button>
+          }
+          @if (s.kind !== "warmup") {
+            <div class="s-actions">
+              <button mat-flat-button (click)="openLog(s)">
+                <mat-icon>{{ s.kind === "assess" ? "science" : "add" }}</mat-icon>
+                {{ s.kind === "assess" ? "Log the calibration set" : "Log this set" }}
+              </button>
+              @if (s.explanation) {
+                <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
+                  {{ isWhyOpen(s.exerciseId) ? "Hide" : "Why this?" }}
+                </button>
+              }
+            </div>
+          }
+          @if (s.explanation; as e) {
+            @if (isWhyOpen(s.exerciseId)) {
+              <ul class="why-list">
+                @for (line of explanationLines(e); track line) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            }
           }
         </mat-card-content>
       </mat-card>

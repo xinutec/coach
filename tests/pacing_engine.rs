@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use coach::exercise::types::{Metric, Pattern};
 use coach::muscle::types::{MuscleRole, Region};
+use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
     Band, ExerciseInfo, GroupMeta, PacingInput, PacingSettings, PacingState, Readiness, SetRec,
@@ -558,6 +559,48 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
         sug.load_kg.unwrap() < 60.0,
         "stale PR decayed below its old weight, got {:?}",
         sug.load_kg
+    );
+}
+
+#[test]
+fn a_work_item_carries_its_reasoning() {
+    // A trained group in deficit → the suggestion explains itself: the group's
+    // deficit + recovery, the ability confidence, and (here) an e1RM estimate.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![40.0, 50.0, 60.0])]);
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            equipment_loads: owned,
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                vec![
+                    wset(5, days_ago(2), 50.0, 5),
+                    wset(5, days_ago(5), 50.0, 5),
+                    wset(5, days_ago(9), 50.0, 5),
+                ],
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    );
+    let work = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work)
+        .unwrap();
+    let e = work.explanation.expect("a work item explains itself");
+    assert!(e.deficit > 0.0 && e.deficit <= 1.0);
+    assert!(e.recovery > 0.0 && e.recovery <= 1.0);
+    assert_eq!(e.confidence, Confidence::High); // three recent sessions
+    assert!(e.e1rm.unwrap() > 0.0);
+    // Warm-up items (the ramp-in) carry no reasoning.
+    assert!(
+        out.plan
+            .iter()
+            .filter(|s| s.kind == SuggestionKind::Warmup)
+            .all(|s| s.explanation.is_none())
     );
 }
 

@@ -24,6 +24,8 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{Duration, NaiveDateTime};
+use serde::Serialize;
+use ts_rs::TS;
 
 use super::types::SetRec;
 
@@ -45,8 +47,11 @@ const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
 
 /// How much the engine trusts an exercise's estimate — the gate between
-/// prescribing (from the estimate) and assessing (measuring afresh, G3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// prescribing (from the estimate) and assessing (measuring afresh, G3). Also
+/// surfaced in the explanation trace, so it's a wire type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
 pub enum Confidence {
     /// ≥ `HIGH_SESSIONS` recent sessions — prescribe with a full progression.
     High,

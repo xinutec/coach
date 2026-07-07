@@ -9,7 +9,7 @@ import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSelectModule } from "@angular/material/select";
 import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
-import type { Band, GroupBalance, Mode, PacingNow, Suggestion } from "../../models";
+import type { Band, Explanation, GroupBalance, Mode, PacingNow, Suggestion } from "../../models";
 import { EquipmentStore, ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { LogSheet, type LogSheetData } from "../log/log-sheet";
 
@@ -140,6 +140,47 @@ export class Today {
 		const ex = this.exercises().find((e) => e.id === exerciseId);
 		if (!ex) return [];
 		return ex.equipment.map((slug) => this.equipmentNames().get(slug) ?? slug);
+	}
+
+	// Which plan items have their "why this?" reasoning expanded (by exercise id).
+	private readonly whyOpen = signal<ReadonlySet<number>>(new Set());
+	isWhyOpen(id: number): boolean {
+		return this.whyOpen().has(id);
+	}
+	toggleWhy(id: number): void {
+		const next = new Set(this.whyOpen());
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		this.whyOpen.set(next);
+	}
+
+	/**
+	 * Human-readable "why this?" lines from a suggestion's structured trace — the
+	 * factors the engine actually weighed (deficit, recovery, ability, readiness).
+	 */
+	explanationLines(e: Explanation): string[] {
+		const lines: string[] = [];
+		const conf: Record<string, string> = {
+			high: "You've trained this recently — confident estimate",
+			medium: "A little recent data — estimate firming up",
+			low: "Rusty here — working off older data",
+			none: "New to you — calibrating from scratch",
+		};
+		lines.push(conf[e.confidence]);
+		lines.push(`${Math.round(e.deficit * 100)}% below this week's target for this group`);
+		lines.push(
+			e.recovery >= 0.99 ? "Fully recovered" : `${Math.round(e.recovery * 100)}% recovered`,
+		);
+		if (e.e1rm !== null) lines.push(`Estimated 1-rep max ≈ ${Math.round(e.e1rm)} kg`);
+		if (e.readiness) {
+			const r: Record<Band, string> = {
+				high: "Biometrics say recovered — a good day to push",
+				normal: "Steady readiness",
+				low: "Low readiness — easing the volume off",
+			};
+			lines.push(r[e.readiness]);
+		}
+		return lines;
 	}
 
 	/** One-line description for a warm-up item: a ramp-in set vs a mobility drill. */

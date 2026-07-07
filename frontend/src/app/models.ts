@@ -3,12 +3,14 @@
 
 export * from "./generated/Band";
 export * from "./generated/Category";
+export * from "./generated/Confidence";
 export * from "./generated/CurrentLocation";
 export * from "./generated/DetectedPlace";
 export * from "./generated/Equipment";
 export * from "./generated/EquipmentOption";
 export * from "./generated/Exercise";
 export * from "./generated/ExerciseDetail";
+export * from "./generated/Explanation";
 export * from "./generated/ExerciseMuscle";
 export * from "./generated/ExercisePatch";
 export * from "./generated/GroupBalance";

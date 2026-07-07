@@ -209,6 +209,13 @@ const PACING = {
 			holdS: null,
 			group: "Chest",
 			substitutedFor: null,
+			explanation: {
+				deficit: 0.4,
+				recovery: 1,
+				confidence: "high",
+				e1rm: null,
+				readiness: "high",
+			},
 		},
 		{
 			exerciseId: 11,
@@ -222,6 +229,13 @@ const PACING = {
 			holdS: null,
 			group: "Quadriceps",
 			substitutedFor: null,
+			explanation: {
+				deficit: 0.33,
+				recovery: 0.5,
+				confidence: "none",
+				e1rm: null,
+				readiness: "high",
+			},
 		},
 	],
 };

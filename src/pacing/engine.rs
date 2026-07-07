@@ -18,7 +18,7 @@ use crate::settings::types::Mode;
 
 use super::ability::{self, Ability, Confidence};
 use super::types::{
-    Band, ExerciseInfo, GroupBalance, PacingInput, PacingNow, PacingState, Suggestion,
+    Band, ExerciseInfo, Explanation, GroupBalance, PacingInput, PacingNow, PacingState, Suggestion,
     SuggestionKind,
 };
 
@@ -435,6 +435,7 @@ fn build_warmup(
                 hold_s: None,
                 group: gname,
                 substituted_for: None,
+                explanation: None,
             });
         }
     }
@@ -459,6 +460,7 @@ fn build_warmup(
             hold_s: None,
             group: w.group.clone(),
             substituted_for: None,
+            explanation: None,
         });
     }
     out
@@ -466,11 +468,14 @@ fn build_warmup(
 
 /// Choose the best exercise for a muscle group given mode + location, or `None`
 /// if nothing that trains it as a primary is doable here.
+#[allow(clippy::too_many_arguments)]
 fn pick_for_group(
     input: &PacingInput,
     abilities: &std::collections::HashMap<i64, Ability>,
     group_id: i64,
     group_name: &str,
+    deficit: f64,
+    recovery: f64,
     now: NaiveDateTime,
 ) -> Option<Suggestion> {
     let mode = input.mode;
@@ -535,6 +540,13 @@ fn pick_for_group(
     } else {
         SuggestionKind::Work
     };
+    let explanation = Explanation {
+        deficit,
+        recovery,
+        confidence: ability::confidence_of(abilities, chosen.id),
+        e1rm: ability.and_then(|a| a.e1rm),
+        readiness: input.readiness.map(|r| r.band),
+    };
     Some(Suggestion {
         exercise_id: chosen.id,
         exercise_name: chosen.name.clone(),
@@ -547,6 +559,7 @@ fn pick_for_group(
         hold_s,
         group: group_name.to_string(),
         substituted_for,
+        explanation: Some(explanation),
     })
 }
 
@@ -636,7 +649,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- per-group balance + focus candidates (non-recovering, in deficit) ---
     let mut balances: Vec<GroupBalance> = Vec::new();
-    let mut candidates: Vec<(i64, String, f64)> = Vec::new();
+    // (group id, name, effective_deficit [priority + sizing], raw deficit, recovery)
+    let mut candidates: Vec<(i64, String, f64, f64, f64)> = Vec::new();
     for gm in &input.groups {
         let cur = *current.get(&gm.id).unwrap_or(&0.0);
         let avg = avg_sum.get(&gm.id).copied().unwrap_or(0.0) / HISTORY_WEEKS as f64;
@@ -658,7 +672,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         let effective_deficit = deficit * recovery;
         let recovering = recovery < RECOVERED_FRACTION;
         if effective_deficit > MIN_EFFECTIVE_DEFICIT {
-            candidates.push((gm.id, gm.name.clone(), effective_deficit));
+            candidates.push((gm.id, gm.name.clone(), effective_deficit, deficit, recovery));
         }
         balances.push(GroupBalance {
             group: gm.name.clone(),
@@ -698,10 +712,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // Resolve each in-deficit, recovered group to a doable exercise; size + order
     // into the day's plan. The head is "next up"; the rest is the session.
     let mut resolved: Vec<(Suggestion, f64, u8)> = Vec::new();
-    for (gid, gname, deficit) in &candidates {
-        if let Some(sug) = pick_for_group(input, &abilities, *gid, gname, now) {
+    for (gid, gname, eff_deficit, deficit, recovery) in &candidates {
+        if let Some(sug) = pick_for_group(input, &abilities, *gid, gname, *deficit, *recovery, now)
+        {
             let t = ex_by_id.get(&sug.exercise_id).map(|e| tier(e)).unwrap_or(4);
-            resolved.push((sug, *deficit, t));
+            // Size by the recovery-scaled deficit; explain with the raw values.
+            resolved.push((sug, *eff_deficit, t));
         }
     }
     let work = build_plan(resolved, day_target_sets);

@@ -13,6 +13,8 @@ use crate::exercise::types::{Metric, Pattern};
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
+use super::ability::Confidence;
+
 // ---- inputs (internal; not wire types) -------------------------------------
 
 #[derive(Clone)]
@@ -149,6 +151,25 @@ pub enum SuggestionKind {
     Assess,
 }
 
+/// Why the engine chose this exercise + prescription — a structured trace so the
+/// UI can show its reasoning and tests can assert on it (rather than string-match
+/// prose). Every number here is one the verdict already computed.
+#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Explanation {
+    /// How far below target this muscle group is (0 = at target, 1 = untrained).
+    pub deficit: f64,
+    /// Recovery fraction for the group (0 = just hammered, 1 = fully recovered).
+    pub recovery: f64,
+    /// How much the engine trusts its ability estimate for this exercise.
+    pub confidence: Confidence,
+    /// Estimated 1-rep-max (kg) the load was derived from, when known.
+    pub e1rm: Option<f64>,
+    /// The biometric readiness band that scaled today's volume, if health had data.
+    pub readiness: Option<Band>,
+}
+
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -169,6 +190,9 @@ pub struct Suggestion {
     /// When set, the ideal exercise for this group isn't doable at the current
     /// location, so an equivalent was swapped in (the ideal's name).
     pub substituted_for: Option<String>,
+    /// Why this was chosen (deficit, recovery, ability, readiness). `None` for
+    /// warm-up items, which are prep rather than a reasoned prescription.
+    pub explanation: Option<Explanation>,
 }
 
 /// The full coach verdict for an instant. Drives the Today UI and the Android
