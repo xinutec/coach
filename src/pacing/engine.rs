@@ -339,10 +339,13 @@ fn pick_for_group(
     let mode = input.mode;
     let avail = input.available_equipment.as_ref();
     let doable = |eq: &[i64]| avail.is_none_or(|a| eq.iter().all(|e| a.contains(e)));
+    // A work exercise for this group: trains it as a primary and isn't a warm-up
+    // move (those are the warm-up block's alone, and credit no training volume).
     let trains = |e: &ExerciseInfo| {
-        e.groups
-            .iter()
-            .any(|(g, r)| *g == group_id && *r == MuscleRole::Primary)
+        !e.warmup
+            && e.groups
+                .iter()
+                .any(|(g, r)| *g == group_id && *r == MuscleRole::Primary)
     };
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
     let recency = |id: i64| -> f64 {
@@ -452,6 +455,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         let Some(ex) = ex_by_id.get(&set.exercise_id) else {
             continue;
         };
+        // Warm-up sets are prep, not training: they credit no volume and don't
+        // count toward the day's target (so they never eat it).
+        if ex.warmup {
+            continue;
+        }
         if set.logged_at.date() == today {
             done_today += 1;
         }

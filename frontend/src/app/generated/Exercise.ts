@@ -6,4 +6,14 @@ import type { Pattern } from "./Pattern";
  * Lightweight catalog list item. Equipment as slugs; `has_image` gates the
  * thumbnail without shipping the blob.
  */
-export type Exercise = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, unilateral: boolean, isActive: boolean, equipment: Array<string>, hasImage: boolean, };
+export type Exercise = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, unilateral: boolean, 
+/**
+ * Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
+ * Catalog-authoritative (was a hardcoded equipment-slug sniff).
+ */
+skill: boolean, 
+/**
+ * A mobility/activation move: the warm-up block draws from these, and they
+ * credit no training volume.
+ */
+warmup: boolean, isActive: boolean, equipment: Array<string>, hasImage: boolean, };

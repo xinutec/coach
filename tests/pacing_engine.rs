@@ -73,8 +73,23 @@ fn ex(
         pattern,
         metric,
         is_skill,
+        warmup: false,
         equipment,
         groups: grps,
+    }
+}
+
+/// A warm-up (mobility) exercise on `group`, doable anywhere.
+fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
+    ExerciseInfo {
+        id,
+        name: name.into(),
+        pattern: Pattern::Core,
+        metric: Metric::Reps,
+        is_skill: false,
+        warmup: true,
+        equipment: vec![],
+        groups: vec![(group, MuscleRole::Primary)],
     }
 }
 
@@ -268,6 +283,30 @@ fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
             "skill/hold (7) before heavy compound (5): {order:?}"
         );
     }
+}
+
+#[test]
+fn warmups_are_never_picked_as_work_and_credit_no_volume() {
+    // A back group with only a warm-up move available → no work suggestion for it
+    // (warm-ups belong to the warm-up block, not the work plan). And logging the
+    // warm-up leaves the group's deficit untouched — it credits no volume.
+    let exs = vec![warmup_ex(9, "Band pull-apart", 20)];
+    let mut h = vec![];
+    for _ in 0..10 {
+        h.push(set(9, hours_ago(2))); // ten warm-up sets on the back group
+    }
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            ..input(Mode::Balanced, exs, h, None, None)
+        },
+        now(),
+    );
+    // No plan item is the warm-up move; the back group still reads in deficit.
+    assert!(out.plan.iter().all(|s| s.exercise_id != 9));
+    let back = out.groups.iter().find(|g| g.group == "Lats").unwrap();
+    assert_eq!(back.current, 0.0, "warm-up volume didn't credit the group");
+    assert_eq!(out.day_done_sets, 0, "warm-ups don't count toward the day");
 }
 
 #[test]

@@ -100,6 +100,12 @@ pub struct Exercise {
     pub pattern: Pattern,
     pub metric: Metric,
     pub unilateral: bool,
+    /// Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
+    /// Catalog-authoritative (was a hardcoded equipment-slug sniff).
+    pub skill: bool,
+    /// A mobility/activation move: the warm-up block draws from these, and they
+    /// credit no training volume.
+    pub warmup: bool,
     pub is_active: bool,
     pub equipment: Vec<String>,
     pub has_image: bool,
@@ -114,6 +120,8 @@ pub(crate) struct ExerciseListRow {
     pub pattern: String,
     pub metric: String,
     pub unilateral: bool,
+    pub skill: bool,
+    pub warmup: bool,
     pub is_active: bool,
     pub equipment_csv: Option<String>,
     pub has_image: i64,
@@ -132,6 +140,8 @@ impl TryFrom<ExerciseListRow> for Exercise {
             metric: Metric::from_db(&r.metric)
                 .ok_or_else(|| anyhow!("unknown metric {:?}", r.metric))?,
             unilateral: r.unilateral,
+            skill: r.skill,
+            warmup: r.warmup,
             is_active: r.is_active,
             equipment: r
                 .equipment_csv

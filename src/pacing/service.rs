@@ -10,7 +10,6 @@ use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
-use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::Metric;
 use crate::location::repo as location_repo;
@@ -67,28 +66,24 @@ pub async fn now(
         None => std::collections::HashMap::new(),
     };
 
-    // Exercise metadata: equipment ids, muscle-group contributions, skill flag.
+    // Exercise metadata: equipment ids, muscle-group contributions, flags.
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
     let groups_by_ex = ex_repo::muscle_groups_by_exercise(pool).await?;
-    let skill_equip: HashSet<i64> = equipment_repo::list(pool)
-        .await?
-        .into_iter()
-        .filter(|e| e.slug == "gymnastic_rings" || e.slug == "parallettes")
-        .map(|e| e.id)
-        .collect();
     let exercises: Vec<ExerciseInfo> = ex_repo::list(pool, false)
         .await?
         .into_iter()
         .map(|e| {
             let equipment = equip_by_ex.get(&e.id).cloned().unwrap_or_default();
-            let is_skill =
-                e.metric == Metric::Hold || equipment.iter().any(|id| skill_equip.contains(id));
+            // Skill = the catalog flag (gymnastic ring/parallette work) or any
+            // hold (isometrics are skill-biased). No more equipment-slug sniffing.
+            let is_skill = e.skill || e.metric == Metric::Hold;
             ExerciseInfo {
                 id: e.id,
                 name: e.name,
                 pattern: e.pattern,
                 metric: e.metric,
                 is_skill,
+                warmup: e.warmup,
                 equipment,
                 groups: groups_by_ex.get(&e.id).cloned().unwrap_or_default(),
             }

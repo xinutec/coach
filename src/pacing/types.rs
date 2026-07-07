@@ -23,6 +23,9 @@ pub struct ExerciseInfo {
     pub metric: Metric,
     /// Ring/parallette or hold work — biased in Skills mode.
     pub is_skill: bool,
+    /// A mobility/activation move: only the warm-up block picks it, and it
+    /// credits no training volume.
+    pub warmup: bool,
     /// Equipment ids required (empty = bodyweight).
     pub equipment: Vec<i64>,
     /// Muscle groups this exercise trains, with the strongest role for each.
