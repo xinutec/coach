@@ -22,9 +22,10 @@ Principles that already hold and must keep holding:
 
 Module docs are the reference (`src/pacing/*.rs`); in brief: rolling 7-day
 volume per muscle group vs a target blended from a literature anchor and your
-own 8-week average, tilted by mode/emphasis/days-per-week; a 36 h recovery gate
-per group; biometric readiness (sleep/HRV/RHR from health-sync) scaling volume
-and gating progression; one greedy suggestion — best exercise for the biggest
+own 8-week average, tilted by mode/emphasis/days-per-week; a graded per-region
+recovery ramp (G6) scaling each group's priority; biometric readiness
+(sleep/HRV/RHR from health-sync) scaling volume + the day's set count and gating
+progression; one greedy suggestion — best exercise for the biggest
 recovered deficit, doable at the current location; a burn-down nudge that
 spreads sets through the day. Prescription derives from the **ability model**
 (G1, shipped): an RPE-aware, staleness-decayed e1RM estimate per exercise, from
@@ -192,21 +193,20 @@ a pattern — drives G7); count `unilateral` sets per side; author the few missi
 mobility moves to cover legs/arms in the warm-up block. Seeder reconciliation
 (hash-gated) already carries flag corrections to existing rows.
 
-### G6 — Recovery is a binary gate
+### G6 — Recovery is a binary gate ✅ *shipped*
 
-**Gap.** ≥ 3 effective sets within 36 h blocks a group outright, the same for
+**Gap.** ≥ 3 effective sets within 36 h blocked a group outright, the same for
 delts as for quads. Real recovery is graded and size-dependent.
 
-Related: the biometric `recovery_scale` reaches the per-group targets but not
-`day_target_sets`, so on a low-readiness day the burn-down still demands the
-same number of sets — just lighter ones.
-
-**Design** (refinement, last stage): replace the boolean with a recovery
-fraction per group — linear ramp over a per-region recovery horizon (larger
-regions recover slower; labelled per-region constants) — and scale the group's
-deficit by it. The gate falls out as the fraction-≈0 case; behaviour with a
-fully-recovered group is unchanged (regression-tested). Scale `day_target_sets`
-by the same recovery factor as the group targets.
+**Design** (shipped). A group's recent load is now age-weighted: each set counts
+fully when fresh and ramps linearly to zero over its region's **recovery
+horizon** (`recovery_horizon`: legs 72 h, back/chest 60 h, shoulders 48 h,
+arms/forearms/core 36 h). The recovery **fraction** = `1 − unrecovered/RECOVERY_SETS`
+scales the group's deficit, so a half-recovered group is a half-priority and the
+old hard gate falls out as the fraction-≈0 case (the binary-gate tests still
+pass). And the biometric `recovery_scale` now also multiplies `day_target_sets`,
+so a low-readiness day is *fewer* sets, not just lighter ones — the bug this
+section flagged.
 
 ### G7 — Bodyweight and hold work dead-end at the top of the range
 
@@ -315,12 +315,11 @@ Each stage ships alone and keeps every existing test green.
    warm-up block, `warmup`/`skill` catalog flags + migration 0015, volume
    exclusion. Remaining: `difficulty` population, `unilateral` per-side sets,
    author leg/arm mobility moves.
-5. **Feedback progression + plateau (G4)**, **variation ladders (G7)**,
-   **graded recovery (G6)**, **cross-exercise priors (G1 tail)** — independent
-   refinements, any order.
+5. Independent refinements, any order: **graded recovery (G6)** ✅ *shipped*;
+   **feedback progression + plateau (G4)**, **variation ladders (G7)**,
+   **cross-exercise priors (G1 tail)** — pending.
 
-Rigor lands alongside, not after: **E1 (back-test) + E2 (properties) arrive
-with stage 1** and gate every later stage; **E5 (trace)** rides stage 3 (the
-plan needs explaining anyway); **E3 (simulation)** follows stage 3, once there
-is a plan to simulate; **E4 (residual ledger)** rides stages 2–5 — assessment
-uses it first, calibration last.
+Rigor: **E2 (property tests)** ✅ *shipped* (engine + ability invariants). Still
+to come — **E1 (back-test)** against real logged history (the biggest remaining
+rigor win); **E5 (explanation trace)**; **E3 (athlete simulation)** for
+convergence; **E4 (residual ledger)** feeding G4 + per-user calibration.
