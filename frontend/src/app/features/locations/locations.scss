@@ -57,10 +57,6 @@
     color: var(--mat-sys-on-surface-variant);
     margin-bottom: 0.25rem;
   }
-  // A second sub-label within a row (e.g. "plates" under a bar's weight).
-  .spec-row .spec-sub {
-    margin-top: 0.5rem;
-  }
   // Quick "fill a range" for a full rack (from–to by step).
   .spec-range {
     display: flex;

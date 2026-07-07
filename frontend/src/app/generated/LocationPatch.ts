@@ -11,6 +11,10 @@ equipment: Array<string> | null,
  */
 equipmentOptions: Array<EquipmentOption> | null, 
 /**
+ * When present, replaces the location's plate set.
+ */
+plates: Array<number> | null, 
+/**
  * Link to a health focus_place: absent → unchanged, `null` → unlink, id → link.
  */
 healthPlaceId: number | null, };

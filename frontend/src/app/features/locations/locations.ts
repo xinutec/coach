@@ -30,9 +30,9 @@ const CATEGORY_ORDER: Category[] = [
 interface EquipmentSpecifics {
 	weights: number[];
 	labels: string[];
-	// Loadable bars (barbell / trap bar): the bar's own weight + owned plate sizes.
+	// Loadable bars (barbell / trap bar): the bar's own weight. Plates are shared
+	// across a location's bars, so they're held separately (formPlates).
 	barKg: number | null;
-	plates: number[];
 }
 
 /** Manage training locations: each is a named place with an equipment inventory.
@@ -74,8 +74,11 @@ export class LocationsPage {
 	readonly formName = signal("");
 	readonly formDefault = signal(false);
 	readonly formEquip = signal<Set<string>>(new Set());
-	// Per-equipment specifics being edited: slug → owned weights / band variants.
+	// Per-equipment specifics being edited: slug → owned weights / band variants /
+	// bar weight.
 	readonly formOptions = signal<Map<string, EquipmentSpecifics>>(new Map());
+	// The location's shared plate set (kg) — used by every loadable bar here.
+	readonly formPlates = signal<number[]>([]);
 	readonly formHealthPlaceId = signal<number | null>(null);
 	readonly saving = signal(false);
 
@@ -122,6 +125,7 @@ export class LocationsPage {
 		this.formDefault.set(this.locations().length === 0);
 		this.formEquip.set(new Set());
 		this.formOptions.set(new Map());
+		this.formPlates.set([]);
 		this.formHealthPlaceId.set(null);
 	}
 
@@ -134,15 +138,11 @@ export class LocationsPage {
 			new Map(
 				loc.equipmentOptions.map((o) => [
 					o.slug,
-					{
-						weights: [...o.weights],
-						labels: [...o.labels],
-						barKg: o.barKg,
-						plates: [...o.plates],
-					},
+					{ weights: [...o.weights], labels: [...o.labels], barKg: o.barKg },
 				]),
 			),
 		);
+		this.formPlates.set([...loc.plates]);
 		this.formHealthPlaceId.set(loc.healthPlaceId);
 	}
 
@@ -205,18 +205,10 @@ export class LocationsPage {
 	barKgOf(slug: string): number | null {
 		return this.formOptions().get(slug)?.barKg ?? null;
 	}
-	platesOf(slug: string): number[] {
-		return this.formOptions().get(slug)?.plates ?? [];
-	}
 
 	private mutate(slug: string, fn: (s: EquipmentSpecifics) => void): void {
 		const m = new Map(this.formOptions());
-		const cur = m.get(slug) ?? {
-			weights: [],
-			labels: [],
-			barKg: null,
-			plates: [],
-		};
+		const cur = m.get(slug) ?? { weights: [], labels: [], barKg: null };
 		fn(cur);
 		m.set(slug, cur);
 		this.formOptions.set(m);
@@ -271,17 +263,16 @@ export class LocationsPage {
 			s.barKg = Number.isFinite(n) && n > 0 ? n : null;
 		});
 	}
-	addPlate(slug: string, raw: string): void {
+	// Plates are location-level (shared across all bars here), not per-equipment.
+	addPlate(raw: string): void {
 		const n = Number.parseFloat(raw);
 		if (!Number.isFinite(n) || n <= 0) return;
-		this.mutate(slug, (s) => {
-			if (!s.plates.includes(n)) s.plates = [...s.plates, n].sort((a, b) => a - b);
-		});
+		if (!this.formPlates().includes(n)) {
+			this.formPlates.set([...this.formPlates(), n].sort((a, b) => a - b));
+		}
 	}
-	removePlate(slug: string, n: number): void {
-		this.mutate(slug, (s) => {
-			s.plates = s.plates.filter((p) => p !== n);
-		});
+	removePlate(n: number): void {
+		this.formPlates.set(this.formPlates().filter((p) => p !== n));
 	}
 
 	save(): void {
@@ -295,20 +286,18 @@ export class LocationsPage {
 				weights: o.weights,
 				labels: o.labels,
 				barKg: o.barKg,
-				plates: o.plates,
 			}))
 			.filter(
-				(o) =>
-					o.weights.length > 0 ||
-					o.labels.length > 0 ||
-					o.barKg !== null ||
-					o.plates.length > 0,
+				(o) => o.weights.length > 0 || o.labels.length > 0 || o.barKg !== null,
 			);
+		// Plates only matter with a bar; drop them if no loadable kit is selected.
+		const plates = this.loadableSlugs().length > 0 ? this.formPlates() : [];
 		const body = {
 			name: this.formName().trim() || "Location",
 			isDefault: this.formDefault(),
 			equipment: [...this.formEquip()],
 			equipmentOptions,
+			plates,
 			healthPlaceId: this.formHealthPlaceId(),
 		};
 		this.saving.set(true);

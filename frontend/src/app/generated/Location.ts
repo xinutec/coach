@@ -3,10 +3,15 @@ import type { EquipmentOption } from "./EquipmentOption";
 
 export type Location = { id: number, name: string, isDefault: boolean, equipment: Array<string>, 
 /**
- * Specifics for equipment that has them (weights/band variants). Only
- * equipment with at least one option appears here.
+ * Specifics for equipment that has them (weights/band variants/bar weight).
+ * Only equipment with at least one option appears here.
  */
 equipmentOptions: Array<EquipmentOption>, 
+/**
+ * Plate sizes (kg) available at this location, shared across all its bars —
+ * coach only suggests bar totals it can build from a bar + these.
+ */
+plates: Array<number>, 
 /**
  * health-sync focus_place this location is linked to (for auto-select), if any.
  */

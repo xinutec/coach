@@ -85,15 +85,10 @@ const LOCATIONS = [
 		isDefault: true,
 		equipment: ["pull_up_bar", "gymnastic_rings", "dumbbell", "barbell"],
 		equipmentOptions: [
-			{ slug: "dumbbell", weights: [10, 15, 20], labels: [], barKg: null, plates: [] },
-			{
-				slug: "barbell",
-				weights: [],
-				labels: [],
-				barKg: 20,
-				plates: [1.25, 2.5, 5, 10, 20],
-			},
+			{ slug: "dumbbell", weights: [10, 15, 20], labels: [], barKg: null },
+			{ slug: "barbell", weights: [], labels: [], barKg: 20 },
 		],
+		plates: [1.25, 2.5, 5, 10, 20],
 		healthPlaceId: null,
 	},
 ];

@@ -136,10 +136,14 @@
                 />
               </span>
             </div>
-            <div class="spec-name spec-sub">plates you own — one of each size (kg)</div>
+          </div>
+        }
+        @if (loadableSlugs().length) {
+          <div class="spec-row">
+            <div class="spec-name">Plates (kg) — shared across your bars</div>
             <div class="chips">
-              @for (p of platesOf(slug); track p) {
-                <button type="button" class="chip on" (click)="removePlate(slug, p)">
+              @for (p of formPlates(); track p) {
+                <button type="button" class="chip on" (click)="removePlate(p)">
                   {{ p }} <mat-icon>close</mat-icon>
                 </button>
               }
@@ -151,14 +155,14 @@
                   inputmode="decimal"
                   min="0"
                   placeholder="kg"
-                  (keyup.enter)="addPlate(slug, pIn.value); pIn.value = ''"
-                  (blur)="addPlate(slug, pIn.value); pIn.value = ''"
+                  (keyup.enter)="addPlate(pIn.value); pIn.value = ''"
+                  (blur)="addPlate(pIn.value); pIn.value = ''"
                 />
                 <button
                   type="button"
                   class="spec-add-btn"
                   aria-label="Add plate"
-                  (click)="addPlate(slug, pIn.value); pIn.value = ''"
+                  (click)="addPlate(pIn.value); pIn.value = ''"
                 >
                   <mat-icon>add</mat-icon>
                 </button>
@@ -239,12 +243,15 @@
           @if (o.barKg !== null) {
             <span>{{ o.barKg }} kg bar</span>
           }
-          @if (o.plates.length) {
-            <span>+ plates {{ o.plates.join(", ") }} kg</span>
-          }
           @if (o.labels.length) {
             <span>{{ o.labels.join(", ") }}</span>
           }
+        </div>
+      }
+      @if (loc.plates.length) {
+        <div class="spec-view">
+          <span class="spec-view-name">Plates:</span>
+          <span>{{ loc.plates.join(", ") }} kg</span>
         </div>
       }
     </div>

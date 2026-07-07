@@ -2,8 +2,9 @@
 
 /**
  * Per-equipment specifics at a location: which discrete weights (fixed free
- * weights), named variants (bands), or bar + plate set (loadable bars) you
- * actually own. All-empty = no specifics given.
+ * weights), named variants (bands), or bar weight (loadable bars) you own.
+ * Plates are shared across a location's bars, so they live on `Location`, not
+ * here. All-empty = no specifics given.
  */
 export type EquipmentOption = { slug: string, 
 /**
@@ -18,9 +19,4 @@ labels: Array<string>,
 /**
  * Loadable bar's own weight (kg) — the load floor. Set for barbells/trap bars.
  */
-barKg: number | null, 
-/**
- * Plate sizes owned (kg, per plate) for a loadable bar — coach only suggests
- * totals it can build from the bar + these.
- */
-plates: Array<number>, };
+barKg: number | null, };

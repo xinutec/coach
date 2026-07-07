@@ -30,6 +30,7 @@ pub async fn list(pool: &MySqlPool, user_id: &str) -> Result<Vec<Location>> {
     let mut locs: Vec<Location> = rows.into_iter().map(Location::from).collect();
     for loc in &mut locs {
         loc.equipment_options = load_options(pool, loc.id).await?;
+        loc.plates = load_plates(pool, loc.id).await?;
     }
     Ok(locs)
 }
@@ -47,6 +48,7 @@ pub async fn get(pool: &MySqlPool, user_id: &str, id: i64) -> Result<Option<Loca
     let Some(row) = row else { return Ok(None) };
     let mut loc = Location::from(row);
     loc.equipment_options = load_options(pool, loc.id).await?;
+    loc.plates = load_plates(pool, loc.id).await?;
     Ok(Some(loc))
 }
 
@@ -66,6 +68,7 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<
     let id = res.last_insert_id() as i64;
     set_equipment(pool, id, &n.equipment).await?;
     set_options(pool, id, &n.equipment_options).await?;
+    set_plates(pool, id, &n.plates).await?;
     get(pool, user_id, id)
         .await?
         .ok_or_else(|| anyhow!("location vanished after insert"))
@@ -111,6 +114,9 @@ pub async fn patch(
     }
     if let Some(opts) = &p.equipment_options {
         set_options(pool, id, opts).await?;
+    }
+    if let Some(plates) = &p.plates {
+        set_plates(pool, id, plates).await?;
     }
     get(pool, user_id, id).await
 }
@@ -165,9 +171,11 @@ pub async fn equipment_ids(
 
 /// Discrete loadable weights per equipment id at a location, for the engine's
 /// load snapping. Sorted ascending. Fixed free weights → the owned weights
-/// directly; a loadable bar → every total buildable from its bar + plates (so
-/// suggestions never go below the empty bar or land on an unbuildable weight).
+/// directly; a loadable bar → every total buildable from its bar + the location's
+/// shared plates (so suggestions never go below the empty bar or land on an
+/// unbuildable weight).
 pub async fn equipment_loads(pool: &MySqlPool, location_id: i64) -> Result<HashMap<i64, Vec<f64>>> {
+    let plates = load_plates(pool, location_id).await?;
     let rows: Vec<(i64, Option<f64>, Option<String>)> = sqlx::query_as(
         "SELECT equipment_id, load_kg, kind FROM location_equipment_option \
          WHERE location_id = ? AND load_kg IS NOT NULL",
@@ -175,22 +183,21 @@ pub async fn equipment_loads(pool: &MySqlPool, location_id: i64) -> Result<HashM
     .bind(location_id)
     .fetch_all(pool)
     .await?;
-    // Split each equipment's rows into fixed weights vs a bar setup.
+    // Separate loadable bars (a 'bar' row) from fixed weights.
     let mut fixed: HashMap<i64, Vec<f64>> = HashMap::new();
-    let mut bars: HashMap<i64, (Option<f64>, Vec<f64>)> = HashMap::new();
+    let mut bars: HashMap<i64, f64> = HashMap::new();
     for (id, load, kind) in rows {
         let Some(w) = load else { continue };
         match kind.as_deref() {
-            Some("bar") => bars.entry(id).or_default().0 = Some(w),
-            Some("plate") => bars.entry(id).or_default().1.push(w),
+            Some("bar") => {
+                bars.insert(id, w);
+            }
             _ => fixed.entry(id).or_default().push(w),
         }
     }
     let mut map: HashMap<i64, Vec<f64>> = HashMap::new();
-    for (id, (bar, plates)) in bars {
-        if let Some(bar) = bar {
-            map.insert(id, super::loads::reachable_loads(bar, &plates));
-        }
+    for (id, bar) in bars {
+        map.insert(id, super::loads::reachable_loads(bar, &plates));
     }
     for (id, mut ws) in fixed {
         ws.sort_by(f64::total_cmp);
@@ -199,9 +206,37 @@ pub async fn equipment_loads(pool: &MySqlPool, location_id: i64) -> Result<HashM
     Ok(map)
 }
 
+/// A location's shared plate sizes (kg, ascending).
+async fn load_plates(pool: &MySqlPool, location_id: i64) -> Result<Vec<f64>> {
+    let rows: Vec<(f64,)> =
+        sqlx::query_as("SELECT load_kg FROM location_plate WHERE location_id = ? ORDER BY load_kg")
+            .bind(location_id)
+            .fetch_all(pool)
+            .await?;
+    Ok(rows.into_iter().map(|(w,)| w).collect())
+}
+
+/// Replace a location's shared plate set.
+async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[f64]) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("DELETE FROM location_plate WHERE location_id = ?")
+        .bind(location_id)
+        .execute(&mut *tx)
+        .await?;
+    for p in plates {
+        sqlx::query("INSERT INTO location_plate (location_id, load_kg) VALUES (?, ?)")
+            .bind(location_id)
+            .bind(p)
+            .execute(&mut *tx)
+            .await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
 /// Load a location's per-equipment specifics, grouped by equipment slug. A row's
-/// `kind` tags a loadable bar's parts ('bar' → the bar's weight, 'plate' → a
-/// plate size); untagged rows are a fixed weight (`load_kg`) or band (`label`).
+/// `kind` of 'bar' is a loadable bar's own weight; untagged rows are a fixed
+/// weight (`load_kg`) or band (`label`). Plates live on the location, not here.
 async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<EquipmentOption>> {
     // (slug, load_kg, label, kind) per option row.
     type OptionRow = (String, Option<f64>, Option<String>, Option<String>);
@@ -227,7 +262,6 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
         };
         match (kind.as_deref(), load, label) {
             (Some("bar"), Some(w), _) => e.bar_kg = Some(w),
-            (Some("plate"), Some(w), _) => e.plates.push(w),
             (_, Some(w), _) => e.weights.push(w),
             (_, _, Some(l)) => e.labels.push(l),
             _ => {}
@@ -237,7 +271,7 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
 }
 
 /// Replace a location's per-equipment specifics: fixed weights, band variants,
-/// and loadable bars (a 'bar' row for the bar weight + a 'plate' row per size).
+/// and each loadable bar's own weight (a 'bar' row). Plates are set separately.
 async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption]) -> Result<()> {
     let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM location_equipment_option WHERE location_id = ?")
@@ -256,9 +290,6 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
         }
         if let Some(bar) = o.bar_kg {
             insert_option(&mut tx, location_id, &o.slug, Some("bar"), Some(bar), None).await?;
-        }
-        for p in &o.plates {
-            insert_option(&mut tx, location_id, &o.slug, Some("plate"), Some(*p), None).await?;
         }
     }
     tx.commit().await?;
