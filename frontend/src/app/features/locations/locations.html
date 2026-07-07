@@ -91,6 +91,21 @@
                 </button>
               </span>
             </div>
+            <div class="spec-range">
+              <span class="spec-range-label">or fill a range:</span>
+              <input #rF class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="from" />
+              <span class="spec-range-sep">–</span>
+              <input #rT class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="to" />
+              <span class="spec-range-sep">step</span>
+              <input #rS class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="2.5" />
+              <button
+                type="button"
+                class="chip on"
+                (click)="addRange(slug, rF.value, rT.value, rS.value); rF.value = ''; rT.value = ''; rS.value = ''"
+              >
+                Fill
+              </button>
+            </div>
           </div>
         }
         @for (slug of loadableSlugs(); track slug) {

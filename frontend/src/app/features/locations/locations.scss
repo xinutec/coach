@@ -61,6 +61,26 @@
   .spec-row .spec-sub {
     margin-top: 0.5rem;
   }
+  // Quick "fill a range" for a full rack (from–to by step).
+  .spec-range {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+
+    .spec-range-label,
+    .spec-range-sep {
+      font: var(--mat-sys-label-medium);
+      color: var(--mat-sys-on-surface-variant);
+    }
+    .spec-in.tiny {
+      width: 3.4rem;
+      padding: 0.3rem 0.5rem;
+      border: 1px dashed var(--mat-sys-outline);
+      border-radius: 999px;
+    }
+  }
   // An input paired with a tap-to-add button — one more "chip" in the row.
   // The pill border wraps both; the field is borderless inside it.
   .spec-add {

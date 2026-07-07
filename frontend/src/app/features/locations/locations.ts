@@ -220,6 +220,23 @@ export class LocationsPage {
 				s.weights = [...s.weights, n].sort((a, b) => a - b);
 		});
 	}
+	/** Add a whole rack at once: from..to inclusive, in `step` increments. Lets a
+	 *  full dumbbell set (e.g. 2.5–50 by 2.5) go in without tapping each weight. */
+	addRange(slug: string, fromRaw: string, toRaw: string, stepRaw: string): void {
+		const from = Number.parseFloat(fromRaw);
+		const to = Number.parseFloat(toRaw);
+		const step = Number.parseFloat(stepRaw);
+		if (![from, to, step].every(Number.isFinite)) return;
+		if (from <= 0 || step <= 0 || to < from) return;
+		if ((to - from) / step > 200) return; // guard a runaway range
+		this.mutate(slug, (s) => {
+			const set = new Set(s.weights);
+			for (let w = from; w <= to + 1e-6; w += step) {
+				set.add(Math.round(w * 100) / 100);
+			}
+			s.weights = [...set].sort((a, b) => a - b);
+		});
+	}
 	removeWeight(slug: string, n: number): void {
 		this.mutate(slug, (s) => {
 			s.weights = s.weights.filter((w) => w !== n);
