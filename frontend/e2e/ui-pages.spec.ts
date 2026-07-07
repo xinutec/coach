@@ -72,9 +72,10 @@ const EXERCISES = [
 ];
 
 const EQUIPMENT = [
-	{ id: 1, slug: "pull_up_bar", name: "Pull-up bar", category: "rig" },
-	{ id: 2, slug: "gymnastic_rings", name: "Gymnastic rings", category: "rig" },
-	{ id: 3, slug: "dumbbell", name: "Dumbbell", category: "free_weight" },
+	{ id: 1, slug: "pull_up_bar", name: "Pull-up bar", category: "rig", loadable: false },
+	{ id: 2, slug: "gymnastic_rings", name: "Gymnastic rings", category: "rig", loadable: false },
+	{ id: 3, slug: "dumbbell", name: "Dumbbell", category: "free_weight", loadable: false },
+	{ id: 4, slug: "barbell", name: "Barbell", category: "free_weight", loadable: true },
 ];
 
 const LOCATIONS = [
@@ -82,8 +83,17 @@ const LOCATIONS = [
 		id: 1,
 		name: "Home",
 		isDefault: true,
-		equipment: ["pull_up_bar", "gymnastic_rings", "dumbbell"],
-		equipmentOptions: [{ slug: "dumbbell", weights: [10, 15, 20], labels: [] }],
+		equipment: ["pull_up_bar", "gymnastic_rings", "dumbbell", "barbell"],
+		equipmentOptions: [
+			{ slug: "dumbbell", weights: [10, 15, 20], labels: [], barKg: null, plates: [] },
+			{
+				slug: "barbell",
+				weights: [],
+				labels: [],
+				barKg: 20,
+				plates: [1.25, 2.5, 5, 10, 20],
+			},
+		],
 		healthPlaceId: null,
 	},
 ];

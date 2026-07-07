@@ -4,4 +4,10 @@ import type { Category } from "./Category";
 /**
  * A piece of equipment.
  */
-export type Equipment = { id: number, slug: string, name: string, category: Category, };
+export type Equipment = { id: number, slug: string, name: string, category: Category, 
+/**
+ * A loadable bar (barbell, trap bar): its load is the empty bar + plates,
+ * not a fixed size. The UI collects a bar weight + plate sizes for these,
+ * rather than a list of discrete owned weights.
+ */
+loadable: boolean, };

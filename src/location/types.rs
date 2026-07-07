@@ -14,17 +14,27 @@ where
     Ok(Some(Option::deserialize(de)?))
 }
 
-/// Per-equipment specifics at a location: which discrete weights (free weights)
-/// or named variants (bands) you actually own. Empty vecs = no specifics given.
+/// Per-equipment specifics at a location: which discrete weights (fixed free
+/// weights), named variants (bands), or bar + plate set (loadable bars) you
+/// actually own. All-empty = no specifics given.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct EquipmentOption {
     pub slug: String,
     /// Discrete weights owned (kg) — coach snaps load suggestions to these.
+    /// For fixed free weights (dumbbell, kettlebell).
     pub weights: Vec<f64>,
     /// Named variants owned (e.g. band tensions) — informational.
     pub labels: Vec<String>,
+    /// Loadable bar's own weight (kg) — the load floor. Set for barbells/trap bars.
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub bar_kg: Option<f64>,
+    /// Plate sizes owned (kg, per plate) for a loadable bar — coach only suggests
+    /// totals it can build from the bar + these.
+    #[serde(default)]
+    pub plates: Vec<f64>,
 }
 
 #[derive(Clone, Debug, Serialize, TS)]

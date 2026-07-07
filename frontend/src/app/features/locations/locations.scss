@@ -57,6 +57,10 @@
     color: var(--mat-sys-on-surface-variant);
     margin-bottom: 0.25rem;
   }
+  // A second sub-label within a row (e.g. "plates" under a bar's weight).
+  .spec-row .spec-sub {
+    margin-top: 0.5rem;
+  }
   // An input paired with a tap-to-add button — one more "chip" in the row.
   // The pill border wraps both; the field is borderless inside it.
   .spec-add {

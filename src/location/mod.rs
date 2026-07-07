@@ -3,5 +3,6 @@
 //! selected location to decide what's doable and to substitute when a goal's kit
 //! is missing.
 
+pub mod loads;
 pub mod repo;
 pub mod types;

@@ -163,27 +163,50 @@ pub async fn equipment_ids(
     Ok(Some(rows.into_iter().map(|(id,)| id).collect()))
 }
 
-/// Discrete owned weights per equipment id at a location (only free weights that
-/// have specifics), for the engine's load snapping. Sorted ascending.
+/// Discrete loadable weights per equipment id at a location, for the engine's
+/// load snapping. Sorted ascending. Fixed free weights → the owned weights
+/// directly; a loadable bar → every total buildable from its bar + plates (so
+/// suggestions never go below the empty bar or land on an unbuildable weight).
 pub async fn equipment_loads(pool: &MySqlPool, location_id: i64) -> Result<HashMap<i64, Vec<f64>>> {
-    let rows: Vec<(i64, f64)> = sqlx::query_as(
-        "SELECT equipment_id, load_kg FROM location_equipment_option \
-         WHERE location_id = ? AND load_kg IS NOT NULL ORDER BY load_kg",
+    let rows: Vec<(i64, Option<f64>, Option<String>)> = sqlx::query_as(
+        "SELECT equipment_id, load_kg, kind FROM location_equipment_option \
+         WHERE location_id = ? AND load_kg IS NOT NULL",
     )
     .bind(location_id)
     .fetch_all(pool)
     .await?;
+    // Split each equipment's rows into fixed weights vs a bar setup.
+    let mut fixed: HashMap<i64, Vec<f64>> = HashMap::new();
+    let mut bars: HashMap<i64, (Option<f64>, Vec<f64>)> = HashMap::new();
+    for (id, load, kind) in rows {
+        let Some(w) = load else { continue };
+        match kind.as_deref() {
+            Some("bar") => bars.entry(id).or_default().0 = Some(w),
+            Some("plate") => bars.entry(id).or_default().1.push(w),
+            _ => fixed.entry(id).or_default().push(w),
+        }
+    }
     let mut map: HashMap<i64, Vec<f64>> = HashMap::new();
-    for (id, w) in rows {
-        map.entry(id).or_default().push(w);
+    for (id, (bar, plates)) in bars {
+        if let Some(bar) = bar {
+            map.insert(id, super::loads::reachable_loads(bar, &plates));
+        }
+    }
+    for (id, mut ws) in fixed {
+        ws.sort_by(f64::total_cmp);
+        map.entry(id).or_default().extend(ws);
     }
     Ok(map)
 }
 
-/// Load a location's per-equipment specifics, grouped by equipment slug.
+/// Load a location's per-equipment specifics, grouped by equipment slug. A row's
+/// `kind` tags a loadable bar's parts ('bar' → the bar's weight, 'plate' → a
+/// plate size); untagged rows are a fixed weight (`load_kg`) or band (`label`).
 async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<EquipmentOption>> {
-    let rows: Vec<(String, Option<f64>, Option<String>)> = sqlx::query_as(
-        "SELECT eq.slug, o.load_kg, o.label \
+    // (slug, load_kg, label, kind) per option row.
+    type OptionRow = (String, Option<f64>, Option<String>, Option<String>);
+    let rows: Vec<OptionRow> = sqlx::query_as(
+        "SELECT eq.slug, o.load_kg, o.label, o.kind \
          FROM location_equipment_option o JOIN equipment eq ON eq.id = o.equipment_id \
          WHERE o.location_id = ? ORDER BY eq.name, o.load_kg, o.label",
     )
@@ -191,7 +214,7 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
     .fetch_all(pool)
     .await?;
     let mut out: Vec<EquipmentOption> = Vec::new();
-    for (slug, load, label) in rows {
+    for (slug, load, label, kind) in rows {
         let e = match out.iter_mut().find(|o| o.slug == slug) {
             Some(e) => e,
             None => {
@@ -202,17 +225,19 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
                 out.last_mut().unwrap()
             }
         };
-        if let Some(w) = load {
-            e.weights.push(w);
-        }
-        if let Some(l) = label {
-            e.labels.push(l);
+        match (kind.as_deref(), load, label) {
+            (Some("bar"), Some(w), _) => e.bar_kg = Some(w),
+            (Some("plate"), Some(w), _) => e.plates.push(w),
+            (_, Some(w), _) => e.weights.push(w),
+            (_, _, Some(l)) => e.labels.push(l),
+            _ => {}
         }
     }
     Ok(out)
 }
 
-/// Replace a location's per-equipment specifics (weights + band variants).
+/// Replace a location's per-equipment specifics: fixed weights, band variants,
+/// and loadable bars (a 'bar' row for the bar weight + a 'plate' row per size).
 async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption]) -> Result<()> {
     let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM location_equipment_option WHERE location_id = ?")
@@ -221,33 +246,46 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
         .await?;
     for o in opts {
         for w in &o.weights {
-            sqlx::query(
-                "INSERT INTO location_equipment_option (location_id, equipment_id, load_kg) \
-                 SELECT ?, id, ? FROM equipment WHERE slug = ?",
-            )
-            .bind(location_id)
-            .bind(w)
-            .bind(&o.slug)
-            .execute(&mut *tx)
-            .await?;
+            insert_option(&mut tx, location_id, &o.slug, None, Some(*w), None).await?;
         }
         for label in &o.labels {
             let label = label.trim();
-            if label.is_empty() {
-                continue;
+            if !label.is_empty() {
+                insert_option(&mut tx, location_id, &o.slug, None, None, Some(label)).await?;
             }
-            sqlx::query(
-                "INSERT INTO location_equipment_option (location_id, equipment_id, label) \
-                 SELECT ?, id, ? FROM equipment WHERE slug = ?",
-            )
-            .bind(location_id)
-            .bind(label)
-            .bind(&o.slug)
-            .execute(&mut *tx)
-            .await?;
+        }
+        if let Some(bar) = o.bar_kg {
+            insert_option(&mut tx, location_id, &o.slug, Some("bar"), Some(bar), None).await?;
+        }
+        for p in &o.plates {
+            insert_option(&mut tx, location_id, &o.slug, Some("plate"), Some(*p), None).await?;
         }
     }
     tx.commit().await?;
+    Ok(())
+}
+
+/// Insert one specifics row (resolving the equipment by slug) inside a tx.
+async fn insert_option(
+    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    location_id: i64,
+    slug: &str,
+    kind: Option<&str>,
+    load: Option<f64>,
+    label: Option<&str>,
+) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO location_equipment_option \
+           (location_id, equipment_id, kind, load_kg, label) \
+         SELECT ?, id, ?, ?, ? FROM equipment WHERE slug = ?",
+    )
+    .bind(location_id)
+    .bind(kind)
+    .bind(load)
+    .bind(label)
+    .bind(slug)
+    .execute(&mut **tx)
+    .await?;
     Ok(())
 }
 

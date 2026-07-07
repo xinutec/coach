@@ -27,6 +27,8 @@ struct SeedEquipment {
     slug: String,
     name: String,
     category: String,
+    #[serde(default)]
+    loadable: bool,
 }
 
 #[derive(Deserialize)]
@@ -105,12 +107,16 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
 
     // Equipment.
     for e in read_json::<Vec<SeedEquipment>>(&dir.join("equipment.json"))? {
-        sqlx::query("INSERT IGNORE INTO equipment (slug, name, category) VALUES (?, ?, ?)")
-            .bind(&e.slug)
-            .bind(&e.name)
-            .bind(&e.category)
-            .execute(pool)
-            .await?;
+        sqlx::query(
+            "INSERT INTO equipment (slug, name, category, loadable) VALUES (?, ?, ?, ?) \
+             ON DUPLICATE KEY UPDATE loadable = VALUES(loadable)",
+        )
+        .bind(&e.slug)
+        .bind(&e.name)
+        .bind(&e.category)
+        .bind(e.loadable)
+        .execute(pool)
+        .await?;
     }
 
     // Muscle groups, then muscles (group resolved by slug).

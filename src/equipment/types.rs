@@ -49,6 +49,10 @@ pub struct Equipment {
     pub slug: String,
     pub name: String,
     pub category: Category,
+    /// A loadable bar (barbell, trap bar): its load is the empty bar + plates,
+    /// not a fixed size. The UI collects a bar weight + plate sizes for these,
+    /// rather than a list of discrete owned weights.
+    pub loadable: bool,
 }
 
 #[derive(sqlx::FromRow)]
@@ -57,6 +61,7 @@ pub(crate) struct EquipmentRow {
     pub slug: String,
     pub name: String,
     pub category: String,
+    pub loadable: bool,
 }
 
 impl TryFrom<EquipmentRow> for Equipment {
@@ -68,6 +73,7 @@ impl TryFrom<EquipmentRow> for Equipment {
             name: r.name,
             category: Category::from_db(&r.category)
                 .ok_or_else(|| anyhow!("unknown equipment category {:?}", r.category))?,
+            loadable: r.loadable,
         })
     }
 }

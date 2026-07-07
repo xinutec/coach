@@ -7,7 +7,8 @@
   {
     "slug": "barbell",
     "name": "Barbell",
-    "category": "free_weight"
+    "category": "free_weight",
+    "loadable": true
   },
   {
     "slug": "kettlebell",
@@ -17,7 +18,8 @@
   {
     "slug": "trap_bar",
     "name": "Trap bar",
-    "category": "free_weight"
+    "category": "free_weight",
+    "loadable": true
   },
   {
     "slug": "resistance_band",

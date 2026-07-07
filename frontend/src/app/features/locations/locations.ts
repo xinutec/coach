@@ -30,6 +30,9 @@ const CATEGORY_ORDER: Category[] = [
 interface EquipmentSpecifics {
 	weights: number[];
 	labels: string[];
+	// Loadable bars (barbell / trap bar): the bar's own weight + owned plate sizes.
+	barKg: number | null;
+	plates: number[];
 }
 
 /** Manage training locations: each is a named place with an equipment inventory.
@@ -131,7 +134,12 @@ export class LocationsPage {
 			new Map(
 				loc.equipmentOptions.map((o) => [
 					o.slug,
-					{ weights: [...o.weights], labels: [...o.labels] },
+					{
+						weights: [...o.weights],
+						labels: [...o.labels],
+						barKg: o.barKg,
+						plates: [...o.plates],
+					},
 				]),
 			),
 		);
@@ -158,10 +166,20 @@ export class LocationsPage {
 	categoryOf(slug: string): Category | null {
 		return this.equipment().find((e) => e.slug === slug)?.category ?? null;
 	}
+	private isLoadable(slug: string): boolean {
+		return this.equipment().find((e) => e.slug === slug)?.loadable ?? false;
+	}
 
-	/** Selected free-weight kit, in the picker's order — each gets a weights editor. */
+	/** Selected fixed free weights (dumbbell/kettlebell) — each gets a weights
+	 *  editor. Loadable bars are handled separately (bar + plates). */
 	readonly weightedSlugs = computed(() =>
-		[...this.formEquip()].filter((s) => this.categoryOf(s) === "free_weight"),
+		[...this.formEquip()].filter(
+			(s) => this.categoryOf(s) === "free_weight" && !this.isLoadable(s),
+		),
+	);
+	/** Selected loadable bars (barbell/trap bar) — each gets a bar + plates editor. */
+	readonly loadableSlugs = computed(() =>
+		[...this.formEquip()].filter((s) => this.isLoadable(s)),
 	);
 	/** Selected bands — each gets a named-variant editor. */
 	readonly bandSlugs = computed(() =>
@@ -174,10 +192,21 @@ export class LocationsPage {
 	labelsOf(slug: string): string[] {
 		return this.formOptions().get(slug)?.labels ?? [];
 	}
+	barKgOf(slug: string): number | null {
+		return this.formOptions().get(slug)?.barKg ?? null;
+	}
+	platesOf(slug: string): number[] {
+		return this.formOptions().get(slug)?.plates ?? [];
+	}
 
 	private mutate(slug: string, fn: (s: EquipmentSpecifics) => void): void {
 		const m = new Map(this.formOptions());
-		const cur = m.get(slug) ?? { weights: [], labels: [] };
+		const cur = m.get(slug) ?? {
+			weights: [],
+			labels: [],
+			barKg: null,
+			plates: [],
+		};
 		fn(cur);
 		m.set(slug, cur);
 		this.formOptions.set(m);
@@ -208,6 +237,25 @@ export class LocationsPage {
 			s.labels = s.labels.filter((x) => x !== l);
 		});
 	}
+	/** Set (or clear) a loadable bar's own weight. */
+	setBar(slug: string, raw: string | number | null): void {
+		const n = typeof raw === "number" ? raw : Number.parseFloat(raw ?? "");
+		this.mutate(slug, (s) => {
+			s.barKg = Number.isFinite(n) && n > 0 ? n : null;
+		});
+	}
+	addPlate(slug: string, raw: string): void {
+		const n = Number.parseFloat(raw);
+		if (!Number.isFinite(n) || n <= 0) return;
+		this.mutate(slug, (s) => {
+			if (!s.plates.includes(n)) s.plates = [...s.plates, n].sort((a, b) => a - b);
+		});
+	}
+	removePlate(slug: string, n: number): void {
+		this.mutate(slug, (s) => {
+			s.plates = s.plates.filter((p) => p !== n);
+		});
+	}
 
 	save(): void {
 		const id = this.editingId();
@@ -215,8 +263,20 @@ export class LocationsPage {
 		// Only keep specifics for kit that's still selected and actually has any.
 		const equipmentOptions = [...this.formOptions().entries()]
 			.filter(([slug]) => this.formEquip().has(slug))
-			.map(([slug, o]) => ({ slug, weights: o.weights, labels: o.labels }))
-			.filter((o) => o.weights.length > 0 || o.labels.length > 0);
+			.map(([slug, o]) => ({
+				slug,
+				weights: o.weights,
+				labels: o.labels,
+				barKg: o.barKg,
+				plates: o.plates,
+			}))
+			.filter(
+				(o) =>
+					o.weights.length > 0 ||
+					o.labels.length > 0 ||
+					o.barKg !== null ||
+					o.plates.length > 0,
+			);
 		const body = {
 			name: this.formName().trim() || "Location",
 			isDefault: this.formDefault(),
