@@ -1,4 +1,4 @@
-import { Component, inject, signal } from "@angular/core";
+import { Component, computed, effect, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatBottomSheet } from "@angular/material/bottom-sheet";
 import { MatButtonModule } from "@angular/material/button";
@@ -8,17 +8,9 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { MatSelectModule } from "@angular/material/select";
 import { RouterLink } from "@angular/router";
-import { forkJoin } from "rxjs";
-
 import { CoachApi } from "../../coach-api";
-import type {
-	Band,
-	Exercise,
-	GroupBalance,
-	Location,
-	Mode,
-	PacingNow,
-} from "../../models";
+import type { Band, GroupBalance, Mode, PacingNow } from "../../models";
+import { EquipmentStore, ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { LogSheet, type LogSheetData } from "../log/log-sheet";
 
 const MODES: Mode[] = ["balanced", "strength", "skills", "conditioning"];
@@ -41,47 +33,58 @@ const MODES: Mode[] = ["balanced", "strength", "skills", "conditioning"];
 export class Today {
 	private api = inject(CoachApi);
 	private sheet = inject(MatBottomSheet);
+	private exercisesStore = inject(ExercisesStore);
+	private locationsStore = inject(LocationsStore);
+	private equipmentStore = inject(EquipmentStore);
 
 	readonly pacing = signal<PacingNow | null>(null);
-	readonly exercises = signal<Exercise[]>([]);
-	readonly locations = signal<Location[]>([]);
+	// Shared catalogs, retained across tab switches (see CachedResource).
+	readonly exercises = computed(() => this.exercisesStore.value() ?? []);
+	readonly locations = computed(() => this.locationsStore.value() ?? []);
 	readonly loading = signal(true);
 
 	readonly modes = MODES;
 	readonly selectedMode = signal<Mode>("balanced");
+	private readonly settingsMode = signal<Mode | null>(null);
+	private didInit = false;
 
 	// null = "Anywhere". Initialised to the default location, then upgraded to the
 	// auto-detected current location (best-effort) unless the user has picked one.
 	readonly selectedLocationId = signal<number | null>(null);
 	readonly autoDetected = signal(false);
 	private userPickedLocation = false;
-	private equipmentNames = signal<Map<string, string>>(new Map());
+	private equipmentNames = computed(
+		() => new Map((this.equipmentStore.value() ?? []).map((e) => [e.slug, e.name])),
+	);
 
 	constructor() {
 		this.loadAll();
+		// The first pacing verdict needs BOTH the persisted mode (settings) and the
+		// locations list (to pick the default location) — both feed one pacingNow
+		// call. Wait for both, then initialise once. Retained catalogs make this
+		// instant on a revisit; a cold load waits for the fetches. (Stores set
+		// `loaded` even on failure, so this still fires and clears `loading`.)
+		effect(() => {
+			if (this.didInit) return;
+			const mode = this.settingsMode();
+			if (mode === null || !this.locationsStore.loaded()) return;
+			this.didInit = true;
+			this.selectedMode.set(mode);
+			const def = this.locations().find((l) => l.isDefault);
+			this.selectedLocationId.set(def ? def.id : null);
+			this.reloadPacing();
+			this.autoSelect();
+		});
 	}
 
 	loadAll(): void {
 		this.loading.set(true);
-		forkJoin({
-			exercises: this.api.exercises(),
-			locations: this.api.locations(),
-			equipment: this.api.equipment(),
-			settings: this.api.settings(),
-		}).subscribe({
-			next: ({ exercises, locations, equipment, settings }) => {
-				this.exercises.set(exercises);
-				this.locations.set(locations);
-				this.equipmentNames.set(
-					new Map(equipment.map((e) => [e.slug, e.name])),
-				);
-				this.selectedMode.set(settings.mode);
-				const def = locations.find((l) => l.isDefault);
-				this.selectedLocationId.set(def ? def.id : null);
-				this.reloadPacing();
-				this.autoSelect();
-			},
-			error: () => this.loading.set(false),
+		this.exercisesStore.refresh();
+		this.locationsStore.refresh();
+		this.equipmentStore.refresh();
+		this.api.settings().subscribe({
+			next: (s) => this.settingsMode.set(s.mode),
+			error: () => this.settingsMode.set("balanced"),
 		});
 	}
 

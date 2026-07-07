@@ -1,10 +1,10 @@
-import { Component, computed, inject, signal } from "@angular/core";
+import { Component, computed, effect, inject, signal } from "@angular/core";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
-import { forkJoin } from "rxjs";
 
 import { CoachApi } from "../../coach-api";
-import { Exercise, WorkoutSet } from "../../models";
+import { WorkoutSet } from "../../models";
+import { AllExercisesStore, SetsStore } from "../../stores/catalog";
 
 interface DayGroup {
   key: string;
@@ -20,12 +20,18 @@ interface DayGroup {
 })
 export class HistoryPage {
   private api = inject(CoachApi);
+  private setsStore = inject(SetsStore);
+  private allExercisesStore = inject(AllExercisesStore);
 
-  readonly sets = signal<WorkoutSet[]>([]);
-  readonly exMap = signal<Map<number, Exercise>>(new Map());
-  readonly loading = signal(true);
+  // Retained across tab switches, refreshed in the background (see CachedResource).
+  readonly sets = computed(() => this.setsStore.value() ?? []);
+  readonly exMap = computed(
+    () => new Map((this.allExercisesStore.value() ?? []).map((e) => [e.id, e])),
+  );
+  readonly loading = computed(() => !this.setsStore.loaded() || !this.allExercisesStore.loaded());
   // Which day groups are expanded (terse by default; newest opens on load).
   readonly expanded = signal<Set<string>>(new Set());
+  private didInitExpanded = false;
 
   // logged_at is stored UTC; append 'Z' so the browser renders local time.
   private local(loggedAt: string): Date {
@@ -57,24 +63,20 @@ export class HistoryPage {
 
   constructor() {
     this.reload();
+    // Open the most recent day once its data arrives (per visit — a fresh
+    // component starts collapsed, then this opens the newest group one time).
+    effect(() => {
+      const g = this.groups();
+      if (!this.didInitExpanded && g.length > 0) {
+        this.didInitExpanded = true;
+        this.expanded.set(new Set([g[0].key]));
+      }
+    });
   }
 
   reload(): void {
-    this.loading.set(true);
-    forkJoin({
-      sets: this.api.sets(100),
-      exercises: this.api.exercises(true),
-    }).subscribe({
-      next: ({ sets, exercises }) => {
-        this.sets.set(sets);
-        this.exMap.set(new Map(exercises.map((e) => [e.id, e])));
-        // Open the most recent day by default; the rest stay collapsed.
-        const first = this.groups()[0];
-        this.expanded.set(new Set(first ? [first.key] : []));
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.setsStore.refresh();
+    this.allExercisesStore.refresh();
   }
 
   isOpen(key: string): boolean {
@@ -111,6 +113,6 @@ export class HistoryPage {
   del(s: WorkoutSet): void {
     this.api
       .deleteSet(s.id)
-      .subscribe(() => this.sets.set(this.sets().filter((x) => x.id !== s.id)));
+      .subscribe(() => this.setsStore.patch((list) => (list ?? []).filter((x) => x.id !== s.id)));
   }
 }

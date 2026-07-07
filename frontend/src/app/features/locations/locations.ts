@@ -6,15 +6,9 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 import { MatSlideToggleModule } from "@angular/material/slide-toggle";
-import { forkJoin } from "rxjs";
-
 import { CoachApi } from "../../coach-api";
-import type {
-	Category,
-	DetectedPlace,
-	Equipment,
-	Location,
-} from "../../models";
+import type { Category, Equipment, Location } from "../../models";
+import { EquipmentStore, LocationsStore, PlacesStore } from "../../stores/catalog";
 
 const CATEGORY_LABEL: Record<Category, string> = {
 	free_weight: "Free weights",
@@ -56,12 +50,21 @@ interface EquipmentSpecifics {
 })
 export class LocationsPage {
 	private api = inject(CoachApi);
+	private locationsStore = inject(LocationsStore);
+	private equipmentStore = inject(EquipmentStore);
+	private placesStore = inject(PlacesStore);
 
-	readonly locations = signal<Location[]>([]);
-	readonly equipment = signal<Equipment[]>([]);
+	// Shared catalogs, retained across tab switches (see CachedResource).
+	readonly locations = computed(() => this.locationsStore.value() ?? []);
+	readonly equipment = computed(() => this.equipmentStore.value() ?? []);
 	// health-detected places for the link picker (empty when the integration is off).
-	readonly detectedPlaces = signal<DetectedPlace[]>([]);
-	readonly loading = signal(true);
+	readonly detectedPlaces = computed(() => this.placesStore.value() ?? []);
+	readonly loading = computed(
+		() =>
+			!this.locationsStore.loaded() ||
+			!this.equipmentStore.loaded() ||
+			!this.placesStore.loaded(),
+	);
 
 	// Form state: editingId is null (hidden), 0 (new), or an id (editing).
 	readonly editingId = signal<number | null>(null);
@@ -93,20 +96,9 @@ export class LocationsPage {
 	}
 
 	reload(): void {
-		this.loading.set(true);
-		forkJoin({
-			locations: this.api.locations(),
-			equipment: this.api.equipment(),
-			places: this.api.placesDetected(),
-		}).subscribe({
-			next: ({ locations, equipment, places }) => {
-				this.locations.set(locations);
-				this.equipment.set(equipment);
-				this.detectedPlaces.set(places);
-				this.loading.set(false);
-			},
-			error: () => this.loading.set(false),
-		});
+		this.locationsStore.refresh();
+		this.equipmentStore.refresh();
+		this.placesStore.refresh();
 	}
 
 	placeLabel(id: number | null): string {

@@ -1,8 +1,8 @@
-import { Component, computed, inject, signal } from "@angular/core";
+import { Component, computed, inject } from "@angular/core";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 
-import { CoachApi } from "../../coach-api";
 import { GroupBalance, Region } from "../../models";
+import { PacingStore } from "../../stores/catalog";
 
 const REGION_ORDER: Region[] = ["chest", "back", "shoulders", "arms", "forearms", "core", "legs"];
 
@@ -15,10 +15,11 @@ const REGION_ORDER: Region[] = ["chest", "back", "shoulders", "arms", "forearms"
   imports: [MatProgressBarModule],
 })
 export class BalancePage {
-  private api = inject(CoachApi);
+  private pacing = inject(PacingStore);
 
-  readonly groups = signal<GroupBalance[]>([]);
-  readonly loading = signal(true);
+  // Retained across tab switches, refreshed in the background (see CachedResource).
+  readonly groups = computed<GroupBalance[]>(() => this.pacing.value()?.groups ?? []);
+  readonly loading = computed(() => !this.pacing.loaded());
 
   readonly byRegion = computed(() => {
     const by = new Map<Region, GroupBalance[]>();
@@ -34,13 +35,7 @@ export class BalancePage {
   });
 
   constructor() {
-    this.api.pacingNow().subscribe({
-      next: (p) => {
-        this.groups.set(p.groups);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.pacing.refresh();
   }
 
   regionLabel(r: string): string {

@@ -5,10 +5,10 @@ import { MatButtonModule } from "@angular/material/button";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
-import { forkJoin } from "rxjs";
 
 import { CoachApi } from "../../coach-api";
 import { Exercise } from "../../models";
+import { EquipmentStore, ExercisesStore } from "../../stores/catalog";
 import { ExerciseSheet } from "./exercise-sheet";
 
 const PATTERNS = ["push", "pull", "legs", "core"] as const;
@@ -23,14 +23,19 @@ const PATTERNS = ["push", "pull", "legs", "core"] as const;
 export class LibraryPage {
   private api = inject(CoachApi);
   private sheet = inject(MatBottomSheet);
+  private exercisesStore = inject(ExercisesStore);
+  private equipmentStore = inject(EquipmentStore);
 
-  readonly exercises = signal<Exercise[]>([]);
-  readonly loading = signal(true);
+  // Shared catalogs, retained across tab switches (see CachedResource).
+  readonly exercises = computed(() => this.exercisesStore.value() ?? []);
+  readonly loading = computed(() => !this.exercisesStore.loaded());
   // Signals (not plain fields) because the filtered view is a computed over them.
   readonly search = signal("");
   readonly pattern = signal<string | null>(null);
   readonly patterns = PATTERNS;
-  private equipmentNames = signal<Map<string, string>>(new Map());
+  private equipmentNames = computed(
+    () => new Map((this.equipmentStore.value() ?? []).map((e) => [e.slug, e.name])),
+  );
 
   readonly filtered = computed(() => {
     const q = this.search().trim().toLowerCase();
@@ -44,14 +49,8 @@ export class LibraryPage {
   });
 
   constructor() {
-    forkJoin({ exercises: this.api.exercises(), equipment: this.api.equipment() }).subscribe({
-      next: ({ exercises, equipment }) => {
-        this.exercises.set(exercises);
-        this.equipmentNames.set(new Map(equipment.map((e) => [e.slug, e.name])));
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.exercisesStore.refresh();
+    this.equipmentStore.refresh();
   }
 
   displayName(e: Exercise): string {
