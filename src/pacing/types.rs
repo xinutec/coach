@@ -129,6 +129,20 @@ pub struct GroupBalance {
     pub recovering: bool,
 }
 
+/// Whether a suggestion is a normal prescription or a calibration task. When the
+/// engine's ability estimate for the chosen exercise is untrusted (never done,
+/// or only stale data), it can't prescribe honestly — so it asks you to measure:
+/// the logged set *is* the assessment, and the next verdict prescribes from it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum SuggestionKind {
+    /// A prescription derived from a trusted ability estimate.
+    Work,
+    /// A calibration set — the engine is measuring what you can do.
+    Assess,
+}
+
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -137,6 +151,8 @@ pub struct Suggestion {
     pub exercise_id: i64,
     pub exercise_name: String,
     pub pattern: Pattern,
+    /// Work (prescribe) or Assess (measure). Drives the Today card's framing.
+    pub kind: SuggestionKind,
     pub sets: i32,
     pub rep_low: Option<i32>,
     pub rep_high: Option<i32>,

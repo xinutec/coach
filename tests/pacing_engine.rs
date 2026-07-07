@@ -10,6 +10,7 @@ use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
     Band, ExerciseInfo, GroupMeta, PacingInput, PacingSettings, PacingState, Readiness, SetRec,
+    SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -375,9 +376,9 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
 }
 
 #[test]
-fn cold_start_suggests_the_lightest_owned_weight() {
-    // No history for a weighted lift → the lightest weight you own + the full
-    // range, not nothing.
+fn a_never_done_lift_is_an_assessment_at_the_lightest_owned_weight() {
+    // No history for a weighted lift → the engine can't prescribe honestly, so it
+    // asks you to calibrate: one build-up set at the lightest weight you own.
     let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![10.0, 15.0, 20.0])]);
     let inp = PacingInput {
         groups: back_only(),
@@ -391,8 +392,39 @@ fn cold_start_suggests_the_lightest_owned_weight() {
         )
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.kind, SuggestionKind::Assess);
+    assert_eq!(sug.sets, 1, "a single calibration set");
     assert_eq!(sug.load_kg, Some(10.0));
-    assert_eq!(sug.rep_low, Some(3));
+}
+
+#[test]
+fn trusted_ability_prescribes_untrusted_ability_assesses() {
+    // Same lift + owned inventory. Three recent sessions → High confidence → a
+    // real prescription (Work). Only a 200-day-old set → Low confidence → the
+    // engine re-measures (Assess) rather than trust the stale number.
+    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(3, vec![40.0, 50.0, 60.0])]);
+    let mk = |hist: Vec<SetRec>| {
+        let inp = PacingInput {
+            groups: back_only(),
+            equipment_loads: owned.clone(),
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                hist,
+                None,
+                Some(vec![3]),
+            )
+        };
+        evaluate(&inp, now()).suggestion.unwrap().kind
+    };
+    let trusted = mk(vec![
+        wset(5, days_ago(2), 50.0, 5),
+        wset(5, days_ago(5), 50.0, 5),
+        wset(5, days_ago(9), 50.0, 5),
+    ]);
+    let stale = mk(vec![wset(5, days_ago(200), 60.0, 6)]);
+    assert_eq!(trusted, SuggestionKind::Work);
+    assert_eq!(stale, SuggestionKind::Assess);
 }
 
 #[test]

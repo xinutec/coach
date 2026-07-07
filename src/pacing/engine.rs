@@ -16,9 +16,10 @@ use crate::exercise::types::Metric;
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
-use super::ability::{self, Ability};
+use super::ability::{self, Ability, Confidence};
 use super::types::{
     Band, ExerciseInfo, GroupBalance, PacingInput, PacingNow, PacingState, Suggestion,
+    SuggestionKind,
 };
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
@@ -36,6 +37,9 @@ const LOW_READINESS_EXTRA_RIR: f64 = 2.0;
 const COLD_HOLD_S: i32 = 20;
 /// Seconds added to a hold when progressing (bounded properly in a later stage).
 const HOLD_STEP_S: i32 = 5;
+/// A calibration set for a weighted lift: build up to a hard-but-clean set of
+/// this many reps and log load/reps/RPE — the measurement the estimate needs.
+const ASSESS_WEIGHTED_REPS: i32 = 5;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -225,6 +229,42 @@ fn prescribe(
     }
 }
 
+/// A calibration set for an exercise whose ability is untrusted (never done, or
+/// only stale data): one set, framed as a measurement. The logged result feeds
+/// the ability model, so the next verdict prescribes from it (G3). Weighted →
+/// build up to a hard, clean `ASSESS_WEIGHTED_REPS` (a starting load offered from
+/// any decayed estimate, else the lightest owned); reps → AMRAP to form
+/// breakdown; hold → one max hold. Open rep/hold fields signal "as many as clean".
+fn assess(
+    ex: &ExerciseInfo,
+    ability: Option<&Ability>,
+    loads: &[f64],
+) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
+    match ex.metric {
+        Metric::WeightedReps => {
+            let load = match ability.and_then(|a| a.e1rm) {
+                // Offer a safe build-up target from the (stale) estimate.
+                Some(e) => Some(snap(
+                    loads,
+                    load_for(e, ASSESS_WEIGHTED_REPS as f64, LOW_READINESS_EXTRA_RIR),
+                )),
+                None => loads.first().copied(),
+            };
+            (
+                1,
+                Some(ASSESS_WEIGHTED_REPS),
+                Some(ASSESS_WEIGHTED_REPS),
+                load,
+                None,
+            )
+        }
+        // AMRAP / max hold — the open fields say "as many clean reps / as long as
+        // clean form holds", which is exactly what we're measuring.
+        Metric::Reps => (1, None, None, None, None),
+        Metric::Hold => (1, None, None, None, None),
+    }
+}
+
 /// Choose the best exercise for a muscle group given mode + location, or `None`
 /// if nothing that trains it as a primary is doable here.
 fn pick_for_group(
@@ -286,12 +326,28 @@ fn pick_for_group(
         .collect();
     loads.sort_by(f64::total_cmp);
     loads.dedup();
-    let (sets, rep_low, rep_high, load_kg, hold_s) =
-        prescribe(chosen, abilities.get(&chosen.id), mode, advance, &loads);
+    // Untrusted ability (never done, or only stale data) → measure instead of
+    // prescribing a false-precision number.
+    let ability = abilities.get(&chosen.id);
+    let assessing = matches!(
+        ability::confidence_of(abilities, chosen.id),
+        Confidence::Low | Confidence::None
+    );
+    let (sets, rep_low, rep_high, load_kg, hold_s) = if assessing {
+        assess(chosen, ability, &loads)
+    } else {
+        prescribe(chosen, ability, mode, advance, &loads)
+    };
+    let kind = if assessing {
+        SuggestionKind::Assess
+    } else {
+        SuggestionKind::Work
+    };
     Some(Suggestion {
         exercise_id: chosen.id,
         exercise_name: chosen.name.clone(),
         pattern: chosen.pattern,
+        kind,
         sets,
         rep_low,
         rep_high,

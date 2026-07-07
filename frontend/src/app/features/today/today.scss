@@ -118,6 +118,27 @@ mat-card {
     color: var(--mat-sys-on-surface-variant);
     margin: 0.35rem 0 0.75rem;
   }
+  .s-assess {
+    margin: 0.5rem 0 0.35rem;
+    font: var(--mat-sys-body-medium);
+  }
+
+  // A calibration card reads as "we're learning", not a firm prescription.
+  &.assess {
+    border-left: 3px solid var(--mat-sys-tertiary);
+  }
+  .assess-pill {
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 .bal-title {

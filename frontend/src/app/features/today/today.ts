@@ -144,6 +144,19 @@ export class Today {
 		return ex.equipment.map((slug) => this.equipmentNames().get(slug) ?? slug);
 	}
 
+	/**
+	 * The calibration instruction for an `assess` suggestion — what to actually do
+	 * so the logged set measures your ability. Metric comes from the catalog (the
+	 * wire suggestion doesn't carry it), so assess-reps and assess-hold differ.
+	 */
+	assessInstruction(exerciseId: number, repLow: number | null): string {
+		const metric = this.exercises().find((e) => e.id === exerciseId)?.metric;
+		if (metric === "hold") return "Hold as long as your form stays clean — one honest max.";
+		if (metric === "weighted_reps")
+			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.`;
+		return "As many clean reps as you can — stop at form breakdown, then log it.";
+	}
+
 	modeLabel(m: string): string {
 		return m.charAt(0).toUpperCase() + m.slice(1);
 	}

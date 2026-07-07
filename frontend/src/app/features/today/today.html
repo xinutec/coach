@@ -50,9 +50,12 @@
   </mat-card>
 
   @if (p.suggestion; as s) {
-    <mat-card class="suggestion">
+    <mat-card class="suggestion" [class.assess]="s.kind === 'assess'">
       <mat-card-content>
         <div class="s-head">
+          @if (s.kind === "assess") {
+            <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
+          }
           <span class="pill accent">{{ s.group }}</span>
           <h3>{{ s.exerciseName }}</h3>
         </div>
@@ -69,21 +72,31 @@
             }
           </div>
         }
-        <p class="s-detail">
-          {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
-          @if (s.repLow !== null) {
-            · {{ s.repLow }}–{{ s.repHigh }} reps
-          }
+        @if (s.kind === "assess") {
+          <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
           @if (s.loadKg !== null) {
-            · {{ s.loadKg }} kg
+            <p class="s-detail">Start around {{ s.loadKg }} kg</p>
           }
-          @if (s.holdS !== null) {
-            · {{ s.holdS }}s hold
-          }
-        </p>
-        <button mat-flat-button (click)="openLog(true)">
-          <mat-icon>add</mat-icon> Log this set
-        </button>
+          <button mat-flat-button (click)="openLog(true)">
+            <mat-icon>science</mat-icon> Log the calibration set
+          </button>
+        } @else {
+          <p class="s-detail">
+            {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
+            @if (s.repLow !== null) {
+              · {{ s.repLow }}–{{ s.repHigh }} reps
+            }
+            @if (s.loadKg !== null) {
+              · {{ s.loadKg }} kg
+            }
+            @if (s.holdS !== null) {
+              · {{ s.holdS }}s hold
+            }
+          </p>
+          <button mat-flat-button (click)="openLog(true)">
+            <mat-icon>add</mat-icon> Log this set
+          </button>
+        }
       </mat-card-content>
     </mat-card>
   }
