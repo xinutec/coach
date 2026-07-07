@@ -3,4 +3,15 @@
 /**
  * A place health has detected for the user, surfaced to the link picker.
  */
-export type DetectedPlace = { id: number, label: string, amenityLabel: string | null, lastSeenTs: number | null, };
+export type DetectedPlace = { id: number, label: string, amenityLabel: string | null, 
+/**
+ * Whether health considers this a recognisable place (a specific Home/Work
+ * or a mined venue name — not a bare, indistinguishable "Stay"). Defaults
+ * true so an older health that omits the field fails open.
+ */
+named: boolean, 
+/**
+ * health's coarse venue class ("food", "leisure", "errand", …), or None
+ * when unmined. Coach uses it to drop clearly non-training venues.
+ */
+category: string | null, lastSeenTs: number | null, };

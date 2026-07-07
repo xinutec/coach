@@ -22,12 +22,13 @@ pub async fn detected(
     let Some((base, token)) = app.cfg.health() else {
         return Ok(Json(Vec::new()));
     };
-    // Only offer named places: health surfaces unnamed dwell clusters all
-    // labelled "Stay", which are indistinguishable (and unlinkable) in a picker.
+    // Only offer places worth training at: drop health's indistinguishable
+    // unnamed "Stay" clusters and clearly non-training venues (restaurants,
+    // shops, transport hubs) — see DetectedPlace::is_trainable.
     let places = health::places(&app.http, base, token, &user.user_id)
         .await
         .into_iter()
-        .filter(DetectedPlace::is_named)
+        .filter(DetectedPlace::is_trainable)
         .collect();
     Ok(Json(places))
 }

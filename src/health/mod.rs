@@ -12,11 +12,10 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// health's fallback label for a dwell cluster it couldn't resolve to a named
-/// place (health `src/sleep/known-place-stays.ts`: "Falls back to 'Stay'").
-/// Several unnamed stays all carry this identical text, so they're
-/// indistinguishable in a link picker — coach hides them (see [`DetectedPlace::is_named`]).
-pub const UNNAMED_PLACE_LABEL: &str = "Stay";
+/// Venue categories (health's coarse OSM class) that aren't training places, so
+/// coach hides them from the link picker. Everything else — leisure (parks,
+/// gyms), lodging, unclassified (home/work/named) — is kept.
+const NON_TRAINING_CATEGORIES: &[&str] = &["food", "errand", "transport"];
 
 /// A place health has detected for the user, surfaced to the link picker.
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
@@ -27,16 +26,32 @@ pub struct DetectedPlace {
     pub id: i64,
     pub label: String,
     pub amenity_label: Option<String>,
+    /// Whether health considers this a recognisable place (a specific Home/Work
+    /// or a mined venue name — not a bare, indistinguishable "Stay"). Defaults
+    /// true so an older health that omits the field fails open.
+    #[serde(default = "default_true")]
+    pub named: bool,
+    /// health's coarse venue class ("food", "leisure", "errand", …), or None
+    /// when unmined. Coach uses it to drop clearly non-training venues.
+    #[serde(default)]
+    pub category: Option<String>,
     #[ts(type = "number | null")]
     pub last_seen_ts: Option<i64>,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 impl DetectedPlace {
-    /// True when health resolved this stay to a real, named place. Unnamed
-    /// stays (all labelled [`UNNAMED_PLACE_LABEL`]) can't be told apart, so
-    /// they're not worth offering in a picker.
-    pub fn is_named(&self) -> bool {
-        self.label != UNNAMED_PLACE_LABEL
+    /// Worth offering as a training location: recognisable in a picker, and not
+    /// a clearly non-training venue (a restaurant, a shop, a transport hub).
+    pub fn is_trainable(&self) -> bool {
+        self.named
+            && !self
+                .category
+                .as_deref()
+                .is_some_and(|c| NON_TRAINING_CATEGORIES.contains(&c))
     }
 }
 
