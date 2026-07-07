@@ -112,22 +112,16 @@
           <div class="spec-row">
             <div class="spec-name">{{ equipLabel(slug) }} — bar weight (kg)</div>
             <div class="chips">
-              <button
-                type="button"
-                class="chip"
-                [class.on]="barKgOf(slug) === 15"
-                (click)="setBar(slug, 15)"
-              >
-                15
-              </button>
-              <button
-                type="button"
-                class="chip"
-                [class.on]="barKgOf(slug) === 20"
-                (click)="setBar(slug, 20)"
-              >
-                20
-              </button>
+              @for (b of barPresets(slug); track b) {
+                <button
+                  type="button"
+                  class="chip"
+                  [class.on]="barKgOf(slug) === b"
+                  (click)="setBar(slug, b)"
+                >
+                  {{ b }}
+                </button>
+              }
               <span class="spec-add">
                 <input
                   #bIn

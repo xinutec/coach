@@ -169,6 +169,16 @@ export class LocationsPage {
 	private isLoadable(slug: string): boolean {
 		return this.equipment().find((e) => e.slug === slug)?.loadable ?? false;
 	}
+	// Common bar weights per bar, as one-tap quick-picks. A straight barbell is
+	// 15/20 kg (women's/men's Olympic); a trap bar's heavier frame runs 20–30 kg.
+	// The "other" field covers anything off this list.
+	private readonly BAR_PRESETS: Record<string, number[]> = {
+		barbell: [15, 20],
+		trap_bar: [20, 25, 30],
+	};
+	barPresets(slug: string): number[] {
+		return this.BAR_PRESETS[slug] ?? [20];
+	}
 
 	/** Selected fixed free weights (dumbbell/kettlebell) — each gets a weights
 	 *  editor. Loadable bars are handled separately (bar + plates). */
