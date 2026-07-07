@@ -22,9 +22,14 @@ pub async fn detected(
     let Some((base, token)) = app.cfg.health() else {
         return Ok(Json(Vec::new()));
     };
-    Ok(Json(
-        health::places(&app.http, base, token, &user.user_id).await,
-    ))
+    // Only offer named places: health surfaces unnamed dwell clusters all
+    // labelled "Stay", which are indistinguishable (and unlinkable) in a picker.
+    let places = health::places(&app.http, base, token, &user.user_id)
+        .await
+        .into_iter()
+        .filter(DetectedPlace::is_named)
+        .collect();
+    Ok(Json(places))
 }
 
 /// GET /api/location/current → the location the user is currently at (their

@@ -12,6 +12,12 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+/// health's fallback label for a dwell cluster it couldn't resolve to a named
+/// place (health `src/sleep/known-place-stays.ts`: "Falls back to 'Stay'").
+/// Several unnamed stays all carry this identical text, so they're
+/// indistinguishable in a link picker — coach hides them (see [`DetectedPlace::is_named`]).
+pub const UNNAMED_PLACE_LABEL: &str = "Stay";
+
 /// A place health has detected for the user, surfaced to the link picker.
 #[derive(Clone, Debug, Deserialize, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +29,15 @@ pub struct DetectedPlace {
     pub amenity_label: Option<String>,
     #[ts(type = "number | null")]
     pub last_seen_ts: Option<i64>,
+}
+
+impl DetectedPlace {
+    /// True when health resolved this stay to a real, named place. Unnamed
+    /// stays (all labelled [`UNNAMED_PLACE_LABEL`]) can't be told apart, so
+    /// they're not worth offering in a picker.
+    pub fn is_named(&self) -> bool {
+        self.label != UNNAMED_PLACE_LABEL
+    }
 }
 
 /// The place the user is currently in (health's `/internal/place/current`).
