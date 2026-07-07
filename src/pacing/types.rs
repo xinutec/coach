@@ -56,6 +56,7 @@ pub struct GroupMeta {
     pub region: Region,
 }
 
+#[derive(Clone, Copy)]
 pub struct PacingSettings {
     pub window_start_hour: i32,
     pub window_end_hour: i32,

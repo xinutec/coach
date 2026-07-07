@@ -3,7 +3,7 @@
 //! the user's local tz. No program is loaded — the engine works off history +
 //! the active mode.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, anyhow};
 use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
@@ -30,23 +30,35 @@ use super::types::{
 /// within it. A set older than this simply doesn't inform today's estimate.
 const HISTORY_WEEKS: i64 = 26;
 
-/// The coach verdict for the user right now. `location_id` makes the suggestion
-/// location-aware; `mode_override` picks a mode for this call (else the user's
-/// saved default). `readiness` is the biometric recovery signal (health-derived,
-/// best-effort — `None` when unavailable, and the engine degrades gracefully).
-pub async fn now(
+/// The history-independent engine context for a user + location: their timezone,
+/// settings, active mode, and the catalog/group/inventory metadata a verdict
+/// needs. Assembled once from the DB ([`context`]), then combined with a history
+/// slice + instant into a [`PacingInput`] ([`input_from`]). The live verdict
+/// ([`now`]) and the back-test harness share this so both see identical assembly.
+pub struct PacingContext {
+    pub tz: Tz,
+    pub settings: PacingSettings,
+    pub mode: Mode,
+    pub days_per_week: i32,
+    pub emphasis: Option<Region>,
+    pub exercises: Vec<ExerciseInfo>,
+    pub groups: Vec<GroupMeta>,
+    pub available_equipment: Option<HashSet<i64>>,
+    pub equipment_loads: HashMap<i64, Vec<f64>>,
+}
+
+/// Load the history-independent context: settings + tz, the active mode, the
+/// exercise catalog with its flags/equipment/groups, the muscle groups, and the
+/// location's available equipment + owned weights (for load snapping). Everything
+/// a verdict needs *except* the set history and the instant.
+pub async fn context(
     pool: &MySqlPool,
     user_id: &str,
     location_id: Option<i64>,
     mode_override: Option<Mode>,
-    readiness: Option<Readiness>,
-) -> Result<PacingNow> {
+) -> Result<PacingContext> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
-    let now_local = Utc::now().with_timezone(&tz).naive_local();
-    let to_local =
-        |utc: NaiveDateTime| Utc.from_utc_datetime(&utc).with_timezone(&tz).naive_local();
-
     let settings = PacingSettings {
         window_start_hour: s.window_start_hour,
         window_end_hour: s.window_end_hour,
@@ -63,7 +75,7 @@ pub async fn now(
     // Discrete owned weights per equipment at this location (for load snapping).
     let equipment_loads = match location_id {
         Some(id) => location_repo::equipment_loads(pool, id).await?,
-        None => std::collections::HashMap::new(),
+        None => HashMap::new(),
     };
 
     // Exercise metadata: equipment ids, muscle-group contributions, flags.
@@ -90,6 +102,75 @@ pub async fn now(
         })
         .collect();
 
+    let groups = muscle_repo::groups(pool)
+        .await?
+        .into_iter()
+        .map(|(id, name, region)| {
+            Ok(GroupMeta {
+                id,
+                name,
+                region: Region::from_db(&region)
+                    .ok_or_else(|| anyhow!("unknown region {region:?}"))?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(PacingContext {
+        tz,
+        settings,
+        mode,
+        days_per_week: s.days_per_week,
+        emphasis: s.emphasis,
+        exercises,
+        groups,
+        available_equipment,
+        equipment_loads,
+    })
+}
+
+/// Combine a context with a (local-tz) history slice + biometric readiness into
+/// an engine input. Clones the catalog/group/inventory so the same context can
+/// drive many verdicts (the back-test replays one per training day).
+pub fn input_from(
+    ctx: &PacingContext,
+    history: Vec<SetRec>,
+    last_set_at: Option<NaiveDateTime>,
+    readiness: Option<Readiness>,
+) -> PacingInput {
+    PacingInput {
+        mode: ctx.mode,
+        days_per_week: ctx.days_per_week,
+        emphasis: ctx.emphasis,
+        exercises: ctx.exercises.clone(),
+        history,
+        last_set_at,
+        settings: ctx.settings,
+        groups: ctx.groups.clone(),
+        available_equipment: ctx.available_equipment.clone(),
+        equipment_loads: ctx.equipment_loads.clone(),
+        readiness,
+    }
+}
+
+/// The coach verdict for the user right now. `location_id` makes the suggestion
+/// location-aware; `mode_override` picks a mode for this call (else the user's
+/// saved default). `readiness` is the biometric recovery signal (health-derived,
+/// best-effort — `None` when unavailable, and the engine degrades gracefully).
+pub async fn now(
+    pool: &MySqlPool,
+    user_id: &str,
+    location_id: Option<i64>,
+    mode_override: Option<Mode>,
+    readiness: Option<Readiness>,
+) -> Result<PacingNow> {
+    let ctx = context(pool, user_id, location_id, mode_override).await?;
+    let now_local = Utc::now().with_timezone(&ctx.tz).naive_local();
+    let to_local = |utc: NaiveDateTime| {
+        Utc.from_utc_datetime(&utc)
+            .with_timezone(&ctx.tz)
+            .naive_local()
+    };
+
     // History over the trailing window (logged_at is UTC). Convert to local for
     // the engine's date/hour math.
     let since_utc = Utc::now().naive_utc() - Duration::weeks(HISTORY_WEEKS);
@@ -107,31 +188,6 @@ pub async fn now(
         .collect();
     let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);
 
-    let groups = muscle_repo::groups(pool)
-        .await?
-        .into_iter()
-        .map(|(id, name, region)| {
-            Ok(GroupMeta {
-                id,
-                name,
-                region: Region::from_db(&region)
-                    .ok_or_else(|| anyhow!("unknown region {region:?}"))?,
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    let inp = PacingInput {
-        mode,
-        days_per_week: s.days_per_week,
-        emphasis: s.emphasis,
-        exercises,
-        history,
-        last_set_at,
-        settings,
-        groups,
-        available_equipment,
-        equipment_loads,
-        readiness,
-    };
+    let inp = input_from(&ctx, history, last_set_at, readiness);
     Ok(engine::evaluate(&inp, now_local))
 }

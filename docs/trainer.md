@@ -232,16 +232,32 @@ The gaps above are the product design. These are the mechanisms that make
 aspirations. All of them exist because the engine is a pure function — none
 would be possible with a stored plan.
 
-### E1 — Back-test every engine change against real history
+### E1 — Back-test every engine change against real history ✅ *shipped*
 
 Any change to the engine (a constant, a formula, a new stage) can be **replayed
-over the full real logged history**: evaluate the verdict at each historical
-instant (every log event, plus sampled hours between), before vs after, and
-diff. A small `backtest` binary + committed baseline, exactly the health-sync
-golden pattern: fixtures from real data, gate = no *unexplained* drift. No
-heuristic gets tuned blind; every diff in prescriptions is inspected before it
-ships. This is the single highest-leverage piece — it turns "I think this
-constant is better" into evidence.
+walk-forward over the real logged history**. `src/bin/backtest.rs` loads the
+history-independent context (the exact `service::context` the live verdict uses,
+so there's no assembly drift) and, for each training day, evaluates the verdict
+the coach *would* have given that morning given **only the prior days** — then
+prints the ordered plan (kind, exercise, sets/reps/load, confidence). Output is
+deterministic, so `backtest > before.txt`, change the engine, `backtest >
+after.txt`, `diff` shows exactly what the change did to *real* prescriptions. No
+heuristic gets tuned blind.
+
+Privacy by construction: the real history never enters the repo. `scripts/prod-dump.sh`
+dumps prod (read-only) into the gitignored `.dev/`, `scripts/backtest.sh` loads
+it into the local dev DB and runs the walk. What's committed is the harness, not
+the data — so there's no committed golden (the data is private), and the
+regression check is a local before/after diff.
+
+First run over the real corpus (287 sets, 16 training days, Sep–Oct 2024)
+confirmed the arc it's meant to show: a `Fresh`, all-`Assess` cold start
+resolving into real load prescriptions (e.g. `RDL 2×10 @ 74 kg [High]` with a
+ramp-in warm-up) as the ability model fills in — 45 calibration → 18 work
+prescriptions, 5 exercises reaching `High`. It also surfaced a real property of
+*this* athlete's data: 76 distinct exercises over 6 weeks means few clear the
+"≥3 sessions in 6 weeks" bar, so most stay `Medium`/`None` — the confidence model
+behaving correctly on high-variety training, now visible rather than assumed.
 
 ### E2 — Property tests for the invariants ✅ *shipped*
 
@@ -330,9 +346,9 @@ Each stage ships alone and keeps every existing test green.
    **feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **cross-exercise priors (G1 tail)** — pending.
 
-Rigor: **E2 (property tests)** ✅, **E5 (explanation trace)** ✅, and
-**E3 (athlete simulation)** ✅ *shipped* — convergence, stability, tracking, and
-recovery honesty are now regression-tested against a deterministic virtual
-athlete. Still to come — **E1 (back-test)** against real logged history (the
-biggest remaining rigor win, needs your history in a dev DB); **E4 (residual
-ledger)** feeding G4 + per-user calibration.
+Rigor: **E2 (property tests)** ✅, **E5 (explanation trace)** ✅,
+**E3 (athlete simulation)** ✅, and **E1 (back-test against real history)** ✅
+*shipped* — convergence/stability/recovery tested against a deterministic virtual
+athlete, and every engine change now diffable walk-forward over the real logged
+corpus. Still to come — **E4 (residual ledger)** feeding G4 + per-user
+calibration.
