@@ -17,6 +17,9 @@ nix develop -c bash -c '
   export NG_BUILD_MAX_WORKERS=1
   cargo fmt --all --check
   cargo clippy --all-targets -- -D warnings
+  # Generated-types drift (formerly the separate pre-push gate): regenerate the
+  # ts-rs bindings and fail if the committed frontend generated output moved.
+  scripts/check-types.sh
   # ui-check (L2 phone-width layout harness) runs after the build — it serves
   # the freshly-built dist via e2e/serve.mjs and asserts no overlap/overflow at
   # Pixel width. See @xinutec/ui-harness + dev-lint/docs/layout-quality-architecture.md.

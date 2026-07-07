@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Drift gate: regenerate the TS types and fail if the committed output changed.
 # Catches a Rust API-type edit that wasn't regenerated + committed. Run in the
-# dev shell (cargo on PATH); wired into the pre-push hook.
+# dev shell (cargo on PATH); part of scripts/verify.sh — i.e. the pre-commit gate.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
