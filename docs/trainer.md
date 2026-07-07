@@ -261,22 +261,31 @@ Still worth adding: logging a set never *increases* that group's deficit; a
 strict warm-up cover ⊇ plan primaries (awaits full mobility catalog); degradation
 never *widens* claims (no load suggestion once the inventory vanishes).
 
-### E3 — Athlete simulation: convergence as a regression test
+### E3 — Athlete simulation: convergence as a regression test ✅ *shipped*
 
-A deterministic **virtual athlete** (a simple dose-response model: true
-ability per exercise, performs the prescription with an outcome derived from
-true ability, fatigue, and a fixed recovery curve — all closed-form, seeded, no
-randomness needed) run against the engine for simulated months. Assertions:
+A deterministic **virtual athlete** (`tests/athlete_sim.rs`): a closed-form
+dose-response model — Epley reps-to-failure at a load — that performs each
+prescription honestly (as many clean reps as it has, an integer RPE reporting
+the reserve). No randomness, so every run is reproducible. The engine sees only
+the logged sets and must *recover* the hidden true ability from them. Proven:
 
-- **convergence**: after N assessment/prescription cycles, prescription error
-  vs true ability falls below a threshold and stays there;
-- **stability**: prescriptions don't oscillate (no ping-ponging between loads);
-- **bounded ramp**: weekly volume growth stays under a labelled cap;
-- **recovery honesty**: the simulated athlete is never prescribed work the
-  model says it cannot recover from.
+- **convergence**: from a cold, deliberately-too-light first assessment, the
+  estimated e1RM climbs to within 6 % of a true 1RM sitting off the weight grid,
+  and holds there — through weight-snapping and integer-RPE quantization;
+- **honesty**: the RPE-aware estimate never materially *exceeds* true ability
+  (no chimera — you can't invent strength the sets don't demonstrate);
+- **stability**: once converged, the prescribed load spans ≤ one plate step (no
+  ping-ponging);
+- **tracking**: when true ability *grows* (a saturating gain curve), the estimate
+  follows it up, staying in a tight lag band below the moving target;
+- **bounded ramp**: planned volume never exceeds the day's set budget;
+- **recovery honesty**: recovery is graded (G6), so a mostly-recovered group can
+  take light work; nothing below the effective-recovery gate
+  (deficit × recovery) is ever prescribed — asserted via each item's own
+  explanation trace (E5).
 
 This is what makes "becomes a close-to-perfect trainer over time" a tested
-property of the system instead of a hope.
+property of the system rather than a hope.
 
 ### E4 — Prediction-error ledger (the self-correction signal)
 
@@ -321,7 +330,9 @@ Each stage ships alone and keeps every existing test green.
    **feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **cross-exercise priors (G1 tail)** — pending.
 
-Rigor: **E2 (property tests)** ✅ and **E5 (explanation trace)** ✅ *shipped*.
-Still to come — **E1 (back-test)** against real logged history (the biggest
-remaining rigor win); **E3 (athlete simulation)** for convergence; **E4 (residual
+Rigor: **E2 (property tests)** ✅, **E5 (explanation trace)** ✅, and
+**E3 (athlete simulation)** ✅ *shipped* — convergence, stability, tracking, and
+recovery honesty are now regression-tested against a deterministic virtual
+athlete. Still to come — **E1 (back-test)** against real logged history (the
+biggest remaining rigor win, needs your history in a dev DB); **E4 (residual
 ledger)** feeding G4 + per-user calibration.
