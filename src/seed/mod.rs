@@ -5,10 +5,10 @@
 //! Hash-gated: `exercises.json` is fingerprinted (SHA-256) into `catalog_state`.
 //! An unchanged fingerprint short-circuits the whole seed (fast normal boots). A
 //! changed one (a fresh DB, a new exercise, or a corrected muscle/equipment
-//! mapping) runs the seed AND **reconciles** the M:N links + the classification
-//! flags (`skill`/`warmup`) of already-seeded exercises — so catalog corrections
-//! actually land instead of being skipped forever. Other scalar exercise columns
-//! + images are insert-only.
+//! mapping) runs the seed AND **reconciles** the M:N links + the engine-driving
+//! scalars (`skill`/`warmup`/`difficulty`) of already-seeded exercises — so
+//! catalog corrections actually land instead of being skipped forever. The other
+//! scalar columns (name/cue/…) + image blobs are insert-only.
 //!
 //! This keeps the 119-row catalog and its ~15 MB of images out of SQL migrations
 //! while still making any fresh DB (dev or prod) reproduce the full library.
@@ -74,6 +74,11 @@ struct SeedExercise {
     skill: bool,
     #[serde(default)]
     warmup: bool,
+    /// Relative difficulty 1–5 *within a movement family* (pattern + primary
+    /// group) — orders variations so the engine can offer the next-harder one
+    /// (G7) and seed a first estimate for a harder sibling. `None` = unrated.
+    #[serde(default)]
+    difficulty: Option<i32>,
     cue: Option<String>,
     demo_url: Option<String>,
     summary: Option<String>,
@@ -146,9 +151,9 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         .await?;
     }
 
-    // Exercises: insert new ones, reconcile the M:N links of existing ones (the
-    // catalog is the source of truth for links). Scalar rows + images are
-    // insert-only — a correction there is out of this bounded pass's scope.
+    // Exercises: insert new ones, and for existing ones reconcile the M:N links +
+    // the engine-driving scalars (skill/warmup/difficulty) — the catalog is the
+    // source of truth for those. Descriptive columns + images stay insert-only.
     let existing: HashMap<String, i64> = sqlx::query_as("SELECT slug, id FROM exercises")
         .fetch_all(pool)
         .await?
@@ -173,12 +178,15 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                     .await?;
                 // Reconcile the catalog-authoritative classification flags too
                 // (skill/warmup drive the engine; a correction must reach old rows).
-                sqlx::query("UPDATE exercises SET skill = ?, warmup = ? WHERE id = ?")
-                    .bind(ex.skill)
-                    .bind(ex.warmup)
-                    .bind(id)
-                    .execute(pool)
-                    .await?;
+                sqlx::query(
+                    "UPDATE exercises SET skill = ?, warmup = ?, difficulty = ? WHERE id = ?",
+                )
+                .bind(ex.skill)
+                .bind(ex.warmup)
+                .bind(ex.difficulty)
+                .bind(id)
+                .execute(pool)
+                .await?;
                 reconciled += 1;
                 (id, false)
             }
@@ -186,8 +194,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
                 let res = sqlx::query(
                     "INSERT INTO exercises \
-                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, cue, demo_url, summary) \
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, difficulty, cue, demo_url, summary) \
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 )
                 .bind(&ex.slug)
                 .bind(&ex.name)
@@ -198,6 +206,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(ex.unilateral)
                 .bind(ex.skill)
                 .bind(ex.warmup)
+                .bind(ex.difficulty)
                 .bind(&ex.cue)
                 .bind(&ex.demo_url)
                 .bind(&ex.summary)

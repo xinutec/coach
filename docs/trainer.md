@@ -213,10 +213,14 @@ hardcoded equipment slugs (`gymnastic_rings`/`parallettes`) — now a catalog
 tagged), both seeded and reconciled via new `exercises.warmup`/`exercises.skill`
 columns (migration 0015); the service reads `skill` from the catalog and the
 slug sniff is gone; warm-up-tagged moves are excluded from work selection and
-credit no volume. **Still pending**: populate `difficulty` (1–5, relative within
-a pattern — drives G7); count `unilateral` sets per side; author the few missing
-mobility moves to cover legs/arms in the warm-up block. Seeder reconciliation
-(hash-gated) already carries flag corrections to existing rows.
+credit no volume. **`difficulty` now populated** (1–5, relative within a movement
+family = pattern + primary group; all 119 rated in `data/catalog/exercises.json`,
+carried by the seeder — struct field + insert + reconcile — so corrections reach
+prod rows). It reads coherently as ladders (e.g. push-up 2 → rings 3 → pseudo-
+planche 4; supine row 1 → pull-up 3 → rings 4 → typewriter 5) and is a first
+draft pending Pippijn's review; nothing reads it yet, so it changes no behaviour
+until G7. **Still pending**: count `unilateral` sets per side; author the few
+missing mobility moves to cover legs/arms in the warm-up block.
 
 ### G6 — Recovery is a binary gate ✅ *shipped*
 
