@@ -290,14 +290,16 @@ reproducible, inspectable — calibration, not learning: the model form never
 changes, only which labelled constant is active, and E1 shows exactly what the
 switch does.
 
-### E5 — Explanations as data, not prose
+### E5 — Explanations as data, not prose ✅ *shipped*
 
-The `reason` string becomes a **structured trace**: each factor (deficit,
-recovery state, readiness, recency, mode fit, ability + its confidence + its
-staleness decay) with its value and contribution to the decision. The UI can
-then cite the derivation of every number it shows, the prose renders *from* the
-trace, and tests assert on the trace instead of string-matching sentences. Also
-the debugging story: "why did it tell me to do X?" is answerable exactly.
+Each work/assess suggestion carries a structured **`Explanation`** (deficit,
+recovery fraction, ability confidence, e1RM, readiness band) — the factors the
+verdict already computed, surfaced as data rather than buried in prose.
+`Confidence` is now a wire type. Today renders an inline "Why this?" toggle that
+expands the rationale in plain language, and tests assert on the trace instead of
+string-matching sentences — so "why did it tell me to do X?" is answerable
+exactly. (Not yet folded in: `recency`/`mode-fit` contributions and the top-line
+`reason` string rendering *from* the trace — a later tidy.)
 
 ## Staging
 
@@ -319,7 +321,7 @@ Each stage ships alone and keeps every existing test green.
    **feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **cross-exercise priors (G1 tail)** — pending.
 
-Rigor: **E2 (property tests)** ✅ *shipped* (engine + ability invariants). Still
-to come — **E1 (back-test)** against real logged history (the biggest remaining
-rigor win); **E5 (explanation trace)**; **E3 (athlete simulation)** for
-convergence; **E4 (residual ledger)** feeding G4 + per-user calibration.
+Rigor: **E2 (property tests)** ✅ and **E5 (explanation trace)** ✅ *shipped*.
+Still to come — **E1 (back-test)** against real logged history (the biggest
+remaining rigor win); **E3 (athlete simulation)** for convergence; **E4 (residual
+ledger)** feeding G4 + per-user calibration.
