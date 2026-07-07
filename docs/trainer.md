@@ -98,31 +98,31 @@ a good day.
 **Gap.** The engine emits a single "next up". You can't see today's session, in
 what order, or what's left after this set. There is no warm-up concept at all.
 
-**Design.** The engine builds an ordered `plan: Vec<PlanItem>` for the rest of
-the day, still recomputed statelessly on every call (logging a set shifts the
-plan; the old "next up" is simply the first outstanding item):
+**Design.** The engine builds an ordered `plan: Vec<Suggestion>` for the day,
+recomputed statelessly on every call (logging a set shifts the plan; the old
+"next up" is simply the head). **Shipped** (`engine::build_plan`), except the
+warm-up block (G2a), which waits on catalog curation (G5, next stage):
 
-- **Selection**: today's `day_target_sets` budget distributed over the top
-  recovered-deficit groups (sets per item proportional to deficit, min 2 —
-  replacing today's flat `sets = 3`), each group resolved to a location-doable
-  exercise exactly as now.
-- **Ordering** (classic, deterministic rules): ① warm-up block (G2a) →
-  ② skill/hold work while the nervous system is fresh → ③ heavy compound
-  weighted work, biggest deficit first → ④ bodyweight/isolation accessories →
-  ⑤ core/conditioning finishers. Within a tier: deficit desc, id asc. Adjacent
-  items sharing a primary group are swapped apart when possible, so rest for
-  one group is work for another.
-- **G2a Warm-up block**, derived from the plan itself: the union of the main
-  items' primary muscle groups must be covered by the block. Catalog moves
-  tagged `warmup: true` (mobility, band work — see G5) are chosen to cover
-  that set; the first heavy weighted item additionally gets a ramp-in set at
-  ~50 % of its working load. Warm-up sets credit no training volume, so they
-  never eat the day's targets. **Provable**: a unit test asserts
+- **Selection** ✅: the `day_target_sets` budget distributed over the top
+  recovered-deficit groups — Work sets proportional to deficit share, min
+  `WORK_MIN_SETS` (replacing the flat `sets = 3`); Assess/Hold keep their own
+  counts — each group resolved to a location-doable exercise as before.
+- **Ordering** ✅ (classic, deterministic tiers, `engine::tier`): ① warm-up
+  block (G2a, pending) → ② skill/hold work while the nervous system is fresh →
+  ③ heavy compound weighted work → ④ bodyweight/isolation accessories →
+  ⑤ core/conditioning finishers. Within a tier: deficit desc, id asc.
+  (Not yet: swapping adjacent same-group items apart — a later refinement.)
+- **G2a Warm-up block** (pending, stage 4), derived from the plan itself: the
+  union of the main items' primary muscle groups must be covered by the block.
+  Catalog moves tagged `warmup: true` (mobility, band work — see G5) are chosen
+  to cover that set; the first heavy weighted item additionally gets a ramp-in
+  set at ~50 % of its working load. Warm-up sets credit no training volume, so
+  they never eat the day's targets. **Provable**: a test asserts
   `cover(warmup_block) ⊇ primaries(main_items)` for arbitrary plans.
-- **Wire**: `PacingNow.plan: Vec<PlanItem>` where `PlanItem` = kind
-  (`Warmup | Work | Assess`) + the current `Suggestion` fields. The Today page
-  renders the ordered list as a checklist; the existing single suggestion card
-  becomes its head.
+- **Wire** ✅: `PacingNow.plan: Vec<Suggestion>` (reusing `Suggestion` + its
+  `SuggestionKind`; `Warmup` joins the kind in stage 4). The Today page renders
+  the ordered list as the session; `suggestion` stays as its head for the nudge
+  + Android trigger.
 
 ### G3 — When the engine doesn't know, it should ask ✅ *shipped*
 
@@ -303,10 +303,11 @@ Each stage ships alone and keeps every existing test green.
    the chimera query deleted. Killed the stale-PR and chimera-top-set bugs.
 2. **Assessment items (G3)** — ✅ *shipped*. `SuggestionKind::{Work, Assess}` on
    the wire; untrusted confidence → a calibration set; Today frames it as such.
-3. **Session plan + ordering (G2, sans warm-up)** — engine emits the ordered
-   plan, Today renders the checklist, set counts sized to deficits.
+3. **Session plan + ordering (G2, sans warm-up)** — ✅ *shipped*. Engine emits
+   `plan: Vec<Suggestion>` tiered + sized to deficits; Today renders the session
+   list; `suggestion` stays as the head.
 4. **Warm-up block + catalog curation (G2a, G5)** — warm-up tags, difficulty,
-   skill flag, unilateral handling.
+   skill flag, unilateral handling. ← next
 5. **Feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **graded recovery (G6)**, **cross-exercise priors (G1 tail)** — independent
    refinements, any order.
