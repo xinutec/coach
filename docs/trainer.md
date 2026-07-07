@@ -124,26 +124,29 @@ plan; the old "next up" is simply the first outstanding item):
   renders the ordered list as a checklist; the existing single suggestion card
   becomes its head.
 
-### G3 — When the engine doesn't know, it should ask
+### G3 — When the engine doesn't know, it should ask ✅ *shipped*
 
-**Gap.** Unknown or stale ability is papered over with defaults instead of
+**Gap.** Unknown or stale ability was papered over with defaults instead of
 being measured.
 
-**Design.** When the exercise chosen for a plan slot has ability confidence
-`Low`/`None`, the item is emitted as kind `Assess` with a calibration protocol
-per metric — and the assessment *is* the training (it's still sets for that
-group, no wasted day):
+**Design** (shipped, `engine::assess` + `SuggestionKind`). When the chosen
+exercise's ability confidence is `Low`/`None`, the suggestion is emitted as kind
+`Assess` with a calibration protocol per metric — and the assessment *is* the
+training (it's still a set for that group, no wasted day):
 
-- weighted: "work up to a hard-but-clean set of ~5, log load/reps/RPE";
-- reps: "one AMRAP set, stop at form breakdown";
-- hold: "one max hold".
+- weighted: "build up to a hard-but-clean set of ~5, log load/reps/RPE" (a
+  starting load offered from any decayed estimate, else the lightest owned);
+- reps: "AMRAP, stop at form breakdown" (open rep fields);
+- hold: "one max hold" (open hold field).
 
 No new tables: the logged set is the measurement — ability (G1) recomputes from
-history, so the very next verdict prescribes from it. Re-assessment triggers
-automatically: staleness pushes confidence down over time, and (later stage)
-persistent prediction error — you keep beating or missing prescriptions —
-forces a re-measure. This is the "gets finer over time" loop: measure →
-prescribe → observe → correct, all deterministic.
+history, so the very next verdict prescribes from it. The Today card frames an
+assess distinctly (a "Calibrate" pill + the metric-specific instruction, derived
+from the catalog metric). Re-assessment triggers automatically: staleness pushes
+confidence to `Low` over time (a 6-week-idle exercise re-enters calibration), and
+(later stage) persistent prediction error — you keep beating or missing
+prescriptions — forces a re-measure. This is the "gets finer over time" loop:
+measure → prescribe → observe → correct, all deterministic.
 
 ### G4 — Progression ignores how the sets actually went
 
@@ -298,8 +301,8 @@ Each stage ships alone and keeps every existing test green.
 1. **Ability model (G1)** — ✅ *shipped*. Pure `ability.rs` (staleness + RPE),
    `engine::prescribe` derives the autoregulated load from it, `LastPerf` and
    the chimera query deleted. Killed the stale-PR and chimera-top-set bugs.
-2. **Assessment items (G3)** — needs only confidence from stage 1 plus the
-   `Assess` kind on the wire.
+2. **Assessment items (G3)** — ✅ *shipped*. `SuggestionKind::{Work, Assess}` on
+   the wire; untrusted confidence → a calibration set; Today frames it as such.
 3. **Session plan + ordering (G2, sans warm-up)** — engine emits the ordered
    plan, Today renders the checklist, set counts sized to deficits.
 4. **Warm-up block + catalog curation (G2a, G5)** — warm-up tags, difficulty,
