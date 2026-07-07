@@ -36,6 +36,7 @@ pub struct ExerciseInfo {
 /// progression, and the ability estimate). `rpe` (when logged) makes the e1RM
 /// estimate effort-aware — a set left with reps in reserve implies more strength
 /// than a grinding one at the same load.
+#[derive(Clone)]
 pub struct SetRec {
     pub exercise_id: i64,
     pub logged_at: NaiveDateTime,

@@ -646,6 +646,62 @@ fn low_readiness_prescribes_lighter_than_a_good_day() {
 }
 
 #[test]
+fn recovery_is_graded_over_a_region_horizon() {
+    // Two sets on the back group. Freshly done → the group reads as recovering;
+    // well past the back region's recovery horizon → recovered again.
+    let recovering_at = |hours: i64| {
+        let mut h = vec![];
+        for _ in 0..2 {
+            h.push(set(2, hours_ago(hours))); // ring row → back group
+        }
+        let out = evaluate(
+            &PacingInput {
+                groups: back_only(),
+                ..input(Mode::Balanced, vec![catalog()[1].clone()], h, None, None)
+            },
+            now(),
+        );
+        out.groups
+            .iter()
+            .find(|g| g.group == "Lats")
+            .unwrap()
+            .recovering
+    };
+    assert!(recovering_at(6), "just trained → still recovering");
+    assert!(!recovering_at(80), "past the horizon → recovered");
+}
+
+#[test]
+fn low_readiness_reduces_the_day_target() {
+    // Same history; a low-readiness day prescribes fewer sets, not just lighter
+    // ones (the recovery factor now reaches the day's set count). Dense history +
+    // 1 day/week keeps the target above its floor so the scaling is visible.
+    let mut h = vec![];
+    for d in 8..40 {
+        for _ in 0..2 {
+            h.push(set(1, days_ago(d))); // ~64 sets, none in the last week (no deload)
+        }
+    }
+    let mk = |r: Option<Readiness>| {
+        evaluate(
+            &PacingInput {
+                days_per_week: 1,
+                readiness: r,
+                ..input(Mode::Balanced, catalog(), h.clone(), None, None)
+            },
+            now(),
+        )
+        .day_target_sets
+    };
+    let normal = mk(None);
+    let low = mk(Some(Readiness {
+        score: 0.15,
+        band: Band::Low,
+    }));
+    assert!(low < normal, "low readiness {low} < normal {normal}");
+}
+
+#[test]
 fn rest_when_everything_recovered() {
     // Every group trained hard in the last day → nothing due → Rest.
     let mut h = vec![];

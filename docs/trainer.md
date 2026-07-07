@@ -243,22 +243,23 @@ heuristic gets tuned blind; every diff in prescriptions is inspected before it
 ships. This is the single highest-leverage piece — it turns "I think this
 constant is better" into evidence.
 
-### E2 — Property tests for the invariants
+### E2 — Property tests for the invariants ✅ *shipped*
 
-Table tests pin behaviours; **property tests** (`proptest`, arbitrary histories)
-pin the *invariants* that must hold for every input, not just the ones we
-thought of:
+Table tests pin behaviours; **property tests** (`proptest`, arbitrary histories —
+`tests/engine_props.rs` + `tests/ability_props.rs`) pin the *invariants* that must
+hold for every input, not just the ones we thought of. Shipped:
 
-- determinism: same input → byte-identical verdict;
-- logging a set never *increases* that group's deficit;
-- suggested loads ∈ the owned-weights set (when known); reps within the mode's
-  range; targets within their clamps;
-- ability is monotone under decay — more idle time never raises it;
-- warm-up cover ⊇ the plan's primary groups (G2a); plan set-count ≤ the day
-  budget;
-- degradation: stripping any optional input (readiness, location, history)
-  yields a verdict, never a panic, and never *widens* claims (e.g. no load
-  suggestion appears when the inventory vanished).
+- determinism: same input → byte-identical verdict (serialised);
+- suggested loads ∈ the owned-weights set (when known); rep targets sane
+  (`1 ≤ lo ≤ hi ≤ 25`, sets ≥ 1);
+- ability never exceeds the best *real* set's e1RM (no chimera) and is monotone
+  under idleness — more time off never raises it;
+- work volume ≤ the day budget (+ one trailing item's fixed spill); a non-empty
+  plan always carries a training item (never warm-ups alone).
+
+Still worth adding: logging a set never *increases* that group's deficit; a
+strict warm-up cover ⊇ plan primaries (awaits full mobility catalog); degradation
+never *widens* claims (no load suggestion once the inventory vanishes).
 
 ### E3 — Athlete simulation: convergence as a regression test
 

@@ -51,13 +51,27 @@ const RAMP_FRACTION: f64 = 0.5;
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
 const HISTORY_WEEKS: i64 = 8; // personal-average window
-const RECOVERY_HOURS: i64 = 36; // a group hit hard within this is still recovering
-const RECOVERY_SETS: f64 = 3.0; // effective sets within RECOVERY_HOURS → recovering
+const RECOVERY_SETS: f64 = 3.0; // unrecovered load (age-weighted sets) that fully gates a group
+const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
+const MIN_EFFECTIVE_DEFICIT: f64 = 0.05; // below this recovery-scaled deficit, don't train the group
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a secondary muscle counts half a set
 const EMPHASIS_MULT: f64 = 1.5;
 const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
 const DELOAD_SCALE: f64 = 0.6;
+
+/// How long a region takes to recover from a hard hit (hours) — bigger muscle
+/// masses recover slower. Drives the graded recovery ramp (G6): a group's recent
+/// load decays to "recovered" linearly over this horizon.
+fn recovery_horizon(r: Region) -> f64 {
+    use Region::*;
+    match r {
+        Legs => 72.0,
+        Back | Chest => 60.0,
+        Shoulders => 48.0,
+        Arms | Forearms | Core => 36.0,
+    }
+}
 
 /// Per-region volume weighting for a mode. Balanced = flat; the others tilt
 /// toward what the mode is for.
@@ -556,12 +570,16 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     let roll_cut = now - Duration::days(ROLLING_DAYS);
     let hist_cut = now - Duration::days(HISTORY_WEEKS * 7);
-    let recov_cut = now - Duration::hours(RECOVERY_HOURS);
     let today = now.date();
+    // Region per group, for the graded recovery horizon.
+    let region_of: HashMap<i64, Region> = input.groups.iter().map(|g| (g.id, g.region)).collect();
 
     let mut current: HashMap<i64, f64> = HashMap::new();
     let mut avg_sum: HashMap<i64, f64> = HashMap::new();
-    let mut recent: HashMap<i64, f64> = HashMap::new();
+    // Age-weighted unrecovered load per group: a set counts fully when fresh and
+    // ramps to zero over its region's recovery horizon (G6). This grades the old
+    // binary "≥3 sets in 36 h" gate.
+    let mut unrecovered: HashMap<i64, f64> = HashMap::new();
     let mut done_today = 0i32;
     let mut raw_hist = 0i32;
     for set in &input.history {
@@ -579,6 +597,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         if set.logged_at >= hist_cut {
             raw_hist += 1;
         }
+        let age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
             let credit = if *role == MuscleRole::Primary {
                 1.0
@@ -591,8 +610,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             if set.logged_at >= roll_cut {
                 *current.entry(*g).or_default() += credit;
             }
-            if set.logged_at >= recov_cut {
-                *recent.entry(*g).or_default() += credit;
+            // Unrecovered contribution: full when fresh, linearly gone by the
+            // region's horizon (a set past it no longer holds the group back).
+            let horizon = region_of.get(g).copied().map_or(48.0, recovery_horizon);
+            if age_h < horizon {
+                *unrecovered.entry(*g).or_default() += credit * (1.0 - age_h / horizon);
             }
         }
     }
@@ -628,9 +650,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             (base * region_mult(input.mode, gm.region) * emph * days_scale * recovery_scale)
                 .max(3.0);
         let deficit = ((target - cur) / target).clamp(0.0, 1.0);
-        let recovering = *recent.get(&gm.id).unwrap_or(&0.0) >= RECOVERY_SETS;
-        if !recovering && deficit > 0.0 {
-            candidates.push((gm.id, gm.name.clone(), deficit));
+        // Graded recovery: 0 (just hammered) → 1 (fully recovered). Scale the
+        // deficit by it, so a half-recovered group is a half-priority, and the
+        // old hard gate falls out as the fraction-≈0 case.
+        let recovery =
+            (1.0 - unrecovered.get(&gm.id).copied().unwrap_or(0.0) / RECOVERY_SETS).clamp(0.0, 1.0);
+        let effective_deficit = deficit * recovery;
+        let recovering = recovery < RECOVERED_FRACTION;
+        if effective_deficit > MIN_EFFECTIVE_DEFICIT {
+            candidates.push((gm.id, gm.name.clone(), effective_deficit));
         }
         balances.push(GroupBalance {
             group: gm.name.clone(),
@@ -660,8 +688,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else {
         24.0 // cold-start default ≈ 6 sets × 4 days
     };
-    let day_target_sets =
-        ((avg_weekly_sets / input.days_per_week.max(1) as f64).round() as i32).clamp(3, 15);
+    // Scale the day's set count by the same recovery factor as the group targets,
+    // so a low-readiness day is fewer sets, not just lighter ones.
+    let day_target_sets = ((avg_weekly_sets / input.days_per_week.max(1) as f64 * recovery_scale)
+        .round() as i32)
+        .clamp(3, 15);
 
     // --- build the ordered session plan ---
     // Resolve each in-deficit, recovered group to a doable exercise; size + order
