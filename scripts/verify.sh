@@ -12,8 +12,10 @@ nix develop -c bash -c '
   # Abort 6) or "EBADF: bad file descriptor, close" — AFTER "bundle generation
   # complete", i.e. once a complete, valid bundle is already on disk.
   # NG_BUILD_MAX_WORKERS=1 lowers the rate (fewer worker pipes to race) but does
-  # NOT eliminate it; a spurious build abort here is worked around by re-running
-  # verify. Harmless on Linux/CI, which build cleanly. NOT the sandbox.
+  # NOT eliminate it, so the build goes through frontend/scripts/ng-build.sh,
+  # which treats "bundle complete, then abort in teardown" as success (the
+  # artifact is valid) instead of failing the whole gate. Harmless on Linux/CI,
+  # which build cleanly. NOT the sandbox.
   export NG_BUILD_MAX_WORKERS=1
   cargo fmt --all --check
   cargo clippy --all-targets -- -D warnings
@@ -29,6 +31,6 @@ nix develop -c bash -c '
   if [ ! -d frontend/node_modules ] || [ frontend/package-lock.json -nt frontend/node_modules ]; then
     ( cd frontend && npm ci )
   fi
-  ( cd frontend && npm run lint && npx ng build && npm test && npm run ui-check )
+  ( cd frontend && npm run lint && bash scripts/ng-build.sh && npm test && npm run ui-check )
 '
 nix run "$HOME/Code/dev-lint" -- .
