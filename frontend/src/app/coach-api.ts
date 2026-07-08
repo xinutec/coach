@@ -11,7 +11,6 @@ import {
   Location,
   LocationPatch,
   Me,
-  Mode,
   Muscle,
   NewExercise,
   NewLocation,
@@ -102,12 +101,9 @@ export class CoachApi {
   patchSettings(body: Partial<SettingsPatch>): Observable<Settings> {
     return this.http.patch<Settings>("/api/settings", body);
   }
-  /** The coach verdict; pass a location (for doability) and/or a mode override. */
-  pacingNow(locationId?: number, mode?: Mode): Observable<PacingNow> {
-    const q = new URLSearchParams();
-    if (locationId != null) q.set("locationId", String(locationId));
-    if (mode) q.set("mode", mode);
-    const s = q.toString();
-    return this.http.get<PacingNow>(`/api/pacing/now${s ? `?${s}` : ""}`);
+  /** The coach verdict; pass a location (for doability). Mode comes from settings. */
+  pacingNow(locationId?: number): Observable<PacingNow> {
+    const q = locationId != null ? `?locationId=${locationId}` : "";
+    return this.http.get<PacingNow>(`/api/pacing/now${q}`);
   }
 }

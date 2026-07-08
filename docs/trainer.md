@@ -17,6 +17,13 @@ Principles that already hold and must keep holding:
   only as cold-start anchors.
 - **Degrade gracefully**: missing data (no biometrics, no location, no history)
   narrows the verdict, never breaks it.
+- **The UI is the trainer's voice, not its dashboard** (2026-07-08): Today shows
+  only what's needed to do the next set — one status line, the coach's one
+  sentence (readiness/deload woven in server-side), the ordered plan, a log
+  button. Engine internals surface on demand ("Why this?"), analysis lives in
+  Balance, knobs in Settings — the mode is a stored setting (the coach's
+  standing brief), not a per-visit question. Every element must pass: *does the
+  user need this to train right now?*
 
 ## What exists today
 

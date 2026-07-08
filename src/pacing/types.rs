@@ -203,7 +203,6 @@ pub struct Suggestion {
 #[ts(export)]
 pub struct PacingNow {
     pub state: PacingState,
-    pub mode: Mode,
     /// Auto-deload active — volume's been high (only the no-biometric fallback;
     /// suppressed when `readiness` is present, which supersedes it).
     pub deload: bool,

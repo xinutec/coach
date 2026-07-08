@@ -1,47 +1,24 @@
 @if (pacing(); as p) {
-  <div class="loc-bar">
-    <mat-form-field appearance="outline" class="loc-select" subscriptSizing="dynamic">
-      <mat-icon matPrefix>place</mat-icon>
-      <mat-select
-        aria-label="Training location"
-        [ngModel]="selectedLocationId()"
-        (ngModelChange)="onLocationChange($event)"
-      >
-        <mat-option [value]="null">Anywhere</mat-option>
-        @for (l of locations(); track l.id) {
-          <mat-option [value]="l.id">{{ l.name }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+  <!-- One quiet status line: where you are. Everything else the coach says in
+       its one sentence below; analysis lives in Balance, knobs in Settings. -->
+  <div class="status-line">
+    <button type="button" class="loc" [matMenuTriggerFor]="locMenu" aria-label="Training location">
+      <mat-icon>place</mat-icon>
+      <span>{{ locationName() }}</span>
+      <mat-icon class="chev">expand_more</mat-icon>
+    </button>
     @if (autoDetected()) {
-      <span class="pill auto-pill"><mat-icon>my_location</mat-icon> here</span>
-    }
-    <a routerLink="/locations" mat-icon-button aria-label="Manage locations">
-      <mat-icon>tune</mat-icon>
-    </a>
-  </div>
-
-  <div class="mode-bar">
-    @for (m of modes; track m) {
-      <button mat-button [class.on]="selectedMode() === m" (click)="onModeChange(m)">
-        {{ modeLabel(m) }}
-      </button>
+      <span class="auto">detected</span>
     }
   </div>
+  <mat-menu #locMenu="matMenu">
+    <button mat-menu-item (click)="onLocationChange(null)">Anywhere</button>
+    @for (l of locations(); track l.id) {
+      <button mat-menu-item (click)="onLocationChange(l.id)">{{ l.name }}</button>
+    }
+  </mat-menu>
 
-  @if (p.readiness || p.deload) {
-    <div class="chips">
-      @if (p.readiness; as r) {
-        <span class="pill readiness {{ r.band }}">
-          <mat-icon>{{ readinessIcon(r.band) }}</mat-icon> {{ readinessLabel(r.band) }}
-        </span>
-      }
-      @if (p.deload) {
-        <span class="pill deload">Deload — easing off</span>
-      }
-    </div>
-  }
-
+  <!-- The coach speaking: one sentence, readiness/deload woven in server-side. -->
   <mat-card class="reason" [class.is-nudge]="p.nudge">
     <mat-card-content>
       <mat-icon>{{ p.nudge ? "notifications_active" : "self_improvement" }}</mat-icon>
@@ -72,7 +49,6 @@
             @if (s.kind === "assess") {
               <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
             }
-            <span class="pill accent">{{ s.group }}</span>
             <h3>{{ s.exerciseName }}</h3>
           </div>
           @if (s.substitutedFor) {
@@ -80,13 +56,6 @@
               <mat-icon>swap_horiz</mat-icon>
               Swapped in for {{ s.substitutedFor }} — its kit isn't here
             </p>
-          }
-          @if (equipmentFor(s.exerciseId).length) {
-            <div class="s-equip">
-              @for (name of equipmentFor(s.exerciseId); track name) {
-                <span class="pill">{{ name }}</span>
-              }
-            </div>
           }
           @if (s.kind === "warmup") {
             <p class="s-detail">{{ warmupNote(s) }}</p>
@@ -125,6 +94,7 @@
           @if (s.explanation; as e) {
             @if (isWhyOpen(s.exerciseId)) {
               <ul class="why-list">
+                <li>Targets {{ s.group }}</li>
                 @for (line of explanationLines(e); track line) {
                   <li>{{ line }}</li>
                 }
@@ -135,18 +105,6 @@
       </mat-card>
     }
   }
-
-  <h3 class="bal-title">This week's balance</h3>
-  @for (g of topGroups(p); track g.group) {
-    <div class="bal-row" [class.recovering]="g.recovering">
-      <div class="bal-line">
-        <span>{{ g.group }}</span>
-        <span class="bal-count">{{ round1(g.current) }} / {{ round0(g.target) }}</span>
-      </div>
-      <mat-progress-bar mode="determinate" [value]="pct(g.current, g.target)" />
-    </div>
-  }
-  <a routerLink="/balance" class="bal-more">Full balance →</a>
 }
 
 <div class="fab-anchor">

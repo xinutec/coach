@@ -55,7 +55,6 @@ pub async fn context(
     pool: &MySqlPool,
     user_id: &str,
     location_id: Option<i64>,
-    mode_override: Option<Mode>,
 ) -> Result<PacingContext> {
     let s = settings_repo::get(pool, user_id).await?;
     let tz: Tz = s.timezone.parse().unwrap_or(chrono_tz::Europe::London);
@@ -64,7 +63,7 @@ pub async fn context(
         window_end_hour: s.window_end_hour,
         min_rest_min: s.min_rest_min,
     };
-    let mode = mode_override.unwrap_or(s.mode);
+    let mode = s.mode;
 
     let available_equipment = match location_id {
         Some(id) => location_repo::equipment_ids(pool, user_id, id)
@@ -153,17 +152,17 @@ pub fn input_from(
 }
 
 /// The coach verdict for the user right now. `location_id` makes the suggestion
-/// location-aware; `mode_override` picks a mode for this call (else the user's
-/// saved default). `readiness` is the biometric recovery signal (health-derived,
-/// best-effort — `None` when unavailable, and the engine degrades gracefully).
+/// location-aware; the mode is the user's saved setting (the coach's brief, not
+/// a per-call choice). `readiness` is the biometric recovery signal
+/// (health-derived, best-effort — `None` when unavailable, and the engine
+/// degrades gracefully).
 pub async fn now(
     pool: &MySqlPool,
     user_id: &str,
     location_id: Option<i64>,
-    mode_override: Option<Mode>,
     readiness: Option<Readiness>,
 ) -> Result<PacingNow> {
-    let ctx = context(pool, user_id, location_id, mode_override).await?;
+    let ctx = context(pool, user_id, location_id).await?;
     let now_local = Utc::now().with_timezone(&ctx.tz).naive_local();
     let to_local = |utc: NaiveDateTime| {
         Utc.from_utc_datetime(&utc)

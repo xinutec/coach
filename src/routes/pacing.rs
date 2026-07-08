@@ -9,7 +9,6 @@ use crate::health;
 use crate::pacing::types::{PacingNow, Readiness};
 use crate::pacing::{readiness, service};
 use crate::session::AuthUser;
-use crate::settings::types::Mode;
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -17,12 +16,11 @@ use crate::state::AppState;
 pub struct NowQuery {
     /// Optional location to make the suggestion location-aware.
     pub location_id: Option<i64>,
-    /// Optional mode for this call (else the user's saved default).
-    pub mode: Option<Mode>,
 }
 
-/// GET /api/pacing/now[?locationId=&mode=] → the current coach verdict (what to
-/// do, whether to nudge); location- and mode-aware.
+/// GET /api/pacing/now[?locationId=] → the current coach verdict (what to do,
+/// whether to nudge); location-aware. The mode comes from settings — the coach's
+/// standing brief, not a per-call choice.
 pub async fn now(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,
@@ -30,7 +28,7 @@ pub async fn now(
 ) -> Result<Json<PacingNow>, AppError> {
     let readiness = fetch_readiness(&app, &user.user_id).await;
     Ok(Json(
-        service::now(&app.pool, &user.user_id, q.location_id, q.mode, readiness).await?,
+        service::now(&app.pool, &user.user_id, q.location_id, readiness).await?,
     ))
 }
 

@@ -11,7 +11,7 @@
   <div class="sheet-form">
     <div class="pair">
       <mat-form-field appearance="outline">
-        <mat-label>Default mode</mat-label>
+        <mat-label>Mode</mat-label>
         <mat-select [(ngModel)]="f.mode">
           @for (m of modes; track m) {
             <mat-option [value]="m">{{ label(m) }}</mat-option>

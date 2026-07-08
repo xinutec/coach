@@ -773,6 +773,23 @@ fn auto_deload_when_volume_spikes() {
 }
 
 #[test]
+fn deload_notes_the_reason() {
+    // The same spike, but nothing logged today: the coach is suggesting work now,
+    // so its one sentence carries the deload clause — there's no separate deload
+    // widget in the UI.
+    let mut h = vec![];
+    for d in 1..8 {
+        for _ in 0..10 {
+            h.push(set(1, days_ago(d)));
+        }
+    }
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(out.deload, "the spike still reads as a deload");
+    assert!(out.suggestion.is_some(), "work is on offer today");
+    assert!(out.reason.contains("easing off"), "reason: {}", out.reason);
+}
+
+#[test]
 fn nudges_when_behind_midday() {
     // A due group + nothing done today + spacing ok → behind → nudge.
     let mut h = vec![];

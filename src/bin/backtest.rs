@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
 
     // Same assembly as the live verdict, location-agnostic ("Anywhere") so the
     // back-test isn't tied to one gym's inventory.
-    let ctx = service::context(&pool, &user, None, None).await?;
+    let ctx = service::context(&pool, &user, None).await?;
 
     // All of the user's history (a floor in the distant past = everything).
     let floor = NaiveDate::from_ymd_opt(2000, 1, 1)

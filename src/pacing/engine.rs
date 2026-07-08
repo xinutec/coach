@@ -756,10 +756,14 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // `within_window` already implies before the end, so no separate cutoff check.
     let nudge = within_window && has_work && spacing_ok && behind;
 
-    // A short readiness clause, prepended to an active suggestion's reason.
-    let readiness_note = match input.readiness.map(|r| r.band) {
+    // A short day-state clause, prepended to an active suggestion's reason — the
+    // coach says it in the one sentence it speaks, rather than the UI growing
+    // status widgets. `deload` only fires when readiness is absent (it's the
+    // no-biometric fallback), so the two never compete for the slot.
+    let day_note = match input.readiness.map(|r| r.band) {
         Some(Band::High) => Some("Recovered — good day to push."),
         Some(Band::Low) => Some("Low readiness — keeping it light."),
+        None if deload => Some("Volume's run hot lately — easing off."),
         _ => None,
     };
 
@@ -798,16 +802,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else {
         String::new()
     };
-    // Weave the readiness clause in when we're actually suggesting a set to do now.
+    // Weave the day-state clause in when we're actually suggesting a set to do now.
     let suggesting_now = suggestion.is_some() && has_work && within_window && spacing_ok;
-    let reason = match readiness_note {
+    let reason = match day_note {
         Some(note) if suggesting_now => format!("{note} {reason}"),
         _ => reason,
     };
 
     PacingNow {
         state,
-        mode: input.mode,
         deload,
         readiness: input.readiness,
         nudge,

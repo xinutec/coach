@@ -127,8 +127,8 @@ const SETS = [
 	},
 ];
 
-// A busy "active" verdict so Today renders fully (mode bar, reason, suggestion,
-// balance bars, the FAB).
+// A busy "active" verdict so Today renders fully (status line, reason, the
+// ordered plan, the FAB). `groups` feeds the Balance tab.
 const GROUPS = [
 	{
 		group: "Lats",
@@ -157,11 +157,11 @@ const GROUPS = [
 ];
 const PACING = {
 	state: "active",
-	mode: "balanced",
 	deload: false,
 	readiness: { score: 0.82, band: "high" },
 	nudge: true,
-	reason: "2 × Ring dip (Chest) — you're a bit light there this week.",
+	// Readiness is woven into the coach's sentence server-side (no chips).
+	reason: "Recovered — good day to push. 2 × Ring dip (Chest) — you're a bit light there this week.",
 	withinWindow: true,
 	afterWindow: false,
 	spacingOk: true,
@@ -273,8 +273,8 @@ test("today — busy composition: clean + all controls reachable @ phone", async
 	await page.goto("/today");
 	await page.getByText("a bit light", { exact: false }).waitFor();
 	await page.locator(".add-fab").waitFor();
-	// Health-informed readiness chip renders from the biometric signal.
-	await page.getByText("Recovered", { exact: false }).waitFor();
+	// The readiness note arrives inside the coach's one sentence, not a chip.
+	await page.getByText("Recovered — good day to push", { exact: false }).waitFor();
 	await expectNoTextOverlaps(page, testInfo);
 	await expectNoHorizontalOverflow(page, testInfo);
 	await expectNoOccludedControls(page, testInfo);
@@ -354,8 +354,8 @@ test("balance — muscle-group volume bars render clean @ phone", async ({
 	await expectNoOccludedControls(page, testInfo);
 });
 
-// When health reports a current location, Today shows the "here" auto hint.
-test("today — auto-detected location shows the 'here' hint @ phone", async ({
+// When health reports a current location, the status line shows it was detected.
+test("today — auto-detected location shows the 'detected' hint @ phone", async ({
 	page,
 }, testInfo) => {
 	await mockApi(page);
@@ -364,7 +364,7 @@ test("today — auto-detected location shows the 'here' hint @ phone", async ({
 	);
 	await page.goto("/today");
 	await page.getByText("a bit light", { exact: false }).waitFor();
-	await page.locator(".auto-pill").waitFor();
+	await page.locator(".status-line .auto").waitFor();
 	await expectNoTextOverlaps(page, testInfo);
 	await expectNoHorizontalOverflow(page, testInfo);
 });

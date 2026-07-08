@@ -6,42 +6,41 @@ mat-card {
   margin-bottom: 0.75rem;
 }
 
-.mode-bar {
+// One quiet line: where you are. Tapping the name changes it.
+.status-line {
   display: flex;
-  gap: 0.15rem;
+  align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
-  overflow-x: auto;
 
-  button {
-    flex: 1;
-    min-width: fit-content;
-    &.on {
-      background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
-      color: var(--mat-sys-on-surface);
+  .loc {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0.25rem 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-large);
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+    .chev {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
     }
   }
-}
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.5rem;
-}
-
-.pill.readiness {
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-  }
-  &.high {
-    background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent);
-    color: var(--mat-sys-on-surface);
-  }
-  &.low {
-    background: color-mix(in srgb, var(--mat-sys-tertiary) 24%, transparent);
-    color: var(--mat-sys-on-tertiary-container);
+  .auto {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-small);
+    opacity: 0.7;
   }
 }
 
@@ -61,27 +60,6 @@ mat-card {
   color: var(--mat-sys-on-primary-container);
   mat-icon {
     color: var(--mat-sys-on-primary-container);
-  }
-}
-
-.loc-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.5rem;
-
-  .loc-select {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .auto-pill {
-    flex: none;
-    mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
   }
 }
 
@@ -132,12 +110,6 @@ mat-card {
       width: 18px;
       height: 18px;
     }
-  }
-  .s-equip {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    margin: 0.5rem 0 0;
   }
   .s-detail {
     color: var(--mat-sys-on-surface-variant);
@@ -206,35 +178,4 @@ mat-card {
       height: 16px;
     }
   }
-}
-
-.bal-title {
-  margin-top: 1rem;
-}
-
-.bal-row {
-  margin-bottom: 0.7rem;
-
-  &.recovering {
-    opacity: 0.55;
-  }
-
-  .bal-line {
-    display: flex;
-    justify-content: space-between;
-    font: var(--mat-sys-label-large);
-    margin-bottom: 0.25rem;
-  }
-  .bal-count {
-    font-variant-numeric: tabular-nums;
-    color: var(--mat-sys-on-surface-variant);
-  }
-}
-
-.bal-more {
-  display: inline-block;
-  margin: 0.25rem 0 0;
-  color: var(--mat-sys-primary);
-  text-decoration: none;
-  font: var(--mat-sys-label-large);
 }
