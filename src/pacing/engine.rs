@@ -55,7 +55,8 @@ const RECOVERY_SETS: f64 = 3.0; // unrecovered load (age-weighted sets) that ful
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
 const MIN_EFFECTIVE_DEFICIT: f64 = 0.05; // below this recovery-scaled deficit, don't train the group
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
-const SECONDARY_CREDIT: f64 = 0.5; // a secondary muscle counts half a set
+const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
+const STABILIZER_CREDIT: f64 = 0.25; // an isometric stabilizer counts a quarter
 const EMPHASIS_MULT: f64 = 1.5;
 const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
 const DELOAD_SCALE: f64 = 0.6;
@@ -612,10 +613,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         let age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
-            let credit = if *role == MuscleRole::Primary {
-                1.0
-            } else {
-                SECONDARY_CREDIT
+            let credit = match role {
+                MuscleRole::Primary => 1.0,
+                MuscleRole::Secondary => SECONDARY_CREDIT,
+                MuscleRole::Stabilizer => STABILIZER_CREDIT,
             };
             if set.logged_at >= hist_cut {
                 *avg_sum.entry(*g).or_default() += credit;

@@ -219,8 +219,24 @@ carried by the seeder — struct field + insert + reconcile — so corrections r
 prod rows). It reads coherently as ladders (e.g. push-up 2 → rings 3 → pseudo-
 planche 4; supine row 1 → pull-up 3 → rings 4 → typewriter 5) and is a first
 draft pending Pippijn's review; nothing reads it yet, so it changes no behaviour
-until G7. **Still pending**: count `unilateral` sets per side; author the few
-missing mobility moves to cover legs/arms in the warm-up block.
+until G7.
+
+**Muscle model re-tagged (2026-07-08).** The imported muscle data was broken: **12
+exercises had no muscles at all** (barbell bench press, pistol, snatch, box
+jump/step-up, archer/plyo push-up, …) → *invisible* to the engine (never
+selectable, credited no volume), and only **11 %** modelled any secondary muscle,
+so synergist volume went uncredited and the balance engine over-prescribed
+isolation. All 119 are now tagged **primary + secondary + stabilizer** (723
+muscle links vs 350; every exercise has a primary; all slugs validated against the
+46-muscle taxonomy), carried by the seeder's existing M:N reconcile. The engine
+now weights the three roles distinctly — primary **1.0**, secondary **0.5**,
+stabilizer **0.25** (was: primary 1.0, everything-else 0.5) — so a press credits
+triceps/front-delt as synergists without treating a plank's core as half a working
+set. Back-tested: 14/16 day-verdicts shifted (fewer neglected-looking groups, more
+of the catalog reachable) — a real balance-accuracy change, not a no-op.
+
+**Still pending**: count `unilateral` sets per side; author the few missing
+mobility moves to cover legs/arms in the warm-up block.
 
 ### G6 — Recovery is a binary gate ✅ *shipped*
 

@@ -19,10 +19,6 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
-        "role": "primary"
-      },
-      {
         "slug": "biceps_femoris",
         "role": "primary"
       },
@@ -33,6 +29,22 @@
       {
         "slug": "semimembranosus",
         "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -61,6 +73,18 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -92,8 +116,16 @@
         "role": "primary"
       },
       {
-        "slug": "quadratus_lumborum",
-        "role": "primary"
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -120,11 +152,11 @@
     "summary": "standing, kettlebell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -132,7 +164,7 @@
         "role": "primary"
       },
       {
-        "slug": "adductor_longus",
+        "slug": "vastus_intermedius",
         "role": "primary"
       },
       {
@@ -140,12 +172,24 @@
         "role": "primary"
       },
       {
-        "slug": "vastus_intermedius",
+        "slug": "adductor_longus",
         "role": "primary"
       },
       {
-        "slug": "gracilis",
+        "slug": "gluteus_maximus",
         "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -174,6 +218,26 @@
       {
         "slug": "latissimus_dorsi",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -202,6 +266,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -232,32 +312,36 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
+        "slug": "biceps_brachii",
+        "role": "secondary"
       },
       {
         "slug": "brachialis",
-        "role": "primary"
+        "role": "secondary"
       },
       {
         "slug": "rhomboids",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
       },
       {
         "slug": "rectus_abdominis",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "infraspinatus",
-        "role": "primary"
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       },
       {
-        "slug": "subscapularis",
-        "role": "primary"
+        "slug": "iliopsoas",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "pectineus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -288,20 +372,32 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
-      },
-      {
         "slug": "rhomboids",
         "role": "primary"
       },
       {
         "slug": "teres_major",
         "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -328,11 +424,11 @@
     "summary": "overhead, standing, kettlebell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -340,12 +436,36 @@
         "role": "primary"
       },
       {
-        "slug": "deltoid_anterior",
+        "slug": "vastus_intermedius",
         "role": "primary"
       },
       {
-        "slug": "vastus_intermedius",
-        "role": "primary"
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -381,7 +501,11 @@
       },
       {
         "slug": "deltoid_anterior",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -412,8 +536,28 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
+        "slug": "biceps_femoris",
         "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -444,8 +588,16 @@
         "role": "primary"
       },
       {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
         "slug": "transversus_abdominis",
-        "role": "primary"
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -474,6 +626,14 @@
       {
         "slug": "wrist_flexors",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -504,24 +664,28 @@
         "role": "primary"
       },
       {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "secondary"
+      },
+      {
         "slug": "biceps_brachii",
-        "role": "primary"
+        "role": "stabilizer"
+      },
+      {
+        "slug": "brachialis",
+        "role": "stabilizer"
       },
       {
         "slug": "wrist_extensors",
-        "role": "primary"
+        "role": "stabilizer"
       },
       {
-        "slug": "wrist_flexors",
-        "role": "primary"
-      },
-      {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_anterior",
-        "role": "primary"
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -553,23 +717,19 @@
       },
       {
         "slug": "triceps_brachii",
-        "role": "primary"
-      },
-      {
-        "slug": "pectoralis_minor",
-        "role": "primary"
-      },
-      {
-        "slug": "serratus_anterior",
-        "role": "primary"
+        "role": "secondary"
       },
       {
         "slug": "deltoid_anterior",
         "role": "secondary"
       },
       {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
         "slug": "rectus_abdominis",
-        "role": "secondary"
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -598,28 +758,32 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
+        "slug": "biceps_brachii",
+        "role": "secondary"
       },
       {
         "slug": "brachialis",
-        "role": "primary"
+        "role": "secondary"
       },
       {
         "slug": "rhomboids",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "infraspinatus",
-        "role": "primary"
+        "slug": "teres_major",
+        "role": "secondary"
       },
       {
-        "slug": "subscapularis",
-        "role": "primary"
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -646,11 +810,11 @@
     "summary": "goblet, kettlebell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -660,6 +824,22 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -690,10 +870,6 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
-        "role": "primary"
-      },
-      {
         "slug": "biceps_femoris",
         "role": "primary"
       },
@@ -704,6 +880,22 @@
       {
         "slug": "semimembranosus",
         "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -734,20 +926,32 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
-      },
-      {
         "slug": "rhomboids",
         "role": "primary"
       },
       {
         "slug": "teres_major",
         "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -776,6 +980,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -804,6 +1020,18 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -834,8 +1062,20 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
+        "slug": "erector_spinae",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -864,6 +1104,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -892,6 +1148,18 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -920,8 +1188,20 @@
         "role": "primary"
       },
       {
-        "slug": "deltoid_anterior",
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
         "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -954,16 +1234,16 @@
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
-        "role": "primary"
-      },
-      {
-        "slug": "sartorius",
-        "role": "primary"
-      },
-      {
         "slug": "pectineus",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -990,6 +1270,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1018,6 +1314,10 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -1050,16 +1350,20 @@
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
-        "role": "primary"
-      },
-      {
-        "slug": "sartorius",
-        "role": "primary"
-      },
-      {
         "slug": "pectineus",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1094,56 +1398,16 @@
         "role": "primary"
       },
       {
-        "slug": "vastus_lateralis",
+        "slug": "erector_spinae",
         "role": "secondary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "quadratus_lumborum",
         "role": "secondary"
       },
       {
-        "slug": "vastus_medialis",
-        "role": "secondary"
-      },
-      {
-        "slug": "adductor_longus",
-        "role": "secondary"
-      },
-      {
-        "slug": "adductor_magnus",
-        "role": "secondary"
-      },
-      {
-        "slug": "biceps_femoris",
-        "role": "secondary"
-      },
-      {
-        "slug": "semitendinosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "semimembranosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_medius",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_maximus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gastrocnemius",
-        "role": "secondary"
-      },
-      {
-        "slug": "soleus",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_intermedius",
-        "role": "secondary"
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1178,8 +1442,16 @@
         "role": "primary"
       },
       {
-        "slug": "deltoid_anterior",
+        "slug": "transversus_abdominis",
         "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "quadratus_lumborum",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -1208,10 +1480,6 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
-        "role": "primary"
-      },
-      {
         "slug": "biceps_femoris",
         "role": "secondary"
       },
@@ -1222,6 +1490,30 @@
       {
         "slug": "semimembranosus",
         "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1251,6 +1543,26 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1281,8 +1593,28 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
+        "slug": "erector_spinae",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -1311,6 +1643,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -1339,8 +1683,20 @@
         "role": "primary"
       },
       {
-        "slug": "deltoid_anterior",
+        "slug": "latissimus_dorsi",
         "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1369,6 +1725,18 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -1397,6 +1765,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1425,6 +1809,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1451,11 +1851,11 @@
     "summary": "front foot elevated, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -1465,6 +1865,26 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -1497,16 +1917,28 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
+        "slug": "teres_major",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
       },
       {
         "slug": "deltoid_posterior",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "teres_major",
-        "role": "primary"
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1535,6 +1967,22 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "quadratus_lumborum",
+        "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -1575,8 +2023,12 @@
         "role": "secondary"
       },
       {
-        "slug": "gluteus_medius",
-        "role": "secondary"
+        "slug": "gastrocnemius",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "soleus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -1601,11 +2053,11 @@
     "summary": "hex bar, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -1615,6 +2067,30 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1643,6 +2119,18 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -1677,68 +2165,16 @@
         "role": "primary"
       },
       {
-        "slug": "rectus_abdominis",
-        "role": "primary"
-      },
-      {
-        "slug": "erector_spinae",
-        "role": "primary"
+        "slug": "external_obliques",
+        "role": "secondary"
       },
       {
         "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "adductor_longus",
         "role": "secondary"
       },
       {
-        "slug": "adductor_magnus",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_lateralis",
-        "role": "secondary"
-      },
-      {
-        "slug": "rectus_femoris",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_medialis",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_maximus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_medius",
-        "role": "secondary"
-      },
-      {
-        "slug": "biceps_femoris",
-        "role": "secondary"
-      },
-      {
-        "slug": "semitendinosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "semimembranosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gastrocnemius",
-        "role": "secondary"
-      },
-      {
-        "slug": "soleus",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_intermedius",
-        "role": "secondary"
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1769,10 +2205,6 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
-        "role": "primary"
-      },
-      {
         "slug": "biceps_femoris",
         "role": "secondary"
       },
@@ -1783,6 +2215,30 @@
       {
         "slug": "semimembranosus",
         "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1815,63 +2271,19 @@
       },
       {
         "slug": "wrist_extensors",
-        "role": "primary"
-      },
-      {
-        "slug": "wrist_flexors",
-        "role": "primary"
-      },
-      {
-        "slug": "adductor_longus",
         "role": "secondary"
       },
       {
-        "slug": "adductor_magnus",
+        "slug": "trapezius",
         "role": "secondary"
       },
       {
-        "slug": "vastus_lateralis",
-        "role": "secondary"
+        "slug": "supraspinatus",
+        "role": "stabilizer"
       },
       {
-        "slug": "rectus_femoris",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_medialis",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_maximus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gluteus_medius",
-        "role": "secondary"
-      },
-      {
-        "slug": "biceps_femoris",
-        "role": "secondary"
-      },
-      {
-        "slug": "semitendinosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "semimembranosus",
-        "role": "secondary"
-      },
-      {
-        "slug": "gastrocnemius",
-        "role": "secondary"
-      },
-      {
-        "slug": "soleus",
-        "role": "secondary"
-      },
-      {
-        "slug": "vastus_intermedius",
-        "role": "secondary"
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1902,11 +2314,7 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
+        "slug": "biceps_brachii",
         "role": "primary"
       },
       {
@@ -1914,24 +2322,20 @@
         "role": "primary"
       },
       {
-        "slug": "infraspinatus",
-        "role": "primary"
-      },
-      {
         "slug": "rhomboids",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "subscapularis",
-        "role": "primary"
+        "slug": "teres_major",
+        "role": "secondary"
       },
       {
-        "slug": "brachioradialis",
-        "role": "primary"
+        "slug": "trapezius",
+        "role": "secondary"
       },
       {
-        "slug": "biceps_brachii",
-        "role": "primary"
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -1958,8 +2362,24 @@
     "summary": "standing, band, on floor",
     "muscles": [
       {
-        "slug": "teres_minor",
+        "slug": "deltoid_posterior",
         "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "secondary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -1986,11 +2406,11 @@
     "summary": "back, barbell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -2000,6 +2420,22 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2031,7 +2467,7 @@
       },
       {
         "slug": "extensor_digitorum_longus",
-        "role": "primary"
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -2062,8 +2498,24 @@
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
         "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2090,11 +2542,11 @@
     "summary": "goblet, 1.5 rep, kettlebell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -2104,6 +2556,22 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2132,6 +2600,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "pectineus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -2158,6 +2642,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2188,11 +2688,7 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
+        "slug": "rhomboids",
         "role": "primary"
       },
       {
@@ -2200,16 +2696,24 @@
         "role": "primary"
       },
       {
-        "slug": "rhomboids",
-        "role": "primary"
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
       },
       {
         "slug": "rectus_abdominis",
-        "role": "secondary"
+        "role": "stabilizer"
       },
       {
         "slug": "external_obliques",
-        "role": "secondary"
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2236,11 +2740,11 @@
     "summary": "one arm, dumbbell, on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -2248,12 +2752,28 @@
         "role": "primary"
       },
       {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
         "slug": "deltoid_anterior",
         "role": "primary"
       },
       {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
         "slug": "triceps_brachii",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2284,12 +2804,32 @@
         "role": "primary"
       },
       {
-        "slug": "gluteus_medius",
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
         "role": "primary"
       },
       {
         "slug": "erector_spinae",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -2320,11 +2860,7 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
+        "slug": "rhomboids",
         "role": "primary"
       },
       {
@@ -2332,8 +2868,24 @@
         "role": "primary"
       },
       {
-        "slug": "rhomboids",
+        "slug": "trapezius",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2364,16 +2916,16 @@
         "role": "primary"
       },
       {
-        "slug": "serratus_anterior",
-        "role": "primary"
-      },
-      {
         "slug": "triceps_brachii",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "pectoralis_minor",
-        "role": "primary"
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2400,11 +2952,11 @@
     "summary": "on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
@@ -2414,6 +2966,34 @@
       {
         "slug": "vastus_intermedius",
         "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -2444,6 +3024,18 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -2478,6 +3070,18 @@
       {
         "slug": "semimembranosus",
         "role": "primary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2506,6 +3110,14 @@
       {
         "slug": "pectoralis_major",
         "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2534,6 +3146,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "trapezius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2562,6 +3190,26 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2590,6 +3238,30 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2616,10 +3288,6 @@
     "summary": "on rings height 9",
     "muscles": [
       {
-        "slug": "rectus_abdominis",
-        "role": "primary"
-      },
-      {
         "slug": "deltoid_anterior",
         "role": "primary"
       },
@@ -2628,8 +3296,20 @@
         "role": "primary"
       },
       {
-        "slug": "biceps_brachii",
-        "role": "primary"
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "wrist_extensors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2656,12 +3336,32 @@
     "summary": "tuck, on rings height 5",
     "muscles": [
       {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
         "slug": "rectus_abdominis",
         "role": "primary"
       },
       {
-        "slug": "latissimus_dorsi",
-        "role": "primary"
+        "slug": "rhomboids",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2688,8 +3388,32 @@
     "summary": "tuck, pronated, on rings height 5",
     "muscles": [
       {
-        "slug": "rectus_abdominis",
+        "slug": "pectoralis_major",
         "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2720,16 +3444,20 @@
         "role": "primary"
       },
       {
-        "slug": "serratus_anterior",
-        "role": "primary"
-      },
-      {
         "slug": "triceps_brachii",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "pectoralis_minor",
-        "role": "primary"
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2756,16 +3484,28 @@
     "summary": "on rings height 5",
     "muscles": [
       {
-        "slug": "infraspinatus",
+        "slug": "deltoid_posterior",
         "role": "primary"
       },
       {
-        "slug": "teres_minor",
-        "role": "primary"
+        "slug": "rhomboids",
+        "role": "secondary"
       },
       {
         "slug": "teres_major",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -2801,7 +3541,19 @@
       },
       {
         "slug": "deltoid_anterior",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "brachialis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2840,12 +3592,20 @@
         "role": "primary"
       },
       {
-        "slug": "sartorius",
-        "role": "primary"
+        "slug": "rectus_femoris",
+        "role": "secondary"
       },
       {
-        "slug": "rectus_femoris",
-        "role": "primary"
+        "slug": "external_obliques",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2876,28 +3636,32 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
+        "slug": "biceps_brachii",
+        "role": "secondary"
       },
       {
         "slug": "brachialis",
-        "role": "primary"
-      },
-      {
-        "slug": "infraspinatus",
-        "role": "primary"
+        "role": "secondary"
       },
       {
         "slug": "rhomboids",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "subscapularis",
-        "role": "primary"
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2928,28 +3692,32 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
-        "role": "primary"
+        "slug": "biceps_brachii",
+        "role": "secondary"
       },
       {
         "slug": "brachialis",
-        "role": "primary"
-      },
-      {
-        "slug": "infraspinatus",
-        "role": "primary"
+        "role": "secondary"
       },
       {
         "slug": "rhomboids",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "subscapularis",
-        "role": "primary"
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2978,6 +3746,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3008,11 +3792,7 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
+        "slug": "rhomboids",
         "role": "primary"
       },
       {
@@ -3020,8 +3800,28 @@
         "role": "primary"
       },
       {
-        "slug": "rhomboids",
+        "slug": "trapezius",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3050,6 +3850,22 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3078,6 +3894,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3104,6 +3932,30 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3134,6 +3986,18 @@
       {
         "slug": "deltoid_posterior",
         "role": "primary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "teres_minor",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3158,16 +4022,28 @@
     "summary": "on floor",
     "muscles": [
       {
-        "slug": "vastus_lateralis",
+        "slug": "rectus_femoris",
         "role": "primary"
       },
       {
-        "slug": "rectus_femoris",
+        "slug": "vastus_lateralis",
         "role": "primary"
       },
       {
         "slug": "vastus_medialis",
         "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3192,8 +4068,16 @@
     "summary": "standing, on floor",
     "muscles": [
       {
-        "slug": "rectus_abdominis",
+        "slug": "erector_spinae",
         "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3224,6 +4108,18 @@
       {
         "slug": "deltoid_posterior",
         "role": "primary"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3254,6 +4150,18 @@
       {
         "slug": "deltoid_posterior",
         "role": "primary"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "infraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3280,6 +4188,14 @@
       {
         "slug": "external_obliques",
         "role": "primary"
+      },
+      {
+        "slug": "quadratus_lumborum",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3358,6 +4274,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -3388,20 +4320,24 @@
         "role": "primary"
       },
       {
-        "slug": "serratus_anterior",
+        "slug": "deltoid_anterior",
         "role": "primary"
       },
       {
         "slug": "triceps_brachii",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "pectoralis_minor",
-        "role": "primary"
+        "slug": "serratus_anterior",
+        "role": "secondary"
       },
       {
-        "slug": "biceps_brachii",
-        "role": "primary"
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "wrist_extensors",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3424,7 +4360,64 @@
     "cue": null,
     "demoUrl": "https://youtu.be/FjwZvluhnLo",
     "summary": "half kneeling, dumbbell, on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "dumbbell"
     ],
@@ -3451,6 +4444,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3477,6 +4482,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3503,6 +4520,26 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3529,6 +4566,22 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3559,8 +4612,28 @@
         "role": "primary"
       },
       {
+        "slug": "rhomboids",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectoralis_major",
+        "role": "secondary"
+      },
+      {
         "slug": "rectus_abdominis",
-        "role": "primary"
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3589,6 +4662,18 @@
       {
         "slug": "rectus_abdominis",
         "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "secondary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -3619,16 +4704,16 @@
         "role": "primary"
       },
       {
-        "slug": "serratus_anterior",
-        "role": "primary"
-      },
-      {
         "slug": "triceps_brachii",
-        "role": "primary"
+        "role": "secondary"
       },
       {
-        "slug": "pectoralis_minor",
-        "role": "primary"
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3668,16 +4753,16 @@
         "role": "primary"
       },
       {
-        "slug": "plantaris",
+        "slug": "gluteus_maximus",
         "role": "secondary"
       },
       {
         "slug": "gastrocnemius",
-        "role": "secondary"
+        "role": "stabilizer"
       },
       {
         "slug": "soleus",
-        "role": "secondary"
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3706,11 +4791,7 @@
         "role": "primary"
       },
       {
-        "slug": "trapezius",
-        "role": "primary"
-      },
-      {
-        "slug": "deltoid_posterior",
+        "slug": "rhomboids",
         "role": "primary"
       },
       {
@@ -3718,8 +4799,24 @@
         "role": "primary"
       },
       {
-        "slug": "rhomboids",
+        "slug": "trapezius",
         "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3746,12 +4843,20 @@
     "summary": "rotational, standing, on floor",
     "muscles": [
       {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
         "slug": "rectus_abdominis",
         "role": "primary"
       },
       {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      },
+      {
         "slug": "deltoid_anterior",
-        "role": "primary"
+        "role": "secondary"
       }
     ],
     "equipment": [],
@@ -3776,16 +4881,28 @@
     "summary": "Copenhagen, on floor",
     "muscles": [
       {
+        "slug": "adductor_magnus",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_longus",
+        "role": "primary"
+      },
+      {
         "slug": "external_obliques",
         "role": "primary"
       },
       {
-        "slug": "gracilis",
-        "role": "primary"
+        "slug": "quadratus_lumborum",
+        "role": "secondary"
       },
       {
-        "slug": "deltoid_anterior",
-        "role": "primary"
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3810,15 +4927,11 @@
     "summary": "standing, band, on floor",
     "muscles": [
       {
-        "slug": "deltoid_anterior",
-        "role": "primary"
-      },
-      {
         "slug": "deltoid_posterior",
         "role": "primary"
       },
       {
-        "slug": "teres_minor",
+        "slug": "supraspinatus",
         "role": "primary"
       },
       {
@@ -3826,12 +4939,12 @@
         "role": "primary"
       },
       {
-        "slug": "pectoralis_major",
+        "slug": "teres_minor",
         "role": "primary"
       },
       {
-        "slug": "supraspinatus",
-        "role": "primary"
+        "slug": "trapezius",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -3856,7 +4969,24 @@
     "cue": null,
     "demoUrl": "https://youtu.be/hWbUlkb5Ms4",
     "summary": "barbell, on bench",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "barbell",
       "bench"
@@ -3880,7 +5010,44 @@
     "cue": null,
     "demoUrl": "https://youtu.be/vgn7bSXkgkA?t=21",
     "summary": "bulgarian, dumbbell, on bench",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "dumbbell",
       "bench"
@@ -3916,6 +5083,18 @@
       {
         "slug": "semimembranosus",
         "role": "primary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "stabilizer"
       }
     ],
     "equipment": [],
@@ -3970,6 +5149,18 @@
       {
         "slug": "deltoid_anterior",
         "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "primary"
+      },
+      {
+        "slug": "supraspinatus",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -3994,7 +5185,52 @@
     "cue": null,
     "demoUrl": "https://youtu.be/R1mxpLzYgxM?t=8",
     "summary": "on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "iliopsoas",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "pectineus",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "pistol_squat.jpg",
@@ -4015,7 +5251,52 @@
     "cue": null,
     "demoUrl": "https://youtu.be/LeiLzSU3OXE",
     "summary": "on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gastrocnemius",
+        "role": "secondary"
+      },
+      {
+        "slug": "soleus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "box_jump.jpg",
@@ -4036,7 +5317,52 @@
     "cue": "Bottom leg toes raised",
     "demoUrl": "https://youtu.be/37tVohr7LcE",
     "summary": "kettlebell, on bench",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "kettlebell",
       "bench"
@@ -4060,7 +5386,40 @@
     "cue": null,
     "demoUrl": "https://youtu.be/z4RJcgEKRSQ?t=664",
     "summary": "tuck lever, on rings",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "rhomboids",
+        "role": "secondary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "gymnastic_rings"
     ],
@@ -4083,7 +5442,32 @@
     "cue": null,
     "demoUrl": "https://youtu.be/25t7UBYCMbE?t=22",
     "summary": "archer, on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "push_up_archer.jpg",
@@ -4104,7 +5488,32 @@
     "cue": null,
     "demoUrl": "https://youtu.be/kEgFNDTrJy8?t=13",
     "summary": "both legs, on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "pectineus",
+        "role": "primary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "side_leg_lifts_both_legs.jpg",
@@ -4125,7 +5534,36 @@
     "cue": null,
     "demoUrl": "https://youtu.be/3aar0hnKbcM",
     "summary": "on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "arch_body_hold.jpg",
@@ -4146,7 +5584,52 @@
     "cue": "Enter the position from the lowest front split",
     "demoUrl": "https://www.youtube.com/watch?v=_pykNV65JEQ",
     "summary": "on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [],
     "image": {
       "file": "long_lunge.png",
@@ -4167,7 +5650,28 @@
     "cue": null,
     "demoUrl": "https://youtu.be/tIbQYnE9Hv8",
     "summary": "Plyo, band, on floor",
-    "muscles": [],
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "triceps_brachii",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
     "equipment": [
       "resistance_band"
     ],

@@ -37,6 +37,13 @@ async fn main() -> Result<()> {
     let user = std::env::var("BACKTEST_USER").unwrap_or_else(|_| "pippijn".into());
 
     let pool = coach::db::connect(&url).await?;
+    // Reconcile the *committed* catalog into the dev DB first (hash-gated, same as
+    // boot), so the back-test always reflects the current catalog — flags,
+    // difficulty, and the muscle model — against the prod-dump history, not
+    // whatever catalog the dump happened to carry.
+    let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
+    coach::seed::run(&pool, &catalog_dir).await?;
+
     // Same assembly as the live verdict, location-agnostic ("Anywhere") so the
     // back-test isn't tied to one gym's inventory.
     let ctx = service::context(&pool, &user, None, None).await?;
