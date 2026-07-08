@@ -8,16 +8,40 @@ import android.content.Context
  * location). SharedPreferences has no Double, so lat/lng are stored as the raw
  * bits of the Double.
  */
-class Prefs(context: Context) {
+class Prefs(
+    context: Context,
+) {
     private val sp = context.getSharedPreferences("coach", Context.MODE_PRIVATE)
 
     var homeLat: Double?
         get() = if (sp.contains(K_LAT)) Double.fromBits(sp.getLong(K_LAT, 0)) else null
-        set(v) = sp.edit().apply { if (v == null) remove(K_LAT) else putLong(K_LAT, v.toRawBits()) }.apply()
+        set(v) =
+            sp
+                .edit()
+                .apply {
+                    if (v ==
+                        null
+                    ) {
+                        remove(K_LAT)
+                    } else {
+                        putLong(K_LAT, v.toRawBits())
+                    }
+                }.apply()
 
     var homeLng: Double?
         get() = if (sp.contains(K_LNG)) Double.fromBits(sp.getLong(K_LNG, 0)) else null
-        set(v) = sp.edit().apply { if (v == null) remove(K_LNG) else putLong(K_LNG, v.toRawBits()) }.apply()
+        set(v) =
+            sp
+                .edit()
+                .apply {
+                    if (v ==
+                        null
+                    ) {
+                        remove(K_LNG)
+                    } else {
+                        putLong(K_LNG, v.toRawBits())
+                    }
+                }.apply()
 
     /** Geofence radius in metres. 150 m covers a house + garden without firing
      *  from the street. */

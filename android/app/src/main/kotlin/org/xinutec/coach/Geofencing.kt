@@ -23,7 +23,10 @@ object Geofencing {
     fun hasBackgroundLocation(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            ) ==
             PackageManager.PERMISSION_GRANTED
 
     // Geofence PendingIntents must be MUTABLE — Play Services fills in the
@@ -49,7 +52,8 @@ object Geofencing {
         if (!hasBackgroundLocation(context)) return false
 
         val geofence =
-            Geofence.Builder()
+            Geofence
+                .Builder()
                 .setRequestId(REQUEST_ID)
                 .setCircularRegion(lat, lng, prefs.radiusM)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
@@ -57,17 +61,17 @@ object Geofencing {
                 // passing the boundary — avoids a nudge when you walk past.
                 .setTransitionTypes(
                     Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_DWELL,
-                )
-                .setLoiteringDelay(60_000)
+                ).setLoiteringDelay(60_000)
                 .build()
 
         val request =
-            GeofencingRequest.Builder()
+            GeofencingRequest
+                .Builder()
                 // Fire immediately if we're already home when armed.
                 .setInitialTrigger(
-                    GeofencingRequest.INITIAL_TRIGGER_ENTER or GeofencingRequest.INITIAL_TRIGGER_DWELL,
-                )
-                .addGeofence(geofence)
+                    GeofencingRequest.INITIAL_TRIGGER_ENTER or
+                        GeofencingRequest.INITIAL_TRIGGER_DWELL,
+                ).addGeofence(geofence)
                 .build()
 
         LocationServices.getGeofencingClient(context).addGeofences(request, pendingIntent(context))

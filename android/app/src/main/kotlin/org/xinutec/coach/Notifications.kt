@@ -21,8 +21,12 @@ object Notifications {
                     "Training reminders",
                     NotificationManager.IMPORTANCE_DEFAULT,
                 )
-            channel.description = "Nudges you to spread your sets through the day, while you're home."
-            context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            channel.description =
+                "Nudges you to spread your sets through the day, while you're home."
+            context
+                .getSystemService(
+                    NotificationManager::class.java,
+                ).createNotificationChannel(channel)
         }
     }
 

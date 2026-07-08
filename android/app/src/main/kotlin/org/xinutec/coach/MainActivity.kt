@@ -237,13 +237,20 @@ class MainActivity : Activity() {
         prefs.armed = true
         val ok = Geofencing.arm(this)
         setupInProgress = false
-        toast(if (ok) "Reminders on — I'll nudge you when you're home." else "Couldn't arm the geofence.")
+        toast(
+            if (ok) {
+                "Reminders on — I'll nudge you when you're home."
+            } else {
+                "Couldn't arm the geofence."
+            },
+        )
     }
 
     @SuppressLint("MissingPermission") // FINE is checked in continueSetup before we get here
     private fun captureHome() {
         toast("Getting your location…")
-        LocationServices.getFusedLocationProviderClient(this)
+        LocationServices
+            .getFusedLocationProviderClient(this)
             .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
             .addOnSuccessListener { loc ->
                 if (loc != null) {
@@ -256,8 +263,7 @@ class MainActivity : Activity() {
                     setupInProgress = false
                     toast("Couldn't get a location fix — try again near a window.")
                 }
-            }
-            .addOnFailureListener {
+            }.addOnFailureListener {
                 setupInProgress = false
                 toast("Location unavailable.")
             }
@@ -269,24 +275,31 @@ class MainActivity : Activity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+        val granted =
+            grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
         when (requestCode) {
-            REQ_FINE ->
+            REQ_FINE -> {
                 if (granted) {
                     continueSetup()
                 } else {
                     setupInProgress = false
                     toast("Location is needed to know when you're home.")
                 }
-            REQ_BG ->
+            }
+
+            REQ_BG -> {
                 if (granted) {
                     continueSetup()
                 } else {
                     setupInProgress = false
                     toast("Set location to \"Allow all the time\" for home reminders to work.")
                 }
+            }
+
             // Notifications: proceed to arm whether or not it was granted.
-            REQ_NOTIF -> continueSetup()
+            REQ_NOTIF -> {
+                continueSetup()
+            }
         }
     }
 

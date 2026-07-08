@@ -6,7 +6,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /** The pacing verdict this reminder cares about. */
-data class Verdict(val nudge: Boolean, val reason: String)
+data class Verdict(
+    val nudge: Boolean,
+    val reason: String,
+)
 
 /**
  * Fetches GET /api/pacing/now, reusing the WebView's session cookie so the call
@@ -20,7 +23,11 @@ object PacingClient {
         val cookie = CookieManager.getInstance().getCookie(Config.BASE_URL) ?: return null
         return try {
             val conn =
-                (URL("${Config.BASE_URL}/api/pacing/now").openConnection() as HttpURLConnection).apply {
+                (
+                    URL(
+                        "${Config.BASE_URL}/api/pacing/now",
+                    ).openConnection() as HttpURLConnection
+                ).apply {
                     requestMethod = "GET"
                     setRequestProperty("Cookie", cookie)
                     setRequestProperty("Accept", "application/json")
