@@ -88,9 +88,16 @@ pub async fn context(
             // Skill = the catalog flag (gymnastic ring/parallette work) or any
             // hold (isometrics are skill-biased). No more equipment-slug sniffing.
             let is_skill = e.skill || e.metric == Metric::Hold;
+            // The full display name: variations are distinct movements ("Pull-up
+            // (L-sit)" is a hold, not a rep-out) — a bare shared base name in a
+            // suggestion would misname what the coach is actually asking for.
+            let name = match &e.variation {
+                Some(v) => format!("{} ({v})", e.name),
+                None => e.name,
+            };
             ExerciseInfo {
                 id: e.id,
-                name: e.name,
+                name,
                 pattern: e.pattern,
                 metric: e.metric,
                 is_skill,

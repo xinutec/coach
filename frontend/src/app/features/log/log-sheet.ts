@@ -10,7 +10,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 
 import { CoachApi } from "../../coach-api";
-import { Exercise, WorkoutSet } from "../../models";
+import { Exercise, WorkoutSet, displayName } from "../../models";
 
 export interface LogPrefill {
   exerciseId: number;
@@ -56,6 +56,10 @@ export class LogSheet {
   readonly selected = computed(
     () => this.exercises.find((e) => e.id === this.exerciseId()) ?? null,
   );
+
+  displayName(e: Exercise): string {
+    return displayName(e);
+  }
 
   save(): void {
     const id = this.exerciseId();

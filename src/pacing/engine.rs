@@ -516,7 +516,15 @@ fn pick_for_group(
     };
 
     let ideal = best(&|e| trains(e));
-    let chosen = best(&|e| trains(e) && doable(&e.equipment))?;
+    // When the ideal's kit is missing here, substitute like-for-like: prefer a
+    // doable exercise with the ideal's *metric* (swapping a rep pull for a max
+    // hold is a different ask, not a substitute), falling back to any doable one.
+    let chosen = match ideal {
+        Some(i) if doable(&i.equipment) => i,
+        Some(i) => best(&|e| trains(e) && doable(&e.equipment) && e.metric == i.metric)
+            .or_else(|| best(&|e| trains(e) && doable(&e.equipment)))?,
+        None => return None,
+    };
     let substituted_for = match (avail, ideal) {
         (Some(_), Some(i)) if i.id != chosen.id => Some(i.name.clone()),
         _ => None,

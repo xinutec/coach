@@ -354,6 +354,31 @@ test("balance — muscle-group volume bars render clean @ phone", async ({
 	await expectNoOccludedControls(page, testInfo);
 });
 
+// Past the window the coach's sentence says "rolls to tomorrow" — the plan must
+// agree: headed as tomorrow's session, no "Next up" pressure, no burn-down.
+test("today — after the window the plan reads as tomorrow's preview @ phone", async ({
+	page,
+}, testInfo) => {
+	await mockApi(page);
+	await page.route("**/api/pacing/now*", (r) =>
+		r.fulfill({
+			json: {
+				...PACING,
+				nudge: false,
+				withinWindow: false,
+				afterWindow: true,
+				reason: "It's late — this rolls to tomorrow.",
+			},
+		}),
+	);
+	await page.goto("/today");
+	await page.getByText("rolls to tomorrow", { exact: false }).waitFor();
+	await page.getByRole("heading", { name: "Tomorrow's session" }).waitFor();
+	await expect(page.locator(".next-pill")).toHaveCount(0);
+	await expectNoTextOverlaps(page, testInfo);
+	await expectNoHorizontalOverflow(page, testInfo);
+});
+
 // When health reports a current location, the status line shows it was detected.
 test("today — auto-detected location shows the 'detected' hint @ phone", async ({
 	page,

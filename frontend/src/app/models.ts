@@ -36,3 +36,12 @@ export * from "./generated/Settings";
 export * from "./generated/SettingsPatch";
 export * from "./generated/Suggestion";
 export * from "./generated/WorkoutSet";
+
+import type { Exercise } from "./generated/Exercise";
+
+/** The full display name: variations are distinct movements ("Pull-up (L-sit)"
+ *  is a hold, not a rep-out), so a bare shared base name is ambiguous. Matches
+ *  the backend's suggestion naming. */
+export function displayName(e: Pick<Exercise, "name" | "variation">): string {
+	return e.variation ? `${e.name} (${e.variation})` : e.name;
+}

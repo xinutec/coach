@@ -27,20 +27,29 @@
   </mat-card>
 
   @if (p.plan.length) {
+    <!-- Past the window the coach said "this rolls to tomorrow" — the plan must
+         agree: it's a preview, with no "Next up" pressure and no burn-down. -->
     <div class="plan-head">
-      <h3>Today's session</h3>
-      <span class="plan-count">{{ p.dayDoneSets }} / {{ p.dayTargetSets }} sets</span>
+      <h3>{{ p.afterWindow ? "Tomorrow's session" : "Today's session" }}</h3>
+      <span class="plan-count">
+        @if (p.afterWindow) {
+          {{ p.dayTargetSets }} sets
+        } @else {
+          {{ p.dayDoneSets }} / {{ p.dayTargetSets }} sets
+        }
+      </span>
     </div>
     @for (s of p.plan; track s.exerciseId; let first = $first) {
       <mat-card
         class="suggestion"
         [class.assess]="s.kind === 'assess'"
         [class.warmup]="s.kind === 'warmup'"
-        [class.next]="first"
+        [class.next]="first && p.withinWindow"
       >
         <mat-card-content>
           <div class="s-head">
-            @if (first) {
+            <!-- "Next up" only when the coach actually wants action now. -->
+            @if (first && p.withinWindow) {
               <span class="pill next-pill">Next up</span>
             }
             @if (s.kind === "warmup") {

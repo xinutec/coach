@@ -474,6 +474,50 @@ fn location_substitutes_the_ideal() {
 }
 
 #[test]
+fn substitution_prefers_the_ideal_exercise_metric() {
+    // Lat pull down (reps, machine id 101 not here) must swap to another *reps*
+    // pull, not to a max hold — a hold is a different ask, not a substitute.
+    // Under Balanced all scores tie and the hold's lower id would win the doable
+    // pick (the exact prod bug: lat pull down → "Pull-up (L-sit)" hold).
+    let exs = vec![
+        ex(
+            5,
+            "Lat pull down",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![101],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            6,
+            "Pull-up (L-sit)",
+            Pattern::Pull,
+            Metric::Hold,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            7,
+            "Pull-up (bar)",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+    ];
+    let inp = PacingInput {
+        groups: back_only(),
+        ..input(Mode::Balanced, exs, vec![], None, Some(vec![]))
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.exercise_id, 7, "the same-metric pull is the substitute");
+    assert_eq!(sug.substituted_for.as_deref(), Some("Lat pull down"));
+}
+
+#[test]
 fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
     // One fresh top set of 6 × 60 kg (top of the Strength range). The old engine
     // blindly bumped to 62.5 kg; ability-derived prescription won't exceed what

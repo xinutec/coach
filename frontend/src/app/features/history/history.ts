@@ -3,7 +3,7 @@ import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 
 import { CoachApi } from "../../coach-api";
-import { WorkoutSet } from "../../models";
+import { WorkoutSet, displayName } from "../../models";
 import { AllExercisesStore, SetsStore } from "../../stores/catalog";
 
 interface DayGroup {
@@ -91,7 +91,8 @@ export class HistoryPage {
   }
 
   name(id: number): string {
-    return this.exMap().get(id)?.name ?? "Exercise";
+    const e = this.exMap().get(id);
+    return e ? displayName(e) : "Exercise";
   }
 
   detail(s: WorkoutSet): string {

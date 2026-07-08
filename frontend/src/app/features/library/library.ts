@@ -7,7 +7,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 
 import { CoachApi } from "../../coach-api";
-import { Exercise } from "../../models";
+import { Exercise, displayName } from "../../models";
 import { EquipmentStore, ExercisesStore } from "../../stores/catalog";
 import { ExerciseSheet } from "./exercise-sheet";
 
@@ -54,7 +54,7 @@ export class LibraryPage {
   }
 
   displayName(e: Exercise): string {
-    return e.variation ? `${e.name} (${e.variation})` : e.name;
+    return displayName(e);
   }
   equipLabel(slug: string): string {
     return this.equipmentNames().get(slug) ?? slug;
