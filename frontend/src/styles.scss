@@ -59,6 +59,12 @@ h3 {
     background: color-mix(in srgb, var(--mat-sys-primary) 20%, transparent);
     color: var(--mat-sys-on-surface);
   }
+
+  mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
 }
 
 // The add/edit bottom-sheet grammar: a column of outline fields + a

@@ -4,6 +4,7 @@ import { MatButtonModule } from "@angular/material/button";
 import { MatCardModule } from "@angular/material/card";
 import { MatIconModule } from "@angular/material/icon";
 import { MatMenuModule } from "@angular/material/menu";
+import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { CoachApi } from "../../coach-api";
 import type { Band, Explanation, PacingNow, Suggestion } from "../../models";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
@@ -13,7 +14,7 @@ import { LogSheet, type LogSheetData } from "../log/log-sheet";
 	selector: "app-today",
 	templateUrl: "./today.html",
 	styleUrl: "./today.scss",
-	imports: [MatButtonModule, MatCardModule, MatIconModule, MatMenuModule],
+	imports: [MatButtonModule, MatCardModule, MatIconModule, MatMenuModule, MatProgressBarModule],
 })
 export class Today {
 	private api = inject(CoachApi);
