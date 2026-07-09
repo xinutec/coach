@@ -33,4 +33,7 @@ nix develop -c bash -c '
   fi
   ( cd frontend && npm run lint && bash scripts/ng-build.sh && npm test && npm run ui-check )
 '
-nix run "$HOME/Code/dev-lint" -- .
+dev_lint_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/dev-lint"
+[ -d "$dev_lint_dir" ] || dev_lint_dir="$HOME/Code/dev-lint"
+[ -d "$dev_lint_dir" ] || dev_lint_dir="$HOME/code/dev-lint"
+nix run "$dev_lint_dir" -- . # dev-lint
