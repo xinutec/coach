@@ -6,7 +6,7 @@
 //! An unchanged fingerprint short-circuits the whole seed (fast normal boots). A
 //! changed one (a fresh DB, a new exercise, or a corrected muscle/equipment
 //! mapping) runs the seed AND **reconciles** the M:N links + the engine-driving
-//! scalars (`skill`/`warmup`/`difficulty`) of already-seeded exercises — so
+//! scalars (`skill`/`warmup`/`difficulty`/`implements`) of already-seeded exercises — so
 //! catalog corrections actually land instead of being skipped forever. The other
 //! scalar columns (name/cue/…) + image blobs are insert-only.
 //!
@@ -53,6 +53,11 @@ struct SeedMuscleLink {
     role: String,
 }
 
+/// A movement uses one implement unless it says otherwise.
+fn one() -> i32 {
+    1
+}
+
 #[derive(Deserialize)]
 struct SeedImage {
     file: String,
@@ -79,6 +84,11 @@ struct SeedExercise {
     /// (G7) and seed a first estimate for a harder sibling. `None` = unrated.
     #[serde(default)]
     difficulty: Option<i32>,
+    /// How many of the implement the movement uses — a goblet squat takes one
+    /// dumbbell, a dumbbell bench press takes two. Decides how a finite disc
+    /// budget is shared out, so it decides which loads are buildable.
+    #[serde(default = "one")]
+    implements: i32,
     cue: Option<String>,
     demo_url: Option<String>,
     summary: Option<String>,
@@ -179,11 +189,12 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 // Reconcile the catalog-authoritative classification flags too
                 // (skill/warmup drive the engine; a correction must reach old rows).
                 sqlx::query(
-                    "UPDATE exercises SET skill = ?, warmup = ?, difficulty = ? WHERE id = ?",
+                    "UPDATE exercises SET skill = ?, warmup = ?, difficulty = ?, implements = ? WHERE id = ?",
                 )
                 .bind(ex.skill)
                 .bind(ex.warmup)
                 .bind(ex.difficulty)
+                .bind(ex.implements)
                 .bind(id)
                 .execute(pool)
                 .await?;
@@ -194,8 +205,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
                 let res = sqlx::query(
                     "INSERT INTO exercises \
-                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, difficulty, cue, demo_url, summary) \
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, difficulty, implements, cue, demo_url, summary) \
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 )
                 .bind(&ex.slug)
                 .bind(&ex.name)
@@ -207,6 +218,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(ex.skill)
                 .bind(ex.warmup)
                 .bind(ex.difficulty)
+                .bind(ex.implements)
                 .bind(&ex.cue)
                 .bind(&ex.demo_url)
                 .bind(&ex.summary)

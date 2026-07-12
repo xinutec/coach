@@ -93,7 +93,9 @@ fn start() -> NaiveDateTime {
         .unwrap()
 }
 
-/// Owned barbell inventory: 20…80 kg in 2.5 kg steps (equipment id 3).
+/// The barbell row's buildable loads: 20…80 kg in 2.5 kg steps. Keyed by *exercise*
+/// (id 5) — what's buildable depends on how many implements the movement needs, so
+/// the service resolves it per exercise and the engine just consumes the set.
 fn owned() -> HashMap<i64, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
@@ -101,7 +103,7 @@ fn owned() -> HashMap<i64, Vec<f64>> {
         loads.push(w);
         w += 2.5;
     }
-    HashMap::from([(3, loads)])
+    HashMap::from([(5, loads)])
 }
 
 fn barbell_row() -> ExerciseInfo {
@@ -138,8 +140,8 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         settings: settings(),
         groups: back_group(),
         kit: Some(Kit([3].into_iter().collect())),
-        equipment_loads: owned(),
-        equipment_names: HashMap::new(),
+        exercise_loads: owned(),
+        notices: Vec::new(),
         readiness: None,
     }
 }
@@ -357,8 +359,8 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
                 .iter()
                 .flat_map(|e| e.equipment.clone())
                 .collect())),
-            equipment_loads: HashMap::new(),
-            equipment_names: HashMap::new(),
+            exercise_loads: HashMap::new(),
+            notices: Vec::new(),
             readiness: None,
         };
         let out = evaluate(&input, now);

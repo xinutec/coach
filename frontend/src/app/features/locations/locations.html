@@ -64,11 +64,12 @@
         </p>
         @for (slug of weightedSlugs(); track slug) {
           <div class="spec-row">
-            <div class="spec-name">{{ equipLabel(slug) }} — weights (kg)</div>
+            <div class="spec-name">{{ equipLabel(slug) }} — fixed weights (kg)</div>
             <div class="chips">
               @for (w of weightsOf(slug); track w) {
                 <button type="button" class="chip on" (click)="removeWeight(slug, w)">
-                  {{ w }} <mat-icon>close</mat-icon>
+                  {{ w }}@if (weightQtyOf(slug, w)) { <em>×{{ weightQtyOf(slug, w) }}</em> }
+                  <mat-icon>close</mat-icon>
                 </button>
               }
               <span class="spec-add">
@@ -79,19 +80,31 @@
                   inputmode="decimal"
                   min="0"
                   placeholder="kg"
-                  (keyup.enter)="addWeight(slug, wIn.value); wIn.value = ''"
-                  (blur)="addWeight(slug, wIn.value); wIn.value = ''"
+                  (keyup.enter)="addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''"
+                />
+                <input
+                  #wQ
+                  class="spec-in tiny"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  placeholder="×how many"
+                  (keyup.enter)="addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''"
                 />
                 <button
                   type="button"
                   class="spec-add-btn"
                   aria-label="Add weight"
-                  (click)="addWeight(slug, wIn.value); wIn.value = ''"
+                  (click)="addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''"
                 >
                   <mat-icon>add</mat-icon>
                 </button>
               </span>
             </div>
+            <p class="hint spec-hint">
+              How many matters: a movement that uses two dumbbells can't be built from
+              a weight you own one of. Leave it blank if you have plenty.
+            </p>
             <div class="spec-range">
               <span class="spec-range-label">or fill a range:</span>
               <input #rF class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="from" />
@@ -111,7 +124,7 @@
         }
         @for (slug of loadableSlugs(); track slug) {
           <div class="spec-row">
-            <div class="spec-name">{{ equipLabel(slug) }} — bar weight (kg)</div>
+            <div class="spec-name">{{ equipLabel(slug) }} — bar / handle weight (kg)</div>
             <div class="chips">
               @for (b of barPresets(slug); track b) {
                 <button
@@ -137,15 +150,40 @@
                 />
               </span>
             </div>
-          </div>
-        }
-        @if (loadableSlugs().length) {
-          <div class="spec-row">
-            <div class="spec-name">Plates (kg) — shared across your bars</div>
+
+            <div class="spec-sub">
+              <span class="spec-sub-label">How many you own</span>
+              <input
+                #bQ
+                class="spec-in tiny"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                placeholder="plenty"
+                [value]="barQtyOf(slug) ?? ''"
+                (keyup.enter)="setBarQty(slug, bQ.value)"
+                (blur)="setBarQty(slug, bQ.value)"
+              />
+              <span class="spec-sub-label">Discs per sleeve</span>
+              <input
+                #bS
+                class="spec-in tiny"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                placeholder="no limit"
+                [value]="plateSlotsOf(slug) ?? ''"
+                (keyup.enter)="setPlateSlots(slug, bS.value)"
+                (blur)="setPlateSlots(slug, bS.value)"
+              />
+            </div>
+
+            <div class="spec-name">Plates that fit it (kg)</div>
             <div class="chips">
-              @for (p of formPlates(); track p) {
-                <button type="button" class="chip on" (click)="removePlate(p)">
-                  {{ p }} <mat-icon>close</mat-icon>
+              @for (p of platesOf(slug); track p.loadKg) {
+                <button type="button" class="chip on" (click)="removePlate(slug, p)">
+                  {{ p.loadKg }}@if (p.qty) { <em>×{{ p.qty }}</em> }
+                  <mat-icon>close</mat-icon>
                 </button>
               }
               <span class="spec-add">
@@ -156,21 +194,35 @@
                   inputmode="decimal"
                   min="0"
                   placeholder="kg"
-                  (keyup.enter)="addPlate(pIn.value); pIn.value = ''"
-                  (blur)="addPlate(pIn.value); pIn.value = ''"
+                  (keyup.enter)="addPlate(slug, pIn.value, pQ.value); pIn.value = ''; pQ.value = ''"
+                />
+                <input
+                  #pQ
+                  class="spec-in tiny"
+                  type="number"
+                  inputmode="numeric"
+                  min="1"
+                  placeholder="×how many"
+                  (keyup.enter)="addPlate(slug, pIn.value, pQ.value); pIn.value = ''; pQ.value = ''"
                 />
                 <button
                   type="button"
                   class="spec-add-btn"
                   aria-label="Add plate"
-                  (click)="addPlate(pIn.value); pIn.value = ''"
+                  (click)="addPlate(slug, pIn.value, pQ.value); pIn.value = ''; pQ.value = ''"
                 >
                   <mat-icon>add</mat-icon>
                 </button>
               </span>
             </div>
+            <p class="hint spec-hint">
+              Plates go on both ends or not at all, so a disc you own one of is dead
+              weight — and two dumbbells share the discs between them, which is why a
+              both-arms press tops out lighter than a single-dumbbell one.
+            </p>
           </div>
         }
+
         @for (slug of bandSlugs(); track slug) {
           <div class="spec-row">
             <div class="spec-name">{{ equipLabel(slug) }} — which</div>

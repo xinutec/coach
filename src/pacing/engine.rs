@@ -231,21 +231,16 @@ enum Loaded {
     Hold,
 }
 
-/// The weights owned here for this exercise's kit (union over its load-bearing
-/// equipment). `None` for a weighted lift = no registered weights = **not
-/// loadable here**, so it isn't selectable and the verdict says why.
-fn loadable(ex: &ExerciseInfo, equipment_loads: &HashMap<i64, Vec<f64>>) -> Option<Loaded> {
+/// The weights this exercise can actually be built with here (the service worked
+/// them out from the kit *and* how many implements the movement needs). `None` for
+/// a weighted lift = not loadable here, so it isn't selectable and the verdict
+/// says why.
+fn loadable(ex: &ExerciseInfo, exercise_loads: &HashMap<i64, Vec<f64>>) -> Option<Loaded> {
     match ex.metric {
         Metric::Reps => Some(Loaded::Reps),
         Metric::Hold => Some(Loaded::Hold),
         Metric::WeightedReps => {
-            let loads: Vec<f64> = ex
-                .equipment
-                .iter()
-                .filter_map(|id| equipment_loads.get(id))
-                .flatten()
-                .copied()
-                .collect();
+            let loads = exercise_loads.get(&ex.id).cloned().unwrap_or_default();
             Inventory::new(loads).map(Loaded::Weighted)
         }
     }
@@ -383,14 +378,15 @@ struct Cand<'a> {
 
 /// Build the selectable candidates for this location: catalog minus warm-up moves,
 /// minus anything the kit can't do, minus weighted lifts with no registered
-/// weights (returned as notices — a drop the athlete can act on, not a silent gap).
+/// weights or enough implements to go round (the service names those in the
+/// verdict's notices — a drop the athlete can act on, not a silent gap).
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
     abilities: &HashMap<i64, Ability>,
     groups: &Groups,
     now: NaiveDateTime,
-) -> (Vec<Cand<'a>>, Vec<Candidate>, Vec<String>) {
+) -> (Vec<Cand<'a>>, Vec<Candidate>) {
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
     let recency = |id: i64| -> f64 {
         match input
@@ -407,20 +403,16 @@ fn candidates<'a>(
 
     let mut cands = Vec::new();
     let mut scored = Vec::new();
-    // Equipment that blocked a weighted lift for want of registered weights.
-    let mut unweighted: Vec<i64> = Vec::new();
 
     for ex in &input.exercises {
         // Warm-up moves are the warm-up block's alone (and credit no volume).
         if ex.warmup || !kit.has_all(&ex.equipment) {
             continue;
         }
-        let Some(loaded) = loadable(ex, &input.equipment_loads) else {
-            for e in &ex.equipment {
-                if !input.equipment_loads.contains_key(e) && !unweighted.contains(e) {
-                    unweighted.push(*e);
-                }
-            }
+        // Not loadable here (no registered weights, or not enough implements to go
+        // round) → no honest load exists, so it isn't selectable. The service, which
+        // knows *why*, says so in the verdict's notices.
+        let Some(loaded) = loadable(ex, &input.exercise_loads) else {
             continue;
         };
 
@@ -459,25 +451,7 @@ fn candidates<'a>(
         cands.push(Cand { ex, loaded, label });
     }
 
-    let mut notices = Vec::new();
-    if !unweighted.is_empty() {
-        unweighted.sort_unstable();
-        let names: Vec<String> = unweighted
-            .iter()
-            .map(|e| {
-                input
-                    .equipment_names
-                    .get(e)
-                    .cloned()
-                    .unwrap_or_else(|| "equipment".into())
-            })
-            .collect();
-        notices.push(format!(
-            "No weights registered here for {} — I've left its exercises out rather than guess a load.",
-            names.join(", ")
-        ));
-    }
-    (cands, scored, notices)
+    (cands, scored)
 }
 
 /// The exercise the athlete *would* be doing for this group if the kit allowed —
@@ -589,7 +563,7 @@ fn build_warmup(
         .iter()
         .find(|s| s.kind == SuggestionKind::Work && s.load_kg.is_some())
         && let (Some(ex), Some(load)) = (ex_by_id.get(&w.exercise_id), w.load_kg)
-        && let Some(Loaded::Weighted(inv)) = loadable(ex, &input.equipment_loads)
+        && let Some(Loaded::Weighted(inv)) = loadable(ex, &input.exercise_loads)
     {
         out.push(Suggestion {
             exercise_id: w.exercise_id,
@@ -756,7 +730,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- cover the need with the kit that's actually here ---
     // No location → we don't know what's doable, and we don't guess: no plan.
-    let (plan, notices) = match &input.kit {
+    let plan = match &input.kit {
         Some(kit) => plan_session(
             input,
             kit,
@@ -766,7 +740,14 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             &ex_by_id,
             now,
         ),
-        None => (Vec::new(), Vec::new()),
+        None => Vec::new(),
+    };
+    // Kit the coach had to leave out — worked out by the service, which knows why.
+    // Only worth saying when there's a session for it to be a hole in.
+    let notices = if plan.is_empty() {
+        Vec::new()
+    } else {
+        input.notices.clone()
     };
 
     // "Next up" for the nudge + Android trigger is the first *training* item, not
@@ -879,8 +860,8 @@ fn plan_session(
     budget: i32,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     now: NaiveDateTime,
-) -> (Vec<Suggestion>, Vec<String>) {
-    let (cands, scored, notices) = candidates(input, kit, abilities, groups, now);
+) -> Vec<Suggestion> {
+    let (cands, scored) = candidates(input, kit, abilities, groups, now);
     let chosen = cover::select(&scored, &groups.need, budget);
 
     // Hold progression on a low-readiness day.
@@ -975,5 +956,5 @@ fn plan_session(
         .map(|g| (g.id, g.name.clone()))
         .collect();
     let warmup = build_warmup(&work, input, kit, ex_by_id, &group_name);
-    (warmup.into_iter().chain(work).collect(), notices)
+    warmup.into_iter().chain(work).collect()
 }

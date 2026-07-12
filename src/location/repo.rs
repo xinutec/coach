@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use anyhow::{Result, anyhow};
 use sqlx::MySqlPool;
 
-use super::types::{EquipmentOption, Location, LocationPatch, LocationRow, NewLocation};
+use super::loads;
+use super::types::{EquipmentOption, Location, LocationPatch, LocationRow, NewLocation, Plate};
 
 macro_rules! loc_cols {
     () => {
@@ -30,7 +31,7 @@ pub async fn list(pool: &MySqlPool, user_id: &str) -> Result<Vec<Location>> {
     let mut locs: Vec<Location> = rows.into_iter().map(Location::from).collect();
     for loc in &mut locs {
         loc.equipment_options = load_options(pool, loc.id).await?;
-        loc.plates = load_plates(pool, loc.id).await?;
+        loc.plates = plates_wire(pool, loc.id).await?;
     }
     Ok(locs)
 }
@@ -48,7 +49,7 @@ pub async fn get(pool: &MySqlPool, user_id: &str, id: i64) -> Result<Option<Loca
     let Some(row) = row else { return Ok(None) };
     let mut loc = Location::from(row);
     loc.equipment_options = load_options(pool, loc.id).await?;
-    loc.plates = load_plates(pool, loc.id).await?;
+    loc.plates = plates_wire(pool, loc.id).await?;
     Ok(Some(loc))
 }
 
@@ -169,87 +170,160 @@ pub async fn equipment_ids(
     Ok(Some(rows.into_iter().map(|(id,)| id).collect()))
 }
 
-/// Discrete loadable weights per equipment id at a location, for the engine's
-/// load snapping. Sorted ascending. Fixed free weights → the owned weights
-/// directly; a loadable bar → every total buildable from its bar + the location's
-/// shared plates (so suggestions never go below the empty bar or land on an
-/// unbuildable weight).
-pub async fn equipment_loads(pool: &MySqlPool, location_id: i64) -> Result<HashMap<i64, Vec<f64>>> {
+/// The loadable kit at a location, per equipment id: fixed free weights (with how
+/// many of each you own), the loadable bar/handle if it is one, and the plates
+/// that fit *it* — the shared pool plus anything pinned to this kit alone.
+///
+/// Deliberately raw facts, not loads: what's buildable depends on how many
+/// implements the *movement* needs (a pair of dumbbells splits the disc budget),
+/// which only the exercise knows. `loads::loads_for` does that per exercise.
+pub async fn kit_loads(
+    pool: &MySqlPool,
+    location_id: i64,
+) -> Result<HashMap<i64, loads::KitLoads>> {
     let plates = load_plates(pool, location_id).await?;
-    let rows: Vec<(i64, Option<f64>, Option<String>)> = sqlx::query_as(
-        "SELECT equipment_id, load_kg, kind FROM location_equipment_option \
+    let rows: Vec<KitRow> = sqlx::query_as(
+        "SELECT equipment_id, load_kg, kind, qty, plate_slots FROM location_equipment_option \
          WHERE location_id = ? AND load_kg IS NOT NULL",
     )
     .bind(location_id)
     .fetch_all(pool)
     .await?;
-    // Separate loadable bars (a 'bar' row) from fixed weights.
-    let mut fixed: HashMap<i64, Vec<f64>> = HashMap::new();
-    let mut bars: HashMap<i64, f64> = HashMap::new();
-    for (id, load, kind) in rows {
-        let Some(w) = load else { continue };
+
+    let qty = |q: Option<i32>| q.and_then(|q| u32::try_from(q).ok());
+    let mut map: HashMap<i64, loads::KitLoads> = HashMap::new();
+    for (id, load, kind, q, slots) in rows {
+        let Some(kg) = load else { continue };
+        let entry = map.entry(id).or_default();
         match kind.as_deref() {
+            // A loadable bar or dumbbell handle.
             Some("bar") => {
-                bars.insert(id, w);
+                entry.bar = Some(loads::Bar {
+                    kg,
+                    qty: qty(q),
+                    slots: qty(slots),
+                });
             }
-            _ => fixed.entry(id).or_default().push(w),
+            // A fixed free weight (one 5 kg dumbbell, a 16 kg kettlebell).
+            _ => entry.fixed.push((kg, qty(q))),
         }
     }
-    let mut map: HashMap<i64, Vec<f64>> = HashMap::new();
-    for (id, bar) in bars {
-        map.insert(id, super::loads::reachable_loads(bar, &plates));
-    }
-    for (id, mut ws) in fixed {
-        ws.sort_by(f64::total_cmp);
-        map.entry(id).or_default().extend(ws);
+    // Plates reach the kit they fit: the shared pool (an Olympic disc goes on the
+    // barbell *and* the trap bar) plus any pinned to one piece of kit (a dumbbell
+    // handle's small discs will not go on an Olympic sleeve).
+    for (id, kit) in map.iter_mut() {
+        kit.plates = plates
+            .iter()
+            .filter(|p| p.equipment_id.is_none_or(|e| e == *id))
+            .map(|p| loads::Plate {
+                kg: p.load_kg,
+                qty: p.qty,
+            })
+            .collect();
     }
     Ok(map)
 }
 
-/// A location's shared plate sizes (kg, ascending).
-async fn load_plates(pool: &MySqlPool, location_id: i64) -> Result<Vec<f64>> {
-    let rows: Vec<(f64,)> =
-        sqlx::query_as("SELECT load_kg FROM location_plate WHERE location_id = ? ORDER BY load_kg")
-            .bind(location_id)
-            .fetch_all(pool)
-            .await?;
-    Ok(rows.into_iter().map(|(w,)| w).collect())
+/// One kit-loads row: (equipment_id, load_kg, kind, qty, plate_slots).
+type KitRow = (i64, Option<f64>, Option<String>, Option<i32>, Option<i32>);
+
+/// One plate row: (equipment_id, slug, load_kg, qty).
+type PlateSqlRow = (Option<i64>, Option<String>, f64, Option<i32>);
+
+/// One `location_equipment_option` row: (slug, load_kg, label, kind, qty, slots).
+type OptionRow = (
+    String,
+    Option<f64>,
+    Option<String>,
+    Option<String>,
+    Option<i32>,
+    Option<i32>,
+);
+
+/// A plate as stored: the kit it fits (`None` = the shared pool every loadable bar
+/// here draws from), carried as both id (for the engine's load expansion) and slug
+/// (for the wire), plus its size and how many you own.
+struct PlateRow {
+    equipment_id: Option<i64>,
+    equipment: Option<String>,
+    load_kg: f64,
+    qty: Option<u32>,
 }
 
-/// Replace a location's shared plate set.
-async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[f64]) -> Result<()> {
+/// A location's plates (ascending).
+async fn load_plates(pool: &MySqlPool, location_id: i64) -> Result<Vec<PlateRow>> {
+    let rows: Vec<PlateSqlRow> = sqlx::query_as(
+        "SELECT p.equipment_id, eq.slug, p.load_kg, p.qty \
+         FROM location_plate p LEFT JOIN equipment eq ON eq.id = p.equipment_id \
+         WHERE p.location_id = ? ORDER BY p.load_kg",
+    )
+    .bind(location_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(equipment_id, equipment, load_kg, qty)| PlateRow {
+            equipment_id,
+            equipment,
+            load_kg,
+            qty: qty.and_then(|q| u32::try_from(q).ok()),
+        })
+        .collect())
+}
+
+/// A location's plates as the wire sees them (kit named by slug).
+async fn plates_wire(pool: &MySqlPool, location_id: i64) -> Result<Vec<Plate>> {
+    Ok(load_plates(pool, location_id)
+        .await?
+        .into_iter()
+        .map(|p| Plate {
+            equipment: p.equipment,
+            load_kg: p.load_kg,
+            qty: p.qty,
+        })
+        .collect())
+}
+
+/// Replace a location's plate set. A plate with no `equipment` lands in the shared
+/// pool (the sub-select yields NULL), which is what an Olympic disc is.
+async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[Plate]) -> Result<()> {
     let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM location_plate WHERE location_id = ?")
         .bind(location_id)
         .execute(&mut *tx)
         .await?;
     for p in plates {
-        sqlx::query("INSERT INTO location_plate (location_id, load_kg) VALUES (?, ?)")
-            .bind(location_id)
-            .bind(p)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "INSERT INTO location_plate (location_id, equipment_id, load_kg, qty) \
+             VALUES (?, (SELECT id FROM equipment WHERE slug = ?), ?, ?)",
+        )
+        .bind(location_id)
+        .bind(p.equipment.as_deref())
+        .bind(p.load_kg)
+        .bind(p.qty.map(|q| q as i32))
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(())
 }
 
 /// Load a location's per-equipment specifics, grouped by equipment slug. A row's
-/// `kind` of 'bar' is a loadable bar's own weight; untagged rows are a fixed
-/// weight (`load_kg`) or band (`label`). Plates live on the location, not here.
+/// `kind` of 'bar' is a loadable bar/handle (its weight, how many you own, and how
+/// many discs its sleeve takes); untagged rows are a fixed weight (`load_kg` + how
+/// many of it) or a band (`label`). Plates live on the location, not here.
 async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<EquipmentOption>> {
-    // (slug, load_kg, label, kind) per option row.
-    type OptionRow = (String, Option<f64>, Option<String>, Option<String>);
     let rows: Vec<OptionRow> = sqlx::query_as(
-        "SELECT eq.slug, o.load_kg, o.label, o.kind \
+        "SELECT eq.slug, o.load_kg, o.label, o.kind, o.qty, o.plate_slots \
          FROM location_equipment_option o JOIN equipment eq ON eq.id = o.equipment_id \
          WHERE o.location_id = ? ORDER BY eq.name, o.load_kg, o.label",
     )
     .bind(location_id)
     .fetch_all(pool)
     .await?;
+    let u32_of = |q: Option<i32>| q.and_then(|q| u32::try_from(q).ok());
     let mut out: Vec<EquipmentOption> = Vec::new();
-    for (slug, load, label, kind) in rows {
+    for (slug, load, label, kind, qty, slots) in rows {
         let e = match out.iter_mut().find(|o| o.slug == slug) {
             Some(e) => e,
             None => {
@@ -261,8 +335,17 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
             }
         };
         match (kind.as_deref(), load, label) {
-            (Some("bar"), Some(w), _) => e.bar_kg = Some(w),
-            (_, Some(w), _) => e.weights.push(w),
+            (Some("bar"), Some(w), _) => {
+                e.bar_kg = Some(w);
+                e.bar_qty = u32_of(qty);
+                e.plate_slots = u32_of(slots);
+            }
+            (_, Some(w), _) => {
+                e.weights.push(w);
+                // Parallel arrays: a weight with no count means "plenty" (0 here,
+                // read back as None), which is what a gym rack is.
+                e.weight_qty.push(u32_of(qty).unwrap_or(0));
+            }
             (_, _, Some(l)) => e.labels.push(l),
             _ => {}
         }
@@ -279,17 +362,50 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
         .execute(&mut *tx)
         .await?;
     for o in opts {
-        for w in &o.weights {
-            insert_option(&mut tx, location_id, &o.slug, None, Some(*w), None).await?;
+        for (i, w) in o.weights.iter().enumerate() {
+            // 0 / absent = "plenty" (a gym rack); otherwise how many you own, which
+            // is what decides whether a two-dumbbell movement can use it.
+            let qty = o.weight_qty.get(i).copied().filter(|q| *q > 0);
+            insert_option(
+                &mut tx,
+                location_id,
+                &o.slug,
+                None,
+                Some(*w),
+                None,
+                qty,
+                None,
+            )
+            .await?;
         }
         for label in &o.labels {
             let label = label.trim();
             if !label.is_empty() {
-                insert_option(&mut tx, location_id, &o.slug, None, None, Some(label)).await?;
+                insert_option(
+                    &mut tx,
+                    location_id,
+                    &o.slug,
+                    None,
+                    None,
+                    Some(label),
+                    None,
+                    None,
+                )
+                .await?;
             }
         }
         if let Some(bar) = o.bar_kg {
-            insert_option(&mut tx, location_id, &o.slug, Some("bar"), Some(bar), None).await?;
+            insert_option(
+                &mut tx,
+                location_id,
+                &o.slug,
+                Some("bar"),
+                Some(bar),
+                None,
+                o.bar_qty,
+                o.plate_slots,
+            )
+            .await?;
         }
     }
     tx.commit().await?;
@@ -297,6 +413,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
 }
 
 /// Insert one specifics row (resolving the equipment by slug) inside a tx.
+#[allow(clippy::too_many_arguments)]
 async fn insert_option(
     tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
     location_id: i64,
@@ -304,16 +421,20 @@ async fn insert_option(
     kind: Option<&str>,
     load: Option<f64>,
     label: Option<&str>,
+    qty: Option<u32>,
+    plate_slots: Option<u32>,
 ) -> Result<()> {
     sqlx::query(
         "INSERT INTO location_equipment_option \
-           (location_id, equipment_id, kind, load_kg, label) \
-         SELECT ?, id, ?, ?, ? FROM equipment WHERE slug = ?",
+           (location_id, equipment_id, kind, load_kg, label, qty, plate_slots) \
+         SELECT ?, id, ?, ?, ?, ?, ? FROM equipment WHERE slug = ?",
     )
     .bind(location_id)
     .bind(kind)
     .bind(load)
     .bind(label)
+    .bind(qty.map(|q| q as i32))
+    .bind(plate_slots.map(|q| q as i32))
     .bind(slug)
     .execute(&mut **tx)
     .await?;

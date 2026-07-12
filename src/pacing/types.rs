@@ -99,15 +99,17 @@ pub struct PacingInput {
     /// engine can't say what's doable and won't guess: the verdict carries no
     /// plan and asks for a location. Degradation narrows the claim, never widens it.
     pub kit: Option<Kit>,
-    /// Discrete owned weights (kg) per equipment id at the selected location —
-    /// what load suggestions snap to. An equipment absent from this map has no
-    /// registered weights, so exercises needing it to be loaded aren't selectable
-    /// (see [`super::dose::Inventory`]); the verdict says so rather than
-    /// inventing a number.
-    pub equipment_loads: HashMap<i64, Vec<f64>>,
-    /// Display names per equipment id — only used to say *which* kit needs weights
-    /// registering, in the verdict's notices.
-    pub equipment_names: HashMap<i64, String>,
+    /// The loads each exercise can actually be built with here, keyed by exercise
+    /// id — *not* by equipment. What's buildable depends on how many implements the
+    /// movement needs: a pair of dumbbells splits a finite disc budget between
+    /// them, and a fixed weight you own one of can't serve a two-dumbbell press.
+    /// Absent or empty = not loadable here, so the lift isn't selectable (see
+    /// [`super::dose::Inventory`]) and the verdict says why rather than inventing
+    /// a number.
+    pub exercise_loads: HashMap<i64, Vec<f64>>,
+    /// Kit the coach had to leave out, and why — surfaced on the verdict so a drop
+    /// reads as something to fix rather than a hole in the plan.
+    pub notices: Vec<String>,
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,

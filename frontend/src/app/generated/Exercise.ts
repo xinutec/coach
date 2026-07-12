@@ -16,4 +16,10 @@ skill: boolean,
  * A mobility/activation move: the warm-up block draws from these, and they
  * credit no training volume.
  */
-warmup: boolean, isActive: boolean, equipment: Array<string>, hasImage: boolean, };
+warmup: boolean, 
+/**
+ * How many of the implement this movement uses — one dumbbell (goblet squat,
+ * single-arm row) or two (dumbbell bench press). Decides how a finite disc
+ * budget is shared out, and so which loads are actually buildable.
+ */
+implements: number, isActive: boolean, equipment: Array<string>, hasImage: boolean, };

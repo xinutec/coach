@@ -20,7 +20,7 @@ use crate::muscle::types::MuscleRole;
 // so `concat!` can fold it into the `&'static str` queries below.
 macro_rules! list_cols {
     () => {
-        "e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral, e.skill, e.warmup, e.is_active, \
+        "e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral, e.skill, e.warmup, e.implements, e.is_active, \
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
             WHERE xe.exercise_id = e.id) AS equipment_csv, \

@@ -110,10 +110,12 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
         })
         .collect();
     let last_set_at = history.iter().map(|s| s.logged_at).max();
-    let equipment_loads = if owned.is_empty() {
+    // Buildable loads for the one weighted lift (exercise id 5). Empty inventory =
+    // not loadable, so the lift simply isn't selectable.
+    let exercise_loads = if owned.is_empty() {
         HashMap::new()
     } else {
-        HashMap::from([(EQUIP_LOADED, owned.to_vec())])
+        HashMap::from([(5i64, owned.to_vec())])
     };
     PacingInput {
         mode: mode_of(mode_i),
@@ -132,8 +134,8 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
             .iter()
             .flat_map(|e| e.equipment.clone())
             .collect())),
-        equipment_loads,
-        equipment_names: HashMap::new(),
+        exercise_loads,
+        notices: Vec::new(),
         readiness: None,
     }
 }

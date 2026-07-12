@@ -2,9 +2,8 @@
 
 /**
  * Per-equipment specifics at a location: which discrete weights (fixed free
- * weights), named variants (bands), or bar weight (loadable bars) you own.
- * Plates are shared across a location's bars, so they live on `Location`, not
- * here. All-empty = no specifics given.
+ * weights), named variants (bands), or bar/handle you own. Plates live on
+ * `Location` (they may be shared across bars). All-empty = no specifics given.
  */
 export type EquipmentOption = { slug: string, 
 /**
@@ -13,10 +12,25 @@ export type EquipmentOption = { slug: string,
  */
 weights: Array<number>, 
 /**
+ * How many of each weight in `weights` you own (same order). A movement that
+ * uses two dumbbells can't be built from a weight you own one of. Missing or
+ * short → "plenty", which is what a gym rack is.
+ */
+weightQty: Array<number>, 
+/**
  * Named variants owned (e.g. band tensions) — informational.
  */
 labels: Array<string>, 
 /**
- * Loadable bar's own weight (kg) — the load floor. Set for barbells/trap bars.
+ * A loadable bar or dumbbell handle's own weight (kg) — the load floor.
  */
-barKg: number | null, };
+barKg: number | null, 
+/**
+ * How many of that bar/handle you own. A both-arms dumbbell press needs two.
+ * `None` = plenty.
+ */
+barQty: number | null, 
+/**
+ * How many discs fit on one sleeve. `None` = as many as you own.
+ */
+plateSlots: number | null, };

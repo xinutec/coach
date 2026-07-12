@@ -181,3 +181,24 @@
     border-color: transparent;
   }
 }
+
+// How many of a bar/handle you own, and how many discs its sleeve takes.
+.spec-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.spec-sub-label {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+// The "×4" count on a weight/plate chip.
+.chip em {
+  margin-left: 0.15rem;
+  font-style: normal;
+  opacity: 0.75;
+}

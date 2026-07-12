@@ -29,10 +29,23 @@ const CATEGORY_ORDER: Category[] = [
 
 interface EquipmentSpecifics {
 	weights: number[];
+	/** How many of each weight (same order). 0 = plenty, which is what a gym is. */
+	weightQty: number[];
 	labels: string[];
-	// Loadable bars (barbell / trap bar): the bar's own weight. Plates are shared
-	// across a location's bars, so they're held separately (formPlates).
+	/** A loadable bar or adjustable dumbbell handle: its own weight, how many you
+	 *  own (a both-arms press needs two), and how many discs a sleeve takes. */
 	barKg: number | null;
+	barQty: number | null;
+	plateSlots: number | null;
+}
+
+/** A plate you own: its size, how many, and which kit it fits (a dumbbell
+ *  handle's small discs won't go on an Olympic bar). `equipment: null` is the
+ *  shared pool every loadable bar here draws from. */
+interface PlateForm {
+	equipment: string | null;
+	loadKg: number;
+	qty: number | null;
 }
 
 /** Manage training locations: each is a named place with an equipment inventory.
@@ -77,8 +90,8 @@ export class LocationsPage {
 	// Per-equipment specifics being edited: slug → owned weights / band variants /
 	// bar weight.
 	readonly formOptions = signal<Map<string, EquipmentSpecifics>>(new Map());
-	// The location's shared plate set (kg) — used by every loadable bar here.
-	readonly formPlates = signal<number[]>([]);
+	// Every plate here, each pinned to the kit it fits (or the shared pool).
+	readonly formPlates = signal<PlateForm[]>([]);
 	readonly formHealthPlaceId = signal<number | null>(null);
 	readonly saving = signal(false);
 
@@ -138,11 +151,18 @@ export class LocationsPage {
 			new Map(
 				loc.equipmentOptions.map((o) => [
 					o.slug,
-					{ weights: [...o.weights], labels: [...o.labels], barKg: o.barKg },
+					{
+						weights: [...o.weights],
+						weightQty: [...(o.weightQty ?? [])],
+						labels: [...o.labels],
+						barKg: o.barKg,
+						barQty: o.barQty,
+						plateSlots: o.plateSlots,
+					},
 				]),
 			),
 		);
-		this.formPlates.set([...loc.plates]);
+		this.formPlates.set(loc.plates.map((p) => ({ ...p })));
 		this.formHealthPlaceId.set(loc.healthPlaceId);
 	}
 
@@ -175,19 +195,20 @@ export class LocationsPage {
 	private readonly BAR_PRESETS: Record<string, number[]> = {
 		barbell: [15, 20],
 		trap_bar: [20, 25, 30],
+		dumbbell: [1.5, 2, 2.5],
 	};
 	barPresets(slug: string): number[] {
 		return this.BAR_PRESETS[slug] ?? [20];
 	}
 
-	/** Selected fixed free weights (dumbbell/kettlebell) — each gets a weights
-	 *  editor. Loadable bars are handled separately (bar + plates). */
+	/** Selected free weights — each gets a fixed-weights editor. A dumbbell can be
+	 *  *both*: an adjustable handle you load, and a plain 5 kg one you don't. The
+	 *  two sets union, so kit is no longer either/or. */
 	readonly weightedSlugs = computed(() =>
-		[...this.formEquip()].filter(
-			(s) => this.categoryOf(s) === "free_weight" && !this.isLoadable(s),
-		),
+		[...this.formEquip()].filter((s) => this.categoryOf(s) === "free_weight"),
 	);
-	/** Selected loadable bars (barbell/trap bar) — each gets a bar + plates editor. */
+	/** Selected loadable kit (barbell/trap bar/adjustable dumbbell) — each gets a
+	 *  bar-or-handle editor with the plates that fit *it*. */
 	readonly loadableSlugs = computed(() =>
 		[...this.formEquip()].filter((s) => this.isLoadable(s)),
 	);
@@ -199,6 +220,25 @@ export class LocationsPage {
 	weightsOf(slug: string): number[] {
 		return this.formOptions().get(slug)?.weights ?? [];
 	}
+	/** How many of a given weight you own — 0 (or missing) reads as "plenty". */
+	weightQtyOf(slug: string, w: number): number {
+		const o = this.formOptions().get(slug);
+		if (!o) return 0;
+		return o.weightQty[o.weights.indexOf(w)] ?? 0;
+	}
+	barQtyOf(slug: string): number | null {
+		return this.formOptions().get(slug)?.barQty ?? null;
+	}
+	plateSlotsOf(slug: string): number | null {
+		return this.formOptions().get(slug)?.plateSlots ?? null;
+	}
+	/** The plates you own for one piece of kit: those pinned to it, plus the shared
+	 *  pool (an Olympic disc goes on the barbell and the trap bar alike). */
+	platesOf(slug: string): PlateForm[] {
+		return this.formPlates().filter(
+			(p) => p.equipment === slug || p.equipment === null,
+		);
+	}
 	labelsOf(slug: string): string[] {
 		return this.formOptions().get(slug)?.labels ?? [];
 	}
@@ -208,18 +248,32 @@ export class LocationsPage {
 
 	private mutate(slug: string, fn: (s: EquipmentSpecifics) => void): void {
 		const m = new Map(this.formOptions());
-		const cur = m.get(slug) ?? { weights: [], labels: [], barKg: null };
+		const cur = m.get(slug) ?? {
+			weights: [],
+			weightQty: [],
+			labels: [],
+			barKg: null,
+			barQty: null,
+			plateSlots: null,
+		};
 		fn(cur);
 		m.set(slug, cur);
 		this.formOptions.set(m);
 	}
 
-	addWeight(slug: string, raw: string): void {
+	addWeight(slug: string, raw: string, qtyRaw?: string): void {
 		const n = Number.parseFloat(raw);
 		if (!Number.isFinite(n) || n <= 0) return;
+		const q = Number.parseInt(qtyRaw ?? "", 10);
+		const qty = Number.isFinite(q) && q > 0 ? q : 0; // 0 = plenty
 		this.mutate(slug, (s) => {
-			if (!s.weights.includes(n))
-				s.weights = [...s.weights, n].sort((a, b) => a - b);
+			if (s.weights.includes(n)) return;
+			const pairs = s.weights
+				.map((w, i) => ({ w, q: s.weightQty[i] ?? 0 }))
+				.concat({ w: n, q: qty })
+				.sort((a, b) => a.w - b.w);
+			s.weights = pairs.map((p) => p.w);
+			s.weightQty = pairs.map((p) => p.q);
 		});
 	}
 	/** Add a whole rack at once: from..to inclusive, in `step` increments. Lets a
@@ -232,16 +286,23 @@ export class LocationsPage {
 		if (from <= 0 || step <= 0 || to < from) return;
 		if ((to - from) / step > 200) return; // guard a runaway range
 		this.mutate(slug, (s) => {
-			const set = new Set(s.weights);
+			const byW = new Map(s.weights.map((w, i) => [w, s.weightQty[i] ?? 0]));
 			for (let w = from; w <= to + 1e-6; w += step) {
-				set.add(Math.round(w * 100) / 100);
+				const k = Math.round(w * 100) / 100;
+				if (!byW.has(k)) byW.set(k, 0); // a filled rack is "plenty" of each
 			}
-			s.weights = [...set].sort((a, b) => a - b);
+			const pairs = [...byW.entries()].sort((a, b) => a[0] - b[0]);
+			s.weights = pairs.map(([w]) => w);
+			s.weightQty = pairs.map(([, q]) => q);
 		});
 	}
 	removeWeight(slug: string, n: number): void {
 		this.mutate(slug, (s) => {
-			s.weights = s.weights.filter((w) => w !== n);
+			const keep = s.weights
+				.map((w, i) => ({ w, q: s.weightQty[i] ?? 0 }))
+				.filter((p) => p.w !== n);
+			s.weights = keep.map((p) => p.w);
+			s.weightQty = keep.map((p) => p.q);
 		});
 	}
 	addLabel(slug: string, raw: string): void {
@@ -263,16 +324,41 @@ export class LocationsPage {
 			s.barKg = Number.isFinite(n) && n > 0 ? n : null;
 		});
 	}
-	// Plates are location-level (shared across all bars here), not per-equipment.
-	addPlate(raw: string): void {
+	/** Set how many of a bar/handle you own (a both-arms dumbbell press needs two). */
+	setBarQty(slug: string, raw: string | number | null): void {
+		const n = typeof raw === "number" ? raw : Number.parseInt(raw ?? "", 10);
+		this.mutate(slug, (s) => {
+			s.barQty = Number.isFinite(n) && n > 0 ? n : null;
+		});
+	}
+	/** Set how many discs fit on one sleeve before it's full. */
+	setPlateSlots(slug: string, raw: string | number | null): void {
+		const n = typeof raw === "number" ? raw : Number.parseInt(raw ?? "", 10);
+		this.mutate(slug, (s) => {
+			s.plateSlots = Number.isFinite(n) && n > 0 ? n : null;
+		});
+	}
+
+	/** Add a plate that fits `slug`. Counts matter: plates load in pairs, so a disc
+	 *  you own one of can't be used at all, and a pair of dumbbells shares them. */
+	addPlate(slug: string, raw: string, qtyRaw?: string): void {
 		const n = Number.parseFloat(raw);
 		if (!Number.isFinite(n) || n <= 0) return;
-		if (!this.formPlates().includes(n)) {
-			this.formPlates.set([...this.formPlates(), n].sort((a, b) => a - b));
-		}
+		if (this.platesOf(slug).some((p) => p.loadKg === n)) return;
+		const q = Number.parseInt(qtyRaw ?? "", 10);
+		const qty = Number.isFinite(q) && q > 0 ? q : null; // null = plenty
+		this.formPlates.set(
+			[...this.formPlates(), { equipment: slug, loadKg: n, qty }].sort(
+				(a, b) => a.loadKg - b.loadKg,
+			),
+		);
 	}
-	removePlate(n: number): void {
-		this.formPlates.set(this.formPlates().filter((p) => p !== n));
+	removePlate(slug: string, p: PlateForm): void {
+		this.formPlates.set(
+			this.formPlates().filter(
+				(x) => !(x.loadKg === p.loadKg && x.equipment === p.equipment),
+			),
+		);
 	}
 
 	save(): void {
@@ -284,14 +370,19 @@ export class LocationsPage {
 			.map(([slug, o]) => ({
 				slug,
 				weights: o.weights,
+				weightQty: o.weights.map((_, i) => o.weightQty[i] ?? 0),
 				labels: o.labels,
 				barKg: o.barKg,
+				barQty: o.barQty,
+				plateSlots: o.plateSlots,
 			}))
 			.filter(
 				(o) => o.weights.length > 0 || o.labels.length > 0 || o.barKg !== null,
 			);
-		// Plates only matter with a bar; drop them if no loadable kit is selected.
-		const plates = this.loadableSlugs().length > 0 ? this.formPlates() : [];
+		// Plates only matter with a bar, and only for kit that's still selected.
+		const plates = this.formPlates().filter(
+			(p) => p.equipment === null || this.formEquip().has(p.equipment),
+		);
 		const body = {
 			name: this.formName().trim() || "Location",
 			isDefault: this.formDefault(),

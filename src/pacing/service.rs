@@ -13,6 +13,7 @@ use sqlx::MySqlPool;
 use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::Metric;
+use crate::location::loads;
 use crate::location::repo as location_repo;
 use crate::muscle::repo as muscle_repo;
 use crate::muscle::types::Region;
@@ -48,8 +49,11 @@ pub struct PacingContext {
     /// location at all — the engine then declines to plan rather than guessing
     /// what's doable.
     pub kit: Option<Kit>,
-    pub equipment_loads: HashMap<i64, Vec<f64>>,
-    pub equipment_names: HashMap<i64, String>,
+    /// Buildable loads per *exercise* (not per equipment — a two-dumbbell movement
+    /// gets half the discs). Empty = not loadable here.
+    pub exercise_loads: HashMap<i64, Vec<f64>>,
+    /// Kit the coach had to leave out, and why.
+    pub notices: Vec<String>,
 }
 
 /// Load the history-independent context: settings + tz, the active mode, the
@@ -87,12 +91,13 @@ pub async fn context(
             .map(|ids| Kit(ids.into_iter().collect::<HashSet<i64>>())),
         None => None,
     };
-    // Discrete owned weights per equipment at this location (for load snapping).
-    let equipment_loads = match location {
-        Some(id) => location_repo::equipment_loads(pool, id).await?,
+    // The loadable kit here: fixed weights, bars/handles, and the plates that fit
+    // each. Raw facts — what's *buildable* depends on how many implements the
+    // movement needs, so that's resolved per exercise below.
+    let kit_loads = match location {
+        Some(id) => location_repo::kit_loads(pool, id).await?,
         None => HashMap::new(),
     };
-    // Names, only so the verdict can say *which* kit needs weights registering.
     let equipment_names: HashMap<i64, String> = equipment_repo::list(pool)
         .await?
         .into_iter()
@@ -130,6 +135,51 @@ pub async fn context(
         })
         .collect();
 
+    // What each exercise can actually be loaded with here. A movement using *two*
+    // dumbbells only gets half the discs per dumbbell, and can't use a fixed weight
+    // you own one of — so this can't be a per-equipment answer. Empty = not
+    // loadable, and the engine leaves the lift out rather than guessing a weight.
+    let implements_by_ex: HashMap<i64, i32> = ex_repo::list(pool, false)
+        .await?
+        .into_iter()
+        .map(|e| (e.id, e.implements))
+        .collect();
+    let mut exercise_loads: HashMap<i64, Vec<f64>> = HashMap::new();
+    let mut short_kit: Vec<(i64, i32)> = Vec::new(); // (equipment, implements needed)
+    let mut unweighted: Vec<i64> = Vec::new();
+    for ex in &exercises {
+        if ex.metric != Metric::WeightedReps || ex.equipment.is_empty() {
+            continue;
+        }
+        // Only kit that's actually *here* can be short of weights. Without this the
+        // notice indicts every barbell and kettlebell in the catalog for having no
+        // registered weights at a location that doesn't own one.
+        let present = kit.as_ref().is_some_and(|k: &Kit| k.has_all(&ex.equipment));
+        if !present {
+            continue;
+        }
+        let implements = implements_by_ex.get(&ex.id).copied().unwrap_or(1).max(1);
+        let mut loads: Vec<f64> = Vec::new();
+        for eq in &ex.equipment {
+            let Some(kit) = kit_loads.get(eq) else {
+                // Present, but nothing registered to load it with.
+                if !unweighted.contains(eq) {
+                    unweighted.push(*eq);
+                }
+                continue;
+            };
+            let l = loads::loads_for(kit, implements as u32);
+            // Loadable in principle, but not enough of it to go round (one handle
+            // can't do a two-dumbbell press) — a different problem from no weights.
+            if l.is_empty() && !short_kit.contains(&(*eq, implements)) {
+                short_kit.push((*eq, implements));
+            }
+            loads.extend(l);
+        }
+        exercise_loads.insert(ex.id, loads);
+    }
+    let notices = kit_notices(&equipment_names, &mut unweighted, &mut short_kit);
+
     let groups = muscle_repo::groups(pool)
         .await?
         .into_iter()
@@ -152,9 +202,38 @@ pub async fn context(
         exercises,
         groups,
         kit,
-        equipment_loads,
-        equipment_names,
+        exercise_loads,
+        notices,
     })
+}
+
+/// Say what the coach had to leave out and why. A silent drop reads as a hole in
+/// the plan; naming the kit turns it into something the athlete can fix.
+fn kit_notices(
+    names: &HashMap<i64, String>,
+    unweighted: &mut [i64],
+    short_kit: &mut [(i64, i32)],
+) -> Vec<String> {
+    let name_of = |id: &i64| names.get(id).cloned().unwrap_or_else(|| "equipment".into());
+    let mut out = Vec::new();
+
+    unweighted.sort_unstable();
+    if !unweighted.is_empty() {
+        let list: Vec<String> = unweighted.iter().map(name_of).collect();
+        out.push(format!(
+            "No weights registered here for {} — I've left its exercises out rather than guess a load.",
+            list.join(", ")
+        ));
+    }
+
+    short_kit.sort_unstable();
+    for (eq, need) in short_kit.iter() {
+        out.push(format!(
+            "You'd need {need} × {} for some movements here — I've left those out.",
+            name_of(eq)
+        ));
+    }
+    out
 }
 
 /// Combine a context with a (local-tz) history slice + biometric readiness into
@@ -176,8 +255,8 @@ pub fn input_from(
         settings: ctx.settings,
         groups: ctx.groups.clone(),
         kit: ctx.kit.clone(),
-        equipment_loads: ctx.equipment_loads.clone(),
-        equipment_names: ctx.equipment_names.clone(),
+        exercise_loads: ctx.exercise_loads.clone(),
+        notices: ctx.notices.clone(),
         readiness,
     }
 }

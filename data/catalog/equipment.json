@@ -2,7 +2,8 @@
   {
     "slug": "dumbbell",
     "name": "Dumbbell",
-    "category": "free_weight"
+    "category": "free_weight",
+    "loadable": true
   },
   {
     "slug": "barbell",

@@ -94,7 +94,8 @@
     "image": {
       "file": "overhead_press_ohp_both_arms_dumbbell_seated.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "banded_rotation_controlled",
@@ -198,7 +199,8 @@
     "image": {
       "file": "lateral_lunge.png",
       "type": "image/png"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "lat_pull_down_single_arm",
@@ -474,7 +476,8 @@
     "image": {
       "file": "walking_lunge_overhead_kb_overhead.png",
       "type": "image/png"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "dips_parallettes",
@@ -848,7 +851,8 @@
     "image": {
       "file": "squat_goblet.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "rdl_single_leg",
@@ -904,7 +908,8 @@
     "image": {
       "file": "rdl_single_leg.png",
       "type": "image/png"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "row_both_sides",
@@ -960,7 +965,8 @@
     "image": {
       "file": "row_both_sides.webp",
       "type": "image/webp"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "ab_rollout_ball_prone",
@@ -1128,7 +1134,8 @@
     "image": {
       "file": "overhead_press_ohp_both_arms_dumbbell_kneeling.png",
       "type": "image/png"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "rotational_downward_chop",
@@ -1294,7 +1301,8 @@
     "image": {
       "file": "overhead_press_ohp_single_arm_dumbbell_standing.png",
       "type": "image/png"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "crunches",
@@ -1416,7 +1424,8 @@
     "image": {
       "file": "farmers_walk.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "plank_to_side_plank",
@@ -1523,7 +1532,8 @@
     "image": {
       "file": "hip_thrust_single_leg.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "arnold_press_butterfly",
@@ -1571,7 +1581,8 @@
     "image": {
       "file": "arnold_press_butterfly.png",
       "type": "image/png"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "good_morning_bench_seated",
@@ -1789,7 +1800,8 @@
     "image": {
       "file": "overhead_press_ohp_both_arms_dumbbell_standing.webp",
       "type": "image/webp"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "ball_knee_tap",
@@ -2183,7 +2195,8 @@
     "image": {
       "file": "farmers_walk_suitcase.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "hip_thrust_both_legs",
@@ -2292,7 +2305,8 @@
     "image": {
       "file": "farmers_walk_waiter.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "pull_up_supine",
@@ -2580,7 +2594,8 @@
     "image": {
       "file": "squat_goblet_1_5_rep.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "sit_through",
@@ -2666,7 +2681,8 @@
     "image": {
       "file": "overhead_press_ohp_single_arm_dumbbell_half_kneeling.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "row_high_plank",
@@ -2722,7 +2738,8 @@
     "image": {
       "file": "row_high_plank.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "thruster_one_arm",
@@ -2782,7 +2799,8 @@
     "image": {
       "file": "thruster_one_arm.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "good_morning_barbell_standing",
@@ -3830,7 +3848,8 @@
     "image": {
       "file": "row_gorilla.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "overhead_press_ohp_seesaw",
@@ -3874,7 +3893,8 @@
     "image": {
       "file": "overhead_press_ohp_seesaw.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "aleknas",
@@ -4424,7 +4444,8 @@
     "image": {
       "file": "snatch.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "hollow_body_rocks",
@@ -4682,7 +4703,8 @@
     "image": {
       "file": "dead_bug.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "bench_press_dumbbell",
@@ -4723,7 +4745,8 @@
     "image": {
       "file": "bench_press_dumbbell.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "nordic_curl_eccentric",
@@ -5055,7 +5078,8 @@
     "image": {
       "file": "split_squat_bulgarian.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "hamstring_curls_single_leg",
@@ -5169,7 +5193,8 @@
     "image": {
       "file": "lateral_raise.jpg",
       "type": "image/jpeg"
-    }
+    },
+    "implements": 2
   },
   {
     "slug": "pistol_squat",
@@ -5370,7 +5395,8 @@
     "image": {
       "file": "box_step_up.png",
       "type": "image/png"
-    }
+    },
+    "implements": 1
   },
   {
     "slug": "row_tuck_lever",
