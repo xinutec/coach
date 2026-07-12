@@ -57,3 +57,33 @@
     color: var(--mat-sys-on-surface-variant);
   }
 }
+
+// Way in to Locations — the kit registered there bounds every prescription, so
+// it can't be a page you can only reach by typing the URL.
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--mat-sys-corner-medium);
+  background: var(--mat-sys-surface-container);
+  color: var(--mat-sys-on-surface);
+  text-decoration: none;
+
+  .link-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+
+    small {
+      color: var(--mat-sys-on-surface-variant);
+      font: var(--mat-sys-body-small);
+    }
+  }
+
+  .chev {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}

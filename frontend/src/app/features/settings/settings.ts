@@ -5,6 +5,7 @@ import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatIconModule } from "@angular/material/icon";
 import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
+import { RouterLink } from "@angular/router";
 
 import { CoachApi } from "../../coach-api";
 import type { Settings } from "../../models";
@@ -37,6 +38,7 @@ function coachAndroid(): CoachAndroidBridge | null {
 		MatIconModule,
 		MatInputModule,
 		MatSelectModule,
+		RouterLink,
 	],
 })
 export class SettingsPage {

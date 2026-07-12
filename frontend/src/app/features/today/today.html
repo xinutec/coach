@@ -17,6 +17,10 @@
     @for (l of locations(); track l.id) {
       <button mat-menu-item (click)="onLocationChange(l.id)">{{ l.name }}</button>
     }
+    <a mat-menu-item routerLink="/locations">
+      <mat-icon>tune</mat-icon>
+      Edit locations &amp; kit
+    </a>
   </mat-menu>
 
   <!-- The coach speaking: one sentence, readiness/deload woven in server-side. -->

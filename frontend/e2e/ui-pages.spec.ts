@@ -413,6 +413,18 @@ test("today — kit with no registered weights is named, not silently dropped @ 
 	await expectNoHorizontalOverflow(page, testInfo);
 });
 
+test("locations is reachable from the UI @ phone", async ({ page }) => {
+	// /locations had no link anywhere in the app — you could only get there by
+	// typing the URL. The kit registered there bounds every prescription (an
+	// unregistered weight means the lift is dropped), so an unreachable page is a
+	// dead end you can't recover from inside the app.
+	await mockApi(page);
+	await page.goto("/settings");
+	await page.getByRole("link", { name: /Locations/i }).click();
+	await page.waitForURL("**/locations");
+	await page.getByRole("heading", { name: "Locations" }).waitFor();
+});
+
 // The FAB-under-nav bug lives at ≥768px (tablet/landscape), where the phone
 // suite is blind. Same page, wide viewport, occlusion assertion.
 test.describe("wide viewport (tablet/landscape)", () => {
