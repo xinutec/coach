@@ -29,8 +29,10 @@ export class Today {
 	readonly loading = signal(true);
 	private didInit = false;
 
-	// null = "Anywhere". Initialised to the default location, then upgraded to the
-	// auto-detected current location (best-effort) unless the user has picked one.
+	// The location whose kit bounds the session. Initialised to the default, then
+	// upgraded to the auto-detected one (best-effort) unless the user has picked.
+	// `null` only while locations are loading, or if there are none at all — the
+	// engine then declines to plan rather than guessing what's doable.
 	readonly selectedLocationId = signal<number | null>(null);
 	readonly autoDetected = signal(false);
 	private userPickedLocation = false;
@@ -82,7 +84,7 @@ export class Today {
 		});
 	}
 
-	onLocationChange(id: number | null): void {
+	onLocationChange(id: number): void {
 		this.userPickedLocation = true;
 		this.autoDetected.set(false);
 		this.selectedLocationId.set(id);
@@ -92,8 +94,8 @@ export class Today {
 	/** Display name of the selected location for the status line. */
 	locationName(): string {
 		const id = this.selectedLocationId();
-		if (id == null) return "Anywhere";
-		return this.locations().find((l) => l.id === id)?.name ?? "Anywhere";
+		const name = id == null ? undefined : this.locations().find((l) => l.id === id)?.name;
+		return name ?? "No location";
 	}
 
 	// Which plan items have their "why this?" reasoning expanded (by exercise id).

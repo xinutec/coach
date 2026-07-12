@@ -1,9 +1,18 @@
 //! The dynamic coaching engine: a pure function from (history, mode, instant) to
 //! a verdict. No I/O, no clock — the caller passes `now` (user-local tz). It
-//! computes rolling muscle-group volume, gates on recovery, sets per-group
-//! targets from the active **mode** blended with the user's own history, picks
-//! the biggest recovered deficit, chooses a location-doable exercise, and
-//! progresses it off the last performance. No program, no weekly plan.
+//! computes rolling muscle-group volume, grades each group's recovery, turns the
+//! two into a **need vector** over the muscle-group space, and then *covers* that
+//! need with the kit actually present: a greedy set-cover ([`super::cover`]) picks
+//! the day's sets one at a time, each time taking the one that pays down the most
+//! remaining need. No program, no weekly plan, no stored state.
+//!
+//! Two invariants are carried by types rather than by care:
+//!
+//! - an exercise appears in the plan **once**, with the set count it earned — the
+//!   cover accumulates by exercise, so a duplicate is unrepresentable;
+//! - a working load is only ever derived from an ability the engine has actually
+//!   measured ([`super::dose::Known`]) and only ever snapped to a weight the
+//!   athlete owns ([`super::dose::Inventory`], non-empty by construction).
 //!
 //! All coefficients below are labelled heuristics, tunable — targets are anchored
 //! to the user's own history to avoid false-precision absolute landmarks.
@@ -16,10 +25,12 @@ use crate::exercise::types::{Metric, Pattern};
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
-use super::ability::{self, Ability, Confidence};
+use super::ability::{self, Ability};
+use super::cover::{self, ByGroup, Candidate, GroupIx};
+use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
 use super::types::{
-    Band, ExerciseInfo, Explanation, GroupBalance, PacingInput, PacingNow, PacingState, Suggestion,
-    SuggestionKind,
+    Band, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow, PacingState,
+    Suggestion, SuggestionKind,
 };
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
@@ -40,26 +51,46 @@ const HOLD_STEP_S: i32 = 5;
 /// A calibration set for a weighted lift: build up to a hard-but-clean set of
 /// this many reps and log load/reps/RPE — the measurement the estimate needs.
 const ASSESS_WEIGHTED_REPS: i32 = 5;
-/// Fewest sets a work item in the plan is ever sized to — below this the stimulus
-/// isn't worth a plan slot.
-const WORK_MIN_SETS: i32 = 2;
 /// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
 const WARMUP_SETS: i32 = 1;
 /// A ramp-in set runs at this fraction of the first heavy lift's working load.
 const RAMP_FRACTION: f64 = 0.5;
+
+/// Fewest sets of a *work* movement once it's in the session at all — the minimum
+/// effective dose. Setting up for a lift and doing one set of it wastes the setup;
+/// below this the day fragments into eight movements you barely touch.
+const MIN_WORK_SETS: i32 = 2;
+/// Most sets of one exercise a single session will ever take: past this, more of
+/// the same movement buys little the next movement wouldn't buy more of. (A
+/// calibration set is capped at 1 instead — measuring the same thing twice in a
+/// session tells you nothing the first didn't.)
+const MAX_SETS_PER_EXERCISE: i32 = 4;
+/// Effective sets one muscle group can usefully absorb in a single session — the
+/// ceiling on how much of its weekly deficit today is allowed to chase. Same
+/// scale as `RECOVERY_SETS`: beyond it you're digging a recovery hole, not
+/// training. This is what stops the cover pouring the whole day into one group.
+const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
 const HISTORY_WEEKS: i64 = 8; // personal-average window
 const RECOVERY_SETS: f64 = 3.0; // unrecovered load (age-weighted sets) that fully gates a group
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
-const MIN_EFFECTIVE_DEFICIT: f64 = 0.05; // below this recovery-scaled deficit, don't train the group
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
 const STABILIZER_CREDIT: f64 = 0.25; // an isometric stabilizer counts a quarter
 const EMPHASIS_MULT: f64 = 1.5;
 const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
 const DELOAD_SCALE: f64 = 0.6;
+
+/// What one set of an exercise credits into a group it trains in this role.
+fn role_credit(role: MuscleRole) -> f64 {
+    match role {
+        MuscleRole::Primary => 1.0,
+        MuscleRole::Secondary => SECONDARY_CREDIT,
+        MuscleRole::Stabilizer => STABILIZER_CREDIT,
+    }
+}
 
 /// How long a region takes to recover from a hard hit (hours) — bigger muscle
 /// masses recover slower. Drives the graded recovery ramp (G6): a group's recent
@@ -108,36 +139,33 @@ fn region_mult(mode: Mode, r: Region) -> f64 {
     }
 }
 
-/// Rep range for a mode + metric (holds are seconds, handled in `progress`).
-fn rep_range(mode: Mode, metric: Metric) -> (Option<i32>, Option<i32>) {
-    if metric == Metric::Hold {
-        return (None, None);
-    }
-    let weighted = metric == Metric::WeightedReps;
-    match mode {
+/// Rep range for a mode + metric (holds are seconds, handled in [`prescribe`]).
+fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
+    let (low, high) = match mode {
         Mode::Strength => {
             if weighted {
-                (Some(3), Some(6))
+                (3, 6)
             } else {
-                (Some(5), Some(8))
+                (5, 8)
             }
         }
         Mode::Balanced => {
             if weighted {
-                (Some(6), Some(10))
+                (6, 10)
             } else {
-                (Some(8), Some(12))
+                (8, 12)
             }
         }
-        Mode::Skills => (Some(3), Some(6)),
+        Mode::Skills => (3, 6),
         Mode::Conditioning => {
             if weighted {
-                (Some(12), Some(20))
+                (12, 20)
             } else {
-                (Some(15), Some(25))
+                (15, 25)
             }
         }
-    }
+    };
+    RepTarget { low, high }
 }
 
 /// How well an exercise fits the mode's style (for ranking within a group).
@@ -164,19 +192,18 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
             Metric::WeightedReps => 0.7,
             Metric::Hold => 0.3,
         },
-        Mode::Balanced => 0.8,
+        // Balanced used to score *everything* a flat 0.8 — which is not a
+        // preference but the absence of one, and it handed the decision to an
+        // arbitrary tie-break on exercise id. That's how a missing lat pull-down
+        // once got "substituted" by an L-sit hold: the engine genuinely could not
+        // tell a rep-out from an isometric, so the lower id won. A balanced week is
+        // built on rep and weighted work, with holds as a narrower accessory
+        // stimulus — say so, and the tie-break never has to decide it.
+        Mode::Balanced => match ex.metric {
+            Metric::WeightedReps | Metric::Reps => 1.0,
+            Metric::Hold => 0.6,
+        },
     }
-}
-
-/// Snap a load to the nearest weight you actually own (ties → lighter). Unknown
-/// inventory → the raw load rounded to the nearest 0.5 kg (a cleaner number than
-/// an inverse-Epley decimal, and the smallest plate step that's universal).
-fn snap(loads: &[f64], w: f64) -> f64 {
-    loads
-        .iter()
-        .copied()
-        .min_by(|a, b| (a - w).abs().total_cmp(&(b - w).abs()))
-        .unwrap_or((w * 2.0).round() / 2.0)
 }
 
 /// The load whose top-set of `reps` reps (leaving `rir` in reserve) matches an
@@ -191,106 +218,134 @@ fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
     30.0 * (e1rm / load - 1.0) - rir
 }
 
-/// Prescribe (sets, rep_low, rep_high, load_kg, hold_s) for an exercise from the
-/// athlete's **ability** — not the last set. Weighted work autoregulates: the
-/// working load is derived from the decayed e1RM so a layoff self-corrects to a
-/// lighter start, and the load only steps up when logged sets raise the estimate
-/// past the next owned weight (double progression, but *earned* and snapped to
-/// what you own). `advance = false` (low readiness) leaves more in reserve —
-/// keep it light, don't chase a PR. No estimate yet → a conservative cold start.
-fn prescribe(
-    ex: &ExerciseInfo,
-    ability: Option<&Ability>,
-    mode: Mode,
-    advance: bool,
-    loads: &[f64],
-) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
-    let sets = 3;
-    let (lo, hi) = rep_range(mode, ex.metric);
-    let cold = loads.first().copied();
+/// An exercise's metric **together with the weights it can actually be loaded
+/// with here** — resolved once, when candidates are built.
+///
+/// This is what makes [`prescribe`] and [`assess`] total. A weighted lift with no
+/// registered weights never becomes a `Loaded`, so it never becomes a candidate,
+/// so neither function has an "and what if there's no weight?" branch to fall
+/// through into a guess.
+enum Loaded {
+    Weighted(Inventory),
+    Reps,
+    Hold,
+}
+
+/// The weights owned here for this exercise's kit (union over its load-bearing
+/// equipment). `None` for a weighted lift = no registered weights = **not
+/// loadable here**, so it isn't selectable and the verdict says why.
+fn loadable(ex: &ExerciseInfo, equipment_loads: &HashMap<i64, Vec<f64>>) -> Option<Loaded> {
+    match ex.metric {
+        Metric::Reps => Some(Loaded::Reps),
+        Metric::Hold => Some(Loaded::Hold),
+        Metric::WeightedReps => {
+            let loads: Vec<f64> = ex
+                .equipment
+                .iter()
+                .filter_map(|id| equipment_loads.get(id))
+                .flatten()
+                .copied()
+                .collect();
+            Inventory::new(loads).map(Loaded::Weighted)
+        }
+    }
+}
+
+/// Prescribe from a **trusted** ability estimate — the type is the proof: there
+/// is no way to call this for an exercise the athlete hasn't recently
+/// demonstrated (see [`Known`]).
+///
+/// Weighted work autoregulates: the working load is derived from the decayed e1RM
+/// so a layoff self-corrects to a lighter start, and the load only steps up when
+/// logged sets raise the estimate past the next owned weight (double progression,
+/// but *earned* and snapped to what you own). `advance = false` (low readiness)
+/// leaves more in reserve — keep it light, don't chase a PR.
+fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dose {
     let reserve = if advance {
         TARGET_RIR
     } else {
         TARGET_RIR + LOW_READINESS_EXTRA_RIR
     };
-    match ex.metric {
-        Metric::WeightedReps => {
-            let (lo_v, hi_v) = (lo.unwrap_or(6), hi.unwrap_or(10));
-            match ability.and_then(|a| a.e1rm) {
+    match loaded {
+        Loaded::Weighted(inv) => {
+            let range = rep_range(mode, true);
+            match ability.e1rm {
                 Some(e) => {
                     // Working load: the weight you own nearest the one that puts
                     // the top of the range within reach at the target reserve.
-                    let w = snap(loads, load_for(e, hi_v as f64, reserve));
+                    let load = inv.snap(load_for(e, range.high as f64, reserve));
                     // At that (discrete) weight, how many reps are actually in
                     // reach? Clamped into the range — this is the rep target that
                     // climbs to the top before the weight is allowed to step.
-                    let target = (reps_at(e, w, reserve).round() as i32).clamp(lo_v, hi_v);
-                    (sets, Some(target), hi, Some(w), None)
+                    let low =
+                        (reps_at(e, load, reserve).round() as i32).clamp(range.low, range.high);
+                    Dose::Weighted {
+                        load,
+                        reps: RepTarget { low, ..range },
+                    }
                 }
-                // Never done / no recent estimate → lightest owned + full range.
-                None => (sets, lo, hi, cold, None),
+                // Trusted for reps/holds but no e1RM (all its sets were logged
+                // without a load): open the full range at the lightest weight.
+                None => Dose::Weighted {
+                    load: inv.lightest(),
+                    reps: range,
+                },
             }
         }
-        Metric::Reps => {
+        Loaded::Reps => {
             // Only lever is reps: climb toward the top of the range off the
             // decayed best; hold (no climb) on a low-readiness day.
-            let target = match ability.and_then(|a| a.best_reps) {
+            let range = rep_range(mode, false);
+            let low = match ability.best_reps {
                 Some(best) => {
                     let aim = if advance { best + 1 } else { best };
-                    aim.clamp(lo.unwrap_or(8), hi.unwrap_or(12))
+                    aim.clamp(range.low, range.high)
                 }
-                None => lo.unwrap_or(8),
+                None => range.low,
             };
-            (sets, Some(target), hi, None, None)
+            Dose::Bodyweight {
+                reps: RepTarget { low, ..range },
+            }
         }
-        Metric::Hold => {
-            let base = ability.and_then(|a| a.best_hold).unwrap_or(COLD_HOLD_S);
-            let secs = if advance { base + HOLD_STEP_S } else { base };
-            (2, None, None, None, Some(secs))
+        Loaded::Hold => {
+            let base = ability.best_hold.unwrap_or(COLD_HOLD_S);
+            Dose::Hold {
+                secs: if advance { base + HOLD_STEP_S } else { base },
+            }
         }
     }
 }
 
 /// A calibration set for an exercise whose ability is untrusted (never done, or
-/// only stale data): one set, framed as a measurement. The logged result feeds
-/// the ability model, so the next verdict prescribes from it (G3). Weighted →
-/// build up to a hard, clean `ASSESS_WEIGHTED_REPS` (a starting load offered from
-/// any decayed estimate, else the lightest owned); reps → AMRAP to form
-/// breakdown; hold → one max hold. Open rep/hold fields signal "as many as clean".
-fn assess(
-    ex: &ExerciseInfo,
-    ability: Option<&Ability>,
-    loads: &[f64],
-) -> (i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>) {
-    match ex.metric {
-        Metric::WeightedReps => {
-            let load = match ability.and_then(|a| a.e1rm) {
-                // Offer a safe build-up target from the (stale) estimate.
-                Some(e) => Some(snap(
-                    loads,
-                    load_for(e, ASSESS_WEIGHTED_REPS as f64, LOW_READINESS_EXTRA_RIR),
+/// only stale data): the engine measures instead of prescribing a false-precision
+/// number (G3). The logged result feeds the ability model, so the next verdict
+/// prescribes from it. `stale` is any decayed estimate we have — good enough to
+/// open a build-up safely, not good enough to prescribe from.
+fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
+    match loaded {
+        Loaded::Weighted(inv) => {
+            let start = match stale.and_then(|a| a.e1rm) {
+                // Open from the stale estimate, with reserve — a safe build-up.
+                Some(e) => inv.snap(load_for(
+                    e,
+                    ASSESS_WEIGHTED_REPS as f64,
+                    LOW_READINESS_EXTRA_RIR,
                 )),
-                None => loads.first().copied(),
+                None => inv.lightest(),
             };
-            (
-                1,
-                Some(ASSESS_WEIGHTED_REPS),
-                Some(ASSESS_WEIGHTED_REPS),
-                load,
-                None,
-            )
+            Measure::BuildUp {
+                start,
+                reps: ASSESS_WEIGHTED_REPS,
+            }
         }
-        // AMRAP / max hold — the open fields say "as many clean reps / as long as
-        // clean form holds", which is exactly what we're measuring.
-        Metric::Reps => (1, None, None, None, None),
-        Metric::Hold => (1, None, None, None, None),
+        Loaded::Reps => Measure::Amrap,
+        Loaded::Hold => Measure::MaxHold,
     }
 }
 
 /// Which block of the session an exercise belongs in — the classic order that
 /// puts demanding, technical work while the nervous system is fresh and leaves
-/// finishers for last. Lower runs earlier. Tier 1 is reserved for the warm-up
-/// block (a later stage).
+/// finishers for last. Lower runs earlier. Tier 1 is the warm-up block.
 fn tier(ex: &ExerciseInfo) -> u8 {
     if ex.is_skill || ex.metric == Metric::Hold {
         2 // skill / hold work — needs a fresh CNS
@@ -303,72 +358,161 @@ fn tier(ex: &ExerciseInfo) -> u8 {
     }
 }
 
-/// Size and order the resolved candidates into the day's plan. Work items get a
-/// share of the `budget` sets proportional to their muscle-group deficit (at
-/// least `WORK_MIN_SETS`); Assess (calibration) and Hold items keep their own
-/// counts. Items are added biggest-deficit-first until the budget is spent, then
-/// re-sorted into training order (tier, then deficit, then id) so the list reads
-/// top-to-bottom as a sensible session — the athlete starts at the top or picks
-/// any item. Recomputed statelessly each call, so logging a set reshapes it.
-fn build_plan(mut resolved: Vec<(Suggestion, f64, u8)>, budget: i32) -> Vec<Suggestion> {
-    if budget <= 0 {
-        return Vec::new();
-    }
-    // Fund the biggest deficits first.
-    resolved.sort_by(|a, b| {
-        b.1.partial_cmp(&a.1)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.0.exercise_id.cmp(&b.0.exercise_id))
-    });
-    let total_def: f64 = resolved.iter().map(|(_, d, _)| d).sum::<f64>().max(1e-9);
-    let mut left = budget;
-    let mut chosen: Vec<(Suggestion, f64, u8)> = Vec::new();
-    for (mut sug, def, t) in resolved {
-        if left <= 0 {
-            break;
-        }
-        // Weighted / bodyweight *work* is sized to its deficit share; assess and
-        // hold items keep their fixed counts but still draw down the budget.
-        let resizeable = sug.kind == SuggestionKind::Work && sug.hold_s.is_none();
-        if resizeable {
-            let share = ((budget as f64) * def / total_def).round() as i32;
-            sug.sets = share.max(WORK_MIN_SETS).min(left);
-        }
-        left -= sug.sets;
-        chosen.push((sug, def, t));
-    }
-    // Present in training order.
-    chosen.sort_by(|a, b| {
-        a.2.cmp(&b.2)
-            .then(b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal))
-            .then(a.0.exercise_id.cmp(&b.0.exercise_id))
-    });
-    chosen.into_iter().map(|(s, _, _)| s).collect()
+/// Per-group state the cover and the explanations both read.
+struct Groups {
+    /// Dense index per muscle-group id.
+    ix: HashMap<i64, GroupIx>,
+    name: Vec<String>,
+    id: Vec<i64>,
+    /// Remaining weekly deficit as a fraction (0 = at target, 1 = untrained).
+    deficit: ByGroup<f64>,
+    /// Graded recovery, 0 (just hammered) .. 1 (fully recovered).
+    recovery: ByGroup<f64>,
+    /// What today should chase: effective sets still wanted, capped at what one
+    /// session can usefully deliver, discounted by how recovered the group is.
+    need: ByGroup<f64>,
 }
 
-/// The discrete weights owned here for an exercise's kit (union over its
-/// load-bearing equipment, sorted asc, deduped) — the set loads snap to.
-fn owned_loads(ex: &ExerciseInfo, equipment_loads: &HashMap<i64, Vec<f64>>) -> Vec<f64> {
-    let mut loads: Vec<f64> = ex
-        .equipment
+/// A selectable exercise, with everything the cover and the prescription need.
+struct Cand<'a> {
+    ex: &'a ExerciseInfo,
+    loaded: Loaded,
+    /// The group this set pays into most — the label the plan item carries.
+    label: Option<GroupIx>,
+}
+
+/// Build the selectable candidates for this location: catalog minus warm-up moves,
+/// minus anything the kit can't do, minus weighted lifts with no registered
+/// weights (returned as notices — a drop the athlete can act on, not a silent gap).
+fn candidates<'a>(
+    input: &'a PacingInput,
+    kit: &Kit,
+    abilities: &HashMap<i64, Ability>,
+    groups: &Groups,
+    now: NaiveDateTime,
+) -> (Vec<Cand<'a>>, Vec<Candidate>, Vec<String>) {
+    // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
+    let recency = |id: i64| -> f64 {
+        match input
+            .history
+            .iter()
+            .filter(|s| s.exercise_id == id)
+            .map(|s| s.logged_at)
+            .max()
+        {
+            Some(t) => ((now - t).num_hours() as f64 / 24.0).min(21.0) / 21.0,
+            None => 1.0,
+        }
+    };
+
+    let mut cands = Vec::new();
+    let mut scored = Vec::new();
+    // Equipment that blocked a weighted lift for want of registered weights.
+    let mut unweighted: Vec<i64> = Vec::new();
+
+    for ex in &input.exercises {
+        // Warm-up moves are the warm-up block's alone (and credit no volume).
+        if ex.warmup || !kit.has_all(&ex.equipment) {
+            continue;
+        }
+        let Some(loaded) = loadable(ex, &input.equipment_loads) else {
+            for e in &ex.equipment {
+                if !input.equipment_loads.contains_key(e) && !unweighted.contains(e) {
+                    unweighted.push(*e);
+                }
+            }
+            continue;
+        };
+
+        // What one set pays into each group: role credit, discounted by how
+        // recovered that group is (a hammered group can't bank the stimulus).
+        let mut credit = ByGroup::filled(groups.name.len(), 0.0);
+        for (gid, role) in &ex.groups {
+            if let Some(&i) = groups.ix.get(gid) {
+                credit[i] = role_credit(*role) * groups.recovery[i];
+            }
+        }
+        // The group this most pays into — the item's label. Ties → lower group id.
+        let label = credit
+            .iter()
+            .filter(|(i, c)| *c > 0.0 && groups.need[*i] > 0.0)
+            .max_by(|a, b| {
+                let (pa, pb) = (groups.need[a.0] * a.1, groups.need[b.0] * b.1);
+                pa.total_cmp(&pb)
+                    .then(groups.id[b.0.0].cmp(&groups.id[a.0.0]))
+            })
+            .map(|(i, _)| i);
+
+        // A calibration set is a measurement: exactly one, always. Trusted work
+        // takes its minimum effective dose, and may earn up to the ceiling.
+        let (min, cap) = match Known::of(abilities, ex.id) {
+            Some(_) => (MIN_WORK_SETS, MAX_SETS_PER_EXERCISE),
+            None => (1, 1),
+        };
+        scored.push(Candidate {
+            id: ex.id,
+            credit,
+            weight: mode_fit(input.mode, ex) * 2.0 + recency(ex.id),
+            min,
+            cap,
+        });
+        cands.push(Cand { ex, loaded, label });
+    }
+
+    let mut notices = Vec::new();
+    if !unweighted.is_empty() {
+        unweighted.sort_unstable();
+        let names: Vec<String> = unweighted
+            .iter()
+            .map(|e| {
+                input
+                    .equipment_names
+                    .get(e)
+                    .cloned()
+                    .unwrap_or_else(|| "equipment".into())
+            })
+            .collect();
+        notices.push(format!(
+            "No weights registered here for {} — I've left its exercises out rather than guess a load.",
+            names.join(", ")
+        ));
+    }
+    (cands, scored, notices)
+}
+
+/// The exercise the athlete *would* be doing for this group if the kit allowed —
+/// the best-scoring one that trains it as a primary, ignoring what's present.
+/// Reported when it isn't what we chose, so a swap explains itself.
+fn blocked_ideal(
+    input: &PacingInput,
+    weight: &dyn Fn(&ExerciseInfo) -> f64,
+    group_id: i64,
+    chosen_id: i64,
+) -> Option<String> {
+    input
+        .exercises
         .iter()
-        .filter_map(|id| equipment_loads.get(id))
-        .flatten()
-        .copied()
-        .collect();
-    loads.sort_by(f64::total_cmp);
-    loads.dedup();
-    loads
+        .filter(|e| {
+            !e.warmup
+                && e.groups
+                    .iter()
+                    .any(|(g, r)| *g == group_id && *r == MuscleRole::Primary)
+        })
+        .max_by(|a, b| {
+            weight(a).total_cmp(&weight(b)).then(b.id.cmp(&a.id)) // lower id wins ties (reverse in max)
+        })
+        .filter(|ideal| ideal.id != chosen_id)
+        .map(|ideal| ideal.name.clone())
 }
 
-/// Build the warm-up block for a work plan: a little joint/mobility prep for the
-/// muscle groups the session trains, plus a light ramp-in set on the first heavy
-/// lift. Warm-ups credit no volume and are the only place warm-up-tagged moves
-/// appear. Ordered first (they're what you do before the session). Deterministic:
-/// mobility by exercise id, one per not-yet-covered session group.
+/// Build the warm-up block for a work plan: mobility prep for the muscle groups
+/// the session trains, plus a light ramp-in set on the first heavy lift. Warm-ups
+/// credit no volume and are the only place warm-up-tagged moves appear. Ordered
+/// first. Deterministic: mobility by exercise id, one per not-yet-covered group.
 fn build_warmup(
     work: &[Suggestion],
     input: &PacingInput,
+    kit: &Kit,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     group_name: &HashMap<i64, String>,
 ) -> Vec<Suggestion> {
@@ -386,8 +530,6 @@ fn build_warmup(
             }
         }
     }
-    let avail = input.available_equipment.as_ref();
-    let doable = |eq: &[i64]| avail.is_none_or(|a| eq.iter().all(|e| a.contains(e)));
 
     // Mobility: warm-up-tagged moves for the session's groups, doable here. Take
     // one per still-uncovered group so we don't stack redundant drills.
@@ -396,7 +538,7 @@ fn build_warmup(
         .iter()
         .filter(|e| {
             e.warmup
-                && doable(&e.equipment)
+                && kit.has_all(&e.equipment)
                 && e.groups
                     .iter()
                     .any(|(g, r)| *r == MuscleRole::Primary && session_groups.contains(g))
@@ -447,8 +589,8 @@ fn build_warmup(
         .iter()
         .find(|s| s.kind == SuggestionKind::Work && s.load_kg.is_some())
         && let (Some(ex), Some(load)) = (ex_by_id.get(&w.exercise_id), w.load_kg)
+        && let Some(Loaded::Weighted(inv)) = loadable(ex, &input.equipment_loads)
     {
-        let loads = owned_loads(ex, &input.equipment_loads);
         out.push(Suggestion {
             exercise_id: w.exercise_id,
             exercise_name: w.exercise_name.clone(),
@@ -457,7 +599,7 @@ fn build_warmup(
             sets: WARMUP_SETS,
             rep_low: w.rep_high, // an easy set of the top of the range
             rep_high: w.rep_high,
-            load_kg: Some(snap(&loads, load * RAMP_FRACTION)),
+            load_kg: Some(inv.snap(load * RAMP_FRACTION)),
             hold_s: None,
             group: w.group.clone(),
             substituted_for: None,
@@ -465,111 +607,6 @@ fn build_warmup(
         });
     }
     out
-}
-
-/// Choose the best exercise for a muscle group given mode + location, or `None`
-/// if nothing that trains it as a primary is doable here.
-#[allow(clippy::too_many_arguments)]
-fn pick_for_group(
-    input: &PacingInput,
-    abilities: &std::collections::HashMap<i64, Ability>,
-    group_id: i64,
-    group_name: &str,
-    deficit: f64,
-    recovery: f64,
-    now: NaiveDateTime,
-) -> Option<Suggestion> {
-    let mode = input.mode;
-    let avail = input.available_equipment.as_ref();
-    let doable = |eq: &[i64]| avail.is_none_or(|a| eq.iter().all(|e| a.contains(e)));
-    // A work exercise for this group: trains it as a primary and isn't a warm-up
-    // move (those are the warm-up block's alone, and credit no training volume).
-    let trains = |e: &ExerciseInfo| {
-        !e.warmup
-            && e.groups
-                .iter()
-                .any(|(g, r)| *g == group_id && *r == MuscleRole::Primary)
-    };
-    // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
-    let recency = |id: i64| -> f64 {
-        match input
-            .history
-            .iter()
-            .filter(|s| s.exercise_id == id)
-            .map(|s| s.logged_at)
-            .max()
-        {
-            Some(t) => ((now - t).num_hours() as f64 / 24.0).min(21.0) / 21.0,
-            None => 1.0,
-        }
-    };
-    let score = |e: &ExerciseInfo| mode_fit(mode, e) * 2.0 + recency(e.id);
-
-    // Deterministic best (score desc, id asc) over a filter.
-    let best = |f: &dyn Fn(&ExerciseInfo) -> bool| -> Option<&ExerciseInfo> {
-        input.exercises.iter().filter(|e| f(e)).max_by(|a, b| {
-            score(a)
-                .partial_cmp(&score(b))
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then(b.id.cmp(&a.id)) // lower id wins ties (reverse in max)
-        })
-    };
-
-    let ideal = best(&|e| trains(e));
-    // When the ideal's kit is missing here, substitute like-for-like: prefer a
-    // doable exercise with the ideal's *metric* (swapping a rep pull for a max
-    // hold is a different ask, not a substitute), falling back to any doable one.
-    let chosen = match ideal {
-        Some(i) if doable(&i.equipment) => i,
-        Some(i) => best(&|e| trains(e) && doable(&e.equipment) && e.metric == i.metric)
-            .or_else(|| best(&|e| trains(e) && doable(&e.equipment)))?,
-        None => return None,
-    };
-    let substituted_for = match (avail, ideal) {
-        (Some(_), Some(i)) if i.id != chosen.id => Some(i.name.clone()),
-        _ => None,
-    };
-    // Hold progression on a low-readiness day.
-    let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
-    let loads = owned_loads(chosen, &input.equipment_loads);
-    // Untrusted ability (never done, or only stale data) → measure instead of
-    // prescribing a false-precision number.
-    let ability = abilities.get(&chosen.id);
-    let assessing = matches!(
-        ability::confidence_of(abilities, chosen.id),
-        Confidence::Low | Confidence::None
-    );
-    let (sets, rep_low, rep_high, load_kg, hold_s) = if assessing {
-        assess(chosen, ability, &loads)
-    } else {
-        prescribe(chosen, ability, mode, advance, &loads)
-    };
-    let kind = if assessing {
-        SuggestionKind::Assess
-    } else {
-        SuggestionKind::Work
-    };
-    let explanation = Explanation {
-        deficit,
-        recovery,
-        confidence: ability::confidence_of(abilities, chosen.id),
-        e1rm: ability.and_then(|a| a.e1rm),
-        readiness: input.readiness.map(|r| r.band),
-    };
-    Some(Suggestion {
-        exercise_id: chosen.id,
-        exercise_name: chosen.name.clone(),
-        pattern: chosen.pattern,
-        kind,
-        sets,
-        rep_low,
-        rep_high,
-        load_kg,
-        hold_s,
-        group: group_name.to_string(),
-        substituted_for,
-        explanation: Some(explanation),
-    })
 }
 
 /// Evaluate the coach verdict for `now` (local time).
@@ -621,11 +658,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         let age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
-            let credit = match role {
-                MuscleRole::Primary => 1.0,
-                MuscleRole::Secondary => SECONDARY_CREDIT,
-                MuscleRole::Stabilizer => STABILIZER_CREDIT,
-            };
+            let credit = role_credit(*role);
             if set.logged_at >= hist_cut {
                 *avg_sum.entry(*g).or_default() += credit;
             }
@@ -656,11 +689,24 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let deload = input.readiness.is_none() && volume_deload;
     let days_scale = (input.days_per_week as f64 / 4.0).clamp(0.5, 2.0);
 
-    // --- per-group balance + focus candidates (non-recovering, in deficit) ---
+    // --- per-group balance + the need vector the session covers ---
+    let n = input.groups.len();
+    let mut groups = Groups {
+        ix: input
+            .groups
+            .iter()
+            .enumerate()
+            .map(|(i, g)| (g.id, GroupIx(i)))
+            .collect(),
+        name: input.groups.iter().map(|g| g.name.clone()).collect(),
+        id: input.groups.iter().map(|g| g.id).collect(),
+        deficit: ByGroup::filled(n, 0.0),
+        recovery: ByGroup::filled(n, 0.0),
+        need: ByGroup::filled(n, 0.0),
+    };
     let mut balances: Vec<GroupBalance> = Vec::new();
-    // (group id, name, effective_deficit [priority + sizing], raw deficit, recovery)
-    let mut candidates: Vec<(i64, String, f64, f64, f64)> = Vec::new();
-    for gm in &input.groups {
+    for (i, gm) in input.groups.iter().enumerate() {
+        let ix = GroupIx(i);
         let cur = *current.get(&gm.id).unwrap_or(&0.0);
         let avg = avg_sum.get(&gm.id).copied().unwrap_or(0.0) / HISTORY_WEEKS as f64;
         let emph = if input.emphasis == Some(gm.region) {
@@ -672,38 +718,29 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         let target =
             (base * region_mult(input.mode, gm.region) * emph * days_scale * recovery_scale)
                 .max(3.0);
-        let deficit = ((target - cur) / target).clamp(0.0, 1.0);
-        // Graded recovery: 0 (just hammered) → 1 (fully recovered). Scale the
-        // deficit by it, so a half-recovered group is a half-priority, and the
-        // old hard gate falls out as the fraction-≈0 case.
+        // Graded recovery: 0 (just hammered) → 1 (fully recovered).
         let recovery =
             (1.0 - unrecovered.get(&gm.id).copied().unwrap_or(0.0) / RECOVERY_SETS).clamp(0.0, 1.0);
-        let effective_deficit = deficit * recovery;
-        let recovering = recovery < RECOVERED_FRACTION;
-        if effective_deficit > MIN_EFFECTIVE_DEFICIT {
-            candidates.push((gm.id, gm.name.clone(), effective_deficit, deficit, recovery));
-        }
+
+        groups.deficit[ix] = ((target - cur) / target).clamp(0.0, 1.0);
+        groups.recovery[ix] = recovery;
+        // What today chases: the sets still owed this week, capped at what one
+        // session can usefully give the group, and discounted by its recovery.
+        // In *effective set* units — the same units an exercise's credit pays in,
+        // which is what makes the cover's subtraction mean something physical.
+        groups.need[ix] = (target - cur).clamp(0.0, MAX_GROUP_SETS_PER_DAY) * recovery;
+
         balances.push(GroupBalance {
             group: gm.name.clone(),
             region: gm.region,
             current: cur,
             target,
-            deficit,
-            recovering,
+            deficit: groups.deficit[ix],
+            recovering: recovery < RECOVERED_FRACTION,
         });
     }
     // Balance view: most-in-deficit first.
-    balances.sort_by(|a, b| {
-        b.deficit
-            .partial_cmp(&a.deficit)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    // Focus order: biggest deficit first, tie-break group id.
-    candidates.sort_by(|a, b| {
-        b.2.partial_cmp(&a.2)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.0.cmp(&b.0))
-    });
+    balances.sort_by(|a, b| b.deficit.total_cmp(&a.deficit));
 
     // --- session-size target from personal weekly volume (sizes the plan) ---
     let avg_weekly_sets = if raw_hist > 0 {
@@ -717,28 +754,21 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         .round() as i32)
         .clamp(3, 15);
 
-    // --- build the ordered session plan ---
-    // Resolve each in-deficit, recovered group to a doable exercise; size + order
-    // into the day's plan. The head is "next up"; the rest is the session.
-    let mut resolved: Vec<(Suggestion, f64, u8)> = Vec::new();
-    for (gid, gname, eff_deficit, deficit, recovery) in &candidates {
-        if let Some(sug) = pick_for_group(input, &abilities, *gid, gname, *deficit, *recovery, now)
-        {
-            let t = ex_by_id.get(&sug.exercise_id).map(|e| tier(e)).unwrap_or(4);
-            // Size by the recovery-scaled deficit; explain with the raw values.
-            resolved.push((sug, *eff_deficit, t));
-        }
-    }
-    let work = build_plan(resolved, day_target_sets);
-    // Prepend the warm-up block (mobility for the session's groups + a ramp-in on
-    // the first heavy lift). Warm-ups lead; the head becomes "start here".
-    let group_name: HashMap<i64, String> = input
-        .groups
-        .iter()
-        .map(|g| (g.id, g.name.clone()))
-        .collect();
-    let warmup = build_warmup(&work, input, &ex_by_id, &group_name);
-    let plan: Vec<Suggestion> = warmup.into_iter().chain(work).collect();
+    // --- cover the need with the kit that's actually here ---
+    // No location → we don't know what's doable, and we don't guess: no plan.
+    let (plan, notices) = match &input.kit {
+        Some(kit) => plan_session(
+            input,
+            kit,
+            &abilities,
+            &groups,
+            day_target_sets,
+            &ex_by_id,
+            now,
+        ),
+        None => (Vec::new(), Vec::new()),
+    };
+
     // "Next up" for the nudge + Android trigger is the first *training* item, not
     // the warm-up that leads the visible plan.
     let suggestion = plan
@@ -775,7 +805,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         _ => None,
     };
 
-    let reason = if suggestion.is_none() {
+    let reason = if input.kit.is_none() {
+        "Tell me where you're training and I'll plan the session.".to_string()
+    } else if suggestion.is_none() {
         if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
         } else {
@@ -832,5 +864,116 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         groups: balances,
         suggestion,
         plan,
+        notices,
     }
+}
+
+/// Cover today's need with the kit present: greedy set-cover over the doable
+/// catalog, each chosen exercise prescribed (trusted ability) or assessed
+/// (untrusted), then ordered into a session and led by a warm-up block.
+fn plan_session(
+    input: &PacingInput,
+    kit: &Kit,
+    abilities: &HashMap<i64, Ability>,
+    groups: &Groups,
+    budget: i32,
+    ex_by_id: &HashMap<i64, &ExerciseInfo>,
+    now: NaiveDateTime,
+) -> (Vec<Suggestion>, Vec<String>) {
+    let (cands, scored, notices) = candidates(input, kit, abilities, groups, now);
+    let chosen = cover::select(&scored, &groups.need, budget);
+
+    // Hold progression on a low-readiness day.
+    let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
+    let weight = |e: &ExerciseInfo| mode_fit(input.mode, e) * 2.0;
+
+    // Only the *first* exercise the cover picks for a group is a stand-in for that
+    // group's blocked ideal; anything it picks afterwards is simply more work, not
+    // a second substitute for the same thing.
+    let mut stood_in: std::collections::HashSet<GroupIx> = std::collections::HashSet::new();
+
+    let mut work: Vec<(Suggestion, u8)> = Vec::new();
+    for pick in chosen {
+        let c = &cands[pick.index];
+        let sets = pick.sets;
+        let ability = abilities.get(&c.ex.id);
+        let (kind, dose, measure) = match Known::of(abilities, c.ex.id) {
+            Some(known) => (
+                SuggestionKind::Work,
+                Some(prescribe(&c.loaded, &known, input.mode, advance)),
+                None,
+            ),
+            None => (
+                SuggestionKind::Assess,
+                None,
+                Some(assess(&c.loaded, ability)),
+            ),
+        };
+        // Wire shape: the sum types above are the engine's truth; these flat
+        // fields are their rendering for the UI + Android.
+        let (rep_low, rep_high, load_kg, hold_s) = match (&dose, &measure) {
+            (Some(Dose::Weighted { load, reps }), _) => {
+                (Some(reps.low), Some(reps.high), Some(*load), None)
+            }
+            (Some(Dose::Bodyweight { reps }), _) => (Some(reps.low), Some(reps.high), None, None),
+            (Some(Dose::Hold { secs }), _) => (None, None, None, Some(*secs)),
+            (_, Some(Measure::BuildUp { start, reps })) => {
+                (Some(*reps), Some(*reps), Some(*start), None)
+            }
+            // AMRAP / max hold — the open fields say "as many clean reps / as long
+            // as clean form holds", which is exactly what we're measuring.
+            (_, Some(Measure::Amrap) | Some(Measure::MaxHold)) => (None, None, None, None),
+            (None, None) => (None, None, None, None),
+        };
+
+        let (group, explanation, substituted_for) = match c.label {
+            Some(ix) => (
+                groups.name[ix.0].clone(),
+                Some(Explanation {
+                    deficit: groups.deficit[ix],
+                    recovery: groups.recovery[ix],
+                    pays: pick.pays,
+                    confidence: ability::confidence_of(abilities, c.ex.id),
+                    e1rm: ability.and_then(|a| a.e1rm),
+                    readiness: input.readiness.map(|r| r.band),
+                }),
+                stood_in
+                    .insert(ix)
+                    .then(|| blocked_ideal(input, &weight, groups.id[ix.0], c.ex.id))
+                    .flatten(),
+            ),
+            None => (String::new(), None, None),
+        };
+
+        work.push((
+            Suggestion {
+                exercise_id: c.ex.id,
+                exercise_name: c.ex.name.clone(),
+                pattern: c.ex.pattern,
+                kind,
+                sets,
+                rep_low,
+                rep_high,
+                load_kg,
+                hold_s,
+                group,
+                substituted_for,
+                explanation,
+            },
+            tier(c.ex),
+        ));
+    }
+
+    // Present in training order: tier, then the order the cover picked them
+    // (biggest marginal gain first), which the stable sort preserves.
+    work.sort_by_key(|(_, t)| *t);
+    let work: Vec<Suggestion> = work.into_iter().map(|(s, _)| s).collect();
+
+    let group_name: HashMap<i64, String> = input
+        .groups
+        .iter()
+        .map(|g| (g.id, g.name.clone()))
+        .collect();
+    let warmup = build_warmup(&work, input, kit, ex_by_id, &group_name);
+    (warmup.into_iter().chain(work).collect(), notices)
 }

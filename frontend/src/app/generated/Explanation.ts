@@ -17,6 +17,13 @@ deficit: number,
  */
 recovery: number, 
 /**
+ * Effective sets of genuine need this exercise's first set paid down — the
+ * number the cover actually ranked and gated it on (`deficit` and `recovery`
+ * are the human-readable factors behind it). An item is only planned when
+ * this clears [`super::cover::MIN_PAY`], so the trace proves the gate held.
+ */
+pays: number, 
+/**
  * How much the engine trusts its ability estimate for this exercise.
  */
 confidence: Confidence, 

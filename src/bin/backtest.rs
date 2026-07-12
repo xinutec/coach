@@ -13,12 +13,14 @@
 //! Usage:
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin backtest
 //!   BACKTEST_USER overrides the user id (default: the single imported user).
+//!   BACKTEST_LOCATION picks the location by name (default: the user's default).
 
 use std::collections::{BTreeSet, HashMap};
 
 use anyhow::{Context, Result};
 use chrono::{NaiveDate, NaiveDateTime, TimeZone, Utc};
 
+use coach::location::repo as location_repo;
 use coach::pacing::ability::{self, Confidence};
 use coach::pacing::types::SetRec;
 use coach::pacing::{engine, service};
@@ -44,9 +46,25 @@ async fn main() -> Result<()> {
     let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
     coach::seed::run(&pool, &catalog_dir).await?;
 
-    // Same assembly as the live verdict, location-agnostic ("Anywhere") so the
-    // back-test isn't tied to one gym's inventory.
-    let ctx = service::context(&pool, &user, None).await?;
+    // Same assembly as the live verdict — *including the location*. This used to
+    // run "location-agnostic", which sounded neutral but actually meant the old
+    // engine's permissive path: no kit filter at all, so the back-test validated
+    // prescriptions against equipment the athlete doesn't own. A back-test has to
+    // mirror the environment it's predicting; it now runs at a real location
+    // (`BACKTEST_LOCATION` by name, else the default one), exactly as the app does.
+    let locations = location_repo::list(&pool, &user).await?;
+    let wanted = std::env::var("BACKTEST_LOCATION").ok();
+    let location = match &wanted {
+        Some(name) => locations
+            .iter()
+            .find(|l| l.name.eq_ignore_ascii_case(name))
+            .with_context(|| format!("no location named {name:?}"))?,
+        None => locations
+            .iter()
+            .find(|l| l.is_default)
+            .context("the user has no default location")?,
+    };
+    let ctx = service::context(&pool, &user, Some(location.id)).await?;
 
     // All of the user's history (a floor in the distant past = everything).
     let floor = NaiveDate::from_ymd_opt(2000, 1, 1)
@@ -90,6 +108,11 @@ async fn main() -> Result<()> {
         days.len(),
         days.iter().next().unwrap(),
         days.iter().last().unwrap()
+    );
+    println!(
+        "# at location {:?} — the kit bounds what can be prescribed, so the verdict \
+         is only meaningful against one (BACKTEST_LOCATION to change)",
+        location.name
     );
     println!("# each block: the morning verdict for that day, given only prior days\n");
 
@@ -156,6 +179,11 @@ async fn main() -> Result<()> {
                 hold,
                 conf
             );
+        }
+        // What the coach *couldn't* prescribe here (kit with no registered
+        // weights). Part of the verdict: a silent drop reads as a gap in the plan.
+        for n in &verdict.notices {
+            println!("    (note) {n}");
         }
         println!();
     }

@@ -11,8 +11,9 @@
       <span class="auto">detected</span>
     }
   </div>
+  <!-- There is no "Anywhere": the kit present is what bounds the session, so the
+       coach is always somewhere. -->
   <mat-menu #locMenu="matMenu">
-    <button mat-menu-item (click)="onLocationChange(null)">Anywhere</button>
     @for (l of locations(); track l.id) {
       <button mat-menu-item (click)="onLocationChange(l.id)">{{ l.name }}</button>
     }
@@ -113,6 +114,13 @@
         </mat-card-content>
       </mat-card>
     }
+  }
+
+  <!-- Kit the coach had to leave out (no weights registered for it). It drops
+       those lifts rather than guessing a load, so it says so — otherwise the drop
+       just looks like a hole in the plan. -->
+  @for (n of p.notices; track n) {
+    <p class="notice"><mat-icon>info</mat-icon> {{ n }}</p>
   }
 } @else if (loading()) {
   <mat-progress-bar mode="indeterminate" />

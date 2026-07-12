@@ -31,9 +31,17 @@ dayTargetSets: number, dayDoneSets: number, groups: Array<GroupBalance>,
  */
 suggestion: Suggestion | null, 
 /**
- * The ordered session for today: each in-deficit, recovered group resolved to
- * a doable exercise, sets sized to its deficit share of the day budget, and
- * ordered by training tier (skill/hold → heavy compound → accessory → core).
- * Recomputed statelessly each call, so logging a set reshapes it live.
+ * The ordered session for today: a greedy set-cover of the day's muscle-group
+ * need (see [`super::cover`]), so each exercise appears **once** with the set
+ * count it earned, ordered by training tier (skill/hold → heavy compound →
+ * accessory → core). Recomputed statelessly each call, so logging a set
+ * reshapes it live.
  */
-plan: Array<Suggestion>, };
+plan: Array<Suggestion>, 
+/**
+ * Things the athlete should know that aren't a set to do — chiefly kit that
+ * can't be prescribed because its weights aren't registered here. The engine
+ * drops those exercises rather than guessing a load; saying so is what keeps
+ * the drop from looking like a silent gap in the plan.
+ */
+notices: Array<string>, };

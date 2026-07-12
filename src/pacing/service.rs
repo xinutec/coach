@@ -10,6 +10,7 @@ use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
+use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::Metric;
 use crate::location::repo as location_repo;
@@ -21,7 +22,7 @@ use crate::workout::repo as workout_repo;
 
 use super::engine;
 use super::types::{
-    ExerciseInfo, GroupMeta, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
+    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
 };
 
 /// How far back to load set history. Wide enough that the ability model's
@@ -43,8 +44,12 @@ pub struct PacingContext {
     pub emphasis: Option<Region>,
     pub exercises: Vec<ExerciseInfo>,
     pub groups: Vec<GroupMeta>,
-    pub available_equipment: Option<HashSet<i64>>,
+    /// The kit where the athlete is training. `None` only when they have no
+    /// location at all — the engine then declines to plan rather than guessing
+    /// what's doable.
+    pub kit: Option<Kit>,
     pub equipment_loads: HashMap<i64, Vec<f64>>,
+    pub equipment_names: HashMap<i64, String>,
 }
 
 /// Load the history-independent context: settings + tz, the active mode, the
@@ -65,17 +70,34 @@ pub async fn context(
     };
     let mode = s.mode;
 
-    let available_equipment = match location_id {
+    // Where are we training? An explicit location, else the default one. Only a
+    // user with *no* locations at all gets `None` — and then the engine declines
+    // to plan rather than assuming an empty gym or, worse, a fully-stocked one.
+    let location = match location_id {
+        Some(id) => Some(id),
+        None => location_repo::list(pool, user_id)
+            .await?
+            .iter()
+            .find(|l| l.is_default)
+            .map(|l| l.id),
+    };
+    let kit = match location {
         Some(id) => location_repo::equipment_ids(pool, user_id, id)
             .await?
-            .map(|ids| ids.into_iter().collect::<HashSet<i64>>()),
+            .map(|ids| Kit(ids.into_iter().collect::<HashSet<i64>>())),
         None => None,
     };
     // Discrete owned weights per equipment at this location (for load snapping).
-    let equipment_loads = match location_id {
+    let equipment_loads = match location {
         Some(id) => location_repo::equipment_loads(pool, id).await?,
         None => HashMap::new(),
     };
+    // Names, only so the verdict can say *which* kit needs weights registering.
+    let equipment_names: HashMap<i64, String> = equipment_repo::list(pool)
+        .await?
+        .into_iter()
+        .map(|e| (e.id, e.name))
+        .collect();
 
     // Exercise metadata: equipment ids, muscle-group contributions, flags.
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
@@ -129,8 +151,9 @@ pub async fn context(
         emphasis: s.emphasis,
         exercises,
         groups,
-        available_equipment,
+        kit,
         equipment_loads,
+        equipment_names,
     })
 }
 
@@ -152,8 +175,9 @@ pub fn input_from(
         last_set_at,
         settings: ctx.settings,
         groups: ctx.groups.clone(),
-        available_equipment: ctx.available_equipment.clone(),
+        kit: ctx.kit.clone(),
         equipment_loads: ctx.equipment_loads.clone(),
+        equipment_names: ctx.equipment_names.clone(),
         readiness,
     }
 }

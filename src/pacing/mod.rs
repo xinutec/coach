@@ -3,6 +3,8 @@
 //! applies the user's timezone.
 
 pub mod ability;
+pub mod cover;
+pub mod dose;
 pub mod engine;
 pub mod readiness;
 pub mod service;

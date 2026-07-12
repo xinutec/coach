@@ -27,9 +27,10 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use coach::exercise::types::{Metric, Pattern};
 use coach::muscle::types::{MuscleRole, Region};
+use coach::pacing::cover;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    ExerciseInfo, GroupMeta, PacingInput, PacingSettings, SetRec, Suggestion, SuggestionKind,
+    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, SetRec, Suggestion, SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -136,8 +137,9 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         last_set_at,
         settings: settings(),
         groups: back_group(),
-        available_equipment: Some([3].into_iter().collect()),
+        kit: Some(Kit([3].into_iter().collect())),
         equipment_loads: owned(),
+        equipment_names: HashMap::new(),
         readiness: None,
     }
 }
@@ -305,11 +307,6 @@ fn body_ex(id: i64, name: &str, pattern: Pattern, group: i64) -> ExerciseInfo {
     }
 }
 
-// The engine's candidate gate (`engine::MIN_EFFECTIVE_DEFICIT`, private): a group
-// enters the plan only if deficit × recovery clears this. Mirrored here so the
-// simulation asserts the exact guarantee without reaching into the engine.
-const MIN_EFFECTIVE_DEFICIT: f64 = 0.05;
-
 #[test]
 fn never_prescribes_unrecovered_work_and_stays_within_budget() {
     // Three groups, bodyweight — an athlete who trains every single day. Recovery
@@ -356,25 +353,32 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             last_set_at,
             settings: settings(),
             groups: groups.clone(),
-            available_equipment: None,
+            kit: Some(Kit(catalog
+                .iter()
+                .flat_map(|e| e.equipment.clone())
+                .collect())),
             equipment_loads: HashMap::new(),
+            equipment_names: HashMap::new(),
             readiness: None,
         };
         let out = evaluate(&input, now);
 
-        // Recovery honesty: every work/assess item cleared the effective-recovery
-        // gate — the engine never prescribes a group it considers unrecovered. Its
-        // own explanation trace carries the deficit × recovery it was judged on.
+        // Recovery honesty: every work/assess item paid down real, recovered need —
+        // the engine never prescribes a group that's already at target or still
+        // sore. The item's own explanation trace carries the number the cover gated
+        // it on (E5), so this asserts the actual gate rather than a mirror of it.
         for s in &out.plan {
             if s.kind == SuggestionKind::Warmup {
                 continue;
             }
             let e = s.explanation.expect("a work/assess item explains itself");
             assert!(
-                e.deficit * e.recovery > MIN_EFFECTIVE_DEFICIT - 1e-9,
-                "day {i}: prescribed {} on under-recovered {} (deficit {:.2} × recovery {:.2})",
+                e.pays >= cover::MIN_PAY - 1e-9,
+                "day {i}: planned {} on {}, paying only {:.2} effective sets \
+                 (deficit {:.2} × recovery {:.2})",
                 s.exercise_name,
                 s.group,
+                e.pays,
                 e.deficit,
                 e.recovery
             );

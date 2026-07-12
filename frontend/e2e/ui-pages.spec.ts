@@ -212,6 +212,7 @@ const PACING = {
 			explanation: {
 				deficit: 0.4,
 				recovery: 1,
+				pays: 2.4,
 				confidence: "high",
 				e1rm: null,
 				readiness: "high",
@@ -232,12 +233,16 @@ const PACING = {
 			explanation: {
 				deficit: 0.33,
 				recovery: 0.5,
+				pays: 1.2,
 				confidence: "none",
 				e1rm: null,
 				readiness: "high",
 			},
 		},
 	],
+	// Kit present but with no registered weights: the coach drops those lifts
+	// rather than guessing a load, and says so.
+	notices: ["No weights registered here for Kettlebell — I've left its exercises out rather than guess a load."],
 };
 
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers
@@ -390,6 +395,20 @@ test("today — auto-detected location shows the 'detected' hint @ phone", async
 	await page.goto("/today");
 	await page.getByText("a bit light", { exact: false }).waitFor();
 	await page.locator(".status-line .auto").waitFor();
+	await expectNoTextOverlaps(page, testInfo);
+	await expectNoHorizontalOverflow(page, testInfo);
+});
+
+test("today — kit with no registered weights is named, not silently dropped @ phone", async ({
+	page,
+}, testInfo) => {
+	// The coach won't invent a load for a lift whose weights aren't registered, so
+	// it leaves the lift out. A drop the athlete can't see just looks like a hole
+	// in the plan — so it says which kit to fix.
+	await mockApi(page);
+	await page.goto("/today");
+	await page.getByText("a bit light", { exact: false }).waitFor();
+	await page.locator(".notice").getByText("Kettlebell", { exact: false }).waitFor();
 	await expectNoTextOverlaps(page, testInfo);
 	await expectNoHorizontalOverflow(page, testInfo);
 });

@@ -63,6 +63,26 @@ pub struct PacingSettings {
     pub min_rest_min: i32,
 }
 
+/// The equipment present where the athlete is training.
+///
+/// Deliberately *not* an `Option<HashSet>` consulted with `is_none_or`: that
+/// spelling made "we don't know the location" mean "everything is doable", so a
+/// missing location silently switched the safety filter off and the coach
+/// cheerfully suggested trap-bar deadlifts in a living room. Absent kit now means
+/// absent kit. Not knowing where you are is a *different* state
+/// ([`PacingInput::kit`] = `None`), and it yields a narrower verdict — no
+/// suggestions at all — rather than a wider one.
+#[derive(Clone, Debug, Default)]
+pub struct Kit(pub std::collections::HashSet<i64>);
+
+impl Kit {
+    /// Is every piece of `required` equipment present here? (Empty = bodyweight,
+    /// always true.)
+    pub fn has_all(&self, required: &[i64]) -> bool {
+        required.iter().all(|e| self.0.contains(e))
+    }
+}
+
 /// Everything the engine needs, already fetched.
 pub struct PacingInput {
     pub mode: Mode,
@@ -75,13 +95,19 @@ pub struct PacingInput {
     pub last_set_at: Option<NaiveDateTime>,
     pub settings: PacingSettings,
     pub groups: Vec<GroupMeta>,
-    /// Equipment available at the selected location. `None` = no filter; `Some` =
-    /// the suggestion must be doable here (a location-blocked ideal is swapped out).
-    pub available_equipment: Option<std::collections::HashSet<i64>>,
-    /// Discrete owned weights (kg, sorted asc) per equipment id at the selected
-    /// location — the engine snaps load suggestions to these. Empty for an
-    /// equipment (or no location) → classic +2.5 kg progression, no snapping.
+    /// The kit at the athlete's location. `None` = no location known, so the
+    /// engine can't say what's doable and won't guess: the verdict carries no
+    /// plan and asks for a location. Degradation narrows the claim, never widens it.
+    pub kit: Option<Kit>,
+    /// Discrete owned weights (kg) per equipment id at the selected location —
+    /// what load suggestions snap to. An equipment absent from this map has no
+    /// registered weights, so exercises needing it to be loaded aren't selectable
+    /// (see [`super::dose::Inventory`]); the verdict says so rather than
+    /// inventing a number.
     pub equipment_loads: HashMap<i64, Vec<f64>>,
+    /// Display names per equipment id — only used to say *which* kit needs weights
+    /// registering, in the verdict's notices.
+    pub equipment_names: HashMap<i64, String>,
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,
@@ -163,6 +189,11 @@ pub struct Explanation {
     pub deficit: f64,
     /// Recovery fraction for the group (0 = just hammered, 1 = fully recovered).
     pub recovery: f64,
+    /// Effective sets of genuine need this exercise's first set paid down — the
+    /// number the cover actually ranked and gated it on (`deficit` and `recovery`
+    /// are the human-readable factors behind it). An item is only planned when
+    /// this clears [`super::cover::MIN_PAY`], so the trace proves the gate held.
+    pub pays: f64,
     /// How much the engine trusts its ability estimate for this exercise.
     pub confidence: Confidence,
     /// Estimated 1-rep-max (kg) the load was derived from, when known.
@@ -222,9 +253,15 @@ pub struct PacingNow {
     pub groups: Vec<GroupBalance>,
     /// The head of `plan` — "next up" — kept for the nudge + the Android trigger.
     pub suggestion: Option<Suggestion>,
-    /// The ordered session for today: each in-deficit, recovered group resolved to
-    /// a doable exercise, sets sized to its deficit share of the day budget, and
-    /// ordered by training tier (skill/hold → heavy compound → accessory → core).
-    /// Recomputed statelessly each call, so logging a set reshapes it live.
+    /// The ordered session for today: a greedy set-cover of the day's muscle-group
+    /// need (see [`super::cover`]), so each exercise appears **once** with the set
+    /// count it earned, ordered by training tier (skill/hold → heavy compound →
+    /// accessory → core). Recomputed statelessly each call, so logging a set
+    /// reshapes it live.
     pub plan: Vec<Suggestion>,
+    /// Things the athlete should know that aren't a set to do — chiefly kit that
+    /// can't be prescribed because its weights aren't registered here. The engine
+    /// drops those exercises rather than guessing a load; saying so is what keeps
+    /// the drop from looking like a silent gap in the plan.
+    pub notices: Vec<String>,
 }

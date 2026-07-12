@@ -10,8 +10,8 @@ use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, ExerciseInfo, GroupMeta, PacingInput, PacingSettings, PacingState, Readiness, SetRec,
-    SuggestionKind,
+    Band, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, PacingState, Readiness,
+    SetRec, SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -127,6 +127,13 @@ fn input(
     available: Option<Vec<i64>>,
 ) -> PacingInput {
     let last_set_at = history.iter().map(|s| s.logged_at).max();
+    // `available: None` = "the kit isn't what this test is about", which now means
+    // a location stocked with everything the catalog needs — not the old "no
+    // filter" special case (there isn't one: absent kit means absent kit).
+    let kit = Kit(match available {
+        Some(v) => v.into_iter().collect(),
+        None => exercises.iter().flat_map(|e| e.equipment.clone()).collect(),
+    });
     PacingInput {
         mode,
         days_per_week: 4,
@@ -136,8 +143,9 @@ fn input(
         last_set_at,
         settings: settings(),
         groups: groups(),
-        available_equipment: available.map(|v| v.into_iter().collect()),
+        kit: Some(kit),
         equipment_loads: HashMap::new(),
+        equipment_names: HashMap::new(),
         readiness: None,
     }
 }
@@ -194,6 +202,19 @@ fn back_only() -> Vec<GroupMeta> {
         name: "Lats".into(),
         region: Region::Back,
     }]
+}
+
+/// Owned weights at equipment id 3: 20…80 kg in 2.5 kg steps. A weighted lift is
+/// only selectable where its weights are registered — without an inventory there
+/// is no honest load to prescribe, so the engine leaves it out.
+fn owned() -> HashMap<i64, Vec<f64>> {
+    let mut loads = Vec::new();
+    let mut w = 20.0;
+    while w <= 80.0 + 1e-9 {
+        loads.push(w);
+        w += 2.5;
+    }
+    HashMap::from([(3, loads)])
 }
 
 #[test]
@@ -409,7 +430,8 @@ fn recovery_gate_skips_a_just_worked_group() {
 
 #[test]
 fn mode_changes_the_bias() {
-    // Two back exercises: a loaded barbell row and a bodyweight ring skill.
+    // Two back exercises: a loaded barbell row (weights registered) and a
+    // bodyweight ring skill.
     let exs = vec![
         ex(
             5,
@@ -417,7 +439,7 @@ fn mode_changes_the_bias() {
             Pattern::Pull,
             Metric::WeightedReps,
             false,
-            vec![],
+            vec![3],
             vec![(20, MuscleRole::Primary)],
         ),
         ex(
@@ -430,14 +452,34 @@ fn mode_changes_the_bias() {
             vec![(20, MuscleRole::Primary)],
         ),
     ];
+    // Both known (one session each), so the day's sets are free to pool into
+    // whichever the mode prefers rather than being capped at one calibration set.
+    let hist = vec![wset(5, days_ago(10), 60.0, 5), set(6, days_ago(10))];
     let mk = |mode| PacingInput {
         groups: back_only(),
-        ..input(mode, exs.clone(), vec![], None, None)
+        equipment_loads: owned(),
+        ..input(mode, exs.clone(), hist.clone(), None, None)
     };
-    let strength = evaluate(&mk(Mode::Strength), now()).suggestion.unwrap();
-    let skills = evaluate(&mk(Mode::Skills), now()).suggestion.unwrap();
-    assert_eq!(strength.exercise_id, 5, "strength favours the loaded row");
-    assert_eq!(skills.exercise_id, 6, "skills favours the ring skill");
+    // The bias shows up as where the day's sets *go*, not as what leads the list:
+    // session order is a separate rule (skills first, while the CNS is fresh), so
+    // reading the plan's head would conflate preference with ordering.
+    let sets_of = |out: &coach::pacing::types::PacingNow, id: i64| -> i32 {
+        out.plan
+            .iter()
+            .filter(|s| s.exercise_id == id && s.kind != SuggestionKind::Warmup)
+            .map(|s| s.sets)
+            .sum()
+    };
+    let strength = evaluate(&mk(Mode::Strength), now());
+    let skills = evaluate(&mk(Mode::Skills), now());
+    assert!(
+        sets_of(&strength, 5) > sets_of(&strength, 6),
+        "strength spends the day on the loaded row"
+    );
+    assert!(
+        sets_of(&skills, 6) > sets_of(&skills, 5),
+        "skills spends the day on the ring skill"
+    );
 }
 
 #[test]
@@ -477,8 +519,10 @@ fn location_substitutes_the_ideal() {
 fn substitution_prefers_the_ideal_exercise_metric() {
     // Lat pull down (reps, machine id 101 not here) must swap to another *reps*
     // pull, not to a max hold — a hold is a different ask, not a substitute.
-    // Under Balanced all scores tie and the hold's lower id would win the doable
-    // pick (the exact prod bug: lat pull down → "Pull-up (L-sit)" hold).
+    // The prod bug this pins: Balanced once scored every exercise identically, so
+    // a rep-out and an isometric were indistinguishable and the hold's lower id
+    // won the tie — "Lat pull down" became "Pull-up (L-sit)". Balanced now rates
+    // rep work above holds, so the preference decides it, not the tie-break.
     let exs = vec![
         ex(
             5,
@@ -512,9 +556,28 @@ fn substitution_prefers_the_ideal_exercise_metric() {
         groups: back_only(),
         ..input(Mode::Balanced, exs, vec![], None, Some(vec![]))
     };
-    let sug = evaluate(&inp, now()).suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 7, "the same-metric pull is the substitute");
-    assert_eq!(sug.substituted_for.as_deref(), Some("Lat pull down"));
+    let out = evaluate(&inp, now());
+    let pull = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 7)
+        .expect("a rep pull stands in for the missing machine");
+    let hold = out.plan.iter().find(|s| s.exercise_id == 6);
+    // The rep pull is the stand-in for the blocked machine — and it's the *first*
+    // thing the cover reached for, which its own trace proves: the first pick pays
+    // down more of the group's need than anything taken after it.
+    assert_eq!(pull.substituted_for.as_deref(), Some("Lat pull down"));
+    if let Some(hold) = hold {
+        let pays = |s: &coach::pacing::types::Suggestion| s.explanation.unwrap().pays;
+        assert!(
+            pays(pull) > pays(hold),
+            "the rep pull was preferred to the hold, not the other way round"
+        );
+        assert_eq!(
+            hold.substituted_for, None,
+            "only the group's first stand-in claims to substitute"
+        );
+    }
 }
 
 #[test]
@@ -525,6 +588,7 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
     // set raises the estimate.
     let inp = PacingInput {
         groups: back_only(),
+        equipment_loads: owned(),
         ..input(
             Mode::Strength,
             vec![barbell_row()],
@@ -968,4 +1032,72 @@ fn emphasis_biases_a_region() {
         quads.target > chest.target,
         "emphasised region has a higher target"
     );
+}
+
+#[test]
+fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
+    // The prod shape of this: the Office kettlebell (and the Home dumbbell) are
+    // listed as kit but have no weights registered, so the engine had nothing to
+    // snap to — and offered a "1 kg overhead press", the lightest thing in the
+    // room standing in for an unknown. There is no honest load here, so there is
+    // no prescription: the lift is dropped, and the athlete is told why (they can
+    // fix it by registering the weights) rather than left with a silent gap.
+    let exs = vec![
+        barbell_row(), // weighted, equipment 3 — present, but no weights registered
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            true,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+    ];
+    let inp = PacingInput {
+        groups: back_only(),
+        equipment_names: HashMap::from([(3, "Barbell".to_string())]),
+        equipment_loads: HashMap::new(), // the kit is here; its weights are not
+        ..input(Mode::Strength, exs, vec![], None, Some(vec![3]))
+    };
+    let out = evaluate(&inp, now());
+
+    assert!(
+        out.plan.iter().all(|s| s.exercise_id != 5),
+        "a weighted lift with no registered weights is never planned"
+    );
+    assert!(
+        out.plan.iter().any(|s| s.exercise_id == 2),
+        "the session still happens — on what the athlete can actually load"
+    );
+    assert!(
+        out.notices.iter().any(|n| n.contains("Barbell")),
+        "the drop is surfaced, naming the kit to fix: {:?}",
+        out.notices
+    );
+}
+
+#[test]
+fn without_a_location_it_asks_rather_than_guesses() {
+    // No location → the engine doesn't know what's doable. The old spelling
+    // (`Option<HashSet>` consulted with `is_none_or`) made that mean "everything
+    // is doable", so a missing location silently switched the safety filter off.
+    // Absent kit now means absent kit: the verdict narrows to a question.
+    let inp = PacingInput {
+        kit: None,
+        ..input(Mode::Balanced, catalog(), vec![], None, None)
+    };
+    let out = evaluate(&inp, now());
+
+    assert!(out.plan.is_empty(), "no kit known → nothing is suggested");
+    assert!(out.suggestion.is_none());
+    assert!(!out.nudge, "and it certainly doesn't nudge you to do it");
+    assert!(
+        out.reason.contains("where you're training"),
+        "it asks for the missing input: {:?}",
+        out.reason
+    );
+    // The balance view is history-only, so it still stands: degradation narrows
+    // the claim (no plan) without discarding what we do know.
+    assert_eq!(out.groups.len(), 3);
 }

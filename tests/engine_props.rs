@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    ExerciseInfo, GroupMeta, PacingInput, PacingSettings, SetRec, SuggestionKind,
+    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, SetRec, SuggestionKind,
 };
 use coach::settings::types::Mode;
 use proptest::prelude::*;
@@ -128,8 +128,12 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
             min_rest_min: 20,
         },
         groups: groups(),
-        available_equipment: None,
+        kit: Some(Kit(catalog()
+            .iter()
+            .flat_map(|e| e.equipment.clone())
+            .collect())),
         equipment_loads,
+        equipment_names: HashMap::new(),
         readiness: None,
     }
 }
@@ -197,8 +201,10 @@ proptest! {
     }
 
     // The training plan is budgeted: work sets (deficit-sized, min 2 each) never
-    // exceed the day target — modulo one trailing item that can spill by its own
-    // fixed count (assess = 1, hold = 2).
+    // exceed the day target — and now *exactly* so. The cover takes one set per
+    // step and at most `budget` steps, so work can't spill at all. (The old
+    // deficit-share sizing could overrun by a trailing item's fixed count; that
+    // slack is gone along with the heuristic that needed it.)
     #[test]
     fn work_volume_stays_within_the_day_budget((m, d, raw, owned) in scenario()) {
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
@@ -209,10 +215,50 @@ proptest! {
             .map(|s| s.sets)
             .sum();
         prop_assert!(
-            planned <= out.day_target_sets + 2,
-            "planned {planned} > budget {} (+2 spill)",
+            planned <= out.day_target_sets,
+            "planned {planned} > budget {}",
             out.day_target_sets
         );
+    }
+
+    // No exercise is ever planned twice. The old group-loop emitted one item per
+    // muscle group, so a movement covering two in-deficit groups (dips → chest AND
+    // triceps) appeared twice and read as a stutter. The cover accumulates *by
+    // exercise*, so "2 × dips" is a single item with a count — a duplicate is
+    // unrepresentable. This holds for every history, not just the ones we thought of.
+    #[test]
+    fn an_exercise_is_never_planned_twice((m, d, raw, owned) in scenario()) {
+        let out = evaluate(&build_input(m, d, &raw, &owned), base());
+        let mut seen = std::collections::HashSet::new();
+        for item in out.plan.iter().filter(|s| s.kind != SuggestionKind::Warmup) {
+            prop_assert!(
+                seen.insert(item.exercise_id),
+                "exercise {} planned twice in {:?}",
+                item.exercise_id,
+                out.plan.iter().map(|s| (s.exercise_id, s.sets)).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    // A weighted lift is never planned without a weight. Either its inventory is
+    // known — and the load is one the athlete owns — or the lift isn't selectable
+    // at all. There is no third state that hands someone a barbell movement and
+    // leaves them to guess: `Dose::Weighted` carries a `load: f64`, not an Option.
+    #[test]
+    fn a_weighted_lift_is_never_planned_without_a_load((m, d, raw, owned) in scenario()) {
+        let out = evaluate(&build_input(m, d, &raw, &owned), base());
+        for item in out.plan.iter().filter(|s| s.kind != SuggestionKind::Warmup) {
+            if item.exercise_id == 5 {
+                prop_assert!(
+                    item.load_kg.is_some(),
+                    "the loaded lift was planned with no load (owned {owned:?})"
+                );
+                prop_assert!(
+                    !owned.is_empty(),
+                    "the loaded lift was planned from an empty inventory"
+                );
+            }
+        }
     }
 
     // A warm-up never credits training volume: its group balances are unaffected

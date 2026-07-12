@@ -179,3 +179,21 @@ mat-card {
     }
   }
 }
+
+// Kit the coach left out of the plan (its weights aren't registered here). Quiet
+// — it's an FYI with an action, not a set to do.
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.75rem 0.25rem 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+
+  mat-icon {
+    flex: none;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}

@@ -15,8 +15,18 @@ Principles that already hold and must keep holding:
   saying what it is and why (`src/pacing/engine.rs` top). Tunable, not magic.
 - **Anchored to your own history**, not absolute landmarks; population numbers
   only as cold-start anchors.
-- **Degrade gracefully**: missing data (no biometrics, no location, no history)
-  narrows the verdict, never breaks it.
+- **Degrade gracefully — and narrowly**: missing data (no biometrics, no location,
+  no history) narrows the verdict, never breaks it, and *never widens it*. Absent
+  information must not read as permission: no location means the engine doesn't
+  know what's doable, so it declines to plan and asks — it does not fall back to
+  "everything is doable" (see G8, the bug that spelling caused).
+- **Illegal states unrepresentable** (2026-07-12): the safety rules are carried by
+  types, not by care. A load can only come from a measured ability
+  ([`Known`](../src/pacing/dose.rs)) and can only be a weight you own
+  ([`Inventory`], non-empty by construction); a weighted lift *has* a load
+  ([`Dose`], a sum type, not a tuple of five `Option`s). "When I don't know, I
+  measure" is then a property the compiler enforces on every future edit, rather
+  than a code path someone can bypass.
 - **The UI is the trainer's voice, not its dashboard** (2026-07-08): Today shows
   only what's needed to do the next set — one status line, the coach's one
   sentence (readiness/deload woven in server-side), the ordered plan, a log
@@ -127,6 +137,9 @@ prescribed below its old weight, and low readiness never prescribes heavier than
 a good day.
 
 ### G2 — One suggestion is not a plan, and there's no ordering
+<!-- Superseded in part by G8: selection + sizing are now a greedy set-cover, not
+     a group loop with a deficit-share split. Ordering (the tier rule) stands. -->
+
 
 **Gap.** The engine emits a single "next up". You can't see today's session, in
 what order, or what's left after this set. There is no warm-up concept at all.
@@ -136,10 +149,10 @@ recomputed statelessly on every call (logging a set shifts the plan; the old
 "next up" is simply the head). **Shipped** (`engine::build_plan`), except the
 warm-up block (G2a), which waits on catalog curation (G5, next stage):
 
-- **Selection** ✅: the `day_target_sets` budget distributed over the top
-  recovered-deficit groups — Work sets proportional to deficit share, min
-  `WORK_MIN_SETS` (replacing the flat `sets = 3`); Assess/Hold keep their own
-  counts — each group resolved to a location-doable exercise as before.
+- **Selection** ✅ — *superseded by G8*. This shipped as a per-group loop with the
+  `day_target_sets` budget apportioned by deficit share, which is what produced the
+  duplicate items; selection and sizing are now a greedy set-cover over the group
+  need vector. Read G8 for the current design.
 - **Ordering** ✅ (classic, deterministic tiers, `engine::tier`): ① warm-up
   block (G2a, pending) → ② skill/hold work while the nervous system is fresh →
   ③ heavy compound weighted work → ④ bodyweight/isolation accessories →
@@ -259,6 +272,85 @@ old hard gate falls out as the fraction-≈0 case (the binary-gate tests still
 pass). And the biometric `recovery_scale` now also multiplies `day_target_sets`,
 so a low-readiness day is *fewer* sets, not just lighter ones — the bug this
 section flagged.
+
+### G8 — The plan was built by walking groups, not by covering need ✅ *shipped*
+
+**Gap.** Three bugs that looked unrelated were one mismodelling. `build_plan`
+iterated the in-deficit **muscle groups** and asked each "which exercise fills
+you?" — but the domain truth runs the other way: *one set of one exercise credits
+many groups at once* (primary 1.0 / secondary 0.5 / stabilizer 0.25 — the muscle
+model G5 populated). So:
+
+- an exercise covering two in-deficit groups was emitted **twice** (dips once for
+  Chest, again for Triceps), reading as a stutter — and "2 × dips" was never
+  representable, only "dips" twice;
+- set counts came from a separate deficit-share heuristic (`WORK_MIN_SETS`, a
+  proportional split) bolted on after selection;
+- the warm-up block re-solved the same covering problem with its own ad-hoc rule.
+
+Two more bugs came from the *shape of the data*, not the loop. The prescription
+was a `(i32, Option<i32>, Option<i32>, Option<f64>, Option<i32>)` tuple — 32
+representable shapes, ~3 legal — and `snap()` fell back to inventing a weight
+when the inventory was empty. Result in prod: a **1 kg overhead press** (the
+lightest dumbbell in the room standing in for an unknown ability) and weighted
+lifts prescribed at locations with no registered weights at all. And
+`available_equipment: Option<HashSet>` consulted via `is_none_or` meant *no
+location ⇒ everything is doable*: a missing location silently switched the safety
+filter off, and the coach suggested trap-bar deadlifts in a living room.
+
+**Design** — *shipped*. Selection is a **coverage problem**
+([`pacing/cover.rs`](../src/pacing/cover.rs)): the day's need is a vector over the
+group space (`ByGroup<f64>`, indexed by a dense `GroupIx` so a group index and an
+exercise id can't be confused), one set of an exercise is a vector that pays part
+of it down, and the day's set budget is a cardinality constraint. Maximising
+coverage under it is monotone submodular, so greedy marginal gain — repeatedly
+take the set that pays down the most *remaining* need — is the standard
+(1 − 1/e)-of-optimal algorithm, and it's deterministic (ties → lower exercise id).
+
+What stops being a special case:
+
+- **Duplicates are unrepresentable.** The accumulator is keyed by exercise, so
+  "2 × dips" is one item with a count. Proven for *every* history by a property
+  test, not just the ones we thought of.
+- **Set counts are earned.** A second set of dips is worth less than a first row
+  once the first paid down chest and triceps — because the need vector clamps at
+  zero. Diminishing returns is the clamp. `WORK_MIN_SETS`-as-apportionment is
+  gone; what remains is a *minimum effective dose* (`MIN_WORK_SETS = 2`): a
+  movement worth setting up for is worth more than one set, so the cover commits
+  rather than fragmenting the day across eight movements at a single set each.
+- **The budget is exact.** One set per greedy step, at most `budget` steps — the
+  old "+2 spill" slack in the property test is gone with the heuristic that needed it.
+- **Style ranks, but never qualifies.** The gate (`MIN_PAY`, half an effective
+  set) is on the *need paid down*, in physical units; mode-fit and novelty only
+  break ties among things that all genuinely need doing. Gating on `pay × weight`
+  would let a merely fashionable exercise clear the bar on a group already at
+  target — the athlete simulation (E3) caught exactly that.
+
+The type work that closes the other two ([`pacing/dose.rs`](../src/pacing/dose.rs)):
+`Inventory` (non-empty by construction) makes `snap` **total** — it always returns
+a weight you own, and there's no empty-inventory branch to invent 13.5 kg from; a
+weighted lift with no registered weights is simply *not selectable*, and the
+verdict carries a **notice** naming the kit to fix rather than leaving a silent
+hole. `Dose`/`Measure` are sum types per metric, so a weighted lift *has* a
+`load: f64`. `Known` is an ability the engine trusts, its only constructor checks
+confidence, and `prescribe` takes one **by type** — so G3's safety rule ("when
+unsure, measure", the thing keeping a returning athlete off their pre-illness
+numbers) cannot be bypassed by a later edit. `Kit` replaces the permissive
+`Option<HashSet>`: absent kit means absent kit, and no location yields a *narrower*
+verdict (no plan, and a request for one) rather than a wider one.
+
+**Also fixed, at the root**: Balanced mode scored *every* exercise a flat 0.8 —
+not a preference but the absence of one, which handed the decision to an arbitrary
+tie-break on exercise id. That is how a missing lat pull-down once got
+"substituted" by an L-sit hold: the engine genuinely could not tell a rep-out from
+an isometric. An earlier fix patched the substitution site; the real fix is to say
+what Balanced prefers (rep and weighted work 1.0, holds 0.6 — a narrower accessory
+stimulus), so the tie-break never has to decide it.
+
+**Back-tested (E1)**: the walk-forward replay itself carried the same bug — it ran
+"location-agnostic", which sounded neutral but *was* the permissive path, so it had
+been validating prescriptions against equipment the athlete doesn't own. It now
+runs at a real location (`BACKTEST_LOCATION`, else the default), mirroring the app.
 
 ### G7 — Bodyweight and hold work dead-end at the top of the range
 
