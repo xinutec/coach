@@ -2,14 +2,29 @@
   <!-- The demo plays here, in place of the still. Leaving the app for YouTube
        mid-set means coming back to a cold tab and losing your place. -->
   @if (playing(); as src) {
-    <iframe
-      class="hero"
-      [src]="src"
-      [title]="displayName(d) + ' — demo'"
-      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-      allowfullscreen
-      referrerpolicy="strict-origin-when-cross-origin"
-    ></iframe>
+    <div class="hero player">
+      <iframe
+        [src]="src"
+        [title]="displayName(d) + ' — demo'"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+        allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"
+        (load)="frameReady.set(true)"
+      ></iframe>
+      <!-- The picture holds the frame while YouTube is still coming down the
+           wire, so the tap lands on something rather than on a black box. -->
+      @if (!frameReady()) {
+        <div class="loading">
+          @if (d.hasImage) {
+            <img [src]="imageUrl(d.id)" alt="" />
+          }
+          <mat-spinner diameter="40" />
+        </div>
+      }
+      <button type="button" class="close" (click)="stop()" aria-label="Back to the picture">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   } @else if (video()) {
     <button type="button" class="hero hero-play" (click)="play()" [attr.aria-label]="'Play the ' + d.name + ' demo'">
       @if (d.hasImage) {

@@ -3,6 +3,7 @@ import { MAT_BOTTOM_SHEET_DATA } from "@angular/material/bottom-sheet";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
+import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
 import { DomSanitizer, type SafeResourceUrl } from "@angular/platform-browser";
 
 import { CoachApi } from "../../coach-api";
@@ -18,7 +19,7 @@ export interface ExerciseSheetData {
   selector: "app-exercise-sheet",
   templateUrl: "./exercise-sheet.html",
   styleUrl: "./exercise-sheet.scss",
-  imports: [MatButtonModule, MatIconModule, MatProgressBarModule],
+  imports: [MatButtonModule, MatIconModule, MatProgressBarModule, MatProgressSpinnerModule],
 })
 export class ExerciseSheet {
   private api = inject(CoachApi);
@@ -42,13 +43,27 @@ export class ExerciseSheet {
    */
   readonly playing = signal<SafeResourceUrl | null>(null);
 
+  /** The embed document has arrived. Until it does the frame paints black, which
+   *  reads as a broken tap — so the still stays up, with a spinner, until this. */
+  readonly frameReady = signal(false);
+
   constructor() {
     this.api.exercise(this.data.exerciseId).subscribe((d) => this.detail.set(d));
   }
 
   play(): void {
     const ref = this.video();
-    if (ref) this.playing.set(this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl(ref)));
+    if (!ref) return;
+    this.frameReady.set(false);
+    this.playing.set(this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl(ref)));
+  }
+
+  /** Back to the picture. Dropping the frame is also what stops the playback —
+   *  there's no player object to pause, and a video still running behind a closed
+   *  sheet is a thing you'd have to go and find. */
+  stop(): void {
+    this.playing.set(null);
+    this.frameReady.set(false);
   }
 
   imageUrl(id: number): string {

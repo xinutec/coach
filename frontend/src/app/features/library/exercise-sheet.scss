@@ -14,9 +14,65 @@
   border: 0;
 }
 
-iframe.hero {
+.player {
+  position: relative;
+  overflow: hidden;
   // dev-lint: allow-hardcoded-color letterbox behind a video YouTube renders black in either theme
   background: #000;
+
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  // Covers the frame while the embed loads: the still the athlete just tapped,
+  // plus a spinner, so the wait is legibly a wait.
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+
+    img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    mat-spinner {
+      // dev-lint: allow-hardcoded-color spinner over a photo, not over a themed surface
+      --mdc-circular-progress-active-indicator-color: #fff;
+      position: relative;
+    }
+  }
+
+  .close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    // dev-lint: allow-hardcoded-color a control over video, which has no theme
+    color: #fff;
+    // dev-lint: allow-hardcoded-color as above — it has to read against the frame
+    background: rgba(0, 0, 0, 0.55);
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 
 .hero-play {
