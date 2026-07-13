@@ -44,13 +44,24 @@ export function parseYoutube(url: string): YoutubeRef | null {
 	return { id, startS: parseStart(u.searchParams.get("t")) };
 }
 
-/** The privacy-preserving embed host — no tracking cookies, so no consent banner
- *  inside our own sheet. `rel=0` keeps YouTube from suggesting unrelated videos
- *  at the end, and `playsinline` stops iOS hijacking the whole screen. */
+/**
+ * The privacy-preserving embed host — no tracking cookies, so no consent banner
+ * inside our own sheet. `rel=0` keeps YouTube from suggesting unrelated videos at
+ * the end, and `playsinline` stops iOS hijacking the whole screen.
+ *
+ * `mute=1` is what makes it actually play. Browsers refuse *audible* autoplay in a
+ * cross-origin frame — the tap landed on our page, not inside YouTube's — so an
+ * unmuted embed loads and then sits there behind a second play button, which is a
+ * second tap to see a movement you already asked to see. Muted autoplay is allowed
+ * everywhere, and these are form demos: the point is to watch the rep, at the
+ * second the link points to. The player's own unmute control is there for the
+ * narration.
+ */
 export function embedUrl(ref: YoutubeRef): string {
 	const p = new URLSearchParams({
 		start: String(ref.startS),
 		autoplay: "1",
+		mute: "1",
 		rel: "0",
 		playsinline: "1",
 	});

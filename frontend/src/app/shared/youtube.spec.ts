@@ -37,4 +37,12 @@ describe("embedUrl", () => {
 		expect(url).toContain("https://www.youtube-nocookie.com/embed/3S5rnnI7VSs?");
 		expect(url).toContain("start=11");
 	});
+
+	// Autoplay without mute is refused in a cross-origin frame, and the athlete is
+	// left tapping play a second time. The two belong together.
+	it("plays on its own — muted, which is the only autoplay browsers allow here", () => {
+		const url = embedUrl({ id: "3S5rnnI7VSs", startS: 0 });
+		expect(url).toContain("autoplay=1");
+		expect(url).toContain("mute=1");
+	});
 });
