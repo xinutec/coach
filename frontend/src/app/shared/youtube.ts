@@ -62,6 +62,12 @@ export function parseYoutube(url: string): YoutubeRef | null {
  * "Open in YouTube" for anyone who wants the real player (scrubbing, sound). Note
  * this is as bare as an embed gets: `modestbranding` was withdrawn in 2023, so a
  * tap on the video still surfaces YouTube's title/logo overlay.
+ *
+ * `cc_load_policy=0` turns the subtitles back off. YouTube switches captions on by
+ * itself for a muted embed — sensible for a talking head, but here it lays a band
+ * of text across the movement, and with the controls gone there's no way to
+ * dismiss it. (YouTube documents this as "the viewer's default" rather than a hard
+ * off; if a video insists on captions anyway, only the IFrame API can unload them.)
  */
 export function embedUrl(ref: YoutubeRef): string {
 	const p = new URLSearchParams({
@@ -69,6 +75,7 @@ export function embedUrl(ref: YoutubeRef): string {
 		autoplay: "1",
 		mute: "1",
 		controls: "0",
+		cc_load_policy: "0",
 		iv_load_policy: "3",
 		rel: "0",
 		playsinline: "1",

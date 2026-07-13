@@ -50,5 +50,7 @@ describe("embedUrl", () => {
 		const url = embedUrl({ id: "3S5rnnI7VSs", startS: 0 });
 		expect(url).toContain("controls=0");
 		expect(url).toContain("iv_load_policy=3");
+		// Muted embeds get auto-captions, which is a band of text over the rep.
+		expect(url).toContain("cc_load_policy=0");
 	});
 });
