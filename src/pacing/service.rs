@@ -11,6 +11,7 @@ use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
 use crate::equipment::repo as equipment_repo;
+use crate::equipment::types::Category;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::Metric;
 use crate::location::loads;
@@ -98,10 +99,19 @@ pub async fn context(
         Some(id) => location_repo::kit_loads(pool, id).await?,
         None => HashMap::new(),
     };
-    let equipment_names: HashMap<i64, String> = equipment_repo::list(pool)
-        .await?
-        .into_iter()
-        .map(|e| (e.id, e.name))
+    let equipment = equipment_repo::list(pool).await?;
+    let equipment_names: HashMap<i64, String> =
+        equipment.iter().map(|e| (e.id, e.name.clone())).collect();
+    // Which kit actually *carries* the weight. A bench and a pull-up bar are needed
+    // for a dumbbell bench press and a weighted chin-up, but you don't load them —
+    // asking what weights are registered for a bench is a category error, and it
+    // used to produce a notice telling the athlete to go and weigh their furniture.
+    // Free weights are exactly the kit the locations editor lets you enter weights
+    // for, so the same line is drawn here.
+    let bears_load: HashSet<i64> = equipment
+        .iter()
+        .filter(|e| e.category == Category::FreeWeight)
+        .map(|e| e.id)
         .collect();
 
     // Exercise metadata: equipment ids, muscle-group contributions, flags.
@@ -160,7 +170,23 @@ pub async fn context(
         }
         let implements = implements_by_ex.get(&ex.id).copied().unwrap_or(1).max(1);
         let mut loads: Vec<f64> = Vec::new();
-        for eq in &ex.equipment {
+        let load_bearing: Vec<i64> = ex
+            .equipment
+            .iter()
+            .copied()
+            .filter(|eq| bears_load.contains(eq))
+            .collect();
+        if load_bearing.is_empty() {
+            // A weighted lift whose kit can't hold a weight: the catalog is wrong,
+            // not the gym. Say so in the log rather than nagging the athlete about
+            // kit they can do nothing with.
+            tracing::warn!(
+                exercise = %ex.name,
+                "weighted lift declares no load-bearing equipment — left out"
+            );
+            continue;
+        }
+        for eq in &load_bearing {
             let Some(kit) = kit_loads.get(eq) else {
                 // Present, but nothing registered to load it with.
                 if !unweighted.contains(eq) {
