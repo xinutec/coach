@@ -141,6 +141,7 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         groups: back_group(),
         kit: Some(Kit([3].into_iter().collect())),
         exercise_loads: owned(),
+        equipment_names: HashMap::new(),
         notices: Vec::new(),
         readiness: None,
     }
@@ -360,6 +361,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
                 .flat_map(|e| e.equipment.clone())
                 .collect())),
             exercise_loads: HashMap::new(),
+            equipment_names: HashMap::new(),
             notices: Vec::new(),
             readiness: None,
         };

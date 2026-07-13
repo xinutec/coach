@@ -2,6 +2,7 @@
 // regenerated from the Rust API types by scripts/gen-types.sh. Import from here.
 
 export * from "./generated/Band";
+export * from "./generated/Blocker";
 export * from "./generated/Category";
 export * from "./generated/Confidence";
 export * from "./generated/CurrentLocation";
@@ -34,6 +35,7 @@ export * from "./generated/Readiness";
 export * from "./generated/Region";
 export * from "./generated/Settings";
 export * from "./generated/SettingsPatch";
+export * from "./generated/Substitution";
 export * from "./generated/Suggestion";
 export * from "./generated/WorkoutSet";
 

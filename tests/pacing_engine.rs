@@ -10,8 +10,8 @@ use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, PacingState, Readiness,
-    SetRec, SuggestionKind,
+    Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, PacingState,
+    Readiness, SetRec, SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -145,6 +145,7 @@ fn input(
         groups: groups(),
         kit: Some(kit),
         exercise_loads: HashMap::new(),
+        equipment_names: HashMap::new(),
         notices: Vec::new(),
         readiness: None,
     }
@@ -542,11 +543,17 @@ fn location_substitutes_the_ideal() {
     ];
     let inp = PacingInput {
         groups: back_only(),
+        equipment_names: HashMap::from([(101, "Barbell".to_string())]),
         ..input(Mode::Strength, exs, vec![], None, Some(vec![]))
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert_eq!(sug.exercise_id, 2);
-    assert_eq!(sug.substituted_for.as_deref(), Some("Barbell row"));
+    let sub = sug
+        .substituted_for
+        .expect("the barbell row is genuinely blocked");
+    assert_eq!(sub.ideal, "Barbell row");
+    // And it names the kit, so the swap is actionable rather than mysterious.
+    assert_eq!(sub.blocker, Blocker::Absent(vec!["Barbell".to_string()]));
 }
 
 #[test]
@@ -600,15 +607,18 @@ fn substitution_prefers_the_ideal_exercise_metric() {
     // The rep pull is the stand-in for the blocked machine — and it's the *first*
     // thing the cover reached for, which its own trace proves: the first pick pays
     // down more of the group's need than anything taken after it.
-    assert_eq!(pull.substituted_for.as_deref(), Some("Lat pull down"));
+    assert_eq!(
+        pull.substituted_for.as_ref().map(|s| s.ideal.as_str()),
+        Some("Lat pull down")
+    );
     if let Some(hold) = hold {
         let pays = |s: &coach::pacing::types::Suggestion| s.explanation.unwrap().pays;
         assert!(
             pays(pull) > pays(hold),
             "the rep pull was preferred to the hold, not the other way round"
         );
-        assert_eq!(
-            hold.substituted_for, None,
+        assert!(
+            hold.substituted_for.is_none(),
             "only the group's first stand-in claims to substitute"
         );
     }
@@ -1094,6 +1104,7 @@ fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
         // why (no weights registered / not enough handles for a pair) and says so;
         // the engine's job is simply never to prescribe what can't be built.
         exercise_loads: HashMap::new(),
+        equipment_names: HashMap::new(),
         notices: vec!["No weights registered here for Barbell.".to_string()],
         ..input(Mode::Strength, exs, vec![], None, Some(vec![3]))
     };

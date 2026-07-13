@@ -135,6 +135,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
             .flat_map(|e| e.equipment.clone())
             .collect())),
         exercise_loads,
+        equipment_names: HashMap::new(),
         notices: Vec::new(),
         readiness: None,
     }

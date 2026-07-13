@@ -55,6 +55,8 @@ pub struct PacingContext {
     pub exercise_loads: HashMap<i64, Vec<f64>>,
     /// Kit the coach had to leave out, and why.
     pub notices: Vec<String>,
+    /// Equipment id → display name, so a blocked substitution can name the kit.
+    pub equipment_names: HashMap<i64, String>,
 }
 
 /// Load the history-independent context: settings + tz, the active mode, the
@@ -230,6 +232,7 @@ pub async fn context(
         kit,
         exercise_loads,
         notices,
+        equipment_names,
     })
 }
 
@@ -282,6 +285,7 @@ pub fn input_from(
         groups: ctx.groups.clone(),
         kit: ctx.kit.clone(),
         exercise_loads: ctx.exercise_loads.clone(),
+        equipment_names: ctx.equipment_names.clone(),
         notices: ctx.notices.clone(),
         readiness,
     }

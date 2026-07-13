@@ -107,6 +107,10 @@ pub struct PacingInput {
     /// [`super::dose::Inventory`]) and the verdict says why rather than inventing
     /// a number.
     pub exercise_loads: HashMap<i64, Vec<f64>>,
+    /// Equipment id → its display name, so a blocked substitution can name the kit
+    /// it's missing instead of saying "its kit isn't here" and leaving the athlete
+    /// to guess which piece.
+    pub equipment_names: HashMap<i64, String>,
     /// Kit the coach had to leave out, and why — surfaced on the verdict so a drop
     /// reads as something to fix rather than a hole in the plan.
     pub notices: Vec<String>,
@@ -204,6 +208,29 @@ pub struct Explanation {
     pub readiness: Option<Band>,
 }
 
+/// Why the coach couldn't give you the movement it wanted to, in the athlete's
+/// terms. The two cases are different problems with different fixes, so they're
+/// different variants rather than one vague "kit isn't here".
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase", tag = "kind", content = "kit")]
+#[ts(export)]
+pub enum Blocker {
+    /// The location doesn't have this equipment at all (named).
+    Absent(Vec<String>),
+    /// The equipment is here, but no weights are registered for it — so no honest
+    /// load exists and the coach won't invent one.
+    Unweighted(Vec<String>),
+}
+
+/// The movement the coach would have prescribed, and what stopped it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct Substitution {
+    pub ideal: String,
+    pub blocker: Blocker,
+}
+
 #[derive(Clone, Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -221,9 +248,15 @@ pub struct Suggestion {
     pub hold_s: Option<i32>,
     /// The muscle group this targets (for the reason text).
     pub group: String,
-    /// When set, the ideal exercise for this group isn't doable at the current
-    /// location, so an equivalent was swapped in (the ideal's name).
-    pub substituted_for: Option<String>,
+    /// When set, the ideal exercise for this group genuinely isn't doable here, so
+    /// an equivalent was swapped in: the ideal's name, and what it would take to do
+    /// it instead. A swap the athlete can act on ("buy a cable machine", "register
+    /// your kettlebell weights") rather than an unexplained substitution.
+    ///
+    /// Only ever set when the ideal is *actually* blocked. It used to be set
+    /// whenever the ideal wasn't what the cover picked — which is the normal case,
+    /// and made the card claim kit was missing that was standing right there.
+    pub substituted_for: Option<Substitution>,
     /// Why this was chosen (deficit, recovery, ability, readiness). `None` for
     /// warm-up items, which are prep rather than a reasoned prescription.
     pub explanation: Option<Explanation>,

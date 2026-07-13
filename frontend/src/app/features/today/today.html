@@ -79,10 +79,10 @@
               <h3><button type="button" class="s-name" (click)="openDetail(s)">{{ s.exerciseName }}</button></h3>
             </div>
           </div>
-          @if (s.substitutedFor) {
+          @if (s.substitutedFor; as sub) {
             <p class="s-sub">
               <mat-icon>swap_horiz</mat-icon>
-              Swapped in for {{ s.substitutedFor }} — its kit isn't here
+              {{ substitutionNote(sub) }}
             </p>
           }
           @if (s.kind === "warmup") {

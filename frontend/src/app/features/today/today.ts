@@ -7,7 +7,7 @@ import { MatMenuModule } from "@angular/material/menu";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
-import type { Band, Explanation, PacingNow, Suggestion } from "../../models";
+import type { Band, Explanation, PacingNow, Substitution, Suggestion } from "../../models";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
 import { LogSheet, type LogSheetData } from "../log/log-sheet";
@@ -169,6 +169,16 @@ export class Today {
 
 	imageUrl(id: number): string {
 		return this.api.exerciseImageUrl(id);
+	}
+
+	/** What the coach would have given you, and what stopped it — naming the kit, so
+	 *  the swap is something you can fix rather than a shrug. The two blockers want
+	 *  different actions: buy/bring the kit, or go and register its weights. */
+	substitutionNote(sub: Substitution): string {
+		const kit = sub.blocker.kit.join(", ");
+		return sub.blocker.kind === "absent"
+			? `Swapped in for ${sub.ideal} — no ${kit} here`
+			: `Swapped in for ${sub.ideal} — no weights registered for ${kit}`;
 	}
 
 	/**

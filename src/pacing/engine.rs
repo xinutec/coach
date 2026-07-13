@@ -29,8 +29,8 @@ use super::ability::{self, Ability};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
 use super::types::{
-    Band, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow, PacingState,
-    Suggestion, SuggestionKind,
+    Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
+    PacingState, Substitution, Suggestion, SuggestionKind,
 };
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
@@ -454,16 +454,51 @@ fn candidates<'a>(
     (cands, scored)
 }
 
-/// The exercise the athlete *would* be doing for this group if the kit allowed —
-/// the best-scoring one that trains it as a primary, ignoring what's present.
-/// Reported when it isn't what we chose, so a swap explains itself.
+/// The exercise the athlete *would* be doing for this group if the kit allowed:
+/// the best-scoring one that trains it as a primary **and is actually blocked
+/// here** — the equipment is absent, or it's present but has no registered weights.
+///
+/// The blocked-ness is the whole point. This used to return the best-scoring
+/// exercise full stop, so any time the cover preferred a different movement — the
+/// normal case, since the cover optimises marginal coverage and this only looks at
+/// one group — the card announced a swap and blamed missing kit that was standing
+/// right there in the room. A substitution notice must name a real obstacle, or it
+/// teaches the athlete to distrust the ones that are real.
 fn blocked_ideal(
     input: &PacingInput,
+    kit: &Kit,
     weight: &dyn Fn(&ExerciseInfo) -> f64,
     group_id: i64,
     chosen_id: i64,
-) -> Option<String> {
-    input
+) -> Option<Substitution> {
+    let name_of = |ids: &[i64]| -> Vec<String> {
+        ids.iter()
+            .filter_map(|id| input.equipment_names.get(id).cloned())
+            .collect()
+    };
+    // Exactly the two ways `candidates` refuses a movement — kept in the same shape
+    // so "blocked" here can't drift from "not selectable" there.
+    let blocker = |e: &ExerciseInfo| -> Option<Blocker> {
+        let absent: Vec<i64> = e
+            .equipment
+            .iter()
+            .copied()
+            .filter(|id| !kit.0.contains(id))
+            .collect();
+        if !absent.is_empty() {
+            return Some(Blocker::Absent(name_of(&absent)));
+        }
+        // Here, but nothing to load it with.
+        if loadable(e, &input.exercise_loads).is_none() {
+            return Some(Blocker::Unweighted(name_of(&e.equipment)));
+        }
+        None
+    };
+
+    // The best movement for this group, kit or no kit. If *it* is what we're doing,
+    // or it's doable and the cover simply preferred another, there is no swap to
+    // report — only a top choice we can't do is a substitution.
+    let ideal = input
         .exercises
         .iter()
         .filter(|e| {
@@ -474,9 +509,14 @@ fn blocked_ideal(
         })
         .max_by(|a, b| {
             weight(a).total_cmp(&weight(b)).then(b.id.cmp(&a.id)) // lower id wins ties (reverse in max)
-        })
-        .filter(|ideal| ideal.id != chosen_id)
-        .map(|ideal| ideal.name.clone())
+        })?;
+    if ideal.id == chosen_id {
+        return None;
+    }
+    Some(Substitution {
+        ideal: ideal.name.clone(),
+        blocker: blocker(ideal)?,
+    })
 }
 
 /// Build the warm-up block for a work plan: mobility prep for the muscle groups
@@ -943,7 +983,7 @@ fn plan_session(
                 }),
                 stood_in
                     .insert(ix)
-                    .then(|| blocked_ideal(input, &weight, groups.id[ix.0], c.ex.id))
+                    .then(|| blocked_ideal(input, kit, &weight, groups.id[ix.0], c.ex.id))
                     .flatten(),
             ),
             None => (String::new(), None, None),
