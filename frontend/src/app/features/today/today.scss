@@ -92,10 +92,50 @@ mat-card {
   .s-head {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     h3 {
       margin: 0;
     }
+  }
+  // Tap target for the movement's picture. A button, not a bare <img>, so it's
+  // reachable by keyboard and announces itself; the image is decorative (the name
+  // beside it is the label).
+  .s-thumb {
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--mat-sys-surface-container-high);
+    cursor: pointer;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
+  .s-titles {
+    min-width: 0;
+  }
+  .s-pills {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+  // The name opens the same sheet as the picture — styled as text, not a button.
+  .s-name {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .s-sub {
     display: flex;

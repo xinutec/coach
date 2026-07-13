@@ -53,17 +53,31 @@
       >
         <mat-card-content>
           <div class="s-head">
-            <!-- "Next up" only when the coach actually wants action now. -->
-            @if (first && p.withinWindow) {
-              <span class="pill next-pill">Next up</span>
-            }
-            @if (s.kind === "warmup") {
-              <span class="pill warmup-pill"><mat-icon>waves</mat-icon> Warm-up</span>
-            }
-            @if (s.kind === "assess") {
-              <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
-            }
-            <h3>{{ s.exerciseName }}</h3>
+            <!-- The picture is the fastest answer to "what is this movement?" — tap
+                 it for the full sheet: bigger image, muscles worked, demo video. -->
+            <button
+              type="button"
+              class="s-thumb"
+              [attr.aria-label]="'Show ' + s.exerciseName"
+              (click)="openDetail(s)"
+            >
+              <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+            </button>
+            <div class="s-titles">
+              <div class="s-pills">
+                <!-- "Next up" only when the coach actually wants action now. -->
+                @if (first && p.withinWindow) {
+                  <span class="pill next-pill">Next up</span>
+                }
+                @if (s.kind === "warmup") {
+                  <span class="pill warmup-pill"><mat-icon>waves</mat-icon> Warm-up</span>
+                }
+                @if (s.kind === "assess") {
+                  <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
+                }
+              </div>
+              <h3><button type="button" class="s-name" (click)="openDetail(s)">{{ s.exerciseName }}</button></h3>
+            </div>
           </div>
           @if (s.substitutedFor) {
             <p class="s-sub">

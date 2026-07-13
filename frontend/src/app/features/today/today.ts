@@ -9,6 +9,7 @@ import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
 import type { Band, Explanation, PacingNow, Suggestion } from "../../models";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
+import { ExerciseSheet } from "../library/exercise-sheet";
 import { LogSheet, type LogSheetData } from "../log/log-sheet";
 
 @Component({
@@ -164,6 +165,20 @@ export class Today {
 		if (metric === "weighted_reps")
 			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.`;
 		return "As many clean reps as you can — stop at form breakdown, then log it.";
+	}
+
+	imageUrl(id: number): string {
+		return this.api.exerciseImageUrl(id);
+	}
+
+	/**
+	 * Show the movement in full — picture, muscles, demo video. The same sheet the
+	 * Library opens: "what does this look like again?" is asked standing in the gym
+	 * mid-warm-up, not while browsing the catalog, so it has to be reachable from
+	 * the plan card itself.
+	 */
+	openDetail(s: Suggestion): void {
+		this.sheet.open(ExerciseSheet, { data: { exerciseId: s.exerciseId } });
 	}
 
 	/** Open the log sheet, optionally prefilled from a specific plan item. */
