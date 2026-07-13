@@ -4,7 +4,7 @@
   <mat-toolbar class="topbar">
     <span class="title">Coach</span>
     <span class="spacer"></span>
-    <button mat-icon-button [matMenuTriggerFor]="menu" aria-label="Account">
+    <button mat-icon-button class="acct-btn" [matMenuTriggerFor]="menu" aria-label="Account">
       @if (m.avatarUrl && !avatarError()) {
         <img class="avatar" [src]="m.avatarUrl" alt="" (error)="avatarError.set(true)" />
       } @else {

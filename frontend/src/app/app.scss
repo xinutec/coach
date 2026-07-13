@@ -21,7 +21,16 @@
   .spacer {
     flex: 1;
   }
+  // Material centres a <mat-icon> child of an icon button, but not an <img> — it
+  // gets `vertical-align: baseline` and sits low in the 40px circle. The button
+  // has to do the centring itself.
+  .acct-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
   .avatar {
+    display: block;
     width: 32px;
     height: 32px;
     border-radius: 50%;

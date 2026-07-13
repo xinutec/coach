@@ -12,6 +12,7 @@ use super::types::{
     Exercise, ExerciseDetail, ExerciseDetailRow, ExerciseListRow, ExerciseMuscle,
     ExerciseMuscleRow, ExercisePatch, NewExercise,
 };
+use crate::equipment::repo::eq_cols;
 use crate::equipment::types::{Equipment, EquipmentRow};
 use crate::muscle::types::MuscleRole;
 
@@ -76,11 +77,12 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         return Ok(None);
     };
 
-    let equipment = sqlx::query_as::<_, EquipmentRow>(
-        "SELECT eq.id, eq.slug, eq.name, eq.category \
-         FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
-         WHERE xe.exercise_id = ? ORDER BY eq.category, eq.name",
-    )
+    let equipment = sqlx::query_as::<_, EquipmentRow>(concat!(
+        "SELECT ",
+        eq_cols!(),
+        " FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
+          WHERE xe.exercise_id = ? ORDER BY eq.category, eq.name"
+    ))
     .bind(id)
     .fetch_all(pool)
     .await?
