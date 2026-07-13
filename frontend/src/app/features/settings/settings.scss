@@ -87,3 +87,9 @@
     color: var(--mat-sys-on-surface-variant);
   }
 }
+
+.build-stamp {
+  margin: 0.75rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-small);
+}

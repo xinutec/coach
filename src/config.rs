@@ -43,6 +43,12 @@ pub struct Config {
     /// auto-detection; absent → the feature is simply off (manual selection).
     pub health_internal_url: Option<String>,
     pub health_service_token: Option<String>,
+    /// The commit this image was built from (CI passes it to the Dockerfile, which
+    /// puts it in the environment). Served at `/version` so a deploy can prove the
+    /// running pod is the commit it pushed. `dev` for a local build. Read at
+    /// runtime, not `env!`: a compile-time stamp would invalidate the Rust build
+    /// cache on every commit and turn a 30-second CI into a full rebuild.
+    pub git_sha: String,
 }
 
 impl Config {
@@ -88,6 +94,7 @@ impl Config {
                 .ok()
                 .map(|u| u.trim_end_matches('/').to_string()),
             health_service_token: std::env::var("HEALTH_SERVICE_TOKEN").ok(),
+            git_sha: env_or("GIT_SHA", "dev"),
         })
     }
 }

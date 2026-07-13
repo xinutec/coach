@@ -59,8 +59,15 @@ pub fn router(state: AppState) -> Router {
                 .on_response(DefaultOnResponse::new().level(Level::INFO)),
         );
 
+    // The commit this binary was built from, baked in at image-build time (the
+    // Dockerfile passes CI's GIT_SHA). Public and unauthenticated so a deploy can
+    // *prove* the running pod contains the commit it just pushed, rather than
+    // inferring it from "the rollout succeeded" — which only says a pod came up,
+    // not which image it came up on. `dev` for a local build.
+    let version = state.cfg.git_sha.clone();
     let mut app = Router::new()
         .route("/healthz", get(|| async { "ok" }))
+        .route("/version", get(move || async move { version }))
         .route("/login", get(auth::login))
         .route("/auth/callback", get(auth::callback))
         .route("/logout", post(auth::logout))

@@ -9,9 +9,12 @@
 #      then restarting pulls an image built from the commit before — a deploy that
 #      reports success and ships nothing. So we wait for the run whose headSha is
 #      HEAD, and fail if it never appears.
-#   2. Trusting the rollout. `kubectl rollout status` says the *pod* is up, not that
-#      the *bundle* changed. So afterwards we fetch the served ngsw.json and check
-#      its index hash actually moved.
+#   2. Trusting the rollout. `kubectl rollout status` says a *pod came up*, not
+#      which image it came up on. So afterwards we ask the running server what
+#      commit it is (GET /version, baked in at image-build time) and require it to
+#      equal HEAD. Comparing bundle hashes instead would be wrong twice over: a
+#      backend-only commit legitimately leaves the bundle byte-identical, and an
+#      unchanged hash can't distinguish "nothing to change" from "shipped nothing".
 #   3. Deploying a dirty tree. What CI built is what's committed; a local edit that
 #      isn't pushed is not in the image, however green everything looks.
 set -euo pipefail
@@ -29,8 +32,7 @@ if [ -n "$(git log origin/main..HEAD --oneline)" ]; then
   exit 1
 fi
 
-before="$(curl -fsS "$URL/ngsw.json" | python3 -c 'import sys,json;print(json.load(sys.stdin)["hashTable"].get("/index.html",""))' || true)"
-echo "deploying ${SHA:0:8} (served index hash now: ${before:-unknown})"
+echo "deploying ${SHA:0:8} (running now: $(curl -fsS "$URL/version" || echo unknown))"
 
 echo "waiting for the CI run of ${SHA:0:8} ..."
 for _ in $(seq 1 90); do
@@ -52,14 +54,14 @@ done
 echo "CI green — rolling out"
 ssh "$REMOTE" "kubectl -n coach rollout restart deploy/coach-app && kubectl -n coach rollout status deploy/coach-app --timeout=180s"
 
-# The pod being up is not the same as the browser being served new code.
-for _ in $(seq 1 15); do
-  after="$(curl -fsS "$URL/ngsw.json" | python3 -c 'import sys,json;print(json.load(sys.stdin)["hashTable"].get("/index.html",""))' || true)"
-  if [ -n "$after" ] && [ "$after" != "$before" ]; then
-    echo "deployed: served index hash ${before:0:8} → ${after:0:8}"
+# A pod being up is not the same as *this commit* being up. Ask it.
+for _ in $(seq 1 20); do
+  running="$(curl -fsS "$URL/version" || true)"
+  if [ "$running" = "$SHA" ]; then
+    echo "deployed: $URL is running ${SHA:0:8}"
     exit 0
   fi
   sleep 4
 done
-echo "rollout finished but the served bundle did not change — the image may not contain ${SHA:0:8}" >&2
+echo "rollout finished but $URL reports ${running:-unknown}, not ${SHA:0:8} — the image does not contain this commit" >&2
 exit 1

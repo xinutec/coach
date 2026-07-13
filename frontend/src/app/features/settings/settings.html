@@ -107,3 +107,7 @@
     <span class="update-msg">{{ updateMsg() }}</span>
   }
 </div>
+<!-- The build *this tab* is running, stamped into the bundle at build time. A
+     stale cached tab therefore shows its own old commit rather than the server's
+     current one — which is the point: it makes "up to date" falsifiable. -->
+<p class="build-stamp">{{ buildStamp() }}</p>

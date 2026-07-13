@@ -7,6 +7,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 import { RouterLink } from "@angular/router";
 
+import { BUILD_INFO } from "../../build-info";
 import { CoachApi } from "../../coach-api";
 import type { Settings } from "../../models";
 import { SwUpdates } from "../../sw-updates";
@@ -118,6 +119,15 @@ export class SettingsPage {
 			},
 			error: () => this.saving.set(false),
 		});
+	}
+
+	/** Which build this tab is running — the commit and when it was built. Uses the
+	 *  stamp compiled into *this* bundle, so a stale cached tab reports its own old
+	 *  commit instead of the server's; that's what makes "Up to date." checkable. */
+	buildStamp(): string {
+		const at = new Date(BUILD_INFO.builtAt);
+		const when = Number.isNaN(at.getTime()) ? BUILD_INFO.builtAt : at.toLocaleString();
+		return `Build ${BUILD_INFO.sha} · ${when}`;
 	}
 
 	async checkUpdates(): Promise<void> {

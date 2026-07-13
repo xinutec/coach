@@ -44,7 +44,13 @@ COPY --from=frontend /fe/dist/coach-web/browser ./public
 # The training-library seed bundle (exercises/muscles/equipment JSON + images),
 # loaded into the DB at boot by the seeder. Read-only.
 COPY data/ ./data
-ENV STATIC_DIR=/app/public \
+# The commit this image was built from, served at /version so a deploy can prove
+# the running pod is the one it just pushed. Declared again here because an ARG
+# only lives in the stage that declares it. Runtime env, not a compile-time stamp:
+# baking it into the binary would bust the Rust build cache on every commit.
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA \
+    STATIC_DIR=/app/public \
     CATALOG_DIR=/app/data/catalog \
     BIND_ADDR=0.0.0.0:8080
 EXPOSE 8080
