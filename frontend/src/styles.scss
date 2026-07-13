@@ -110,3 +110,11 @@ h3 {
     pointer-events: auto;
   }
 }
+
+// The landscape demo player. The CDK overlay pane lives at body level (outside
+// any component), so its size has to be set globally; the player *inside* it is
+// this app's own markup and is styled in the sheet's stylesheet.
+.demo-fs-pane {
+  width: 100vw;
+  height: 100dvh;
+}
