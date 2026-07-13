@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#!nix-shell -i bash -p gh curl
+#!nix-shell -i bash -p gh curl python3
 # Deploy the *current commit* to isis, and prove it landed.
 #
 # Three failure modes this exists to rule out, all of which have bitten us:
