@@ -54,14 +54,22 @@ export function parseYoutube(url: string): YoutubeRef | null {
  * unmuted embed loads and then sits there behind a second play button, which is a
  * second tap to see a movement you already asked to see. Muted autoplay is allowed
  * everywhere, and these are form demos: the point is to watch the rep, at the
- * second the link points to. The player's own unmute control is there for the
- * narration.
+ * second the link points to.
+ *
+ * `controls=0` + `iv_load_policy=3` strip the player's chrome and its annotation
+ * cards, leaving the movement and nothing else. What we're showing is closer to an
+ * animated picture than to a video the athlete browses, and the sheet already has
+ * "Open in YouTube" for anyone who wants the real player (scrubbing, sound). Note
+ * this is as bare as an embed gets: `modestbranding` was withdrawn in 2023, so a
+ * tap on the video still surfaces YouTube's title/logo overlay.
  */
 export function embedUrl(ref: YoutubeRef): string {
 	const p = new URLSearchParams({
 		start: String(ref.startS),
 		autoplay: "1",
 		mute: "1",
+		controls: "0",
+		iv_load_policy: "3",
 		rel: "0",
 		playsinline: "1",
 	});

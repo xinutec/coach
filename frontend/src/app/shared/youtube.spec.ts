@@ -45,4 +45,10 @@ describe("embedUrl", () => {
 		expect(url).toContain("autoplay=1");
 		expect(url).toContain("mute=1");
 	});
+
+	it("shows the movement, not a video player", () => {
+		const url = embedUrl({ id: "3S5rnnI7VSs", startS: 0 });
+		expect(url).toContain("controls=0");
+		expect(url).toContain("iv_load_policy=3");
+	});
 });
