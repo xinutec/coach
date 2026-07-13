@@ -1,11 +1,13 @@
-import { Component, inject, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
 import { MAT_BOTTOM_SHEET_DATA } from "@angular/material/bottom-sheet";
 import { MatButtonModule } from "@angular/material/button";
 import { MatIconModule } from "@angular/material/icon";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
+import { DomSanitizer, type SafeResourceUrl } from "@angular/platform-browser";
 
 import { CoachApi } from "../../coach-api";
 import { ExerciseDetail } from "../../models";
+import { embedUrl, parseYoutube } from "../../shared/youtube";
 
 export interface ExerciseSheetData {
   exerciseId: number;
@@ -20,11 +22,33 @@ export interface ExerciseSheetData {
 })
 export class ExerciseSheet {
   private api = inject(CoachApi);
+  private sanitizer = inject(DomSanitizer);
   private data = inject<ExerciseSheetData>(MAT_BOTTOM_SHEET_DATA);
   readonly detail = signal<ExerciseDetail | null>(null);
 
+  /** The demo, when it's a video we can actually play in here. `null` → the demo
+   *  link (if there is one) can only open out to YouTube. */
+  readonly video = computed(() => {
+    const url = this.detail()?.demoUrl;
+    return url ? parseYoutube(url) : null;
+  });
+
+  /**
+   * Set once the athlete taps play — the frame is built then, never on open. The
+   * picture is the offline-safe answer to "what is this movement again?" (the
+   * service worker caches it; a YouTube embed can't be, so in a basement gym the
+   * video is exactly the thing that fails). So: picture first, video on demand,
+   * and no call to Google for a movement you only glanced at.
+   */
+  readonly playing = signal<SafeResourceUrl | null>(null);
+
   constructor() {
     this.api.exercise(this.data.exerciseId).subscribe((d) => this.detail.set(d));
+  }
+
+  play(): void {
+    const ref = this.video();
+    if (ref) this.playing.set(this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl(ref)));
   }
 
   imageUrl(id: number): string {

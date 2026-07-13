@@ -1,5 +1,23 @@
 @if (detail(); as d) {
-  @if (d.hasImage) {
+  <!-- The demo plays here, in place of the still. Leaving the app for YouTube
+       mid-set means coming back to a cold tab and losing your place. -->
+  @if (playing(); as src) {
+    <iframe
+      class="hero"
+      [src]="src"
+      [title]="displayName(d) + ' — demo'"
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowfullscreen
+      referrerpolicy="strict-origin-when-cross-origin"
+    ></iframe>
+  } @else if (video()) {
+    <button type="button" class="hero hero-play" (click)="play()" [attr.aria-label]="'Play the ' + d.name + ' demo'">
+      @if (d.hasImage) {
+        <img [src]="imageUrl(d.id)" alt="" />
+      }
+      <span class="play-badge"><mat-icon>play_arrow</mat-icon></span>
+    </button>
+  } @else if (d.hasImage) {
     <img class="hero" [src]="imageUrl(d.id)" [alt]="d.name" />
   }
   <div class="head">
@@ -39,9 +57,12 @@
     </div>
   }
 
+  <!-- Kept even when the demo plays inline: not every uploader allows embedding,
+       and the frame's own error is a dead end without a way out. -->
   @if (d.demoUrl) {
     <a mat-stroked-button class="demo" [href]="d.demoUrl" target="_blank" rel="noopener">
-      <mat-icon>play_circle</mat-icon> Watch demo
+      <mat-icon>{{ video() ? "open_in_new" : "play_circle" }}</mat-icon>
+      {{ video() ? "Open in YouTube" : "Watch demo" }}
     </a>
   }
 } @else {
