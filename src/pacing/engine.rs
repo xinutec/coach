@@ -483,15 +483,20 @@ fn blocked_ideal(
 /// the session trains, plus a light ramp-in set on the first heavy lift. Warm-ups
 /// credit no volume and are the only place warm-up-tagged moves appear. Ordered
 /// first. Deterministic: mobility by exercise id, one per not-yet-covered group.
+///
+/// Also returns the session's groups it has *no* mobility move for. The catalog is
+/// only as good as what's been authored into it, and a group with no drill produces
+/// an empty warm-up that reads exactly like "you don't need one" — so the caller
+/// says which groups the athlete is on their own for.
 fn build_warmup(
     work: &[Suggestion],
     input: &PacingInput,
     kit: &Kit,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     group_name: &HashMap<i64, String>,
-) -> Vec<Suggestion> {
+) -> (Vec<Suggestion>, Vec<String>) {
     if work.is_empty() {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     }
     // The muscle groups this session trains (primary work).
     let mut session_groups: std::collections::HashSet<i64> = std::collections::HashSet::new();
@@ -580,7 +585,19 @@ fn build_warmup(
             explanation: None,
         });
     }
-    out
+
+    // Groups this session trains that no mobility move here warms. Named, not
+    // silently skipped: the catalog has drills for shoulders, wrists, spine and
+    // quads and nothing else, so a hamstring day gets no warm-up and the athlete
+    // needs to know that's a hole in the catalog, not a judgement about their
+    // needing one.
+    let mut gaps: Vec<String> = session_groups
+        .iter()
+        .filter(|g| !covered.contains(g))
+        .filter_map(|g| group_name.get(g).cloned())
+        .collect();
+    gaps.sort();
+    (out, gaps)
 }
 
 /// Evaluate the coach verdict for `now` (local time).
@@ -730,7 +747,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- cover the need with the kit that's actually here ---
     // No location → we don't know what's doable, and we don't guess: no plan.
-    let plan = match &input.kit {
+    let (plan, warmup_gaps) = match &input.kit {
         Some(kit) => plan_session(
             input,
             kit,
@@ -740,15 +757,21 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             &ex_by_id,
             now,
         ),
-        None => Vec::new(),
+        None => (Vec::new(), Vec::new()),
     };
     // Kit the coach had to leave out — worked out by the service, which knows why.
     // Only worth saying when there's a session for it to be a hole in.
-    let notices = if plan.is_empty() {
+    let mut notices = if plan.is_empty() {
         Vec::new()
     } else {
         input.notices.clone()
     };
+    if !warmup_gaps.is_empty() {
+        notices.push(format!(
+            "I don't know a warm-up for {} — warm those up your own way.",
+            warmup_gaps.join(", ")
+        ));
+    }
 
     // "Next up" for the nudge + Android trigger is the first *training* item, not
     // the warm-up that leads the visible plan.
@@ -860,7 +883,7 @@ fn plan_session(
     budget: i32,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     now: NaiveDateTime,
-) -> Vec<Suggestion> {
+) -> (Vec<Suggestion>, Vec<String>) {
     let (cands, scored) = candidates(input, kit, abilities, groups, now);
     let chosen = cover::select(&scored, &groups.need, budget);
 
@@ -955,6 +978,6 @@ fn plan_session(
         .iter()
         .map(|g| (g.id, g.name.clone()))
         .collect();
-    let warmup = build_warmup(&work, input, kit, ex_by_id, &group_name);
-    warmup.into_iter().chain(work).collect()
+    let (warmup, gaps) = build_warmup(&work, input, kit, ex_by_id, &group_name);
+    (warmup.into_iter().chain(work).collect(), gaps)
 }

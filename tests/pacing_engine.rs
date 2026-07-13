@@ -375,6 +375,39 @@ fn the_warmup_block_leads_and_covers_the_session_groups() {
 }
 
 #[test]
+fn a_group_with_no_mobility_move_is_named_not_silently_left_bare() {
+    // The catalog only has drills for the groups someone authored drills for. A
+    // session training a group with none produces an empty warm-up, which reads
+    // exactly like "you don't need one" — so the coach says whose warm-up it
+    // doesn't know rather than leaving a hole the athlete can't see.
+    let exs = vec![ex(
+        2,
+        "Ring row",
+        Pattern::Pull,
+        Metric::Reps,
+        true,
+        vec![],
+        vec![(20, MuscleRole::Primary)],
+    )]; // no warm-up move for group 20 anywhere in the catalog
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            ..input(Mode::Balanced, exs, vec![], None, None)
+        },
+        now(),
+    );
+    assert!(
+        !out.plan.iter().any(|s| s.kind == SuggestionKind::Warmup),
+        "nothing to warm up with — and it must not invent one"
+    );
+    assert!(
+        out.notices.iter().any(|n| n.contains("warm-up")),
+        "the missing warm-up is said out loud, got {:?}",
+        out.notices
+    );
+}
+
+#[test]
 fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
     // A weighted work item → the warm-up block adds a light ramp-in set (~half the
     // working load) of that same lift.
