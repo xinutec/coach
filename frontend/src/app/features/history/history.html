@@ -8,20 +8,40 @@
   <button class="day" (click)="toggle(g.key)" [attr.aria-expanded]="isOpen(g.key)">
     <mat-icon class="chev">{{ isOpen(g.key) ? "expand_more" : "chevron_right" }}</mat-icon>
     <span class="day-label">{{ g.label }}</span>
-    <span class="day-count">{{ g.sets.length }} set{{ g.sets.length === 1 ? "" : "s" }}</span>
+    <span class="day-count">
+      {{ g.movements.length }} movement{{ g.movements.length === 1 ? "" : "s" }} ·
+      {{ g.setCount }} set{{ g.setCount === 1 ? "" : "s" }}
+    </span>
   </button>
   @if (isOpen(g.key)) {
-    @for (s of g.sets; track s.id) {
-      <div class="set-row">
-        <div class="set-main">
-          <span class="set-name">{{ name(s.exerciseId) }}</span>
-          <span class="set-detail">{{ detail(s) }}</span>
-        </div>
-        <span class="set-time">{{ time(s) }}</span>
-        <button mat-icon-button aria-label="Delete set" (click)="del(s)">
-          <mat-icon>delete_outline</mat-icon>
-        </button>
-      </div>
+    <!-- One row per movement, not per set: three identical "Triceps extension"
+         lines is the log describing itself rather than the training. The sets are
+         still there, one tap down — that's where a mis-logged one gets removed. -->
+    @for (m of g.movements; track m.key) {
+      <button
+        class="move-row"
+        (click)="toggleSets(m.key)"
+        [attr.aria-expanded]="areSetsOpen(m.key)"
+      >
+        <mat-icon class="chev">{{ areSetsOpen(m.key) ? "expand_more" : "chevron_right" }}</mat-icon>
+        <span class="move-main">
+          <span class="set-name">{{ name(m.exerciseId) }}</span>
+          <span class="set-detail">{{ m.summary }}</span>
+        </span>
+      </button>
+      @if (areSetsOpen(m.key)) {
+        @for (s of m.sets; track s.id) {
+          <div class="set-row">
+            <div class="set-main">
+              <span class="set-detail">{{ detail(s) }}</span>
+            </div>
+            <span class="set-time">{{ time(s) }}</span>
+            <button mat-icon-button aria-label="Delete set" (click)="del(s)">
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </div>
+        }
+      }
     }
   }
 }

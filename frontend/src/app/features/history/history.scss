@@ -37,11 +37,39 @@
   }
 }
 
+// A movement in the day: the name, and the one line that says what was done.
+.move-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.5rem 0.25rem;
+  border: none;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: none;
+  color: var(--mat-sys-on-surface);
+  text-align: left;
+  cursor: pointer;
+
+  .chev {
+    flex: none;
+    color: var(--mat-sys-on-surface-variant);
+  }
+  .move-main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .set-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.4rem 0;
+  // Indented under its movement: these are the sets *of* the line above, not
+  // siblings of it.
+  padding: 0.35rem 0 0.35rem 2rem;
   border-bottom: 1px solid var(--mat-sys-outline-variant);
 
   .set-main {
@@ -50,15 +78,16 @@
     flex: 1;
     min-width: 0;
   }
-  .set-name {
-    font: var(--mat-sys-body-large);
-  }
-  .set-detail {
-    font: var(--mat-sys-label-medium);
-    color: var(--mat-sys-on-surface-variant);
-  }
   .set-time {
     font-variant-numeric: tabular-nums;
     color: var(--mat-sys-on-surface-variant);
   }
+}
+
+.set-name {
+  font: var(--mat-sys-body-large);
+}
+.set-detail {
+  font: var(--mat-sys-label-medium);
+  color: var(--mat-sys-on-surface-variant);
 }

@@ -5,11 +5,13 @@ import { MatIconModule } from "@angular/material/icon";
 import { CoachApi } from "../../coach-api";
 import { WorkoutSet, displayName } from "../../models";
 import { AllExercisesStore, SetsStore } from "../../stores/catalog";
+import { MovementGroup, byMovement } from "./group";
 
 interface DayGroup {
   key: string;
   label: string;
-  sets: WorkoutSet[];
+  setCount: number;
+  movements: MovementGroup[];
 }
 
 @Component({
@@ -31,6 +33,10 @@ export class HistoryPage {
   readonly loading = computed(() => !this.setsStore.loaded() || !this.allExercisesStore.loaded());
   // Which day groups are expanded (terse by default; newest opens on load).
   readonly expanded = signal<Set<string>>(new Set());
+  /** Which movements are opened down to their individual sets. The grouped line
+   *  answers "what did I do today"; the sets answer "what exactly happened", and
+   *  un-logging a mistake needs the second one — so they're a tap away, not gone. */
+  readonly openSets = signal<Set<string>>(new Set());
   private didInitExpanded = false;
 
   // logged_at is stored UTC; append 'Z' so the browser renders local time.
@@ -57,7 +63,13 @@ export class HistoryPage {
     return [...byDay.entries()].map(([key, sets]) => ({
       key,
       label: this.dayLabel(this.local(sets[0].loggedAt)),
-      sets,
+      setCount: sets.length,
+      movements: byMovement(
+        key,
+        sets,
+        (id) => this.exMap().get(id)?.unilateral ?? false,
+        (s) => this.local(s.loggedAt).getTime(),
+      ),
     }));
   });
 
@@ -84,10 +96,15 @@ export class HistoryPage {
   }
 
   toggle(key: string): void {
-    const next = new Set(this.expanded());
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    this.expanded.set(next);
+    this.expanded.set(toggled(this.expanded(), key));
+  }
+
+  areSetsOpen(key: string): boolean {
+    return this.openSets().has(key);
+  }
+
+  toggleSets(key: string): void {
+    this.openSets.set(toggled(this.openSets(), key));
   }
 
   name(id: number): string {
@@ -116,4 +133,11 @@ export class HistoryPage {
       .deleteSet(s.id)
       .subscribe(() => this.setsStore.patch((list) => (list ?? []).filter((x) => x.id !== s.id)));
   }
+}
+
+function toggled(cur: ReadonlySet<string>, key: string): Set<string> {
+  const next = new Set(cur);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
 }
