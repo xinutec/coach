@@ -16,7 +16,7 @@ use super::types::{Equipment, EquipmentRow};
 /// Every query using this must alias the equipment table as `eq`.
 macro_rules! eq_cols {
     () => {
-        "eq.id, eq.slug, eq.name, eq.category, eq.loadable"
+        "eq.id, eq.slug, eq.name, eq.category, eq.loadable, eq.weighted"
     };
 }
 pub(crate) use eq_cols;

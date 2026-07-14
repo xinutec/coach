@@ -2,13 +2,26 @@
 //! muscle taxonomy, exercises, their M:N links, and image blobs) from the
 //! `data/catalog/` bundle into the DB.
 //!
-//! Hash-gated: `exercises.json` is fingerprinted (SHA-256) into `catalog_state`.
-//! An unchanged fingerprint short-circuits the whole seed (fast normal boots). A
-//! changed one (a fresh DB, a new exercise, or a corrected muscle/equipment
-//! mapping) runs the seed AND **reconciles** the M:N links + the engine-driving
-//! scalars (`skill`/`warmup`/`difficulty`/`implements`) of already-seeded exercises — so
-//! catalog corrections actually land instead of being skipped forever. The other
-//! scalar columns (name/cue/…) + image blobs are insert-only.
+//! Hash-gated: the **whole bundle** — every `*.json` in the catalog dir — is
+//! fingerprinted (SHA-256) into `catalog_state`. An unchanged fingerprint
+//! short-circuits the seed (fast normal boots); a changed one re-seeds and
+//! **reconciles**. Gating on `exercises.json` alone made every other file
+//! silently un-editable: a corrected `equipment.json` left the hash untouched, so
+//! the seed short-circuited and the correction never reached the DB — it looked
+//! applied (it was committed, it was in the image) and simply wasn't.
+//!
+//! **The catalog is the source of truth for every scalar it carries**, and the
+//! reconcile writes all of them back to already-seeded rows, not just the flags
+//! the engine reads. Reconciling a subset had the same shape of bug: fixing two
+//! broken `demo_url`s in the catalog changed the hash, re-ran the seed, and left
+//! prod's rows exactly as broken, because `demo_url` wasn't in the UPDATE list.
+//! A field the catalog owns but the reconcile skips is a field the catalog only
+//! *appears* to own.
+//!
+//! Two things stay insert-only, and neither is a scalar the catalog can correct:
+//! image blobs (content-addressed, and a new exercise brings its own), and
+//! `is_active` — the retired `*_legacy` rows (migration 0006) are deliberately
+//! absent from the catalog, so the reconcile never sees them.
 //!
 //! This keeps the 119-row catalog and its ~15 MB of images out of SQL migrations
 //! while still making any fresh DB (dev or prod) reproduce the full library.
@@ -30,6 +43,8 @@ struct SeedEquipment {
     category: String,
     #[serde(default)]
     loadable: bool,
+    #[serde(default)]
+    weighted: bool,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +117,29 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
     serde_json::from_slice(&bytes).with_context(|| format!("parsing {}", path.display()))
 }
 
+/// Fingerprint the catalog bundle: every `*.json` in the dir, in filename order,
+/// each hashed under its own name. Any edit to any of them changes the digest, so
+/// the seed runs — which is the whole point of the gate. Hashing only
+/// `exercises.json` (what this used to do) meant an edit to `equipment.json` or
+/// the muscle taxonomy left the digest unchanged and was skipped forever.
+fn bundle_hash(dir: &Path) -> Result<String> {
+    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
+        .with_context(|| format!("reading {}", dir.display()))?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
+    files.sort();
+
+    let mut h = Sha256::new();
+    for path in &files {
+        let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+        // The name is hashed too, so renaming a file is a change like any other.
+        h.update(path.file_name().unwrap_or_default().as_encoded_bytes());
+        h.update(&bytes);
+    }
+    Ok(hex::encode(h.finalize()))
+}
+
 pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let dir = Path::new(catalog_dir);
     let exercises_path = dir.join("exercises.json");
@@ -113,10 +151,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Fingerprint the catalog; an unchanged hash means nothing to do.
-    let exercises_bytes = std::fs::read(&exercises_path)
-        .with_context(|| format!("reading {}", exercises_path.display()))?;
-    let catalog_hash = hex::encode(Sha256::digest(&exercises_bytes));
+    // Fingerprint the whole bundle; an unchanged hash means nothing to do.
+    let catalog_hash = bundle_hash(dir)?;
     let stored_hash: Option<String> =
         sqlx::query_scalar("SELECT catalog_hash FROM catalog_state WHERE id = 1")
             .fetch_optional(pool)
@@ -124,17 +160,24 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     if stored_hash.as_deref() == Some(catalog_hash.as_str()) {
         return Ok(());
     }
+    let exercises_bytes = std::fs::read(&exercises_path)
+        .with_context(|| format!("reading {}", exercises_path.display()))?;
 
-    // Equipment.
+    // Equipment. Every column the catalog carries is reconciled, not just
+    // `loadable` — `weighted` decides whether the coach may put a load on this kit
+    // at all, so a stale copy of it silently drops lifts from the plan.
     for e in read_json::<Vec<SeedEquipment>>(&dir.join("equipment.json"))? {
         sqlx::query(
-            "INSERT INTO equipment (slug, name, category, loadable) VALUES (?, ?, ?, ?) \
-             ON DUPLICATE KEY UPDATE loadable = VALUES(loadable)",
+            "INSERT INTO equipment (slug, name, category, loadable, weighted) \
+             VALUES (?, ?, ?, ?, ?) \
+             ON DUPLICATE KEY UPDATE name = VALUES(name), category = VALUES(category), \
+               loadable = VALUES(loadable), weighted = VALUES(weighted)",
         )
         .bind(&e.slug)
         .bind(&e.name)
         .bind(&e.category)
         .bind(e.loadable)
+        .bind(e.weighted)
         .execute(pool)
         .await?;
     }
@@ -162,8 +205,9 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     }
 
     // Exercises: insert new ones, and for existing ones reconcile the M:N links +
-    // the engine-driving scalars (skill/warmup/difficulty) — the catalog is the
-    // source of truth for those. Descriptive columns + images stay insert-only.
+    // *every* scalar the catalog carries — it is the source of truth for all of
+    // them. Only image blobs stay insert-only. `is_active` is untouched: the
+    // retired `*_legacy` rows aren't in the catalog, so this loop never sees them.
     let existing: HashMap<String, i64> = sqlx::query_as("SELECT slug, id FROM exercises")
         .fetch_all(pool)
         .await?
@@ -175,6 +219,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let mut inserted = 0usize;
     let mut reconciled = 0usize;
     for ex in &exercises {
+        let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
         let (id, is_new) = match existing.get(&ex.slug) {
             Some(&id) => {
                 // Clear the M:N links so the catalog's are authoritative.
@@ -186,15 +231,28 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                     .bind(id)
                     .execute(pool)
                     .await?;
-                // Reconcile the catalog-authoritative classification flags too
-                // (skill/warmup drive the engine; a correction must reach old rows).
+                // Write back every scalar the catalog owns. Same column list as the
+                // insert below, so a field added to one can't quietly skip the other.
                 sqlx::query(
-                    "UPDATE exercises SET skill = ?, warmup = ?, difficulty = ?, implements = ? WHERE id = ?",
+                    "UPDATE exercises SET \
+                       name = ?, variation = ?, pattern = ?, metric = ?, position = ?, \
+                       unilateral = ?, skill = ?, warmup = ?, difficulty = ?, implements = ?, \
+                       cue = ?, demo_url = ?, summary = ? \
+                     WHERE id = ?",
                 )
+                .bind(&ex.name)
+                .bind(&ex.variation)
+                .bind(&ex.pattern)
+                .bind(&ex.metric)
+                .bind(&position)
+                .bind(ex.unilateral)
                 .bind(ex.skill)
                 .bind(ex.warmup)
                 .bind(ex.difficulty)
                 .bind(ex.implements)
+                .bind(&ex.cue)
+                .bind(&ex.demo_url)
+                .bind(&ex.summary)
                 .bind(id)
                 .execute(pool)
                 .await?;
@@ -202,7 +260,6 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 (id, false)
             }
             None => {
-                let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
                 let res = sqlx::query(
                     "INSERT INTO exercises \
                        (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, difficulty, implements, cue, demo_url, summary) \

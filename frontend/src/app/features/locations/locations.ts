@@ -201,11 +201,17 @@ export class LocationsPage {
 		return this.BAR_PRESETS[slug] ?? [20];
 	}
 
-	/** Selected free weights — each gets a fixed-weights editor. A dumbbell can be
-	 *  *both*: an adjustable handle you load, and a plain 5 kg one you don't. The
-	 *  two sets union, so kit is no longer either/or. */
+	/** Selected kit that carries a load — each gets a discrete-weights editor. A
+	 *  dumbbell can be *both*: an adjustable handle you load, and a plain 5 kg one
+	 *  you don't. The two sets union, so kit is no longer either/or.
+	 *
+	 *  This is the catalog's `weighted` flag, not the free-weight category: a cable
+	 *  stack's pin positions are exactly a list of discrete weights, and gating on
+	 *  the category meant there was nowhere to enter them. */
 	readonly weightedSlugs = computed(() =>
-		[...this.formEquip()].filter((s) => this.categoryOf(s) === "free_weight"),
+		[...this.formEquip()].filter(
+			(s) => this.equipment().find((e) => e.slug === s)?.weighted ?? false,
+		),
 	);
 	/** Selected loadable kit (barbell/trap bar/adjustable dumbbell) — each gets a
 	 *  bar-or-handle editor with the plates that fit *it*. */
@@ -216,6 +222,16 @@ export class LocationsPage {
 	readonly bandSlugs = computed(() =>
 		[...this.formEquip()].filter((s) => this.categoryOf(s) === "band"),
 	);
+
+	/** A stack's weights are its pin positions, and you can't own "two of" one — so
+	 *  the dumbbell-pair language would be nonsense on a pulley. */
+	isStack(slug: string): boolean {
+		return this.categoryOf(slug) === "machine";
+	}
+	weightsLabel(slug: string): string {
+		const kind = this.isStack(slug) ? "stack weights" : "fixed weights";
+		return `${this.equipLabel(slug)} — ${kind} (kg)`;
+	}
 
 	weightsOf(slug: string): number[] {
 		return this.formOptions().get(slug)?.weights ?? [];

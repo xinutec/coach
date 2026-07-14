@@ -65,7 +65,7 @@
         </p>
         @for (slug of weightedSlugs(); track slug) {
           <div class="spec-row">
-            <div class="spec-name">{{ equipLabel(slug) }} — fixed weights (kg)</div>
+            <div class="spec-name">{{ weightsLabel(slug) }}</div>
             <div class="chips">
               @for (w of weightsOf(slug); track w) {
                 <button type="button" class="chip on" (click)="removeWeight(slug, w)">
@@ -102,12 +102,16 @@
                 </button>
               </span>
             </div>
-            <p class="hint spec-hint">
-              How many matters: a movement that uses two dumbbells can't be built from
-              a weight you own one of. Leave it blank if you have plenty.
-            </p>
+            @if (!isStack(slug)) {
+              <p class="hint spec-hint">
+                How many matters: a movement that uses two dumbbells can't be built from
+                a weight you own one of. Leave it blank if you have plenty.
+              </p>
+            }
             <div class="spec-range">
-              <span class="spec-range-label">or fill a range:</span>
+              <span class="spec-range-label">
+                {{ isStack(slug) ? "fill the stack:" : "or fill a range:" }}
+              </span>
               <input #rF class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="from" />
               <span class="spec-range-sep">–</span>
               <input #rT class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="to" />

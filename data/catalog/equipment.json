@@ -3,24 +3,28 @@
     "slug": "dumbbell",
     "name": "Dumbbell",
     "category": "free_weight",
-    "loadable": true
+    "loadable": true,
+    "weighted": true
   },
   {
     "slug": "barbell",
     "name": "Barbell",
     "category": "free_weight",
-    "loadable": true
+    "loadable": true,
+    "weighted": true
   },
   {
     "slug": "kettlebell",
     "name": "Kettlebell",
-    "category": "free_weight"
+    "category": "free_weight",
+    "weighted": true
   },
   {
     "slug": "trap_bar",
     "name": "Trap bar",
     "category": "free_weight",
-    "loadable": true
+    "loadable": true,
+    "weighted": true
   },
   {
     "slug": "resistance_band",
@@ -30,7 +34,8 @@
   {
     "slug": "cable_machine",
     "name": "Cable machine",
-    "category": "machine"
+    "category": "machine",
+    "weighted": true
   },
   {
     "slug": "medicine_ball",

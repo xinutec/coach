@@ -11,7 +11,6 @@ use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
 use crate::equipment::repo as equipment_repo;
-use crate::equipment::types::Category;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::Metric;
 use crate::location::loads;
@@ -108,11 +107,14 @@ pub async fn context(
     // for a dumbbell bench press and a weighted chin-up, but you don't load them —
     // asking what weights are registered for a bench is a category error, and it
     // used to produce a notice telling the athlete to go and weigh their furniture.
-    // Free weights are exactly the kit the locations editor lets you enter weights
-    // for, so the same line is drawn here.
+    //
+    // This is the catalog's `weighted` flag, not a guess from the category. Reading
+    // it as `category == FreeWeight` was right about the bench and wrong about the
+    // pulley: a cable stack is a `machine`, so the coach could put no weight on the
+    // one machine in the gym whose whole purpose is the weight on it.
     let bears_load: HashSet<i64> = equipment
         .iter()
-        .filter(|e| e.category == Category::FreeWeight)
+        .filter(|e| e.weighted)
         .map(|e| e.id)
         .collect();
 

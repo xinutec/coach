@@ -10,4 +10,12 @@ export type Equipment = { id: number, slug: string, name: string, category: Cate
  * not a fixed size. The UI collects a bar weight + plate sizes for these,
  * rather than a list of discrete owned weights.
  */
-loadable: boolean, };
+loadable: boolean, 
+/**
+ * Kit that carries a load — the athlete registers weights for it, and the
+ * coach may prescribe one. True of free weights *and* of a cable/selectorised
+ * stack (whose pin positions are just a ladder of discrete weights); false of
+ * a bench, a rig, a mat. Every `loadable` kit is `weighted`; the converse
+ * isn't — a fixed dumbbell is weighted but takes no plates.
+ */
+weighted: boolean, };
