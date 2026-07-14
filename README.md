@@ -23,7 +23,10 @@ Android app's on-device geofence (only when you're home).
   daily plan, calibration tasks).
 - `migrations/` — sqlx migrations, run at boot. Append-only.
 - `frontend/` — Angular app (Today burn-down, log, history, balance, exercise
-  library, locations, settings).
+  library, locations, settings). A movement's picture and demo are one tap from
+  the plan card: the demo plays in the sheet (muted, chrome-stripped, from the
+  timestamp the catalog link points at) rather than throwing you out to YouTube
+  mid-set, and fills the screen if you turn the phone sideways.
 - `android/` — WebView wrapper + native geofence/notification layer (WIP).
 
 ## Develop
@@ -41,17 +44,31 @@ cargo run                   # API on :8080 (STATIC_DIR unset = API only)
 ```
 
 `gen-types.sh` regenerates the frontend TS types from the Rust API types;
-`check-types.sh` is the drift gate. `verify.sh` runs the full fmt/clippy/build.
+`check-types.sh` is the drift gate. `verify.sh` is the gate to run before
+pushing: backend fmt + clippy, frontend lint/build/unit tests, the type-drift
+check, the Playwright layout checks, and dev-lint. It diffs the worktree against
+the git *index*, so `git add -A` first or the drift gate reads a stale tree.
 
 ## Deploy
 
+```sh
+./scripts/deploy.sh          # commit + push first; it refuses a dirty tree
+```
+
 CI (`.github/workflows/build.yml`, on push to `main`) builds+pushes
-`xinutec/coach:latest`. The k8s manifests live in the home monorepo
-(`xinutec/pippijn` `code/kubes/coach/k8s/`) — run the `k8s/…` steps below from
-that checkout. Then on isis (as root):
+`xinutec/coach:latest`, tagging the image with the commit it was built from.
+`deploy.sh` waits for the CI run **whose head SHA is this commit** (not merely
+the latest run — that returns the *previous* commit's, and restarting on it
+ships the code before yours while reporting success), rolls out, then asks the
+running server `GET /version` and requires it to equal HEAD. A rollout that
+succeeds proves a pod came up, not which image it came up on; `/version` is what
+proves the deploy.
+
+The k8s manifests live in the home monorepo (`xinutec/pippijn`
+`code/kubes/coach/k8s/`). First time only, from that checkout, on isis as root:
 
 ```sh
-# one-time: NC OAuth2 client "coach" (dash admin), redirect
+# NC OAuth2 client "coach" (dash admin), redirect
 #   https://coach.xinutec.org/auth/callback
 NC_CLIENT_ID=... NC_CLIENT_SECRET=... ./k8s/secret.sh
 ./k8s/sync.sh

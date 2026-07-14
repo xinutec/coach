@@ -42,11 +42,29 @@ volume per muscle group vs a target blended from a literature anchor and your
 own 8-week average, tilted by mode/emphasis/days-per-week; a graded per-region
 recovery ramp (G6) scaling each group's priority; biometric readiness
 (sleep/HRV/RHR from health-sync) scaling volume + the day's set count and gating
-progression; one greedy suggestion — best exercise for the biggest
-recovered deficit, doable at the current location; a burn-down nudge that
-spreads sets through the day. Prescription derives from the **ability model**
-(G1, shipped): an RPE-aware, staleness-decayed e1RM estimate per exercise, from
-which the working load is autoregulated and snapped to the weights you own.
+progression; a burn-down nudge that spreads sets through the day. Prescription
+derives from the **ability model** (G1, shipped): an RPE-aware,
+staleness-decayed e1RM estimate per exercise, from which the working load is
+autoregulated and snapped to the weights you own.
+
+The verdict is a **session**, not a single suggestion (G8, shipped): a greedy
+weighted set-cover of the day's muscle-group need, so each exercise appears once
+with the set count it earned, ordered by training tier. It opens with a warm-up
+block — mobility drills for the groups the session trains, plus a half-load
+ramp-in set of the first weighted lift — which credits no volume and is drawn
+only from catalog moves tagged `warmup`. Where the engine can't prescribe, it
+says so rather than quietly narrowing the plan:
+
+- an exercise whose ability estimate is untrusted becomes a **calibration** item
+  (G3) — the logged set *is* the measurement;
+- kit that's present but has no registered weights yields no honest load, so
+  those lifts are dropped and **named in a notice** rather than guessed at;
+- a group whose top-ranked movement is genuinely blocked carries a
+  **substitution** naming the ideal and the blocker (absent kit, or kit with no
+  weights). It is only ever set when that movement is actually blocked — the
+  cover routinely picks something other than a group's best exercise, and
+  reporting *that* as missing kit told the athlete things were absent that were
+  standing in front of him.
 
 ## Gaps and designs
 
@@ -229,11 +247,13 @@ hardcoded equipment slugs (`gymnastic_rings`/`parallettes`) — now a catalog
 `skill` flag (magic strings gone).
 
 **Design.** Bounded catalog curation. **Shipped**: `warmup: true` on the mobility
-/ activation moves (6 tagged) + `skill: true` on the ring/parallette work (22
+/ activation moves (9 tagged) + `skill: true` on the ring/parallette work (22
 tagged), both seeded and reconciled via new `exercises.warmup`/`exercises.skill`
 columns (migration 0015); the service reads `skill` from the catalog and the
 slug sniff is gone; warm-up-tagged moves are excluded from work selection and
-credit no volume. **`difficulty` now populated** (1–5, relative within a movement
+credit no volume (10 tagged as of 2026-07-13). The tagged moves cover push/pull
+and the trunk; a session whose groups have no mobility move says so in a notice
+rather than opening with a silently empty warm-up. **`difficulty` now populated** (1–5, relative within a movement
 family = pattern + primary group; all 119 rated in `data/catalog/exercises.json`,
 carried by the seeder — struct field + insert + reconcile — so corrections reach
 prod rows). It reads coherently as ladders (e.g. push-up 2 → rings 3 → pseudo-
@@ -255,8 +275,19 @@ triceps/front-delt as synergists without treating a plank's core as half a worki
 set. Back-tested: 14/16 day-verdicts shifted (fewer neglected-looking groups, more
 of the catalog reachable) — a real balance-accuracy change, not a no-op.
 
-**Still pending**: count `unilateral` sets per side; author the few missing
-mobility moves to cover legs/arms in the warm-up block.
+**Still pending**: count `unilateral` sets per side; author the missing mobility
+moves (hamstrings, glutes, hip flexors, abs, chest, lats, traps, triceps, upper
+back have none), which is blocked on a demo source — every catalog entry carries
+a real demo URL and image, and inventing them is not an option.
+
+**Not a gap, though it reads like one**: 19 `*_legacy` rows carry no muscles, no
+equipment and no demo. They are the placeholder built-ins from migration 0002,
+retired by 0006 (`is_active = 0`, slug freed for the real catalog entry that
+supersedes them) rather than deleted, so their ids and any references survive.
+No set references them, pacing lists only active exercises, and so does the
+library — they surface only if fetched by id directly. Leave them alone; adding
+equipment or muscles to them would resurrect shadows of the movements the
+catalog already owns.
 
 ### G6 — Recovery is a binary gate ✅ *shipped*
 
@@ -484,8 +515,9 @@ Each stage ships alone and keeps every existing test green.
    list; `suggestion` stays as the head.
 4. **Warm-up block + catalog curation (G2a, G5)** — ✅ *mostly shipped*: the
    warm-up block, `warmup`/`skill` catalog flags + migration 0015, volume
-   exclusion. Remaining: `difficulty` population, `unilateral` per-side sets,
-   author leg/arm mobility moves.
+   exclusion, `difficulty` populated (unreviewed, and read by nothing until G7).
+   Remaining: `unilateral` per-side sets; the missing mobility moves; the two
+   catalog entries with no equipment links.
 5. Independent refinements, any order: **graded recovery (G6)** ✅ *shipped*;
    **feedback progression + plateau (G4)**, **variation ladders (G7)**,
    **cross-exercise priors (G1 tail)** — pending.
