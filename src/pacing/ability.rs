@@ -82,9 +82,37 @@ pub struct Ability {
     pub best_reps: Option<i32>,
     /// Decayed best hold (seconds) — isometric work.
     pub best_hold: Option<i32>,
+    /// Decayed best loaded carry — a weight *and* a time, because a carry is both
+    /// and neither number means anything alone. `None` for an exercise never
+    /// carried under load.
+    pub carry: Option<Carry>,
     pub confidence: Confidence,
     /// Distinct recent days the exercise was trained (drives confidence).
     pub sessions_recent: i32,
+}
+
+/// What a loaded carry demonstrated: this weight, for this long.
+///
+/// The two travel together on purpose. "12 kg" says nothing without the duration
+/// and "30 s" says nothing without the weight, so an `Option<f64>` apiece would
+/// let a caller read one and prescribe from it — which is how the carries ended up
+/// being prescribed in reps in the first place.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Carry {
+    pub load: f64,
+    pub secs: i32,
+}
+
+/// The better of two carries: the heavier weight wins, and at equal weight the
+/// longer time. Weight first because that is the direction progression runs —
+/// time climbs to a ceiling, then the load steps and the clock resets (see
+/// `engine::prescribe`), so a longer carry at a lighter weight is not an
+/// improvement on a shorter one at a heavier.
+fn better_carry(cur: Option<Carry>, c: Carry) -> Option<Carry> {
+    Some(match cur {
+        Some(b) if (b.load, b.secs) >= (c.load, c.secs) => b,
+        Some(_) | None => c,
+    })
 }
 
 /// Reps left in reserve implied by an RPE (rir = 10 − rpe, floored at 0). A
@@ -152,6 +180,7 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
             let mut e1rm = None;
             let mut best_reps = None;
             let mut best_hold = None;
+            let mut carry: Option<Carry> = None;
             let mut recent_days: HashSet<_> = HashSet::new();
 
             for s in &sets {
@@ -179,6 +208,18 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
                 if let Some(h) = s.hold_s {
                     best_hold = max_opt(best_hold, h as f64 * d);
                 }
+                // A loaded carry: weight *and* time. Both decay, so idleness pulls
+                // the estimate down as one — it can't quietly keep the weight while
+                // forgetting the duration, or the reverse.
+                if let (Some(load), Some(h)) = (s.load_kg, s.hold_s) {
+                    carry = better_carry(
+                        carry,
+                        Carry {
+                            load: load * d,
+                            secs: (h as f64 * d).floor() as i32,
+                        },
+                    );
+                }
             }
 
             let sessions_recent = recent_days.len() as i32;
@@ -197,6 +238,7 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
                     // Floor reps (conservative — never claim a rep you can't show).
                     best_reps: best_reps.map(|r| r.floor() as i32),
                     best_hold: best_hold.map(|h| h.round() as i32),
+                    carry,
                     confidence,
                     sessions_recent,
                 },

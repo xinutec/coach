@@ -3,4 +3,4 @@
 /**
  * How a set is measured. Determines which of reps/load/hold a logged set carries.
  */
-export type Metric = "reps" | "weighted_reps" | "hold";
+export type Metric = "reps" | "weighted_reps" | "hold" | "weighted_hold";

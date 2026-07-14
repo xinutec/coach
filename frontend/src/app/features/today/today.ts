@@ -162,6 +162,8 @@ export class Today {
 	assessInstruction(exerciseId: number, repLow: number | null): string {
 		const metric = this.exercises().find((e) => e.id === exerciseId)?.metric;
 		if (metric === "hold") return "Hold as long as your form stays clean — one honest max.";
+		if (metric === "weighted_hold")
+			return "Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.";
 		if (metric === "weighted_reps")
 			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.`;
 		return "As many clean reps as you can — stop at form breakdown, then log it.";

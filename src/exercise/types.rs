@@ -54,11 +54,20 @@ pub enum Metric {
     Reps,
     WeightedReps,
     Hold,
+    /// A loaded carry or hold: **weight and time together** (a farmer's walk, a
+    /// waiter walk, an overhead carry). Neither of the other two can say it —
+    /// `Hold` has no load, `WeightedReps` has no clock — so the four carries in
+    /// the catalog were modelled as weighted *reps* and the coach prescribed
+    /// "Farmers walk, 5 reps at 6 kg", which is not a thing anyone does. The
+    /// progression is the same double-progression shape as a weighted lift, with
+    /// seconds where the reps go: climb the time, then step the weight.
+    WeightedHold,
 }
 db_str!(Metric {
     Reps => "reps",
     WeightedReps => "weighted_reps",
     Hold => "hold",
+    WeightedHold => "weighted_hold",
 });
 
 /// Body position the movement is performed in (optional).

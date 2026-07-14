@@ -57,6 +57,18 @@ impl Inventory {
     pub fn lightest(&self) -> f64 {
         self.0[0]
     }
+
+    /// The next weight up from `load`, or the heaviest owned when there is none —
+    /// the rung a carry steps to once it has topped out its time. Total, like
+    /// [`snap`](Self::snap): at the top of the rack there is nowhere further to go,
+    /// and saying so is better than inventing a weight.
+    pub fn next_above(&self, load: f64) -> f64 {
+        self.0
+            .iter()
+            .copied()
+            .find(|w| *w > load + 1e-9)
+            .unwrap_or_else(|| *self.0.last().expect("Inventory is non-empty"))
+    }
 }
 
 /// A rep target: climb from `low` to `high` before the load is allowed to step.
@@ -83,6 +95,13 @@ pub enum Dose {
     Hold {
         secs: i32,
     },
+    /// A loaded carry: both, because a carry is both. Same reasoning as `Weighted`
+    /// — a farmer's walk with no weight is not a light farmer's walk, and one with
+    /// no duration is not a short one. Neither field is optional.
+    WeightedHold {
+        load: f64,
+        secs: i32,
+    },
 }
 
 /// A calibration set — what the engine asks for when it *doesn't* trust its
@@ -98,6 +117,10 @@ pub enum Measure {
     Amrap,
     /// One max hold.
     MaxHold,
+    /// Carry `start` for as long as form holds, and log the weight *and* the time
+    /// — both are the measurement. `start` is a safe opening weight, from a stale
+    /// carry when there is one, else the lightest owned.
+    LoadedCarry { start: f64 },
 }
 
 /// An ability estimate the engine **trusts enough to prescribe from**.

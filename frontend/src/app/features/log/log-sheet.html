@@ -12,21 +12,23 @@
 
   @if (selected(); as ex) {
     <div class="pair">
-      @if (ex.metric !== "hold") {
+      <!-- The fields are the metric: a carry is a weight and a time, and asking it
+           for reps is what produced "Farmers walk, 5 reps at 6 kg". -->
+      @if (ex.metric === "reps" || ex.metric === "weighted_reps") {
         <mat-form-field appearance="outline">
           <mat-label>Reps</mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="reps" />
         </mat-form-field>
       }
-      @if (ex.metric === "weighted_reps") {
+      @if (ex.metric === "weighted_reps" || ex.metric === "weighted_hold") {
         <mat-form-field appearance="outline">
           <mat-label>Load (kg)</mat-label>
           <input matInput type="number" inputmode="decimal" [(ngModel)]="loadKg" />
         </mat-form-field>
       }
-      @if (ex.metric === "hold") {
+      @if (ex.metric === "hold" || ex.metric === "weighted_hold") {
         <mat-form-field appearance="outline">
-          <mat-label>Hold (s)</mat-label>
+          <mat-label>{{ ex.metric === "weighted_hold" ? "Carry (s)" : "Hold (s)" }}</mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="holdS" />
         </mat-form-field>
       }

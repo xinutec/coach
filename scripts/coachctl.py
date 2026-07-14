@@ -194,14 +194,17 @@ def cmd_log(args):
     # The metric decides what a measurement even *is*. Logging reps against a hold
     # (or a load against a bodyweight move) doesn't produce a weaker estimate — it
     # produces a meaningless one, and the ability model would prescribe off it.
-    if metric == "weighted_reps" and (args.load is None or args.reps is None):
-        sys.exit(f"coachctl: {ex['slug']} is a weighted lift — it needs --load and --reps")
-    if metric == "reps" and args.reps is None:
-        sys.exit(f"coachctl: {ex['slug']} is measured in reps — it needs --reps")
-    if metric == "hold" and args.hold is None:
-        sys.exit(f"coachctl: {ex['slug']} is a hold — it needs --hold (seconds)")
-    if metric != "hold" and args.hold is not None:
-        sys.exit(f"coachctl: {ex['slug']} is not a hold — drop --hold")
+    needs = {
+        "reps": ["reps"],
+        "weighted_reps": ["reps", "load"],
+        "hold": ["hold"],
+        "weighted_hold": ["load", "hold"],  # a carry is both, or it is nothing
+    }[metric]
+    given = {k for k in ("reps", "load", "hold") if getattr(args, k) is not None}
+    if missing := [f"--{k}" for k in needs if k not in given]:
+        sys.exit(f"coachctl: {ex['slug']} is a {metric} movement — it needs {' and '.join(missing)}")
+    if extra := [f"--{k}" for k in sorted(given) if k not in needs]:
+        sys.exit(f"coachctl: {ex['slug']} is a {metric} movement — drop {' and '.join(extra)}")
 
     if args.rpe is None:
         # Not fatal — but say it, every time. A missing RPE is read as rir = 0, i.e.

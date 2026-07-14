@@ -51,6 +51,11 @@ const HOLD_STEP_S: i32 = 5;
 /// A calibration set for a weighted lift: build up to a hard-but-clean set of
 /// this many reps and log load/reps/RPE — the measurement the estimate needs.
 const ASSESS_WEIGHTED_REPS: i32 = 5;
+/// A loaded carry's working duration, and the ceiling it climbs to before the
+/// weight steps instead. Double progression, with seconds where the reps go: a
+/// carry that has reached the ceiling is asking for more weight, not more walking.
+const CARRY_BASE_S: i32 = 30;
+const CARRY_TOP_S: i32 = 60;
 /// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
 const WARMUP_SETS: i32 = 1;
 /// A ramp-in set runs at this fraction of the first heavy lift's working load.
@@ -189,6 +194,10 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
         }
         Mode::Conditioning => match ex.metric {
             Metric::Reps => 1.0,
+            // A loaded carry is conditioning almost by definition — time under a
+            // weight, with a heart rate to match. It ranks above a static hold and
+            // above a heavy set of reps.
+            Metric::WeightedHold => 0.9,
             Metric::WeightedReps => 0.7,
             Metric::Hold => 0.3,
         },
@@ -201,6 +210,9 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
         // stimulus — say so, and the tie-break never has to decide it.
         Mode::Balanced => match ex.metric {
             Metric::WeightedReps | Metric::Reps => 1.0,
+            // Loaded and real work, but an accessory to the week rather than its
+            // spine — between the two.
+            Metric::WeightedHold => 0.8,
             Metric::Hold => 0.6,
         },
     }
@@ -229,6 +241,9 @@ enum Loaded {
     Weighted(Inventory),
     Reps,
     Hold,
+    /// A carry — loaded, like `Weighted`, and so subject to the same rule: no
+    /// registered weights means no honest load, so it is never selected.
+    WeightedHold(Inventory),
 }
 
 /// The weights this exercise can actually be built with here (the service worked
@@ -236,13 +251,15 @@ enum Loaded {
 /// a weighted lift = not loadable here, so it isn't selectable and the verdict
 /// says why.
 fn loadable(ex: &ExerciseInfo, exercise_loads: &HashMap<i64, Vec<f64>>) -> Option<Loaded> {
+    let inventory = || {
+        let loads = exercise_loads.get(&ex.id).cloned().unwrap_or_default();
+        Inventory::new(loads)
+    };
     match ex.metric {
         Metric::Reps => Some(Loaded::Reps),
         Metric::Hold => Some(Loaded::Hold),
-        Metric::WeightedReps => {
-            let loads = exercise_loads.get(&ex.id).cloned().unwrap_or_default();
-            Inventory::new(loads).map(Loaded::Weighted)
-        }
+        Metric::WeightedReps => inventory().map(Loaded::Weighted),
+        Metric::WeightedHold => inventory().map(Loaded::WeightedHold),
     }
 }
 
@@ -308,6 +325,31 @@ fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dos
                 secs: if advance { base + HOLD_STEP_S } else { base },
             }
         }
+        // Double progression, in the carry's own units: hold the weight and climb
+        // the clock; once the clock tops out, take the next weight up and start the
+        // clock again. Same earned-then-stepped shape as a weighted lift, so a
+        // carry progresses like everything else instead of drifting upward forever.
+        Loaded::WeightedHold(inv) => match ability.carry {
+            Some(c) if c.secs >= CARRY_TOP_S && advance => Dose::WeightedHold {
+                load: inv.next_above(c.load),
+                secs: CARRY_BASE_S,
+            },
+            Some(c) => Dose::WeightedHold {
+                load: inv.snap(c.load),
+                secs: if advance {
+                    (c.secs + HOLD_STEP_S).min(CARRY_TOP_S)
+                } else {
+                    c.secs
+                },
+            },
+            // Trusted on this exercise, but never actually carried under load (its
+            // sets were logged without one) — open at the lightest weight owned
+            // rather than inventing a number.
+            None => Dose::WeightedHold {
+                load: inv.lightest(),
+                secs: CARRY_BASE_S,
+            },
+        },
     }
 }
 
@@ -335,6 +377,15 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
         }
         Loaded::Reps => Measure::Amrap,
         Loaded::Hold => Measure::MaxHold,
+        // Both numbers are the measurement, so both are open: carry this, and tell
+        // me how long you lasted. The opening weight comes from a stale carry when
+        // there is one — never from the e1RM of some other lift.
+        Loaded::WeightedHold(inv) => Measure::LoadedCarry {
+            start: match stale.and_then(|a| a.carry) {
+                Some(c) => inv.snap(c.load),
+                None => inv.lightest(),
+            },
+        },
     }
 }
 
@@ -961,9 +1012,13 @@ fn plan_session(
             }
             (Some(Dose::Bodyweight { reps }), _) => (Some(reps.low), Some(reps.high), None, None),
             (Some(Dose::Hold { secs }), _) => (None, None, None, Some(*secs)),
+            (Some(Dose::WeightedHold { load, secs }), _) => (None, None, Some(*load), Some(*secs)),
             (_, Some(Measure::BuildUp { start, reps })) => {
                 (Some(*reps), Some(*reps), Some(*start), None)
             }
+            // The weight is given; the duration is the open field, because it is
+            // what we're measuring.
+            (_, Some(Measure::LoadedCarry { start })) => (None, None, Some(*start), None),
             // AMRAP / max hold — the open fields say "as many clean reps / as long
             // as clean form holds", which is exactly what we're measuring.
             (_, Some(Measure::Amrap) | Some(Measure::MaxHold)) => (None, None, None, None),

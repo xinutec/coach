@@ -10,8 +10,8 @@ use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, PacingState,
-    Readiness, SetRec, SuggestionKind,
+    Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings,
+    PacingState, Readiness, SetRec, SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -1148,4 +1148,164 @@ fn without_a_location_it_asks_rather_than_guesses() {
     // The balance view is history-only, so it still stands: degradation narrows
     // the claim (no plan) without discarding what we do know.
     assert_eq!(out.groups.len(), 3);
+}
+
+// ---- loaded carries (weighted_hold) ----------------------------------------
+//
+// A carry is a weight *and* a time. The metric taxonomy had only `hold` (no load)
+// and `weighted_reps` (no clock), so all four carries in the catalog were filed as
+// weighted reps and the coach prescribed "Farmers walk (suitcase) — 5 reps at
+// 6 kg". Reps are not what a carry is measured in.
+
+/// A kettlebell carry: id 7, one implement, the gym's bells.
+fn waiter_walk() -> ExerciseInfo {
+    ex(
+        7,
+        "Farmers walk (waiter)",
+        Pattern::Core,
+        Metric::WeightedHold,
+        false,
+        vec![3],
+        vec![(20, MuscleRole::Primary)],
+    )
+}
+
+/// The bells at the office: 6…36 kg.
+fn bells() -> HashMap<i64, Vec<f64>> {
+    HashMap::from([(
+        7,
+        vec![
+            6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 20.0, 24.0, 28.0, 32.0, 36.0,
+        ],
+    )])
+}
+
+/// A carry set: a load *and* a duration, no reps.
+fn cset(exercise_id: i64, at: NaiveDateTime, load: f64, secs: i32) -> SetRec {
+    SetRec {
+        exercise_id,
+        logged_at: at,
+        reps: None,
+        load_kg: Some(load),
+        hold_s: Some(secs),
+        rpe: None,
+    }
+}
+
+fn carry_plan(history: Vec<SetRec>) -> PacingNow {
+    evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: bells(),
+            ..input(
+                Mode::Balanced,
+                vec![waiter_walk()],
+                history,
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    )
+}
+
+#[test]
+fn a_carry_is_never_prescribed_in_reps() {
+    // Three sessions → the estimate is trusted, so this is a prescription, not a
+    // measurement. It must carry a weight and a duration, and no rep target at all.
+    let out = carry_plan(vec![
+        cset(7, days_ago(2), 12.0, 30),
+        cset(7, days_ago(5), 12.0, 30),
+        cset(7, days_ago(9), 12.0, 30),
+    ]);
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work)
+        .expect("a work item for a trusted carry");
+    assert!(w.load_kg.is_some(), "a carry has a weight");
+    assert!(w.hold_s.is_some(), "a carry has a duration");
+    assert_eq!(w.rep_low, None, "a carry is not measured in reps");
+    assert_eq!(w.rep_high, None, "a carry is not measured in reps");
+}
+
+#[test]
+fn a_carry_climbs_the_clock_then_steps_the_weight() {
+    // Under the ceiling: same bell, longer walk — the load is *earned* before it
+    // moves, exactly as reps are on a weighted lift.
+    let climbing = carry_plan(vec![
+        cset(7, days_ago(2), 12.0, 30),
+        cset(7, days_ago(5), 12.0, 30),
+        cset(7, days_ago(9), 12.0, 30),
+    ]);
+    let w = climbing
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work)
+        .unwrap();
+    assert_eq!(
+        w.load_kg,
+        Some(12.0),
+        "the bell holds while the clock climbs"
+    );
+    assert!(
+        w.hold_s.unwrap() > 30,
+        "the walk gets longer, got {:?}",
+        w.hold_s
+    );
+
+    // At the ceiling: the walk is long enough, so it's asking for a heavier bell —
+    // the next one actually owned (14, not 12.7) — and the clock starts again.
+    let topped = carry_plan(vec![
+        cset(7, days_ago(2), 12.0, 60),
+        cset(7, days_ago(5), 12.0, 60),
+        cset(7, days_ago(9), 12.0, 60),
+    ]);
+    let w = topped
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work)
+        .unwrap();
+    assert_eq!(w.load_kg, Some(14.0), "the next bell up, and one he owns");
+    assert_eq!(w.hold_s, Some(30), "the clock resets at the heavier weight");
+}
+
+#[test]
+fn an_unmeasured_carry_is_measured_not_guessed() {
+    // No history → the engine has no idea how long he can carry what, so it must
+    // ask rather than invent a duration. The weight is given (the lightest owned);
+    // the *time* is the open field, because the time is the measurement.
+    let out = carry_plan(vec![]);
+    let a = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Assess)
+        .expect("an untrained carry is a calibration item");
+    assert_eq!(a.load_kg, Some(6.0), "opens at the lightest bell owned");
+    assert_eq!(a.hold_s, None, "the duration is what's being measured");
+    assert_eq!(a.rep_low, None, "still not reps");
+}
+
+#[test]
+fn a_carry_with_no_registered_weights_is_not_prescribed() {
+    // The same rule as any other loaded lift: no honest load exists, so it is left
+    // out and named — never carried at a weight he might not own.
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: HashMap::new(), // the bells aren't registered
+            ..input(
+                Mode::Balanced,
+                vec![waiter_walk()],
+                vec![],
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    );
+    assert!(
+        !out.plan.iter().any(|s| s.exercise_id == 7),
+        "a carry with no weights registered must not be prescribed"
+    );
 }

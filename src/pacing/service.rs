@@ -162,7 +162,11 @@ pub async fn context(
     let mut short_kit: Vec<(i64, i32)> = Vec::new(); // (equipment, implements needed)
     let mut unweighted: Vec<i64> = Vec::new();
     for ex in &exercises {
-        if ex.metric != Metric::WeightedReps || ex.equipment.is_empty() {
+        // Every metric that carries a weight, not just weighted *reps* — a carry is
+        // loaded too, and leaving it out of this loop would give it no inventory,
+        // which the engine correctly reads as "no honest load" and drops it.
+        let loaded = matches!(ex.metric, Metric::WeightedReps | Metric::WeightedHold);
+        if !loaded || ex.equipment.is_empty() {
             continue;
         }
         // Only kit that's actually *here* can be short of weights. Without this the
