@@ -269,7 +269,11 @@ def cmd_todo(args):
     must be *visible*, or it quietly becomes permanent, so it lives here as a list
     you can work off rather than as something buried in a conversation.
     """
-    pending = [e for e in catalog() if not e.get("demoUrl")]
+    # From the catalog file, not the API: /api/exercises is a *lightweight* row and
+    # carries no demoUrl at all, so asking it which movements lack one gets the
+    # cheerful answer "all of them". The file is the source of truth regardless.
+    path = Path(__file__).resolve().parent.parent / "data/catalog/exercises.json"
+    pending = [e for e in json.loads(path.read_text()) if not e.get("demoUrl")]
     if not pending:
         print("  every movement has a demo.")
         return
