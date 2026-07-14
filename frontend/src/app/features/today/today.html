@@ -61,7 +61,11 @@
               [attr.aria-label]="'Show ' + s.exerciseName"
               (click)="openDetail(s)"
             >
-              <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+              @if (hasImage(s.exerciseId)) {
+                <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+              } @else {
+                <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
+              }
             </button>
             <div class="s-titles">
               <div class="s-pills">

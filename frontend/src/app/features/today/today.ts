@@ -172,6 +172,12 @@ export class Today {
 	imageUrl(id: number): string {
 		return this.api.exerciseImageUrl(id);
 	}
+	/** A movement can be catalogued before anyone has found a picture of it. Asking
+	 *  for the image anyway renders a broken-image glyph on the plan card, which
+	 *  reads as a bug rather than as "not photographed yet". */
+	hasImage(id: number): boolean {
+		return this.exercises().find((e) => e.id === id)?.hasImage ?? false;
+	}
 
 	/** What the coach would have given you, and what stopped it — naming the kit, so
 	 *  the swap is something you can fix rather than a shrug. The two blockers want

@@ -93,6 +93,33 @@
   }
 }
 
+// A movement with no picture yet: say so, rather than leaving a gap where the
+// hero should be (which reads as a broken sheet, not as a known state).
+.hero.placeholder {
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+
+  mat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 40px;
+  }
+  span {
+    font: var(--mat-sys-body-small);
+  }
+}
+
+.demo.pending {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+}
+
 .hero-play {
   position: relative;
   padding: 0;

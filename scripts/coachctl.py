@@ -261,6 +261,29 @@ def cmd_rm(args):
     print(f"  deleted set #{args.id}")
 
 
+def cmd_todo(args):
+    """Movements in the catalog with no demo video yet.
+
+    A movement is tracked the moment it exists — waiting for a video before you can
+    log a squat you actually did is the tail wagging the dog. But a missing demo
+    must be *visible*, or it quietly becomes permanent, so it lives here as a list
+    you can work off rather than as something buried in a conversation.
+    """
+    pending = [e for e in catalog() if not e.get("demoUrl")]
+    if not pending:
+        print("  every movement has a demo.")
+        return
+    print(f"\n  {len(pending)} movement(s) need a demo video:\n")
+    for e in pending:
+        print(f"    {e['slug']}")
+        print(f"      {label(e)}")
+        if e.get("cue"):
+            print(f"      {e['cue']}")
+        print()
+    print("  Send a YouTube link for any of them and it goes into the catalog")
+    print("  (data/catalog/exercises.json) — the image comes from the video.\n")
+
+
 def find_location(name: str):
     locs = api("GET", "/api/locations")
     hits = [l for l in locs if name.lower() in l["name"].lower()]
@@ -352,6 +375,9 @@ def main():
     p.add_argument("--sets", type=int, default=1, help="log this set N times")
     p.add_argument("--at", metavar="ISO8601", help="when (default: now)")
     p.set_defaults(fn=cmd_log)
+
+    p = sub.add_parser("todo", help="movements still missing a demo video")
+    p.set_defaults(fn=cmd_todo)
 
     p = sub.add_parser("sets", help="recently logged sets")
     p.add_argument("--limit", type=int, default=20)

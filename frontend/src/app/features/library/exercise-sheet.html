@@ -47,6 +47,15 @@
     </button>
   } @else if (d.hasImage) {
     <img class="hero" [src]="imageUrl(d.id)" [alt]="d.name" />
+  } @else {
+    <!-- A movement can be in the catalog before anyone has found a demo for it —
+         better to track it honestly than to leave it out (or point it at some
+         video that isn't actually the movement). This says so rather than
+         rendering a hole. -->
+    <div class="hero placeholder">
+      <mat-icon>fitness_center</mat-icon>
+      <span>No picture yet</span>
+    </div>
   }
   <div class="head">
     <span class="pill accent">{{ patternLabel(d.pattern) }}</span>
@@ -92,6 +101,11 @@
       <mat-icon>{{ video() ? "open_in_new" : "play_circle" }}</mat-icon>
       {{ video() ? "Open in YouTube" : "Watch demo" }}
     </a>
+  } @else {
+    <p class="demo pending">
+      <mat-icon>videocam_off</mat-icon>
+      No demo yet — you know this one; it's tracked, and a video can be added later.
+    </p>
   }
 } @else {
   <mat-progress-bar mode="indeterminate" />

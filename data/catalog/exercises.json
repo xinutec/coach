@@ -5705,5 +5705,151 @@
       "file": "push_up_plyo.png",
       "type": "image/png"
     }
+  },
+  {
+    "slug": "curl_biceps_dumbbell_standing",
+    "name": "Biceps curl",
+    "variation": "dumbbell, standing",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": false,
+    "implements": 2,
+    "cue": "Standing dumbbell curl, elbows pinned to the ribs — no swing from the hips",
+    "demoUrl": null,
+    "summary": "dumbbell, standing",
+    "muscles": [
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "brachioradialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": null
+  },
+  {
+    "slug": "triceps_extension_overhead_dumbbell",
+    "name": "Triceps extension",
+    "variation": "overhead, dumbbell",
+    "pattern": "push",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 2,
+    "position": "standing",
+    "unilateral": false,
+    "implements": 1,
+    "cue": "One dumbbell in both hands, lowered behind the head — elbows stay high and still",
+    "demoUrl": null,
+    "summary": "overhead, dumbbell",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": null
+  },
+  {
+    "slug": "squat_front_rack_double_kettlebell",
+    "name": "Squat",
+    "variation": "front rack, double kettlebell",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 3,
+    "position": "standing",
+    "unilateral": false,
+    "implements": 2,
+    "cue": "Two kettlebells racked on the forearms, elbows in front of the ribs — chest stays up through the bottom",
+    "demoUrl": null,
+    "summary": "front rack, kettlebell, standing",
+    "muscles": [
+      {
+        "slug": "vastus_lateralis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_medialis",
+        "role": "primary"
+      },
+      {
+        "slug": "vastus_intermedius",
+        "role": "primary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [
+      "kettlebell"
+    ],
+    "image": null
   }
 ]
