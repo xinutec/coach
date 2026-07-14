@@ -49,7 +49,6 @@ export class LogSheet {
   reps: number | null = this.data.prefill?.reps ?? null;
   loadKg: number | null = this.data.prefill?.loadKg ?? null;
   holdS: number | null = this.data.prefill?.holdS ?? null;
-  rpe: number | null = null;
   note = "";
   readonly saving = signal(false);
 
@@ -71,7 +70,10 @@ export class LogSheet {
         reps: this.reps,
         loadKg: this.loadKg,
         holdS: this.holdS,
-        rpe: this.rpe,
+        // Never asked for, so never sent. The wire field stays (the ability model
+        // reads an RPE when history has one — imported sets do), but the app does
+        // not solicit a self-rating of effort. See docs/trainer.md.
+        rpe: null,
         note: this.note.trim() || null,
         loggedAt: null,
       })

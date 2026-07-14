@@ -27,6 +27,33 @@ Principles that already hold and must keep holding:
   ([`Dose`], a sum type, not a tuple of five `Option`s). "When I don't know, I
   measure" is then a property the compiler enforces on every future edit, rather
   than a code path someone can bypass.
+- **The athlete reports what happened, not how it felt** (agreed early; written
+  down 2026-07-14, after it was lost — see below). This is a constraint on the
+  *interface*, not on the engine. The loop is a human trainer's: **the coach gives
+  an instruction, the athlete tries, the athlete records the result, and the system
+  computes better numbers from the growing log — so the next instruction is
+  sharper.** What the athlete records is an observation: reps, load, seconds. He is
+  never asked to rate his own exertion out of ten.
+
+  How the engine gets its accuracy is an *implementation* choice and deliberately
+  unconstrained — use RPE, don't use RPE, infer effort from the residual between
+  prediction and outcome (E4), whatever meets the standard. The rule is only that
+  the burden does not land on the athlete. Self-rated effort is hard to judge, and
+  hardest exactly when you are re-learning your own body after an illness — which
+  is when this app is most needed and least able to check the answer.
+
+  So RPE is **read if history carries one** (the imported 2024 sets do) and **never
+  solicited**. Nothing breaks without it: a calibration set says "as many clean reps
+  as you can, stop at form breakdown", so `rir = 0` is *true by construction*, and
+  working sets progress by double progression, which needs reps and load. A missing
+  RPE biases the estimate **downward** — conservative, never permissive — and the
+  next session corrects it.
+
+  *Agreed in an earlier session, never written here, and therefore lost at a context
+  boundary — after which I spent a session asking him for RPEs he had already told
+  me not to ask for. A decision that lives only in a conversation is a decision that
+  will be un-made.*
+
 - **The UI is the trainer's voice, not its dashboard** (2026-07-08): Today shows
   only what's needed to do the next set — one status line, the coach's one
   sentence (readiness/deload woven in server-side), the ordered plan, a log

@@ -24,8 +24,8 @@ coach tab signed in:
 Usage:
     ./scripts/coachctl.py now                       # today's plan (what the UI shows)
     ./scripts/coachctl.py find pull                 # search the catalog for a movement
-    ./scripts/coachctl.py log pull_up_bar --reps 3 --rpe 8 --sets 3
-    ./scripts/coachctl.py log kettlebell_swing --load 16 --reps 10 --rpe 7
+    ./scripts/coachctl.py log pull_up_bar --reps 3 --sets 3
+    ./scripts/coachctl.py log kettlebell_swing --load 16 --reps 10
     ./scripts/coachctl.py sets                      # what's been logged
     ./scripts/coachctl.py rm 412 --yes              # take a set back out
     ./scripts/coachctl.py locations                 # kit + registered weights
@@ -206,16 +206,6 @@ def cmd_log(args):
     if extra := [f"--{k}" for k in sorted(given) if k not in needs]:
         sys.exit(f"coachctl: {ex['slug']} is a {metric} movement — drop {' and '.join(extra)}")
 
-    if args.rpe is None:
-        # Not fatal — but say it, every time. A missing RPE is read as rir = 0, i.e.
-        # the set is taken at face value as everything he had, which biases the
-        # estimate *down* and is silent about it.
-        print(
-            "  note: no --rpe. The set will be read as maximal (rir 0), which\n"
-            "        understates ability. An approximate RPE is much better than none.",
-            file=sys.stderr,
-        )
-
     body = {
         "exerciseId": ex["id"],
         "reps": args.reps,
@@ -378,6 +368,10 @@ def main():
     p.add_argument("--reps", type=int)
     p.add_argument("--load", type=float, metavar="KG")
     p.add_argument("--hold", type=int, metavar="SECONDS")
+    # Accepted, never asked for. The app does not solicit a self-rating of effort
+    # (docs/trainer.md, "The athlete reports what happened, not how it felt") — this
+    # flag exists only to record one that is already known, e.g. backfilling an
+    # imported set. Nothing prompts for it and nothing warns about its absence.
     p.add_argument("--rpe", type=int, choices=range(1, 11), metavar="1-10")
     p.add_argument("--note")
     p.add_argument("--sets", type=int, default=1, help="log this set N times")

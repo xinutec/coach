@@ -167,8 +167,10 @@ export class Today {
 			return `Hold as long as your form stays clean — one honest max.${side}`;
 		if (metric === "weighted_hold")
 			return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
+		// What happened, not how it felt: the instruction asks for the load and the
+		// reps, never for a self-rating out of ten. See docs/trainer.md.
 		if (metric === "weighted_reps")
-			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.${side}`;
+			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load and the reps.${side}`;
 		return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
 	}
 
