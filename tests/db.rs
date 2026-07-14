@@ -405,3 +405,44 @@ async fn an_unchanged_catalog_short_circuits_the_seed() {
 async fn first_id(pool: &MySqlPool) -> i64 {
     ex_repo::list(pool, false).await.unwrap()[0].id
 }
+
+/// A picture can arrive after the movement does — a movement is catalogued the
+/// moment it's real, and someone photographs it later. The image seed used to be
+/// gated on the exercise being *new*, so a picture added to an existing row had
+/// nowhere to land: the seed skipped it, forever, however many images went into
+/// the bundle.
+#[tokio::test]
+async fn a_picture_added_later_reaches_an_existing_movement() {
+    let pool = fresh("image").await;
+    let id = first_id(&pool).await;
+
+    // The movement has been in the catalog for months, and the picture is only now
+    // taken: delete the blob and re-seed, which is that situation exactly.
+    sqlx::query("DELETE FROM exercise_images WHERE exercise_id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE catalog_state SET catalog_hash = 'stale' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        coach::exercise::image::get(&pool, id)
+            .await
+            .unwrap()
+            .is_none(),
+        "the picture should be gone before the re-seed"
+    );
+
+    seed::run(&pool, &catalog_dir()).await.expect("re-seeding");
+
+    assert!(
+        coach::exercise::image::get(&pool, id)
+            .await
+            .unwrap()
+            .is_some(),
+        "the catalog's picture never reached the movement — the image seed is still \
+         gated on the row being new"
+    );
+}

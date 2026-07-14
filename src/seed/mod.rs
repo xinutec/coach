@@ -206,21 +206,31 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
 
     // Exercises: insert new ones, and for existing ones reconcile the M:N links +
     // *every* scalar the catalog carries — it is the source of truth for all of
-    // them. Only image blobs stay insert-only. `is_active` is untouched: the
-    // retired `*_legacy` rows aren't in the catalog, so this loop never sees them.
+    // them. `is_active` is untouched: the retired `*_legacy` rows aren't in the
+    // catalog, so this loop never sees them.
     let existing: HashMap<String, i64> = sqlx::query_as("SELECT slug, id FROM exercises")
         .fetch_all(pool)
         .await?
         .into_iter()
         .collect();
+    // Which exercises already carry a picture — so a *newly added* one lands on a
+    // row that has been there for months, and an existing one isn't re-read off
+    // disk on every catalog change.
+    let has_image: std::collections::HashSet<i64> =
+        sqlx::query_scalar("SELECT exercise_id FROM exercise_images")
+            .fetch_all(pool)
+            .await?
+            .into_iter()
+            .collect();
 
     let exercises: Vec<SeedExercise> = serde_json::from_slice(&exercises_bytes)
         .with_context(|| format!("parsing {}", exercises_path.display()))?;
     let mut inserted = 0usize;
     let mut reconciled = 0usize;
+    let mut images = 0usize;
     for ex in &exercises {
         let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
-        let (id, is_new) = match existing.get(&ex.slug) {
+        let id = match existing.get(&ex.slug) {
             Some(&id) => {
                 // Clear the M:N links so the catalog's are authoritative.
                 sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
@@ -257,7 +267,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .execute(pool)
                 .await?;
                 reconciled += 1;
-                (id, false)
+                id
             }
             None => {
                 let res = sqlx::query(
@@ -283,7 +293,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .await
                 .with_context(|| format!("inserting exercise {}", ex.slug))?;
                 inserted += 1;
-                (res.last_insert_id() as i64, true)
+                res.last_insert_id() as i64
             }
         };
 
@@ -308,12 +318,23 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             .execute(pool)
             .await?;
         }
-        if is_new && let Some(img) = &ex.image {
+        // A picture can arrive *after* the movement does — an exercise is catalogued
+        // the moment it's real, and the photo turns up when someone takes one. Gating
+        // this on `is_new` meant the picture then had nowhere to land: the row already
+        // existed, so the seed skipped it forever, and the movement stayed
+        // illustrated-by-nothing however many images were added to the bundle.
+        //
+        // Reading the file only when the row has no image keeps a re-seed from
+        // hauling ~15 MB off disk to `INSERT IGNORE` it away.
+        if let Some(img) = &ex.image
+            && !has_image.contains(&id)
+        {
             let path = dir.join("images").join(&img.file);
             let bytes =
                 std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
             let etag = hex::encode(Sha256::digest(&bytes));
             image::insert_if_absent(pool, id, &img.content_type, &bytes, &etag).await?;
+            images += 1;
         }
     }
 
@@ -326,8 +347,10 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     .execute(pool)
     .await?;
 
-    if inserted > 0 || reconciled > 0 {
-        tracing::info!("catalog seed: {inserted} inserted, {reconciled} reconciled");
+    if inserted > 0 || reconciled > 0 || images > 0 {
+        tracing::info!(
+            "catalog seed: {inserted} inserted, {reconciled} reconciled, {images} image(s) added"
+        );
     }
     Ok(())
 }

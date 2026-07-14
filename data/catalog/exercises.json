@@ -5798,7 +5798,7 @@
     "position": "standing",
     "unilateral": false,
     "implements": 2,
-    "cue": "Two kettlebells racked on the forearms, elbows in front of the ribs — chest stays up through the bottom",
+    "cue": "Two kettlebells resting along the forearms, held by the handles, elbows out — chest stays up through the bottom",
     "demoUrl": null,
     "summary": "front rack, kettlebell, standing",
     "muscles": [
@@ -5850,6 +5850,9 @@
     "equipment": [
       "kettlebell"
     ],
-    "image": null
+    "image": {
+      "file": "squat_front_rack_double_kettlebell.png",
+      "type": "image/png"
+    }
   }
 ]
