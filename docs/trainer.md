@@ -295,13 +295,30 @@ but this is the largest hole in the warm-up block, and it is pure catalog
 authoring — blocked on a demo source, since every entry carries a real demo URL
 and image and inventing them is not an option.
 
-**Still pending — `unilateral` sets per side.** Stored, still unused, and it is
-not merely an arithmetic fix: it turns on *what a logged set means* for a
-single-arm movement. Either a set is one side (so a group needs twice as many, and
-each side is measured separately — which would also make a left/right asymmetry
-visible, and that is worth having) or a set is both sides (the gym convention, and
-then nothing changes but the phrasing). The first is the better instrument and the
-more tedious log. Needs a decision before code.
+**`unilateral` — resolved, and the design note here was wrong** (2026-07-14).
+
+This section used to say that `unilateral` was unused and that "a flat `sets = 3`
+means half the volume per side". That is a correct deduction from a false premise.
+It assumed a logged set was *one side*. It isn't: the standard convention — and
+the one Pippijn uses — is that a single-arm movement's numbers are **per side**,
+and doing both sides is **one set**. `3 × 10` on a suitcase carry is ten reps with
+each arm. Coaches write `3 × 10/side` for exactly this reason.
+
+So the volume credit the engine already gives a unilateral set is **right**, and
+implementing the note as written would have introduced the bug it claimed to fix:
+halving the credit for every single-arm movement, and prescribing twice the work
+needed to close the gap.
+
+What was actually missing is that nothing *said* "per side" — so a prescription of
+`3 × 10` on a single-arm movement was half a session or a double one depending on
+how the athlete read it. The plan card, the calibration instruction and the log
+sheet's field labels now say it. No engine change; `unilateral` is a **display**
+fact, not a volume one.
+
+The one thing it still doesn't buy: a left/right **asymmetry** is invisible,
+because both sides land in one set. Measuring the sides separately would show it,
+at the cost of doubling the log. Worth revisiting if a side difference ever matters
+clinically — but it is a *new* feature, not the fix this note pretended to be.
 
 **Not a gap, though it reads like one**: 19 `*_legacy` rows carry no muscles, no
 equipment and no demo. They are the placeholder built-ins from migration 0002,

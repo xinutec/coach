@@ -97,6 +97,9 @@
               <p class="s-detail">Start around {{ s.loadKg }} kg</p>
             }
           } @else {
+            <!-- A single-arm movement counts per side: one set is both arms, and the
+                 reps/seconds are what each one does. Saying "3 × 10" without that
+                 is half a session or a double one depending on how you read it. -->
             <p class="s-detail">
               {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
               @if (s.repLow !== null) {
@@ -107,6 +110,9 @@
               }
               @if (s.holdS !== null) {
                 · {{ s.holdS }}s hold
+              }
+              @if (perSide(s.exerciseId)) {
+                <span class="per-side">each side</span>
               }
             </p>
           }

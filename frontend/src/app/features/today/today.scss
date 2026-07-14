@@ -163,6 +163,16 @@ mat-card {
   .s-detail {
     color: var(--mat-sys-on-surface-variant);
     margin: 0.35rem 0 0.75rem;
+
+    // "each side" is a qualifier on the numbers, not another number — it reads as
+    // a note, so it shouldn't compete with them.
+    .per-side {
+      margin-left: 0.35rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 4px;
+      background: var(--mat-sys-surface-container-highest);
+      font: var(--mat-sys-label-small);
+    }
   }
   .s-assess {
     margin: 0.5rem 0 0.35rem;

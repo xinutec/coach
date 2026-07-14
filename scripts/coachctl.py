@@ -229,11 +229,13 @@ def cmd_log(args):
 
     for i in range(args.sets):
         got = api("POST", "/api/sets", body)
-        print(f"  logged #{got['id']}  {label(ex)}  {summarise(got)}")
+        print(f"  logged #{got['id']}  {label(ex)}  {summarise(got, ex)}")
     print(f"\n  {args.sets} set(s) of {ex['slug']}.")
 
 
-def summarise(s):
+def summarise(s, ex=None):
+    """A single-arm movement's numbers are per side — one set is both arms. Say so,
+    or the log reads as half the work that was done."""
     bits = []
     if s.get("reps") is not None:
         bits.append(f"{s['reps']} reps")
@@ -241,6 +243,8 @@ def summarise(s):
         bits.append(f"{s['loadKg']} kg")
     if s.get("holdS") is not None:
         bits.append(f"{s['holdS']}s")
+    if ex is not None and ex.get("unilateral") and (s.get("reps") or s.get("holdS")):
+        bits.append("each side")
     if s.get("rpe") is not None:
         bits.append(f"RPE {s['rpe']}")
     return " · ".join(bits)
@@ -251,7 +255,7 @@ def cmd_sets(args):
     for s in api("GET", f"/api/sets?limit={args.limit}"):
         ex = ex_by_id.get(s["exerciseId"])
         name = label(ex) if ex else f"exercise {s['exerciseId']}"
-        print(f"  #{s['id']:<6} {s['loggedAt']}  {name:44} {summarise(s)}")
+        print(f"  #{s['id']:<6} {s['loggedAt']}  {name:44} {summarise(s, ex)}")
 
 
 def cmd_rm(args):

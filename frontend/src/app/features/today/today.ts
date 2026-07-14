@@ -160,13 +160,16 @@ export class Today {
 	 * wire suggestion doesn't carry it), so assess-reps and assess-hold differ.
 	 */
 	assessInstruction(exerciseId: number, repLow: number | null): string {
-		const metric = this.exercises().find((e) => e.id === exerciseId)?.metric;
-		if (metric === "hold") return "Hold as long as your form stays clean — one honest max.";
+		const ex = this.exercises().find((e) => e.id === exerciseId);
+		const side = ex?.unilateral ? " Both sides — the numbers are per side." : "";
+		const metric = ex?.metric;
+		if (metric === "hold")
+			return `Hold as long as your form stays clean — one honest max.${side}`;
 		if (metric === "weighted_hold")
-			return "Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.";
+			return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
 		if (metric === "weighted_reps")
-			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.`;
-		return "As many clean reps as you can — stop at form breakdown, then log it.";
+			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load, reps and how hard it felt.${side}`;
+		return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
 	}
 
 	imageUrl(id: number): string {
@@ -177,6 +180,17 @@ export class Today {
 	 *  reads as a bug rather than as "not photographed yet". */
 	hasImage(id: number): boolean {
 		return this.exercises().find((e) => e.id === id)?.hasImage ?? false;
+	}
+
+	/**
+	 * A single-arm movement's numbers are **per side**: one set is both arms, and
+	 * "10 reps" means ten with each. That's the convention the log follows, so it's
+	 * the convention the prescription has to state — "3 × 10" on a suitcase carry is
+	 * otherwise half a session or a double one, depending on how you read it, and
+	 * the athlete is the one holding the kettlebell.
+	 */
+	perSide(id: number): boolean {
+		return this.exercises().find((e) => e.id === id)?.unilateral ?? false;
 	}
 
 	/** What the coach would have given you, and what stopped it — naming the kit, so
