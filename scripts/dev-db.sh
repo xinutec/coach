@@ -25,10 +25,14 @@ if [ ! -d "$DATADIR/mysql" ]; then
         --auth-root-authentication-method=normal >/dev/null
 fi
 
+# The wildcard grant is wider than the app needs, and deliberately so: the DB
+# tests (tests/db.rs) create and drop their own `coach_test_*` scratch databases
+# against this server, which needs rights beyond `coach.*`. This server is a
+# throwaway in .dev/ that listens on loopback only.
 cat >"$INIT_SQL" <<'SQL'
 CREATE DATABASE IF NOT EXISTS coach CHARACTER SET utf8mb4;
 CREATE USER IF NOT EXISTS 'coach'@'127.0.0.1' IDENTIFIED BY 'coach';
-GRANT ALL PRIVILEGES ON coach.* TO 'coach'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON *.* TO 'coach'@'127.0.0.1' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 SQL
 

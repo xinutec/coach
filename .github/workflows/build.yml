@@ -19,6 +19,22 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     container: rust:1-bookworm
+    # tests/db.rs runs the real queries against a real schema — the gate that was
+    # missing when a SELECT drifted from its FromRow struct and 500'd in prod. It
+    # creates its own coach_test_* scratch databases here, and fails loudly rather
+    # than skipping when there's no server, so this service is not optional.
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: coach
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=12
+    env:
+      # The job runs *inside* a container on the same network, so the service is
+      # reachable by its label, not on localhost.
+      COACH_TEST_DATABASE_URL: mysql://root:coach@mariadb:3306/mysql
     steps:
       - uses: actions/checkout@v6
       # Cache ~/.cargo + target/ (keyed on Cargo.lock) — else the container

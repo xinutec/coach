@@ -1,9 +1,34 @@
 #!/usr/bin/env bash
-# coach verify — rust backend (fmt + clippy) + angular frontend (build + unit
-# tests) + shared rules. Backend integration tests need MariaDB; run those
-# separately.
+# coach verify — rust backend (fmt + clippy + tests) + angular frontend (build +
+# unit tests) + shared rules.
+#
+# The backend tests include tests/db.rs, which runs the real SQL against a real
+# MariaDB — the gate that was missing when a query drifted from its `FromRow`
+# struct, compiled, passed every pure test, and 500'd in the gym on 82 of 119
+# exercises. So this script *provides* the database rather than telling you to run
+# those "separately", which in practice meant never.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# A MariaDB for tests/db.rs. Reuse one that's already up (the dev DB on 3308, or
+# whatever COACH_TEST_DATABASE_URL names); otherwise start a throwaway and stop it
+# on the way out. `bash`'s /dev/tcp avoids depending on nc, which the CI container
+# doesn't have.
+db_up() { (exec 3<>/dev/tcp/127.0.0.1/3308) 2>/dev/null; }
+if [ -z "${COACH_TEST_DATABASE_URL:-}" ] && ! db_up; then
+  echo "verify: starting a throwaway MariaDB for the DB tests ..."
+  ./scripts/dev-db.sh >.dev/verify-mysql.log 2>&1 &
+  db_pid=$!
+  trap 'kill "$db_pid" 2>/dev/null || true' EXIT
+  for _ in $(seq 1 60); do
+    db_up && break
+    sleep 0.5
+  done
+  db_up || {
+    echo "verify: MariaDB did not come up — see .dev/verify-mysql.log" >&2
+    exit 1
+  }
+fi
 nix develop -c bash -c '
   set -euo pipefail
   # @angular/build:application tears down its Piscina worker pool at process
@@ -19,6 +44,7 @@ nix develop -c bash -c '
   export NG_BUILD_MAX_WORKERS=1
   cargo fmt --all --check
   cargo clippy --all-targets -- -D warnings
+  cargo test
   # Generated-types drift (formerly the separate pre-push gate): regenerate the
   # ts-rs bindings and fail if the committed frontend generated output moved.
   scripts/check-types.sh
