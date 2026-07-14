@@ -57,6 +57,36 @@ production (it did). `verify.sh` starts a throwaway database when one isn't
 already up, so this needs no ceremony; CI gets a `mariadb` service. The tests fail
 loudly without a server rather than skipping.
 
+## Train from the command line
+
+`scripts/coachctl.py` does what the app does — reads the plan, logs sets, registers
+kit — from a terminal, so the log can be kept by hand (or by Claude) without
+opening the phone.
+
+```sh
+./scripts/coachctl.py now                    # today's plan, as the app shows it
+./scripts/coachctl.py find pull              # search the catalog
+./scripts/coachctl.py log pull_up_bar --reps 3 --rpe 8 --sets 3
+./scripts/coachctl.py sets                   # what's been logged
+./scripts/coachctl.py locations              # kit + registered weights
+./scripts/coachctl.py weights "Office gym" kettlebell 6,8,10,12,16 --qty 2
+```
+
+It holds no credential of its own. It borrows the session in the signed-in
+**ChromeDebug** profile and issues the *same* same-origin `fetch` calls the web UI
+issues, over the fleet's CDP bridge (`xinutec-infra/mac-mini/browser/cdp.py` — the
+one `life-todo-sync` uses). So there is no API token to leak, no new endpoint, and
+no path into the data that the UI doesn't already have: writing SQL into prod
+would bypass the foreign keys and the repo layer's validation, and a token would
+be a second, weaker way in that has to be secured forever. If the browser is
+signed out, `coachctl` can do nothing — which is the correct blast radius.
+
+Needs the debug Chrome up, signed in once (the profile keeps the session):
+
+```sh
+~/Code/xinutec-infra/mac-mini/chrome-debug.sh start   # then sign in at coach.xinutec.org
+```
+
 ## Deploy
 
 ```sh
