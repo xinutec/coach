@@ -137,6 +137,11 @@ export class Today {
 			e.recovery >= 0.99 ? "Fully recovered" : `${Math.round(e.recovery * 100)}% recovered`,
 		);
 		if (e.e1rm !== null) lines.push(`Estimated 1-rep max ≈ ${Math.round(e.e1rm)} kg`);
+		// A run of missed sessions is why the number eased off — say so, or "lighter
+		// than last week" reads as the coach forgetting rather than listening.
+		if (e.misses === 1) lines.push("Last session came up short — holding here rather than adding");
+		else if (e.misses >= 2)
+			lines.push(`${e.misses} sessions under target — backed the load off to rebuild`);
 		if (e.readiness) {
 			const r: Record<Band, string> = {
 				high: "Biometrics say recovered — a good day to push",

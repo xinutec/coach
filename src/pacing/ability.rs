@@ -145,106 +145,106 @@ pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
-    let window_cut = now - Duration::weeks(CONFIDENCE_WEEKS);
-
-    let block_gap = Duration::weeks(BLOCK_GAP_WEEKS);
-
     by_ex
         .into_iter()
-        .map(|(id, mut sets)| {
-            // The most-recent contiguous training block: walk back from the newest
-            // set until a gap longer than `BLOCK_GAP_WEEKS`. Only this block
-            // estimates ability, so a pre-break PR can't raise the estimate — or a
-            // prescription — above what your return has actually shown. Continuous
-            // training is one block (the former decayed-max over everything), and
-            // sets on the same day never split (they're one session, so the chimera
-            // guard still holds). Confidence still counts recent days across *all*
-            // sets. Provably: still monotone under idleness and never above a real
-            // set — see tests/ability.rs.
-            sets.sort_by_key(|s| std::cmp::Reverse(s.logged_at)); // newest first
-            let block_cut = {
-                let mut cut = sets.first().map(|s| s.logged_at);
-                let mut prev: Option<NaiveDateTime> = None;
-                for s in &sets {
-                    if let Some(p) = prev
-                        && p - s.logged_at > block_gap
-                    {
-                        break; // this set is on the far side of a real break
-                    }
-                    cut = Some(s.logged_at);
-                    prev = Some(s.logged_at);
-                }
-                cut
-            };
-
-            let mut e1rm = None;
-            let mut best_reps = None;
-            let mut best_hold = None;
-            let mut carry: Option<Carry> = None;
-            let mut recent_days: HashSet<_> = HashSet::new();
-
-            for s in &sets {
-                // Confidence sees every recent set; the estimate only the block.
-                if s.logged_at >= window_cut {
-                    recent_days.insert(s.logged_at.date());
-                }
-                if block_cut.is_some_and(|c| s.logged_at < c) {
-                    continue; // pre-break history — doesn't estimate today's ability
-                }
-                let age = (now - s.logged_at).num_seconds().max(0) as f64 / 86_400.0;
-                let d = decay(age);
-                match (s.load_kg, s.reps, s.hold_s) {
-                    // Weighted: load + reps → an e1RM estimate.
-                    (Some(load), Some(reps), _) => {
-                        e1rm = max_opt(e1rm, epley(load, reps, s.rpe) * d);
-                    }
-                    // Bodyweight reps: reps, no load → effective-rep estimate.
-                    (None, Some(reps), _) => {
-                        best_reps = max_opt(best_reps, (reps as f64 + rir(s.rpe)) * d);
-                    }
-                    _ => {}
-                }
-                // A hold set (isometric) carries hold_s regardless of the above.
-                if let Some(h) = s.hold_s {
-                    best_hold = max_opt(best_hold, h as f64 * d);
-                }
-                // A loaded carry: weight *and* time. Both decay, so idleness pulls
-                // the estimate down as one — it can't quietly keep the weight while
-                // forgetting the duration, or the reverse.
-                if let (Some(load), Some(h)) = (s.load_kg, s.hold_s) {
-                    carry = better_carry(
-                        carry,
-                        Carry {
-                            load: load * d,
-                            secs: (h as f64 * d).floor() as i32,
-                        },
-                    );
-                }
-            }
-
-            let sessions_recent = recent_days.len() as i32;
-            let confidence = if sessions_recent >= HIGH_SESSIONS {
-                Confidence::High
-            } else if sessions_recent >= MEDIUM_SESSIONS {
-                Confidence::Medium
-            } else {
-                Confidence::Low // present in history, but no recent session
-            };
-
-            (
-                id,
-                Ability {
-                    e1rm,
-                    // Floor reps (conservative — never claim a rep you can't show).
-                    best_reps: best_reps.map(|r| r.floor() as i32),
-                    best_hold: best_hold.map(|h| h.round() as i32),
-                    carry,
-                    confidence,
-                    sessions_recent,
-                },
-            )
-        })
+        .map(|(id, sets)| (id, estimate(&sets, now)))
         .collect()
+}
+
+/// Ability from one exercise's sets. Separate from [`abilities`] because the
+/// residual ledger asks the same question of a *prefix* of history — "what did the
+/// engine believe before this session?" — and must get the identical answer the
+/// engine would have given at the time, not an approximation of it.
+pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
+    let window_cut = now - Duration::weeks(CONFIDENCE_WEEKS);
+    let block_gap = Duration::weeks(BLOCK_GAP_WEEKS);
+
+    // The most-recent contiguous training block: walk back from the newest set until
+    // a gap longer than `BLOCK_GAP_WEEKS`. Only this block estimates ability, so a
+    // pre-break PR can't raise the estimate — or a prescription — above what the
+    // return has actually shown. Continuous training is one block, and sets on the
+    // same day never split (they're one session, so the chimera guard still holds).
+    // Confidence still counts recent days across *all* sets.
+    let mut sets: Vec<&SetRec> = sets.to_vec();
+    sets.sort_by_key(|s| std::cmp::Reverse(s.logged_at)); // newest first
+    let block_cut = {
+        let mut cut = sets.first().map(|s| s.logged_at);
+        let mut prev: Option<NaiveDateTime> = None;
+        for s in &sets {
+            if let Some(p) = prev
+                && p - s.logged_at > block_gap
+            {
+                break; // this set is on the far side of a real break
+            }
+            cut = Some(s.logged_at);
+            prev = Some(s.logged_at);
+        }
+        cut
+    };
+
+    let mut e1rm = None;
+    let mut best_reps = None;
+    let mut best_hold = None;
+    let mut carry: Option<Carry> = None;
+    let mut recent_days: HashSet<_> = HashSet::new();
+
+    for s in &sets {
+        // Confidence sees every recent set; the estimate only the block.
+        if s.logged_at >= window_cut {
+            recent_days.insert(s.logged_at.date());
+        }
+        if block_cut.is_some_and(|c| s.logged_at < c) {
+            continue; // pre-break history — doesn't estimate today's ability
+        }
+        let age = (now - s.logged_at).num_seconds().max(0) as f64 / 86_400.0;
+        let d = decay(age);
+        match (s.load_kg, s.reps, s.hold_s) {
+            // Weighted: load + reps → an e1RM estimate.
+            (Some(load), Some(reps), _) => {
+                e1rm = max_opt(e1rm, epley(load, reps, s.rpe) * d);
+            }
+            // Bodyweight reps: reps, no load → effective-rep estimate.
+            (None, Some(reps), _) => {
+                best_reps = max_opt(best_reps, (reps as f64 + rir(s.rpe)) * d);
+            }
+            _ => {}
+        }
+        // A hold set (isometric) carries hold_s regardless of the above.
+        if let Some(h) = s.hold_s {
+            best_hold = max_opt(best_hold, h as f64 * d);
+        }
+        // A loaded carry: weight *and* time. Both decay, so idleness pulls the
+        // estimate down as one — it can't quietly keep the weight while forgetting
+        // the duration, or the reverse.
+        if let (Some(load), Some(h)) = (s.load_kg, s.hold_s) {
+            carry = better_carry(
+                carry,
+                Carry {
+                    load: load * d,
+                    secs: (h as f64 * d).floor() as i32,
+                },
+            );
+        }
+    }
+
+    let sessions_recent = recent_days.len() as i32;
+    let confidence = if sessions_recent >= HIGH_SESSIONS {
+        Confidence::High
+    } else if sessions_recent >= MEDIUM_SESSIONS {
+        Confidence::Medium
+    } else {
+        Confidence::Low // present in history, but no recent session
+    };
+
+    Ability {
+        e1rm,
+        // Floor reps (conservative — never claim a rep you can't show).
+        best_reps: best_reps.map(|r| r.floor() as i32),
+        best_hold: best_hold.map(|h| h.round() as i32),
+        carry,
+        confidence,
+        sessions_recent,
+    }
 }
 
 /// Confidence for an exercise given the ability map — `None` when it's absent

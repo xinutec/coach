@@ -11,7 +11,7 @@ use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
     Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings,
-    PacingState, Readiness, SetRec, SuggestionKind,
+    PacingState, Readiness, SetRec, Suggestion, SuggestionKind,
 };
 use coach::settings::types::Mode;
 
@@ -1406,4 +1406,95 @@ fn a_settled_athletes_target_tracks_their_own_rate() {
         "a 5-sets-a-day athlete should be targeted around 5, got {}",
         out.day_target_sets
     );
+}
+
+// ---- prediction-error feedback (the residual ledger driving progression) ----
+//
+// Ability is a max over decayed sets, so without the ledger a miss pulls nothing
+// down and the athlete is re-handed the load his last sessions already failed.
+// These drive the fix end to end through `evaluate`.
+
+/// A run of identical weighted sessions on the barbell row, one per week, newest
+/// `days_ago` last. Enough distinct recent days to reach `High` confidence.
+fn row_sessions(loads_by_week: &[f64]) -> Vec<SetRec> {
+    let mut h = Vec::new();
+    for (i, &load) in loads_by_week.iter().enumerate() {
+        // Oldest first; the last entry is the most recent (2 days ago).
+        let d = 2 + (loads_by_week.len() - 1 - i) as i64 * 7;
+        h.push(wset(5, days_ago(d), load, 5));
+    }
+    h
+}
+
+fn row_plan(history: Vec<SetRec>) -> PacingNow {
+    evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: owned(),
+            ..input(
+                Mode::Strength,
+                vec![barbell_row()],
+                history,
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    )
+}
+
+fn row_work(out: &PacingNow) -> Option<Suggestion> {
+    out.plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work && s.exercise_id == 5)
+        .cloned()
+}
+
+#[test]
+fn two_misses_prescribe_a_lighter_load_than_a_steady_history() {
+    // Steady at 60 kg → prescribed around there. Then two sessions that came in well
+    // under it → the next prescription must step *down*, not re-offer 60.
+    let steady = row_work(&row_plan(row_sessions(&[60.0, 60.0, 60.0]))).expect("a work item");
+    let after_misses =
+        row_work(&row_plan(row_sessions(&[60.0, 60.0, 45.0, 45.0]))).expect("a work item");
+    assert!(
+        after_misses.load_kg.unwrap() < steady.load_kg.unwrap(),
+        "two misses should back the load off: steady {:?} vs after-misses {:?}",
+        steady.load_kg,
+        after_misses.load_kg
+    );
+    // ...and it says why, so "eased off" reads as a decision rather than a glitch.
+    assert_eq!(after_misses.explanation.map(|e| e.misses), Some(2));
+}
+
+#[test]
+fn three_misses_send_a_trusted_lift_back_to_calibration() {
+    // High confidence — normally prescribed — but the estimate has been wrong three
+    // sessions running. That is a wrong number, not a bad week, so the engine stops
+    // prescribing from it and measures instead.
+    let out = row_plan(row_sessions(&[60.0, 60.0, 45.0, 45.0, 45.0]));
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5)
+        .expect("the row is still planned");
+    assert_eq!(
+        item.kind,
+        SuggestionKind::Assess,
+        "three misses running re-open the measurement"
+    );
+}
+
+#[test]
+fn a_steady_history_still_prescribes_work_at_its_level() {
+    // The control: no misses, so nothing about the feedback path fires and the lift
+    // is prescribed as work, near the demonstrated e1RM.
+    let out = row_plan(row_sessions(&[60.0, 60.0, 60.0]));
+    let w = row_work(&out).expect("a work item");
+    assert!(
+        w.load_kg.unwrap() >= 50.0,
+        "prescribed near his level, got {:?}",
+        w.load_kg
+    );
+    assert_eq!(w.explanation.map(|e| e.misses), Some(0));
 }

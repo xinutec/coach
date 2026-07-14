@@ -204,6 +204,11 @@ pub struct Explanation {
     pub confidence: Confidence,
     /// Estimated 1-rep-max (kg) the load was derived from, when known.
     pub e1rm: Option<f64>,
+    /// Sessions in a row the athlete has come in under this estimate. Non-zero means
+    /// the prescription was held back or stepped down on purpose, and the card can
+    /// say so — "eased off" reads as a decision; the same number twice in a row
+    /// after a bad session reads as the coach not listening.
+    pub misses: i32,
     /// The biometric readiness band that scaled today's volume, if health had data.
     pub readiness: Option<Band>,
 }

@@ -28,6 +28,7 @@ use crate::settings::types::Mode;
 use super::ability::{self, Ability};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
+use super::residual::{self, Residual};
 use super::types::{
     Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
     PacingState, Substitution, Suggestion, SuggestionKind,
@@ -277,9 +278,26 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &HashMap<i64, Vec<f64>>) -> Optio
 /// Weighted work autoregulates: the working load is derived from the decayed e1RM
 /// so a layoff self-corrects to a lighter start, and the load only steps up when
 /// logged sets raise the estimate past the next owned weight (double progression,
-/// but *earned* and snapped to what you own). `advance = false` (low readiness)
-/// leaves more in reserve — keep it light, don't chase a PR.
-fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dose {
+/// but *earned* and snapped to what you own).
+///
+/// Two things hold it back. `advance = false` (low readiness) leaves more in
+/// reserve — keep it light, don't chase a PR. And `feedback`, the prediction-error
+/// ledger, answers a session that actually went badly: **one miss holds** the number
+/// rather than adding to it, and **two in a row step down** a rung of the owned
+/// weights. Without that, ability is a max over decayed sets and a miss pulls
+/// nothing down — the athlete gets handed the same number the sets just
+/// contradicted, which is how you grind someone into a hole.
+fn prescribe(
+    loaded: &Loaded,
+    ability: &Known,
+    mode: Mode,
+    advance: bool,
+    feedback: &Residual,
+) -> Dose {
+    // A miss is not a day to add load on. (Low readiness already said as much for a
+    // different reason; either is enough.)
+    let advance = advance && !feedback.wants_hold();
+    let back_off = feedback.wants_back_off();
     let reserve = if advance {
         TARGET_RIR
     } else {
@@ -292,7 +310,14 @@ fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dos
                 Some(e) => {
                     // Working load: the weight you own nearest the one that puts
                     // the top of the range within reach at the target reserve.
-                    let load = inv.snap(load_for(e, range.high as f64, reserve));
+                    let target = inv.snap(load_for(e, range.high as f64, reserve));
+                    // Missed it twice running → the estimate is too heavy, not the
+                    // day. Take a rung off and rebuild from there.
+                    let load = if back_off {
+                        inv.next_below(target)
+                    } else {
+                        target
+                    };
                     // At that (discrete) weight, how many reps are actually in
                     // reach? Clamped into the range — this is the rep target that
                     // climbs to the top before the weight is allowed to step.
@@ -317,7 +342,13 @@ fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dos
             let range = rep_range(mode, false);
             let low = match ability.best_reps {
                 Some(best) => {
-                    let aim = if advance { best + 1 } else { best };
+                    // Climb, hold, or (after two misses) ask for one rep fewer than
+                    // the number that isn't happening.
+                    let aim = match (advance, back_off) {
+                        (_, true) => best - 1,
+                        (true, false) => best + 1,
+                        (false, false) => best,
+                    };
                     aim.clamp(range.low, range.high)
                 }
                 None => range.low,
@@ -328,8 +359,13 @@ fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dos
         }
         Loaded::Hold => {
             let base = ability.best_hold.unwrap_or(COLD_HOLD_S);
+            let secs = match (advance, back_off) {
+                (_, true) => base - HOLD_STEP_S,
+                (true, false) => base + HOLD_STEP_S,
+                (false, false) => base,
+            };
             Dose::Hold {
-                secs: if advance { base + HOLD_STEP_S } else { base },
+                secs: secs.max(HOLD_STEP_S),
             }
         }
         // Double progression, in the carry's own units: hold the weight and climb
@@ -337,6 +373,11 @@ fn prescribe(loaded: &Loaded, ability: &Known, mode: Mode, advance: bool) -> Dos
         // clock again. Same earned-then-stepped shape as a weighted lift, so a
         // carry progresses like everything else instead of drifting upward forever.
         Loaded::WeightedHold(inv) => match ability.carry {
+            // Missed twice → a rung down, and the clock starts again there.
+            Some(c) if back_off => Dose::WeightedHold {
+                load: inv.next_below(inv.snap(c.load)),
+                secs: CARRY_BASE_S,
+            },
             Some(c) if c.secs >= CARRY_TOP_S && advance => Dose::WeightedHold {
                 load: inv.next_above(c.load),
                 secs: CARRY_BASE_S,
@@ -442,6 +483,7 @@ fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
     abilities: &HashMap<i64, Ability>,
+    residuals: &HashMap<i64, Residual>,
     groups: &Groups,
     now: NaiveDateTime,
 ) -> (Vec<Cand<'a>>, Vec<Candidate>) {
@@ -495,7 +537,7 @@ fn candidates<'a>(
 
         // A calibration set is a measurement: exactly one, always. Trusted work
         // takes its minimum effective dose, and may earn up to the ceiling.
-        let (min, cap) = match Known::of(abilities, ex.id) {
+        let (min, cap) = match Known::of(abilities, residuals, ex.id) {
             Some(_) => (MIN_WORK_SETS, MAX_SETS_PER_EXERCISE),
             None => (1, 1),
         };
@@ -714,6 +756,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // Per-exercise ability (RPE-aware e1RM / best reps / best hold, decayed for
     // staleness) — the basis every prescription derives from. Computed once.
     let abilities = ability::abilities(&input.history, now);
+    // How well those estimates have been describing him lately: for each session, what
+    // the engine believed beforehand versus what he actually did. Recomputed from
+    // history, so the engine stays stateless.
+    let residuals = residual::residuals(&input.history);
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     let roll_cut = now - Duration::days(ROLLING_DAYS);
@@ -911,6 +957,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             input,
             kit,
             &abilities,
+            &residuals,
             &groups,
             day_target_sets,
             &ex_by_id,
@@ -1034,16 +1081,18 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 /// Cover today's need with the kit present: greedy set-cover over the doable
 /// catalog, each chosen exercise prescribed (trusted ability) or assessed
 /// (untrusted), then ordered into a session and led by a warm-up block.
+#[allow(clippy::too_many_arguments)]
 fn plan_session(
     input: &PacingInput,
     kit: &Kit,
     abilities: &HashMap<i64, Ability>,
+    residuals: &HashMap<i64, Residual>,
     groups: &Groups,
     budget: i32,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>) {
-    let (cands, scored) = candidates(input, kit, abilities, groups, now);
+    let (cands, scored) = candidates(input, kit, abilities, residuals, groups, now);
     let chosen = cover::select(&scored, &groups.need, budget);
 
     // Hold progression on a low-readiness day.
@@ -1060,10 +1109,11 @@ fn plan_session(
         let c = &cands[pick.index];
         let sets = pick.sets;
         let ability = abilities.get(&c.ex.id);
-        let (kind, dose, measure) = match Known::of(abilities, c.ex.id) {
+        let feedback = residuals.get(&c.ex.id).cloned().unwrap_or_default();
+        let (kind, dose, measure) = match Known::of(abilities, residuals, c.ex.id) {
             Some(known) => (
                 SuggestionKind::Work,
-                Some(prescribe(&c.loaded, &known, input.mode, advance)),
+                Some(prescribe(&c.loaded, &known, input.mode, advance, &feedback)),
                 None,
             ),
             None => (
@@ -1102,6 +1152,7 @@ fn plan_session(
                     pays: pick.pays,
                     confidence: ability::confidence_of(abilities, c.ex.id),
                     e1rm: ability.and_then(|a| a.e1rm),
+                    misses: feedback.consecutive_misses,
                     readiness: input.readiness.map(|r| r.band),
                 }),
                 stood_in

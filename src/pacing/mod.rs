@@ -7,5 +7,6 @@ pub mod cover;
 pub mod dose;
 pub mod engine;
 pub mod readiness;
+pub mod residual;
 pub mod service;
 pub mod types;

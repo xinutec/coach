@@ -25,6 +25,7 @@
 use std::collections::HashMap;
 
 use super::ability::{Ability, Confidence, confidence_of};
+use super::residual::Residual;
 
 /// The discrete weights available for one exercise's kit at this location —
 /// sorted ascending, deduped, and **never empty** (the only constructor rejects
@@ -68,6 +69,18 @@ impl Inventory {
             .copied()
             .find(|w| *w > load + 1e-9)
             .unwrap_or_else(|| *self.0.last().expect("Inventory is non-empty"))
+    }
+
+    /// The next weight *down* from `load` — the rung a lift backs off to after
+    /// repeated misses. At the lightest weight owned there is nowhere further down,
+    /// and the answer is that weight rather than a lighter one you don't have.
+    pub fn next_below(&self, load: f64) -> f64 {
+        self.0
+            .iter()
+            .copied()
+            .rev()
+            .find(|w| *w < load - 1e-9)
+            .unwrap_or_else(|| self.lightest())
     }
 }
 
@@ -125,18 +138,38 @@ pub enum Measure {
 
 /// An ability estimate the engine **trusts enough to prescribe from**.
 ///
-/// The only way to obtain one is [`Known::of`], which refuses `Low`/`None`
-/// confidence. Prescription functions take a `Known` by type, so it is not
-/// possible — today or after any future edit — to derive a working load for an
-/// exercise the athlete hasn't recently demonstrated. That is the G3 safety rule
-/// ("when unsure, measure") expressed as a type rather than as a convention.
+/// The only way to obtain one is [`Known::of`]. Prescription functions take a
+/// `Known` by type, so it is not possible — today or after any future edit — to
+/// derive a working load for an exercise the engine doesn't actually know. That is
+/// the safety rule ("when unsure, measure") expressed as a type rather than as a
+/// convention.
+///
+/// Trust has two halves, and an estimate needs both:
+///
+/// - **Recent enough** — `High`/`Medium` confidence. An estimate built from stale
+///   sets, or from none, describes someone else.
+/// - **Not repeatedly wrong** — the athlete has not missed it several sessions
+///   running ([`Residual::wants_remeasure`]). An estimate the sets keep
+///   contradicting is not a run of bad luck; it is a wrong number, and prescribing
+///   from it grinds the athlete against a claim they have already disproved. So it
+///   goes back to being *measured*.
 #[derive(Clone, Copy, Debug)]
 pub struct Known<'a>(&'a Ability);
 
 impl<'a> Known<'a> {
-    /// The trusted estimate for `exercise_id`, or `None` when confidence is
-    /// `Low`/`None` — in which case the caller must assess instead.
-    pub fn of(abilities: &'a HashMap<i64, Ability>, exercise_id: i64) -> Option<Self> {
+    /// The trusted estimate for `exercise_id`, or `None` — in which case the caller
+    /// must assess instead.
+    pub fn of(
+        abilities: &'a HashMap<i64, Ability>,
+        residuals: &HashMap<i64, Residual>,
+        exercise_id: i64,
+    ) -> Option<Self> {
+        if residuals
+            .get(&exercise_id)
+            .is_some_and(Residual::wants_remeasure)
+        {
+            return None;
+        }
         match confidence_of(abilities, exercise_id) {
             Confidence::High | Confidence::Medium => abilities.get(&exercise_id).map(Known),
             Confidence::Low | Confidence::None => None,
