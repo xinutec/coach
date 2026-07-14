@@ -5709,18 +5709,18 @@
   {
     "slug": "curl_biceps_dumbbell_standing",
     "name": "Biceps curl",
-    "variation": "dumbbell, standing",
+    "variation": "one arm, dumbbell, standing",
     "pattern": "pull",
     "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 1,
     "position": "standing",
-    "unilateral": false,
-    "implements": 2,
-    "cue": "Standing dumbbell curl, elbows pinned to the ribs — no swing from the hips",
+    "unilateral": true,
+    "implements": 1,
+    "cue": "Standing single-arm dumbbell curl, elbow pinned to the ribs — no swing from the hips",
     "demoUrl": null,
-    "summary": "dumbbell, standing",
+    "summary": "one arm, dumbbell, standing",
     "muscles": [
       {
         "slug": "biceps_brachii",
@@ -5746,7 +5746,10 @@
     "equipment": [
       "dumbbell"
     ],
-    "image": null
+    "image": {
+      "file": "curl_biceps_dumbbell_standing.png",
+      "type": "image/png"
+    }
   },
   {
     "slug": "triceps_extension_overhead_dumbbell",
@@ -5853,6 +5856,51 @@
     "image": {
       "file": "squat_front_rack_double_kettlebell.png",
       "type": "image/png"
+    }
+  },
+  {
+    "slug": "curl_biceps_dumbbell_alternating",
+    "name": "Biceps curl",
+    "variation": "alternating, dumbbell, standing",
+    "pattern": "pull",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": true,
+    "implements": 2,
+    "cue": "A dumbbell in each hand, curling one arm at a time — elbows pinned, no swing from the hips",
+    "demoUrl": null,
+    "summary": "alternating, dumbbell, standing",
+    "muscles": [
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "primary"
+      },
+      {
+        "slug": "brachioradialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "stabilizer"
+      },
+      {
+        "slug": "wrist_flexors",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": {
+      "file": "curl_biceps_dumbbell_alternating.jpg",
+      "type": "image/jpeg"
     }
   }
 ]

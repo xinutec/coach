@@ -30,6 +30,16 @@ chrono-tz = "0.10"
 hmac = "0.13"
 sha2 = "0.11"
 hex = "0.4"
+# Renders catalog pictures on the way into the DB (see src/seed/image.rs): the
+# source keeps its alpha, the served blob is what the app can actually display.
+# Every format the bundle actually holds — 67 jpeg, 41 png, 13 webp, 1 gif. A
+# format the decoder doesn't know is a boot failure, not a skipped picture.
+image = { version = "0.25", default-features = false, features = [
+    "png",
+    "jpeg",
+    "webp",
+    "gif",
+] }
 rand = "0.10"
 url = "2"
 time = "0.3"
@@ -41,6 +51,13 @@ thiserror = "2"
 ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "serde-json-impl"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Dependencies are compiled optimised even in a debug build. Decoding and resizing
+# the catalog's ~15 MB of images is the seeder's one genuinely CPU-bound job, and
+# unoptimised it took the DB tests from 8 seconds to 90 — a tax on every `verify`.
+# Our own code stays unoptimised, so debugging and backtraces are unaffected.
+[profile.dev.package."*"]
+opt-level = 2
 
 [dev-dependencies]
 # Router-level tests drive the app via ServiceExt::oneshot (no live socket).

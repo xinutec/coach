@@ -446,3 +446,65 @@ async fn a_picture_added_later_reaches_an_existing_movement() {
          gated on the row being new"
     );
 }
+
+/// The catalog bundle is the **source** and keeps its alpha; what the app is served
+/// is what the app can display. A transparent portrait diagram (dark line-art,
+/// 241×338) would otherwise fail twice: invisible on a dark theme, and cropped by
+/// the 16:9 hero to a band across the figure's stomach — losing the very muscle the
+/// picture exists to show.
+#[tokio::test]
+async fn a_transparent_diagram_is_rendered_but_a_photograph_is_left_alone() {
+    let pool = fresh("render").await;
+
+    async fn by_slug(pool: &MySqlPool, slug: &str) -> coach::exercise::image::ImageBlob {
+        let ex = ex_repo::list(pool, true)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|e| e.slug == slug)
+            .unwrap_or_else(|| panic!("no exercise {slug}"));
+        coach::exercise::image::get(pool, ex.id)
+            .await
+            .unwrap()
+            .unwrap_or_else(|| panic!("{slug} has no image"))
+    }
+
+    // The diagram: served opaque, at the hero's shape.
+    let img = by_slug(&pool, "curl_biceps_dumbbell_standing").await;
+    let decoded = image::load_from_memory(&img.bytes).expect("decoding the served diagram");
+    let aspect = decoded.width() as f64 / decoded.height() as f64;
+    assert!(
+        (aspect - 16.0 / 9.0).abs() < 0.01,
+        "the diagram is served at {}×{} — the 16:9 hero will crop it",
+        decoded.width(),
+        decoded.height()
+    );
+    assert!(
+        !image::GenericImageView::pixels(&decoded).any(|(_, _, p)| p.0[3] < 255),
+        "the served diagram is still transparent — it will vanish on a dark theme"
+    );
+    // ...while the source keeps the alpha it came with. That's the whole point.
+    let src = std::fs::read(format!(
+        "{}/images/curl_biceps_dumbbell_standing.png",
+        catalog_dir()
+    ))
+    .expect("the source image");
+    let src = image::load_from_memory(&src).expect("decoding the source");
+    assert!(
+        image::GenericImageView::pixels(&src).any(|(_, _, p)| p.0[3] < 255),
+        "the source image lost its transparency — the bundle is the source, and a \
+         flattened source cannot be un-flattened"
+    );
+
+    // A photograph that is already the right shape and opaque: stored byte-for-byte,
+    // so a re-seed doesn't rewrite the whole bundle. (Not every "photo" qualifies —
+    // rdl.png is a palette PNG *with* transparency, and is rendered like a diagram.
+    // The rule is about the pixels, not about the filename.)
+    let photo = by_slug(&pool, "ab_rollout_barbell").await;
+    let raw = std::fs::read(format!("{}/images/ab_rollout_barbell.jpg", catalog_dir()))
+        .expect("the source photo");
+    assert_eq!(
+        photo.bytes, raw,
+        "an ordinary photograph was re-encoded — it needed nothing done to it"
+    );
+}

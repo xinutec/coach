@@ -18,10 +18,14 @@
 //! A field the catalog owns but the reconcile skips is a field the catalog only
 //! *appears* to own.
 //!
-//! Two things stay insert-only, and neither is a scalar the catalog can correct:
-//! image blobs (content-addressed, and a new exercise brings its own), and
-//! `is_active` — the retired `*_legacy` rows (migration 0006) are deliberately
-//! absent from the catalog, so the reconcile never sees them.
+//! `is_active` is the one column the catalog does *not* own: the retired
+//! `*_legacy` rows (migration 0006) are deliberately absent from it, so the
+//! reconcile never sees them.
+//!
+//! Images seed whenever the row hasn't got one — a movement is catalogued the
+//! moment it is real, and the picture turns up later — and are **rendered** on the
+//! way in (see [`render`]): the bundle is the source and keeps its alpha, while
+//! what the app is served is what the app can actually display.
 //!
 //! This keeps the 119-row catalog and its ~15 MB of images out of SQL migrations
 //! while still making any fresh DB (dev or prod) reproduce the full library.
@@ -33,6 +37,8 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use sqlx::MySqlPool;
+
+mod render;
 
 use crate::exercise::image;
 
@@ -330,10 +336,15 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             && !has_image.contains(&id)
         {
             let path = dir.join("images").join(&img.file);
-            let bytes =
+            let raw =
                 std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-            let etag = hex::encode(Sha256::digest(&bytes));
-            image::insert_if_absent(pool, id, &img.content_type, &bytes, &etag).await?;
+            // The bundle is the source and keeps its alpha; what goes in the DB is
+            // what the app can display. An anatomy diagram (transparent line-art,
+            // portrait) is composited onto white and padded to 16:9; a photograph is
+            // stored exactly as it came. See seed::render.
+            let r = render::render(&raw, &img.content_type, &ex.slug)?;
+            let etag = hex::encode(Sha256::digest(&r.bytes));
+            image::insert_if_absent(pool, id, &r.content_type, &r.bytes, &etag).await?;
             images += 1;
         }
     }
