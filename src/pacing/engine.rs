@@ -87,6 +87,13 @@ const STABILIZER_CREDIT: f64 = 0.25; // an isometric stabilizer counts a quarter
 const EMPHASIS_MULT: f64 = 1.5;
 const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
 const DELOAD_SCALE: f64 = 0.6;
+/// The weekly-volume the session-size estimate starts from, and how many weeks of
+/// evidence it is worth. A shrinkage prior: with no history the estimate *is* the
+/// anchor, and real weeks pull it toward the athlete's own rate — so there's no
+/// cliff between "cold start" and "personal average", which is where the target
+/// used to halve itself the moment the first set was logged.
+const ANCHOR_WEEKLY_SETS: f64 = 24.0; // ≈ 6 sets × 4 days
+const ANCHOR_WEEKS: f64 = 2.0;
 
 /// What one set of an exercise credits into a group it trains in this role.
 fn role_credit(role: MuscleRole) -> f64 {
@@ -723,6 +730,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let mut unrecovered: HashMap<i64, f64> = HashMap::new();
     let mut done_today = 0i32;
     let mut raw_hist = 0i32;
+    let mut first_hist: Option<NaiveDateTime> = None;
+    // The weeks *before* the rolling window — the only thing a "this week is a
+    // spike" claim can be measured against.
+    let mut baseline_sum = 0.0f64;
+    let mut baseline_first: Option<NaiveDateTime> = None;
     for set in &input.history {
         let Some(ex) = ex_by_id.get(&set.exercise_id) else {
             continue;
@@ -737,6 +749,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         if set.logged_at >= hist_cut {
             raw_hist += 1;
+            first_hist = Some(first_hist.map_or(set.logged_at, |f| f.min(set.logged_at)));
         }
         let age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
@@ -746,6 +759,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             }
             if set.logged_at >= roll_cut {
                 *current.entry(*g).or_default() += credit;
+            } else if set.logged_at >= hist_cut {
+                baseline_sum += credit;
+                baseline_first =
+                    Some(baseline_first.map_or(set.logged_at, |f| f.min(set.logged_at)));
             }
             // Unrecovered contribution: full when fresh, linearly gone by the
             // region's horizon (a set past it no longer holds the group back).
@@ -756,12 +773,60 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
     }
 
+    // How much history there actually *is*, in weeks — not the width of the window
+    // we looked through.
+    //
+    // Every weekly average below used to divide by a flat `HISTORY_WEEKS`, which is
+    // only your weekly rate if you have been training the whole eight weeks. On a
+    // returning athlete it is nonsense in the most damaging direction: one session
+    // of 14 sets read as 1.75 sets/week, so the day's target *fell* from the
+    // cold-start 6 to the floor of 3. Logging a session made the coach believe he
+    // trained less than logging nothing did — the estimate got worse the more it
+    // knew, which is the one thing an estimator must never do.
+    //
+    // Not floored at a week: a single day of history is *zero* weeks of evidence,
+    // and the session-size prior below is what keeps that from extrapolating a hard
+    // morning into "98 sets a week". Flooring it at one week instead would treat
+    // today as a whole week already spent, which understates the rate — and that
+    // was still enough to shrink the target the moment a first session landed.
+    //
+    // What this buys, exactly: logging a set can only ever *raise* the numerator,
+    // while the denominator moves only with the calendar. So logging never lowers
+    // the day's target. Time passing still can, which is correct — that's
+    // detraining, not a measurement artefact.
+    let observed_weeks = first_hist
+        .map(|first| ((now - first).num_days() as f64 / 7.0).clamp(0.0, HISTORY_WEEKS as f64))
+        .unwrap_or(0.0);
+    // The per-group averages below have their own anchor (blended 50/50 with the
+    // literature default), so they need no prior of their own — only a guard against
+    // dividing a week's work by a fraction of a week.
+    let avg_weeks = observed_weeks.max(1.0);
+
     // --- one recovery factor on the per-group target ---
     // Biometric readiness (when health has data) is primary and supersedes the
     // crude volume-spike proxy; without it we fall back to that proxy.
-    let avg_weekly_total: f64 = avg_sum.values().sum::<f64>() / HISTORY_WEEKS as f64;
+    //
+    // The proxy compares this week against the weeks *before* it. It used to compare
+    // it against an average that divided all the history by a flat eight weeks —
+    // which, for anyone with less than eight weeks of it, is mostly dividing by
+    // empty weeks. Every week of a new athlete's training therefore cleared the
+    // spike ratio, and the coach would have told him to ease off in every session
+    // for his first two months. A spike needs something to be a spike *against*: no
+    // prior weeks, no claim (and biometric readiness, which supersedes this proxy
+    // whenever health has data, carries the cold start).
+    let baseline_weeks = baseline_first
+        .map(|first| {
+            ((roll_cut - first).num_days() as f64 / 7.0)
+                .clamp(1.0, (HISTORY_WEEKS - ROLLING_DAYS / 7) as f64)
+        })
+        .unwrap_or(0.0);
+    let baseline_weekly = if baseline_weeks > 0.0 {
+        baseline_sum / baseline_weeks
+    } else {
+        0.0
+    };
     let last7_total: f64 = current.values().sum();
-    let volume_deload = avg_weekly_total > 0.0 && last7_total > DELOAD_RATIO * avg_weekly_total;
+    let volume_deload = baseline_weekly > 0.0 && last7_total > DELOAD_RATIO * baseline_weekly;
     let recovery_scale = match input.readiness {
         Some(r) => 0.75 + 0.5 * r.score, // 0.75 (spent) .. 1.25 (fully recovered)
         None if volume_deload => DELOAD_SCALE,
@@ -790,7 +855,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     for (i, gm) in input.groups.iter().enumerate() {
         let ix = GroupIx(i);
         let cur = *current.get(&gm.id).unwrap_or(&0.0);
-        let avg = avg_sum.get(&gm.id).copied().unwrap_or(0.0) / HISTORY_WEEKS as f64;
+        let avg = avg_sum.get(&gm.id).copied().unwrap_or(0.0) / avg_weeks;
         let emph = if input.emphasis == Some(gm.region) {
             EMPHASIS_MULT
         } else {
@@ -825,11 +890,14 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     balances.sort_by(|a, b| b.deficit.total_cmp(&a.deficit));
 
     // --- session-size target from personal weekly volume (sizes the plan) ---
-    let avg_weekly_sets = if raw_hist > 0 {
-        raw_hist as f64 / HISTORY_WEEKS as f64
-    } else {
-        24.0 // cold-start default ≈ 6 sets × 4 days
-    };
+    //
+    // A shrinkage estimate, not a switch: the weekly rate starts *as* the anchor and
+    // each observed week pulls it toward what he actually does. The old form was a
+    // cliff — a hard-coded 24 with no history, your (mis-computed) average the
+    // moment you had any — so the first logged set could drop the target by half.
+    // With no history this is exactly the anchor, so the cold start is unchanged.
+    let avg_weekly_sets =
+        (raw_hist as f64 + ANCHOR_WEEKLY_SETS * ANCHOR_WEEKS) / (observed_weeks + ANCHOR_WEEKS);
     // Scale the day's set count by the same recovery factor as the group targets,
     // so a low-readiness day is fewer sets, not just lighter ones.
     let day_target_sets = ((avg_weekly_sets / input.days_per_week.max(1) as f64 * recovery_scale)

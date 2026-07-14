@@ -911,9 +911,49 @@ fn rest_when_everything_recovered() {
     assert!(out.reason.contains("rest"));
 }
 
+/// Steady weeks behind you, then a heavy one. `spike_from` starts the recent week
+/// (0 = including today, 1 = nothing logged today).
+fn spike_over_a_baseline(spike_from: i64) -> Vec<SetRec> {
+    let mut h = vec![];
+    // The baseline: 7 weeks at a modest 7 sets a week.
+    for week in 1..8 {
+        for _ in 0..7 {
+            h.push(set(1, days_ago(week * 7 + 1)));
+        }
+    }
+    // This week: three times that.
+    for d in spike_from..7 {
+        for _ in 0..3 {
+            h.push(set(1, days_ago(d)));
+        }
+    }
+    h
+}
+
 #[test]
 fn auto_deload_when_volume_spikes() {
-    // Almost all volume is in the last 7 days (far above the 8-week average).
+    // This week is far above the weeks that came before it — that, and only that,
+    // is a spike. (Before, *any* history concentrated in the last 7 days tripped
+    // this, because the average divided by eight weeks whether or not they existed:
+    // a beginner's every week read as a spike.)
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            spike_over_a_baseline(0),
+            None,
+            None,
+        ),
+        now(),
+    );
+    assert!(out.deload, "a recent volume spike triggers auto-deload");
+}
+
+#[test]
+fn a_first_week_of_training_is_not_a_spike() {
+    // The same volume, with nothing before it. There is no baseline to spike above,
+    // so the coach must not claim one — it would have told a returning athlete to
+    // ease off in every session of his first two months.
     let mut h = vec![];
     for d in 0..7 {
         for _ in 0..10 {
@@ -921,7 +961,10 @@ fn auto_deload_when_volume_spikes() {
         }
     }
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
-    assert!(out.deload, "a recent volume spike triggers auto-deload");
+    assert!(
+        !out.deload,
+        "a first week of training is not a volume spike — there's nothing to spike above"
+    );
 }
 
 #[test]
@@ -929,13 +972,16 @@ fn deload_notes_the_reason() {
     // The same spike, but nothing logged today: the coach is suggesting work now,
     // so its one sentence carries the deload clause — there's no separate deload
     // widget in the UI.
-    let mut h = vec![];
-    for d in 1..8 {
-        for _ in 0..10 {
-            h.push(set(1, days_ago(d)));
-        }
-    }
-    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            spike_over_a_baseline(1),
+            None,
+            None,
+        ),
+        now(),
+    );
     assert!(out.deload, "the spike still reads as a deload");
     assert!(out.suggestion.is_some(), "work is on offer today");
     assert!(out.reason.contains("easing off"), "reason: {}", out.reason);
@@ -1307,5 +1353,57 @@ fn a_carry_with_no_registered_weights_is_not_prescribed() {
     assert!(
         !out.plan.iter().any(|s| s.exercise_id == 7),
         "a carry with no weights registered must not be prescribed"
+    );
+}
+
+// ---- the weekly rate is per week *observed*, not per week *looked at* --------
+
+#[test]
+fn a_first_session_does_not_shrink_the_day_target() {
+    // The estimator divided logged sets by a flat 8 weeks whether or not eight
+    // weeks of history existed. So a returning athlete's first session — 14 sets in
+    // one day — read as 1.75 sets/week, and the day's target *fell* from the
+    // cold-start 6 to the floor of 3: logging made the coach believe he trained
+    // less than logging nothing did. An estimate must not get worse as it learns.
+    let cold = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
+
+    // One honest session today: 14 sets across the catalog.
+    let mut h = Vec::new();
+    for _ in 0..5 {
+        h.push(set(1, hours_ago(3))); // push-up
+        h.push(set(2, hours_ago(3))); // ring row
+    }
+    h.extend([set(3, hours_ago(3)), set(3, hours_ago(3))]); // squat ×2 → 12… plus
+    h.push(set(1, hours_ago(3)));
+    h.push(set(2, hours_ago(3)));
+    assert_eq!(h.len(), 14);
+
+    let after = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(
+        after.day_target_sets >= cold.day_target_sets,
+        "logging a session shrank the day's target from {} to {} — the estimator \
+         got worse as it learned",
+        cold.day_target_sets,
+        after.day_target_sets
+    );
+}
+
+#[test]
+fn a_settled_athletes_target_tracks_their_own_rate() {
+    // Eight weeks of steady training: ~20 sets/week over 4 days → the target should
+    // land near their real per-day rate (5), not at a floor or a ceiling.
+    let mut h = Vec::new();
+    for week in 0..8 {
+        for day in [0, 2, 4, 6] {
+            for _ in 0..5 {
+                h.push(set(1, days_ago(week * 7 + day + 1)));
+            }
+        }
+    }
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(
+        (4..=7).contains(&out.day_target_sets),
+        "a 5-sets-a-day athlete should be targeted around 5, got {}",
+        out.day_target_sets
     );
 }
