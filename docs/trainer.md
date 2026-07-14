@@ -275,10 +275,33 @@ triceps/front-delt as synergists without treating a plank's core as half a worki
 set. Back-tested: 14/16 day-verdicts shifted (fewer neglected-looking groups, more
 of the catalog reachable) — a real balance-accuracy change, not a no-op.
 
-**Still pending**: count `unilateral` sets per side; author the missing mobility
-moves (hamstrings, glutes, hip flexors, abs, chest, lats, traps, triceps, upper
-back have none), which is blocked on a demo source — every catalog entry carries
-a real demo URL and image, and inventing them is not an option.
+**The catalog is now genuinely authoritative** (2026-07-14). It wasn't: the seed's
+hash gate watched `exercises.json` alone, so an edit to `equipment.json` or the
+muscle taxonomy left the fingerprint unchanged and the seed short-circuited — the
+change was committed, was in the image, and never reached a row. And the reconcile
+wrote back only `skill`/`warmup`/`difficulty`/`implements`, so the two corrected
+`youtu.be` demo links changed the hash, re-ran the seed, and left prod's rows
+exactly as broken. A field the catalog owns but the reconcile skips is a field the
+catalog only *appears* to own. The whole bundle is fingerprinted now and every
+scalar it carries is written back; `tests/db.rs` holds both properties (a
+correction reaches an existing row; an unchanged catalog doesn't re-seed).
+
+**Still pending — warm-up coverage.** The 10 warm-up moves reach 7 muscle groups
+(deltoids, rotator cuff, forearms, quads, obliques, deep core, lower back). The
+other **12 have no drill at all**: abdominals, adductors, biceps, chest, glutes,
+hamstrings, hip flexors, lats, lower leg, trapezius, triceps, upper back. The
+engine names them in a notice rather than opening with a silently empty warm-up,
+but this is the largest hole in the warm-up block, and it is pure catalog
+authoring — blocked on a demo source, since every entry carries a real demo URL
+and image and inventing them is not an option.
+
+**Still pending — `unilateral` sets per side.** Stored, still unused, and it is
+not merely an arithmetic fix: it turns on *what a logged set means* for a
+single-arm movement. Either a set is one side (so a group needs twice as many, and
+each side is measured separately — which would also make a left/right asymmetry
+visible, and that is worth having) or a set is both sides (the gym convention, and
+then nothing changes but the phrasing). The first is the better instrument and the
+more tedious log. Needs a decision before code.
 
 **Not a gap, though it reads like one**: 19 `*_legacy` rows carry no muscles, no
 equipment and no demo. They are the placeholder built-ins from migration 0002,
@@ -400,6 +423,33 @@ doable at the location → hold top of range and say so in the reason line.
 **Provable**: a topped-out incline push-up with a harder press variant
 available yields the variant; without one, it holds.
 
+### G9 — The equipment vocabulary can't describe a commercial gym
+
+**Gap.** The kit taxonomy is 13 items: dumbbell, barbell, kettlebell, trap bar,
+band, cable machine, medicine ball, pull-up bar, rings, parallettes, bench, GHD,
+yoga ball. That is a home gym and a calisthenics rig. It has no lat pulldown, leg
+press, chest press, seated row, leg curl or extension, smith machine, or squat
+rack — so in a gym full of them, **the coach cannot be told they are there**, and
+plans free-weight and bodyweight work only. Nothing is wrong in the verdict; it
+is simply blind to most of the room.
+
+**Half-fixed** (2026-07-14): *which kit carries a load* is now a catalog fact
+(`weighted`) rather than a guess from its category. Reading it as
+`category = free_weight` was right about a bench and wrong about a pulley: a cable
+stack is a `machine`, so the coach could put no weight on the one machine in the
+gym whose entire purpose is the weight on it — and all five cable movements were
+modelled as bodyweight reps, progressing by adding reps, forever. They are
+weighted lifts now, and a stack's pin positions are enterable as what they are: a
+ladder of discrete weights (`loads.rs` already handled that shape — the fixed
+weights of a dumbbell rack and the pin positions of a stack are the same list).
+
+**Remaining, and it is not a code problem.** Adding the machines themselves is
+cheap: an entry in `equipment.json` and, for a selectorised machine, weights
+registered at the location. What is *not* cheap is that each new machine movement
+needs a catalog entry, and a catalog entry carries a real demo video and a real
+image. That is the same authoring bottleneck as the mobility drills (G5), and the
+same rule applies: no invented URLs.
+
 ## Engineering rigor — how we know it's right
 
 The gaps above are the product design. These are the mechanisms that make
@@ -500,6 +550,31 @@ expands the rationale in plain language, and tests assert on the trace instead o
 string-matching sentences — so "why did it tell me to do X?" is answerable
 exactly. (Not yet folded in: `recency`/`mode-fit` contributions and the top-line
 `reason` string rendering *from* the trace — a later tidy.)
+
+### E6 — The queries run against a real database ✅ *shipped*
+
+E1–E5 all test the *thinking*, and the engine being a pure function is what makes
+them possible. None of them can see the layer between the code and the database —
+and for a long time nothing did: coach had no test that executed a single query.
+
+That gap has a body count of one, and it was a bad one. `EquipmentRow` grew a
+`loadable` field; of the two SELECTs that build it, one was updated. A `FromRow`
+struct binds its columns **by name at runtime**, so the drift compiled, passed
+every test, deployed, and 500'd on every exercise that has equipment — 82 of 119,
+i.e. most of the library, live, in the gym. The structural fix was to share the
+column list (`eq_cols!`). The other half is `tests/db.rs`: a scratch database,
+migrated and seeded from `data/catalog/`, that runs the read paths against it —
+the whole catalog through the join that broke, plus `service::now` end to end from
+a real location and real logged sets. Reintroducing the bug fails it with the
+production error verbatim.
+
+Both gates provide the database (`verify.sh` starts a throwaway MariaDB if one
+isn't up; CI gets a `mariadb` service), and the tests **fail loudly with no
+server rather than skipping** — a test that quietly passes when it cannot run is
+worse than no test, because it reports coverage it isn't providing.
+
+This is also the prerequisite for moving the catalog out of SQL (see below): that
+migration rewrites the one table holding data that cannot be regenerated.
 
 ## Staging
 

@@ -45,9 +45,17 @@ cargo run                   # API on :8080 (STATIC_DIR unset = API only)
 
 `gen-types.sh` regenerates the frontend TS types from the Rust API types;
 `check-types.sh` is the drift gate. `verify.sh` is the gate to run before
-pushing: backend fmt + clippy, frontend lint/build/unit tests, the type-drift
-check, the Playwright layout checks, and dev-lint. It diffs the worktree against
-the git *index*, so `git add -A` first or the drift gate reads a stale tree.
+pushing: backend fmt + clippy + tests, frontend lint/build/unit tests, the
+type-drift check, the Playwright layout checks, and dev-lint. It diffs the
+worktree against the git *index*, so `git add -A` first or the drift gate reads a
+stale tree.
+
+The backend tests include `tests/db.rs`, which runs the real queries against a
+real MariaDB — a `FromRow` struct binds its columns by name at *runtime*, so a
+SELECT that drifts from it compiles, passes every pure test, and 500s in
+production (it did). `verify.sh` starts a throwaway database when one isn't
+already up, so this needs no ceremony; CI gets a `mariadb` service. The tests fail
+loudly without a server rather than skipping.
 
 ## Deploy
 
