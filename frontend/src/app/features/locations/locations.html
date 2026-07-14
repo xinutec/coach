@@ -33,6 +33,7 @@
 
     <div class="picker">
       @for (g of grouped(); track g.category) {
+        <!-- dev-lint: allow-unstyled-class temporary adoption waiver -- decide: style, rename, or delete -->
         <div class="cat">
           <div class="cat-name">{{ g.label }}</div>
           <div class="chips">
