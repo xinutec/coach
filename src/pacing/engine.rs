@@ -90,10 +90,11 @@ const CONFIRM_UNIT: f64 = 5.0;
 /// Most never-done movements one session introduces. A calibration day is a few
 /// movements learned properly, not a scattershot of one-off sets across every
 /// untrained group at once — which is exactly what pure coverage does on day two,
-/// when every group you haven't hit yet reads as maximum deficit. On a true cold
-/// start (nothing to confirm) this still leaves room for a focused first session
-/// that samples the main patterns.
-const NOVELTY_CAP: i32 = 5;
+/// when every group you haven't hit yet reads as maximum deficit. Deliberately
+/// small: a coach adds two or three new movements at a time and lets you own them
+/// before piling on more, and the same holds on a cold start — a focused first
+/// session that samples a few patterns beats a broad one nobody can attend to.
+const NOVELTY_CAP: i32 = 3;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -1080,8 +1081,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // coach says it in the one sentence it speaks, rather than the UI growing
     // status widgets. `deload` only fires when readiness is absent (it's the
     // no-biometric fallback), so the two never compete for the slot.
+    // Tone matters as much as content here. This is the one sentence the coach
+    // speaks, and it's read by someone returning to training — so it affirms
+    // readiness and invites the work, and never urges *intensity* ("push", "go
+    // hard"). The athlete decides how hard; the coach's job is to say what to do and
+    // that today's a good day for it.
     let day_note = match input.readiness.map(|r| r.band) {
-        Some(Band::High) => Some("Recovered — good day to push."),
+        Some(Band::High) => Some("Recovered — a good day to train well."),
         Some(Band::Low) => Some("Low readiness — keeping it light."),
         None if deload => Some("Volume's run hot lately — easing off."),
         _ => None,
@@ -1110,17 +1116,14 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             minutes_since_last_set.unwrap_or(0)
         )
     } else if let Some(sug) = &suggestion {
-        if behind {
-            format!(
-                "{} × {} ({}) — you're a bit light there this week.",
-                sug.sets, sug.exercise_name, sug.group
-            )
-        } else {
-            format!(
-                "Next up: {} × {} ({}).",
-                sug.sets, sug.exercise_name, sug.group
-            )
-        }
+        // Always an invitation to the next movement — never "you're a bit light this
+        // week", which frames a returning athlete as behind a quota and pressures the
+        // volume up. Whether he's ahead of or behind the day's burn-down still drives
+        // the *nudge* (a reminder's timing); it must not colour what the coach says.
+        format!(
+            "Next up: {} × {} ({}).",
+            sug.sets, sug.exercise_name, sug.group
+        )
     } else {
         String::new()
     };

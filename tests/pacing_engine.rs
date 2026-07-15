@@ -1151,7 +1151,11 @@ fn high_readiness_notes_the_reason() {
     };
     let out = evaluate(&inp, now());
     assert!(out.suggestion.is_some());
-    assert!(out.reason.contains("push"), "reason: {}", out.reason);
+    assert!(
+        out.reason.contains("train well"),
+        "the high-readiness clause is carried in the reason: {}",
+        out.reason
+    );
 }
 
 #[test]
