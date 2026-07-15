@@ -97,6 +97,18 @@ pub struct Candidate {
     pub credit: ByGroup<f64>,
     /// Style preference: mode fit + novelty. Scales rank; never qualifies.
     pub weight: f64,
+    /// A one-time **need** — in the same effective-set units as coverage — to bring
+    /// a movement the athlete has *started but not yet confirmed* up to a trusted
+    /// baseline. Added to the exercise's pay only on the set that *enters* it into
+    /// the session, so it opens the gate (a just-trained group has ~0 coverage need,
+    /// yet the movement is still worth repeating until its estimate is solid) without
+    /// inflating later sets. Zero for a movement that is either never-done (there's
+    /// nothing to confirm — that's novelty, covered by `credit`) or already trusted.
+    pub confirm: f64,
+    /// Never trained — a brand-new movement, subject to the per-session novelty cap
+    /// so a calibration day introduces a few movements to learn, not a scattershot
+    /// of one-off sets across everything at once.
+    pub novel: bool,
     /// Fewest sets to take *once this exercise is picked at all* — the minimum
     /// effective dose. A movement worth setting up for is worth more than one set,
     /// so the cover commits rather than spreading the day thin across eight
@@ -115,6 +127,9 @@ pub struct Candidate {
 /// Deliberately gated on the **pay**, not on `pay × weight`: style (mode fit,
 /// novelty) may *rank* candidates, but it must never *qualify* one. Otherwise a
 /// merely fashionable exercise clears the bar on a group that's already done.
+/// [`Candidate::confirm`] is counted into the pay here on purpose — knowing what
+/// you can do on a movement you've started *is* a need, not a style, so it may
+/// qualify a pick the same way coverage does.
 pub const MIN_PAY: f64 = 0.5;
 
 /// Float ties within this are treated as equal, so the id tie-break (not
@@ -127,7 +142,14 @@ const EPS: f64 = 1e-9;
 pub struct Chosen {
     pub index: usize,
     pub sets: i32,
+    /// Coverage need its first set paid down (effective sets) — the *volume* it
+    /// contributes. Excludes the confirmation bonus, so the explanation stays
+    /// truthful about how much of the week's group deficit this actually pays.
     pub pays: f64,
+    /// This pick earned its place by confirming a baseline, not by paying down
+    /// volume — its coverage `pays` was below the bar and [`Candidate::confirm`]
+    /// carried it in. The reason the coach gives for it differs accordingly.
+    pub confirming: bool,
 }
 
 /// Greedily fill `budget` sets from `cands`, each time taking the set that pays
@@ -135,22 +157,47 @@ pub struct Chosen {
 /// order they were first picked. Stops early when nothing left clears
 /// [`MIN_PAY`].
 ///
+/// Two needs qualify a pick, both in effective-set units: **coverage** (this set's
+/// dot with the remaining group need) and, only on the set that first enters an
+/// exercise, its **confirmation** need ([`Candidate::confirm`]) — the value of
+/// turning a started-but-unproven movement into a trusted baseline. Coverage is
+/// what gets *paid down* (subtracted from `need`); confirmation just opens the door
+/// and is spent once. `novelty_cap` bounds how many never-done movements a single
+/// session introduces, so a calibration day is a few movements learned properly,
+/// not a scattershot of one-off sets.
+///
 /// Deterministic: ties break to the lower exercise id.
-pub fn select(cands: &[Candidate], need: &ByGroup<f64>, budget: i32) -> Vec<Chosen> {
+pub fn select(
+    cands: &[Candidate],
+    need: &ByGroup<f64>,
+    budget: i32,
+    novelty_cap: i32,
+) -> Vec<Chosen> {
     let mut need = need.clone();
     let mut sets = vec![0i32; cands.len()];
-    let mut first_pay = vec![0.0f64; cands.len()];
+    let mut first_cover = vec![0.0f64; cands.len()];
+    let mut confirming = vec![false; cands.len()];
     let mut order: Vec<usize> = Vec::new();
     let mut left = budget.max(0);
+    // Never-done movements introduced so far — bounded by `novelty_cap`.
+    let mut novel_taken = 0i32;
 
     while left > 0 {
-        let mut best: Option<(usize, f64, f64)> = None; // (index, pay, rank)
+        let mut best: Option<(usize, f64, f64, f64)> = None; // (index, cover, pay, rank)
         for (i, c) in cands.iter().enumerate() {
             if sets[i] >= c.cap {
                 continue;
             }
-            // What this set actually pays down, in effective sets. The gate.
-            let pay = need.dot(&c.credit);
+            let entering = sets[i] == 0;
+            // A fresh novel movement past the cap doesn't get to start — but one
+            // already in the session may still earn further sets on coverage.
+            if entering && c.novel && novel_taken >= novelty_cap {
+                continue;
+            }
+            // Coverage is what this set pays into remaining group need. Confirmation
+            // is a one-time entry need — it qualifies a first set, nothing after.
+            let cover = need.dot(&c.credit);
+            let pay = cover + if entering { c.confirm } else { 0.0 };
             if pay < MIN_PAY {
                 continue;
             }
@@ -158,21 +205,29 @@ pub fn select(cands: &[Candidate], need: &ByGroup<f64>, budget: i32) -> Vec<Chos
             let rank = pay * c.weight;
             let wins = match best {
                 None => true,
-                Some((bi, _, br)) => {
+                Some((bi, _, _, br)) => {
                     rank > br + EPS || ((rank - br).abs() <= EPS && c.id < cands[bi].id)
                 }
             };
             if wins {
-                best = Some((i, pay, rank));
+                best = Some((i, cover, pay, rank));
             }
         }
-        let Some((i, pay, _)) = best else { break };
+        let Some((i, cover, pay, _)) = best else {
+            break;
+        };
         let c = &cands[i];
         // Committing to a movement takes its minimum dose; adding to one already in
         // the session takes a single set (its marginal gain was just re-checked).
         let take = if sets[i] == 0 {
             order.push(i);
-            first_pay[i] = pay;
+            first_cover[i] = cover;
+            // It earned its place on confirmation, not volume, when coverage alone
+            // couldn't have cleared the bar. That's the reason the coach will give.
+            confirming[i] = cover < MIN_PAY && pay >= MIN_PAY;
+            if c.novel {
+                novel_taken += 1;
+            }
             c.min.min(c.cap)
         } else {
             1
@@ -192,7 +247,8 @@ pub fn select(cands: &[Candidate], need: &ByGroup<f64>, budget: i32) -> Vec<Chos
         .map(|i| Chosen {
             index: i,
             sets: sets[i],
-            pays: first_pay[i],
+            pays: first_cover[i],
+            confirming: confirming[i],
         })
         .collect()
 }

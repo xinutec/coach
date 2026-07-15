@@ -125,14 +125,22 @@ export class Today {
 	 */
 	explanationLines(e: Explanation): string[] {
 		const lines: string[] = [];
-		const conf: Record<string, string> = {
-			high: "You've trained this recently — confident estimate",
-			medium: "A little recent data — estimate firming up",
-			low: "Rusty here — working off older data",
-			none: "New to you — calibrating from scratch",
-		};
-		lines.push(conf[e.confidence]);
-		lines.push(`${Math.round(e.deficit * 100)}% below this week's target for this group`);
+		if (e.confirming) {
+			// Its muscles are already covered this week — it's here to turn a shaky
+			// first estimate into a trusted one, which is worth more right now than a
+			// brand-new movement. Say that; a near-zero deficit line would just read
+			// as "why is this even here?".
+			lines.push("Locking in your baseline — a couple more clean sessions and I'll trust this number");
+		} else {
+			const conf: Record<string, string> = {
+				high: "You've trained this recently — confident estimate",
+				medium: "A little recent data — estimate firming up",
+				low: "Rusty here — working off older data",
+				none: "New to you — calibrating from scratch",
+			};
+			lines.push(conf[e.confidence]);
+			lines.push(`${Math.round(e.deficit * 100)}% below this week's target for this group`);
+		}
 		lines.push(
 			e.recovery >= 0.99 ? "Fully recovered" : `${Math.round(e.recovery * 100)}% recovered`,
 		);

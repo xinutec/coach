@@ -274,6 +274,69 @@ fn the_plan_is_ordered_and_sized_to_the_day_budget() {
 }
 
 #[test]
+fn a_started_movement_is_confirmed_even_when_its_group_is_covered() {
+    // Two recent sessions of push-ups, several sets each: enough that Chest's weekly
+    // volume is met and the group is still recovering, so under pure coverage the
+    // engine would flee to the untouched groups and never ask for push-ups again.
+    // But one or two sessions is not a trusted baseline. The coach should keep
+    // asking for the movement until the estimate is solid — confirming what you've
+    // *started* before broadening into new movements. This is the whole calibration
+    // fix: on day two, repeat, don't scatter. (Volume sits a few days back, so the
+    // group has recovered — confirmation waits on recovery, it doesn't override it.)
+    let mut h = vec![];
+    for _ in 0..12 {
+        h.push(set(1, days_ago(4))); // push-up (chest): covered for the week, recovered
+    }
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+
+    let pushup = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 1)
+        .expect("the started movement is confirmed, not abandoned once its group is covered");
+    assert_eq!(pushup.kind, SuggestionKind::Work);
+    assert!(
+        pushup.sets >= 2,
+        "confirmation takes its minimum effective dose, got {}",
+        pushup.sets
+    );
+    let e = pushup
+        .explanation
+        .as_ref()
+        .expect("a confirmed pick still explains itself");
+    assert!(
+        e.confirming,
+        "it earned its place by confirming a baseline — its group was already covered"
+    );
+    assert_eq!(
+        pushup.group, "Chest",
+        "a confirmation pick still labels to a real group"
+    );
+}
+
+#[test]
+fn a_trusted_movement_is_not_flagged_for_confirmation() {
+    // The same push-up, now trained on three distinct days → High confidence. Its
+    // estimate is trusted, so it is never specially *confirmed*; if it appears it's
+    // on ordinary coverage, and the confirmation flag stays off.
+    let h = vec![
+        set(1, days_ago(1)),
+        set(1, days_ago(3)),
+        set(1, days_ago(5)),
+    ];
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    for s in &out.plan {
+        if let Some(e) = &s.explanation {
+            assert!(
+                !e.confirming,
+                "{} is trusted or untouched — nothing to confirm",
+                s.exercise_name
+            );
+        }
+    }
+}
+
+#[test]
 fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
     // A ring skill (tier 2) and a barbell compound (tier 3), both back, both in
     // deficit. The skill leads — fresh CNS first.
@@ -487,9 +550,19 @@ fn mode_changes_the_bias() {
             vec![(20, MuscleRole::Primary)],
         ),
     ];
-    // Both known (one session each), so the day's sets are free to pool into
-    // whichever the mode prefers rather than being capped at one calibration set.
-    let hist = vec![wset(5, days_ago(10), 60.0, 5), set(6, days_ago(10))];
+    // Both *trusted* (three sessions each, well in the past): confidence is High, so
+    // there's no calibration confirmation in play to force a minimum dose on each —
+    // the day's sets are free to pool into whichever the mode prefers. (One session
+    // apiece would put both in confirmation, which deliberately splits the budget to
+    // firm up each baseline; that's a different behaviour, tested elsewhere.)
+    let hist = vec![
+        wset(5, days_ago(10), 60.0, 5),
+        wset(5, days_ago(12), 60.0, 5),
+        wset(5, days_ago(14), 60.0, 5),
+        set(6, days_ago(10)),
+        set(6, days_ago(12)),
+        set(6, days_ago(14)),
+    ];
     let mk = |mode| PacingInput {
         groups: back_only(),
         exercise_loads: owned(),

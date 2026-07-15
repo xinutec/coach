@@ -25,7 +25,7 @@ use crate::exercise::types::{Metric, Pattern};
 use crate::muscle::types::{MuscleRole, Region};
 use crate::settings::types::Mode;
 
-use super::ability::{self, Ability};
+use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
 use super::residual::{self, Residual};
@@ -77,6 +77,24 @@ const MAX_SETS_PER_EXERCISE: i32 = 4;
 /// training. This is what stops the cover pouring the whole day into one group.
 const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 
+/// One-time confirmation need (effective-set units) per session a started movement
+/// still owes before its estimate is trusted. Sized to lead a fully-untrained
+/// group's coverage — a group can chase at most [`MAX_GROUP_SETS_PER_DAY`] of it —
+/// so locking in what you've *begun* comes before broadening into new movements,
+/// until the baseline is solid. Zero once High-confidence, so it self-limits: after
+/// a couple of sessions on a movement the coach stops asking for it specially and
+/// lets ordinary coverage decide. This is the whole of the "calibration phase":
+/// there is no phase flag, only an estimate that isn't trusted yet.
+const CONFIRM_UNIT: f64 = 5.0;
+
+/// Most never-done movements one session introduces. A calibration day is a few
+/// movements learned properly, not a scattershot of one-off sets across every
+/// untrained group at once — which is exactly what pure coverage does on day two,
+/// when every group you haven't hit yet reads as maximum deficit. On a true cold
+/// start (nothing to confirm) this still leaves room for a focused first session
+/// that samples the main patterns.
+const NOVELTY_CAP: i32 = 5;
+
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
 const HISTORY_WEEKS: i64 = 8; // personal-average window
@@ -95,6 +113,25 @@ const DELOAD_SCALE: f64 = 0.6;
 /// used to halve itself the moment the first set was logged.
 const ANCHOR_WEEKLY_SETS: f64 = 24.0; // ≈ 6 sets × 4 days
 const ANCHOR_WEEKS: f64 = 2.0;
+
+/// The one-time confirmation need for a candidate (effective-set units) — the
+/// value of turning a *started but unproven* movement into a trusted baseline.
+///
+/// It fires only for `Medium` confidence: the athlete has one or two recent
+/// sessions on the movement, so an estimate exists but isn't yet solid, and another
+/// session on *this* movement is worth more than covering a group its muscles have
+/// already had this week. Scaled by how many sessions of proof remain, so a
+/// barely-started movement is asked for before a nearly-proven one. `None` (never
+/// done — nothing to confirm; that's novelty, priced by coverage) and `High`/`Low`
+/// (already trusted, or stale and handled by re-assessment) get nothing.
+fn confirm_need(confidence: Confidence, sessions_recent: i32) -> f64 {
+    match confidence {
+        Confidence::Medium => {
+            CONFIRM_UNIT * (ability::HIGH_SESSIONS - sessions_recent).max(0) as f64
+        }
+        Confidence::High | Confidence::Low | Confidence::None => 0.0,
+    }
+}
 
 /// What one set of an exercise credits into a group it trains in this role.
 fn role_credit(role: MuscleRole) -> f64 {
@@ -524,16 +561,21 @@ fn candidates<'a>(
                 credit[i] = role_credit(*role) * groups.recovery[i];
             }
         }
-        // The group this most pays into — the item's label. Ties → lower group id.
-        let label = credit
+        // The group this item is labelled with — the one it pays into most today,
+        // ranked by need × credit. Chosen from the groups it *actually trains*
+        // (`ex.groups`), not the credit vector: a zero in that vector can't tell
+        // "trains this, but the group's fully recovered / covered" from "doesn't
+        // train it at all", and a confirmation pick — whose groups are all covered
+        // by definition — would otherwise fall through to no label and no
+        // explanation. Ties → lower group id, so it stays deterministic.
+        let label = ex
+            .groups
             .iter()
-            .filter(|(i, c)| *c > 0.0 && groups.need[*i] > 0.0)
+            .filter_map(|(gid, _)| groups.ix.get(gid).copied())
             .max_by(|a, b| {
-                let (pa, pb) = (groups.need[a.0] * a.1, groups.need[b.0] * b.1);
-                pa.total_cmp(&pb)
-                    .then(groups.id[b.0.0].cmp(&groups.id[a.0.0]))
-            })
-            .map(|(i, _)| i);
+                let (pa, pb) = (groups.need[*a] * credit[*a], groups.need[*b] * credit[*b]);
+                pa.total_cmp(&pb).then(groups.id[b.0].cmp(&groups.id[a.0]))
+            });
 
         // A calibration set is a measurement: exactly one, always. Trusted work
         // takes its minimum effective dose, and may earn up to the ceiling.
@@ -541,10 +583,40 @@ fn candidates<'a>(
             Some(_) => (MIN_WORK_SETS, MAX_SETS_PER_EXERCISE),
             None => (1, 1),
         };
+        let confidence = ability::confidence_of(abilities, ex.id);
+        let sessions = abilities.get(&ex.id).map_or(0, |a| a.sessions_recent);
+        // Confirmation waits on recovery: don't ask someone to repeat a movement
+        // whose prime movers are still fried just to firm up its estimate — the
+        // coverage gate already refuses to re-train a fried group for volume, and
+        // confirmation has to respect the same physiology. Scale by the
+        // least-recovered primary group (the limiting muscle); a movement with no
+        // known primary group isn't recovery-gated.
+        let prime_recovery = ex
+            .groups
+            .iter()
+            .filter(|(_, r)| *r == MuscleRole::Primary)
+            .filter_map(|(gid, _)| groups.ix.get(gid).copied())
+            .map(|i| groups.recovery[i])
+            .fold(f64::INFINITY, f64::min);
+        let prime_recovery = if prime_recovery.is_finite() {
+            prime_recovery
+        } else {
+            1.0
+        };
+        let confirm = confirm_need(confidence, sessions) * prime_recovery;
+        let novel = matches!(confidence, Confidence::None);
+        // The freshness term rewards variety — but a movement you're *confirming* is
+        // one you deliberately want to repeat, and having just done it must not drag
+        // its rank down below the never-done movements it should be beating. While a
+        // baseline is still firming up, treat the movement as wanted (like a new
+        // one), not as "already done recently".
+        let novelty = if confirm > 0.0 { 1.0 } else { recency(ex.id) };
         scored.push(Candidate {
             id: ex.id,
             credit,
-            weight: mode_fit(input.mode, ex) * 2.0 + recency(ex.id),
+            weight: mode_fit(input.mode, ex) * 2.0 + novelty,
+            confirm,
+            novel,
             min,
             cap,
         });
@@ -1093,7 +1165,7 @@ fn plan_session(
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>) {
     let (cands, scored) = candidates(input, kit, abilities, residuals, groups, now);
-    let chosen = cover::select(&scored, &groups.need, budget);
+    let chosen = cover::select(&scored, &groups.need, budget, NOVELTY_CAP);
 
     // Hold progression on a low-readiness day.
     let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
@@ -1150,6 +1222,7 @@ fn plan_session(
                     deficit: groups.deficit[ix],
                     recovery: groups.recovery[ix],
                     pays: pick.pays,
+                    confirming: pick.confirming,
                     confidence: ability::confidence_of(abilities, c.ex.id),
                     e1rm: ability.and_then(|a| a.e1rm),
                     misses: feedback.consecutive_misses,

@@ -24,6 +24,14 @@ recovery: number,
  */
 pays: number, 
 /**
+ * This movement is in today's plan to *confirm its baseline*, not to pay down
+ * group volume — its muscles are already covered for the week, but the estimate
+ * isn't trusted yet, so another session on it is worth more than a new movement.
+ * The card leads with that instead of a near-zero deficit that would read as
+ * "why is this even here?".
+ */
+confirming: boolean, 
+/**
  * How much the engine trusts its ability estimate for this exercise.
  */
 confidence: Confidence, 

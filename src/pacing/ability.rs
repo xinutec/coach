@@ -51,7 +51,10 @@ const CONFIDENCE_WEEKS: i64 = 6;
 /// under the detraining timescale so a genuine break does.
 const BLOCK_GAP_WEEKS: i64 = 8;
 /// Recent sessions (distinct days) needed for `High` / `Medium` confidence.
-const HIGH_SESSIONS: i32 = 3;
+/// `pub` so the engine's confirmation-need can measure "sessions still owed before
+/// this is trusted" against the *same* bar that grants the trust — the two must not
+/// drift.
+pub const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
 
 /// How much the engine trusts an exercise's estimate — the gate between

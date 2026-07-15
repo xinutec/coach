@@ -200,6 +200,12 @@ pub struct Explanation {
     /// are the human-readable factors behind it). An item is only planned when
     /// this clears [`super::cover::MIN_PAY`], so the trace proves the gate held.
     pub pays: f64,
+    /// This movement is in today's plan to *confirm its baseline*, not to pay down
+    /// group volume — its muscles are already covered for the week, but the estimate
+    /// isn't trusted yet, so another session on it is worth more than a new movement.
+    /// The card leads with that instead of a near-zero deficit that would read as
+    /// "why is this even here?".
+    pub confirming: bool,
     /// How much the engine trusts its ability estimate for this exercise.
     pub confidence: Confidence,
     /// Estimated 1-rep-max (kg) the load was derived from, when known.
