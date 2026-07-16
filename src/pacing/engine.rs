@@ -64,6 +64,16 @@ const WARMUP_SETS: i32 = 1;
 /// Deliberately easy: prep, not training.
 const WARMUP_REPS: i32 = 10;
 const WARMUP_HOLD_S: i32 = 20;
+/// Effective sets a muscle group must carry in the committed session before it
+/// earns a warm-up slot. One full set's worth — a single primary set (any
+/// calibration) or two sets' secondary assist. Below it, a group is touched, not
+/// loaded, and prepping it would spend slots the loaded groups need: the round-2
+/// field test went into dips, pull-ups and push-ups with two obliques drills and
+/// cold shoulders because coverage followed primary *labels*, not session load.
+const WARMUP_MIN_LOAD: f64 = 1.0;
+/// Non-stabilizer muscle groups at which a movement counts as a compound —
+/// session ordering runs compounds first (see [`tier`]).
+const COMPOUND_BREADTH: usize = 3;
 /// A ramp-in set runs at this fraction of the first heavy lift's working load.
 const RAMP_FRACTION: f64 = 0.5;
 
@@ -497,15 +507,27 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
 /// Which block of the session an exercise belongs in — the classic order that
 /// puts demanding, technical work while the nervous system is fresh and leaves
 /// finishers for last. Lower runs earlier. Tier 1 is the warm-up block.
+///
+/// Compound vs isolation goes by *breadth* — how many muscle groups the movement
+/// genuinely works (primaries + secondaries) — not by whether it's weighted. The
+/// old weighted-first rule put a dumbbell curl before pull-ups and a triceps
+/// extension before push-ups: the isolation pre-fatigues the small muscle the
+/// compound needs as a link, so the compound reads artificially weak — and its
+/// reps are exactly what the ability model measures.
 fn tier(ex: &ExerciseInfo) -> u8 {
+    let breadth = ex
+        .groups
+        .iter()
+        .filter(|(_, r)| *r != MuscleRole::Stabilizer)
+        .count();
     if ex.is_skill || ex.metric == Metric::Hold {
         2 // skill / hold work — needs a fresh CNS
-    } else if ex.metric == Metric::WeightedReps && ex.pattern != Pattern::Core {
-        3 // heavy compound weighted
     } else if ex.pattern == Pattern::Core {
         5 // core / conditioning finisher
+    } else if breadth >= COMPOUND_BREADTH {
+        3 // compound — leads, whatever it's loaded with
     } else {
-        4 // bodyweight / isolation accessory
+        4 // isolation / accessory — after the compounds it would pre-fatigue
     }
 }
 
@@ -581,20 +603,28 @@ fn candidates<'a>(
                 credit[i] = role_credit(*role) * groups.recovery[i];
             }
         }
-        // The group this item is labelled with — the one it pays into most today,
-        // ranked by need × credit. Chosen from the groups it *actually trains*
-        // (`ex.groups`), not the credit vector: a zero in that vector can't tell
-        // "trains this, but the group's fully recovered / covered" from "doesn't
-        // train it at all", and a confirmation pick — whose groups are all covered
-        // by definition — would otherwise fall through to no label and no
-        // explanation. Ties → lower group id, so it stays deterministic.
+        // The group this item is labelled with: its neediest **prime mover**.
+        // Ranked by need × credit within the primaries only — the label is what
+        // the card headlines, and a coach names what the movement *is*, not the
+        // neediest synergist it happens to brush (dips once read "(Serratus)").
+        // Falls back to any trained group when the catalog gives a movement no
+        // primary, so a confirmation pick still gets a label and an explanation.
+        // Ties → lower group id, so it stays deterministic.
+        let rank = |a: &GroupIx, b: &GroupIx| {
+            let (pa, pb) = (groups.need[*a] * credit[*a], groups.need[*b] * credit[*b]);
+            pa.total_cmp(&pb).then(groups.id[b.0].cmp(&groups.id[a.0]))
+        };
         let label = ex
             .groups
             .iter()
+            .filter(|(_, r)| *r == MuscleRole::Primary)
             .filter_map(|(gid, _)| groups.ix.get(gid).copied())
-            .max_by(|a, b| {
-                let (pa, pb) = (groups.need[*a] * credit[*a], groups.need[*b] * credit[*b]);
-                pa.total_cmp(&pb).then(groups.id[b.0].cmp(&groups.id[a.0]))
+            .max_by(rank)
+            .or_else(|| {
+                ex.groups
+                    .iter()
+                    .filter_map(|(gid, _)| groups.ix.get(gid).copied())
+                    .max_by(rank)
             });
 
         // A calibration set is a measurement: exactly one, always. Trusted work
@@ -712,11 +742,18 @@ fn blocked_ideal(
 }
 
 /// Build the warm-up block for a work plan: mobility prep for the muscle groups
-/// the session trains, plus a light ramp-in set on the first heavy lift. Warm-ups
-/// credit no volume and are the only place warm-up-tagged moves appear. Ordered
-/// first. Deterministic: mobility by exercise id, one per not-yet-covered group.
+/// the session actually loads, plus a light ramp-in set on the first heavy lift.
+/// Warm-ups credit no volume and are the only place warm-up-tagged moves appear.
+/// Ordered first.
 ///
-/// Also returns the session's groups it has *no* mobility move for. The catalog is
+/// Coverage follows the committed plan's **load**: every group the work hits at
+/// primary or secondary credit, summed over its sets, ranked heaviest first. One
+/// drill per group, each labelled with the group it was picked for — the old
+/// primary-labels-only, sorted-by-exercise-id version spent two of three slots
+/// "loosening up Obliques" while dips, pull-ups and push-ups went in with cold
+/// shoulders (round-2 field test, R2-3).
+///
+/// Also returns the loaded groups it has *no* mobility move for. The catalog is
 /// only as good as what's been authored into it, and a group with no drill produces
 /// an empty warm-up that reads exactly like "you don't need one" — so the caller
 /// says which groups the athlete is on their own for.
@@ -730,75 +767,88 @@ fn build_warmup(
     if work.is_empty() {
         return (Vec::new(), Vec::new());
     }
-    // The muscle groups this session trains (primary work).
-    let mut session_groups: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    // Effective sets each group carries in the committed session — the same
+    // credit arithmetic the volume model uses, so "loaded enough to warm up"
+    // and "loaded enough to count" can't drift apart.
+    let mut load: HashMap<i64, f64> = HashMap::new();
     for w in work {
         if let Some(ex) = ex_by_id.get(&w.exercise_id) {
             for (g, r) in &ex.groups {
-                if *r == MuscleRole::Primary {
-                    session_groups.insert(*g);
+                if *r != MuscleRole::Stabilizer {
+                    *load.entry(*g).or_default() += w.sets as f64 * role_credit(*r);
                 }
             }
         }
     }
+    // Heaviest-loaded first; ties by group id, so the order is deterministic.
+    let mut want: Vec<(i64, f64)> = load
+        .into_iter()
+        .filter(|(_, l)| *l >= WARMUP_MIN_LOAD)
+        .collect();
+    want.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
 
-    // Mobility: warm-up-tagged moves for the session's groups, doable here. Take
-    // one per still-uncovered group so we don't stack redundant drills.
-    let mut movers: Vec<&ExerciseInfo> = input
+    let drills: Vec<&ExerciseInfo> = input
         .exercises
         .iter()
-        .filter(|e| {
-            e.warmup
-                && kit.has_all(&e.equipment)
-                && e.groups
-                    .iter()
-                    .any(|(g, r)| *r == MuscleRole::Primary && session_groups.contains(g))
-        })
+        .filter(|e| e.warmup && kit.has_all(&e.equipment))
         .collect();
-    movers.sort_by_key(|e| e.id);
-    let mut covered: std::collections::HashSet<i64> = std::collections::HashSet::new();
-    let mut out: Vec<Suggestion> = Vec::new();
-    for e in movers {
-        let primaries: Vec<i64> = e
-            .groups
+    let primaries = |e: &ExerciseInfo| -> Vec<i64> {
+        e.groups
             .iter()
             .filter(|(_, r)| *r == MuscleRole::Primary)
             .map(|(g, _)| *g)
-            .collect();
-        // Include only if it warms a session group nothing chosen yet covers.
-        if primaries
-            .iter()
-            .any(|g| session_groups.contains(g) && !covered.contains(g))
-        {
-            for g in &primaries {
-                covered.insert(*g);
-            }
-            let gname = primaries
-                .iter()
-                .find_map(|g| group_name.get(g).cloned())
-                .unwrap_or_default();
-            // The drill's dose, in its own metric — reps to move through, or
-            // seconds to hold. Always unloaded: this is prep, not training.
-            let (rep_low, rep_high, hold_s) = match e.metric {
-                Metric::Reps | Metric::WeightedReps => (Some(WARMUP_REPS), Some(WARMUP_REPS), None),
-                Metric::Hold | Metric::WeightedHold => (None, None, Some(WARMUP_HOLD_S)),
-            };
-            out.push(Suggestion {
-                exercise_id: e.id,
-                exercise_name: e.name.clone(),
-                pattern: e.pattern,
-                kind: SuggestionKind::Warmup,
-                sets: WARMUP_SETS,
-                done: 0,
-                rep_low,
-                rep_high,
-                load_kg: None,
-                hold_s,
-                group: gname,
-                substituted_for: None,
-                explanation: None,
-            });
+            .collect()
+    };
+
+    let mut covered: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut out: Vec<Suggestion> = Vec::new();
+    let mut gaps: Vec<String> = Vec::new();
+    for (g, _) in &want {
+        if covered.contains(g) {
+            continue;
         }
+        // The drill for this group: warms it as a primary, and of those, the one
+        // whose primaries cover the most still-wanted groups (fewer total drills);
+        // ties by exercise id.
+        let pick = drills
+            .iter()
+            .filter(|e| primaries(e).contains(g))
+            .max_by_key(|e| {
+                let cover = primaries(e)
+                    .iter()
+                    .filter(|p| want.iter().any(|(w, _)| w == *p) && !covered.contains(*p))
+                    .count();
+                (cover, std::cmp::Reverse(e.id))
+            });
+        let Some(e) = pick else {
+            gaps.push(group_name.get(g).cloned().unwrap_or_default());
+            continue;
+        };
+        for p in primaries(e) {
+            covered.insert(p);
+        }
+        // The drill's dose, in its own metric — reps to move through, or
+        // seconds to hold. Always unloaded: this is prep, not training.
+        let (rep_low, rep_high, hold_s) = match e.metric {
+            Metric::Reps | Metric::WeightedReps => (Some(WARMUP_REPS), Some(WARMUP_REPS), None),
+            Metric::Hold | Metric::WeightedHold => (None, None, Some(WARMUP_HOLD_S)),
+        };
+        out.push(Suggestion {
+            exercise_id: e.id,
+            exercise_name: e.name.clone(),
+            pattern: e.pattern,
+            kind: SuggestionKind::Warmup,
+            sets: WARMUP_SETS,
+            done: 0,
+            rep_low,
+            rep_high,
+            load_kg: None,
+            hold_s,
+            // The group this slot is *for* — never a second card for one group.
+            group: group_name.get(g).cloned().unwrap_or_default(),
+            substituted_for: None,
+            explanation: None,
+        });
     }
 
     // Ramp-in: the first weighted work item gets one light set (~half load) to
@@ -826,16 +876,10 @@ fn build_warmup(
         });
     }
 
-    // Groups this session trains that no mobility move here warms. Named, not
-    // silently skipped: the catalog has drills for shoulders, wrists, spine and
-    // quads and nothing else, so a hamstring day gets no warm-up and the athlete
-    // needs to know that's a hole in the catalog, not a judgement about their
-    // needing one.
-    let mut gaps: Vec<String> = session_groups
-        .iter()
-        .filter(|g| !covered.contains(g))
-        .filter_map(|g| group_name.get(g).cloned())
-        .collect();
+    // `gaps` (collected above) are loaded groups with no drill in the catalog.
+    // Named, not silently skipped: a group with no drill produces no card, which
+    // reads exactly like "you don't need one" — the athlete needs to know it's a
+    // hole in the catalog, not a judgement.
     gaps.sort();
     (out, gaps)
 }
@@ -849,9 +893,31 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // evening line; you can still train + log, it just won't nudge).
     let after_window = hour >= s.window_end_hour;
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
-    let spacing_ok = minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
 
     let ex_by_id: HashMap<i64, &ExerciseInfo> = input.exercises.iter().map(|e| (e.id, e)).collect();
+
+    // The set just logged, for rest guidance. A mobility drill starts no rest
+    // clock at all — "Rest a moment" straight after arm circles teaches the
+    // athlete to ignore the banner. For anything else, the movement's breadth
+    // decides how long the rest it earned is (a hard compound set needs minutes;
+    // an isolation is ready again in ninety seconds).
+    let last_ex = input
+        .history
+        .iter()
+        .max_by_key(|s| s.logged_at)
+        .and_then(|s| ex_by_id.get(&s.exercise_id).copied());
+    let breadth = |e: &ExerciseInfo| {
+        e.groups
+            .iter()
+            .filter(|(_, r)| *r != MuscleRole::Stabilizer)
+            .count()
+    };
+    let rest_hint = match last_ex {
+        Some(e) if breadth(e) >= COMPOUND_BREADTH => "2–3 min",
+        _ => "90 s",
+    };
+    let spacing_ok = last_ex.is_some_and(|e| e.warmup)
+        || minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
 
     // --- the session in progress, if one is ---
     //
@@ -1198,6 +1264,27 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         .iter()
         .find(|s| s.kind != SuggestionKind::Warmup && s.done < s.sets)
         .cloned();
+    // What the athlete should literally do next — warm-ups very much included.
+    // The banner speaks from this, so it can never disagree with the plan's
+    // "Next up" pill (which points at the same item): the round-2 test caught
+    // the banner saying "Next up: 2 × Dips" while the pill sat on a mobility
+    // drill.
+    let next_item = plan.iter().find(|s| s.done < s.sets).cloned();
+    // One phrasing for "do this next", kind-aware: a warm-up is named with its
+    // dose, work with its remaining sets and muscle group.
+    let next_phrase = |s: &Suggestion| -> String {
+        if s.kind == SuggestionKind::Warmup {
+            let dose = match (s.rep_low, s.hold_s, s.load_kg) {
+                (Some(r), _, Some(kg)) => format!("{r} × {kg} kg ramp-in"),
+                (Some(r), _, None) => format!("{r} slow reps"),
+                (None, Some(secs), _) => format!("{secs}s"),
+                _ => "easy prep".to_string(),
+            };
+            format!("{} — {}", s.exercise_name, dose)
+        } else {
+            format!("{} × {} ({})", s.sets - s.done, s.exercise_name, s.group)
+        }
+    };
 
     let state = if input.history.is_empty() {
         PacingState::Fresh
@@ -1257,28 +1344,27 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else if !spacing_ok {
         // Less than the rest interval since the last set — that's *between sets*,
         // not between sessions (a fresh set always puts us inside the session
-        // window). Name what's next instead of waving the athlete off; the old
-        // "just trained — take a breather" line fired after every single set.
-        match &suggestion {
-            Some(sug) => format!(
-                "Rest a moment — then: {} × {} ({}).",
-                sug.sets - sug.done,
-                sug.exercise_name,
-                sug.group
-            ),
+        // window). Name the rest's length and what's next instead of waving the
+        // athlete off; the old "just trained — take a breather" line fired after
+        // every single set, and "a moment" told them nothing a coach would.
+        match next_item.as_ref().or(suggestion.as_ref()) {
+            Some(next) => format!("Rest {rest_hint} — then: {}.", next_phrase(next)),
             None => String::new(),
         }
-    } else if let Some(sug) = &suggestion {
+    } else if suggestion.is_some()
+        && let Some(next) = &next_item
+    {
         // Always an invitation to the next movement — never "you're a bit light this
         // week", which frames a returning athlete as behind a quota and pressures the
         // volume up. Whether he's ahead of or behind the day's burn-down still drives
         // the *nudge* (a reminder's timing); it must not colour what the coach says.
-        format!(
-            "Next up: {} × {} ({}).",
-            sug.sets - sug.done,
-            sug.exercise_name,
-            sug.group
-        )
+        // A warm-up that hasn't been done leads: prep first, and the banner and the
+        // plan's pill name the same thing.
+        if next.kind == SuggestionKind::Warmup {
+            format!("Warm up first: {}.", next_phrase(next))
+        } else {
+            format!("Next up: {}.", next_phrase(next))
+        }
     } else {
         String::new()
     };

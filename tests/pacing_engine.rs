@@ -904,7 +904,7 @@ fn mid_session_the_coach_says_whats_next_not_take_a_breather() {
         out.reason
     );
     assert!(
-        out.reason.contains("Rest a moment"),
+        out.reason.starts_with("Rest") && out.reason.contains("then:"),
         "the mid-set rest names what's next: {}",
         out.reason
     );
@@ -1907,4 +1907,429 @@ fn a_steady_history_still_prescribes_work_at_its_level() {
         w.load_kg
     );
     assert_eq!(w.explanation.map(|e| e.misses), Some(0));
+}
+
+// ---- round 2: the coach judged against a human one (docs/field-test.md R2-*) ----
+
+/// Custom groups for round-2 scenarios (the fixed `groups()` trio is too small
+/// to shape a compound). Ids mirror nothing; names are what assertions read.
+fn r2_groups() -> Vec<GroupMeta> {
+    vec![
+        GroupMeta {
+            id: 10,
+            name: "Chest".into(),
+            region: Region::Chest,
+        },
+        GroupMeta {
+            id: 20,
+            name: "Lats".into(),
+            region: Region::Back,
+        },
+        GroupMeta {
+            id: 30,
+            name: "Quadriceps".into(),
+            region: Region::Legs,
+        },
+        GroupMeta {
+            id: 40,
+            name: "Biceps".into(),
+            region: Region::Arms,
+        },
+        GroupMeta {
+            id: 50,
+            name: "Upper back".into(),
+            region: Region::Back,
+        },
+        GroupMeta {
+            id: 60,
+            name: "Biceps brachii".into(),
+            region: Region::Arms,
+        },
+        GroupMeta {
+            id: 65,
+            name: "Forearms".into(),
+            region: Region::Forearms,
+        },
+    ]
+}
+
+/// A pull-up shaped like the real catalog at group level: one primary, a spread
+/// of secondaries — a compound by breadth (≥3 non-stabilizer groups).
+fn r2_pullup() -> ExerciseInfo {
+    ex(
+        7,
+        "Pull-up",
+        Pattern::Pull,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![
+            (20, MuscleRole::Primary),
+            (40, MuscleRole::Secondary),
+            (50, MuscleRole::Secondary),
+        ],
+    )
+}
+
+/// A biceps curl shaped like the real one: two non-stabilizer groups — an
+/// isolation, even though it's weighted. Its groups are disjoint from
+/// [`r2_pullup`]'s so the cover plans both on a small budget (a shared group
+/// would leave the second pick under `MIN_PAY` — beside the ordering point).
+fn r2_curl() -> ExerciseInfo {
+    ex(
+        9,
+        "Biceps curl",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![3],
+        vec![(60, MuscleRole::Primary), (65, MuscleRole::Secondary)],
+    )
+}
+
+// R2-2: one plan, one bookkeeping rule. The header sums the plan's own cards
+// (sets and done both), so finishing exactly the plan reads N/N — not 14/13
+// with two mobility drills missing from the numerator, and not 1/13 while
+// three cards show Done. The engine's part of that contract: attributed
+// progress over the whole plan, warm-ups included, capped per item.
+#[test]
+fn finishing_exactly_the_plan_reads_complete() {
+    let exercises = vec![catalog().remove(0), warmup_ex(100, "Chest opener", 10)];
+    let cold = evaluate(
+        &input(Mode::Balanced, exercises.clone(), vec![], None, None),
+        now(),
+    );
+    let plan_sets: i32 = cold.plan.iter().map(|s| s.sets).sum();
+    assert!(plan_sets > 0, "a cold start still plans a session");
+    assert!(
+        cold.plan.iter().any(|s| s.kind == SuggestionKind::Warmup),
+        "precondition: the plan has a warm-up to count"
+    );
+
+    // Do exactly the plan — every item, warm-ups included, minutes apart —
+    // plus one extra "log another" set, which must not overflow its card.
+    let mut h = Vec::new();
+    let mut t = 40i64;
+    for item in &cold.plan {
+        for _ in 0..item.sets {
+            h.push(bset(item.exercise_id, minutes_ago(t), 8));
+            t -= 2;
+        }
+    }
+    h.push(bset(
+        cold.plan.last().unwrap().exercise_id,
+        minutes_ago(t),
+        8,
+    ));
+    let done = evaluate(&input(Mode::Balanced, exercises, h, None, None), now());
+    let (sets, counted): (i32, i32) = (
+        done.plan.iter().map(|s| s.sets).sum(),
+        done.plan.iter().map(|s| s.done).sum(),
+    );
+    assert_eq!(
+        counted,
+        sets,
+        "finishing the plan is N of N (warm-ups counted, extras capped): {:?}",
+        done.plan
+            .iter()
+            .map(|s| (&s.exercise_name, s.done, s.sets))
+            .collect::<Vec<_>>()
+    );
+}
+
+// R2-3a: no two warm-up slots spent on the same muscle group — and each card's
+// label names the group the drill is there for, not whichever primary sorts
+// first (that's how two cards both read "loosen up Obliques").
+#[test]
+fn warmup_labels_name_distinct_groups() {
+    let mut exercises = vec![
+        // Work on chest and lats.
+        catalog().remove(0), // Push-up (chest)
+        r2_pullup(),
+        // Drill A warms chest only; drill B warms chest *and* lats — under the
+        // old rule B was included for lats but labelled chest, same as A.
+        warmup_ex(100, "Chest opener", 10),
+        ExerciseInfo {
+            id: 101,
+            name: "Reach and roll".into(),
+            pattern: Pattern::Core,
+            metric: Metric::Reps,
+            is_skill: false,
+            warmup: true,
+            equipment: vec![],
+            groups: vec![(10, MuscleRole::Primary), (20, MuscleRole::Primary)],
+        },
+    ];
+    exercises.rotate_left(0);
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            ..input(Mode::Balanced, exercises, vec![], None, None)
+        },
+        now(),
+    );
+    let labels: Vec<&str> = out
+        .plan
+        .iter()
+        .filter(|s| s.kind == SuggestionKind::Warmup)
+        .map(|s| s.group.as_str())
+        .collect();
+    assert!(
+        !labels.is_empty(),
+        "a session with drills available has a warm-up"
+    );
+    let mut dedup = labels.clone();
+    dedup.sort_unstable();
+    dedup.dedup();
+    assert_eq!(
+        dedup.len(),
+        labels.len(),
+        "each warm-up slot preps its own group, got {labels:?}"
+    );
+}
+
+// R2-3b: the warm-up preps what the session actually loads, heaviest first —
+// including groups the work only hits as secondaries. Two of three slots on
+// obliques while dips/pull-ups/push-ups went in cold is the bug this pins.
+#[test]
+fn the_warmup_preps_the_sessions_heaviest_groups_first() {
+    // Chest work is trusted (2 sets); quads work is a 1-set calibration. Chest
+    // carries more of the session, so its drill must lead — even though the
+    // quads drill has the lower exercise id (the old order).
+    let mut h = Vec::new();
+    for d in [2, 4, 9] {
+        h.push(bset(1, days_ago(d), 10)); // push-up: trusted chest work
+    }
+    let exercises = vec![
+        catalog().remove(0),               // Push-up (chest, trusted)
+        catalog().remove(2),               // Squat (quads, never done → calibration)
+        warmup_ex(90, "Leg swings", 30),   // quads drill, lower id
+        warmup_ex(95, "Chest opener", 10), // chest drill, higher id
+    ];
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            ..input(Mode::Balanced, exercises, h, None, None)
+        },
+        now(),
+    );
+    let warmups: Vec<&Suggestion> = out
+        .plan
+        .iter()
+        .filter(|s| s.kind == SuggestionKind::Warmup)
+        .collect();
+    assert!(
+        warmups.len() >= 2,
+        "both groups have drills: {:?}",
+        out.plan
+    );
+    assert_eq!(
+        warmups[0].group,
+        "Chest",
+        "the heavier-loaded group warms up first, got {:?}",
+        warmups.iter().map(|s| &s.group).collect::<Vec<_>>()
+    );
+}
+
+// R2-3c: a group the session hammers as a *secondary* still gets its warm-up —
+// coverage follows the plan's load, not just its primary labels.
+#[test]
+fn a_secondary_group_under_real_load_gets_warmed_too() {
+    let mut h = Vec::new();
+    for d in [2, 4, 9] {
+        h.push(bset(7, days_ago(d), 8)); // pull-up trusted → 2 work sets
+    }
+    let exercises = vec![
+        r2_pullup(), // biceps secondary, 2 sets → load 1.0
+        warmup_ex(90, "Lat opener", 20),
+        warmup_ex(91, "Biceps opener", 40),
+    ];
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            ..input(Mode::Balanced, exercises, h, None, None)
+        },
+        now(),
+    );
+    assert!(
+        out.plan
+            .iter()
+            .any(|s| s.kind == SuggestionKind::Warmup && s.group == "Biceps"),
+        "two sets of pull-ups load the biceps enough to deserve prep: {:?}",
+        out.plan
+            .iter()
+            .map(|s| (&s.exercise_name, &s.group))
+            .collect::<Vec<_>>()
+    );
+}
+
+// R2-4: compounds run before the isolations that would pre-fatigue them. A
+// weighted curl before bodyweight pull-ups is the sequencing error this pins —
+// "weighted" is not what makes a movement lead a session.
+#[test]
+fn compounds_run_before_isolations() {
+    let mut h = Vec::new();
+    for d in [2, 4, 9] {
+        h.push(bset(7, days_ago(d), 8)); // pull-up trusted
+        h.push(wset(9, days_ago(d), 8.0, 10)); // curl trusted
+    }
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            exercise_loads: HashMap::from([(9, vec![6.0, 8.0, 10.0])]),
+            ..input(
+                Mode::Balanced,
+                vec![r2_pullup(), r2_curl()],
+                h,
+                None,
+                Some(vec![3]),
+            )
+        },
+        now(),
+    );
+    // Positions among the *work* items — the curl's ramp-in warm-up shares its
+    // exercise id and rightly leads the whole plan.
+    let work: Vec<&Suggestion> = out
+        .plan
+        .iter()
+        .filter(|s| s.kind != SuggestionKind::Warmup)
+        .collect();
+    let pos = |id: i64| work.iter().position(|s| s.exercise_id == id);
+    let (Some(pull), Some(curl)) = (pos(7), pos(9)) else {
+        panic!("both movements planned: {:?}", out.plan);
+    };
+    assert!(
+        pull < curl,
+        "the compound leads; curling to failure first makes the pull-up read weak"
+    );
+}
+
+// R2-5a: mobility drills need no rest gate — "Rest a moment" straight after arm
+// circles teaches the athlete to ignore the banner.
+#[test]
+fn no_rest_prompt_after_a_mobility_drill() {
+    let exercises = vec![catalog().remove(0), warmup_ex(100, "Chest opener", 10)];
+    // The drill just logged, one minute ago (min_rest_min is 20).
+    let h = vec![bset(100, minutes_ago(1), 10)];
+    let out = evaluate(&input(Mode::Balanced, exercises, h, None, None), now());
+    assert!(
+        out.spacing_ok,
+        "a warm-up set doesn't start a rest clock: {:?}",
+        out.reason
+    );
+    assert!(
+        !out.reason.starts_with("Rest"),
+        "no rest prompt after prep: {:?}",
+        out.reason
+    );
+}
+
+// R2-5b: when a rest *is* called for, it has a length — matched to how big the
+// movement just done was.
+#[test]
+fn a_rest_prompt_says_how_long() {
+    let mut trusted = Vec::new();
+    for d in [2, 4, 9] {
+        trusted.push(bset(7, days_ago(d), 8));
+        trusted.push(wset(9, days_ago(d), 8.0, 10));
+    }
+    let base = |h: Vec<SetRec>| PacingInput {
+        groups: r2_groups(),
+        exercise_loads: HashMap::from([(9, vec![6.0, 8.0, 10.0])]),
+        ..input(
+            Mode::Balanced,
+            vec![r2_pullup(), r2_curl()],
+            h,
+            None,
+            Some(vec![3]),
+        )
+    };
+    // Just finished a compound set → the longer rest.
+    let mut h = trusted.clone();
+    h.push(bset(7, minutes_ago(1), 8));
+    let after_compound = evaluate(&base(h), now());
+    assert!(
+        after_compound.reason.contains("2–3 min"),
+        "a compound set earns the long rest: {:?}",
+        after_compound.reason
+    );
+    // Just finished an isolation set → the shorter one.
+    let mut h = trusted;
+    h.push(wset(9, minutes_ago(1), 8.0, 10));
+    let after_isolation = evaluate(&base(h), now());
+    assert!(
+        after_isolation.reason.contains("90 s"),
+        "an isolation set needs only the short rest: {:?}",
+        after_isolation.reason
+    );
+}
+
+// R2-7: one notion of "next". When the next unfinished item is a warm-up, the
+// banner says so — it doesn't name the dips the athlete isn't supposed to be
+// doing yet while the pill points at a mobility drill.
+#[test]
+fn the_banner_names_the_warmup_when_thats_next() {
+    let exercises = vec![catalog().remove(0), warmup_ex(100, "Chest opener", 10)];
+    let out = evaluate(&input(Mode::Balanced, exercises, vec![], None, None), now());
+    assert_eq!(
+        out.plan.first().map(|s| s.kind),
+        Some(SuggestionKind::Warmup),
+        "precondition: the plan opens with a warm-up"
+    );
+    assert!(
+        out.reason.contains("Warm up first") && out.reason.contains("Chest opener"),
+        "the banner and the plan agree on what's next: {:?}",
+        out.reason
+    );
+}
+
+// R2-8: the card's headline muscle is a prime mover. Dips read "(Serratus)"
+// because the label chased the neediest group it touched at all; a coach names
+// what the movement *is*.
+#[test]
+fn an_items_label_is_a_prime_mover() {
+    // Chest hammered via a chest-only movement (need ~0); lats untrained (max
+    // need). The hybrid below trains chest as PRIMARY and lats only as
+    // SECONDARY — it gets picked *for* the lats need, but its headline must
+    // still be the prime mover. The old label logic said "Lats".
+    let mut h = Vec::new();
+    for d in [1, 2, 3] {
+        for _ in 0..2 {
+            h.push(bset(6, days_ago(d), 10));
+        }
+    }
+    let hammer = ex(
+        6,
+        "Chest press",
+        Pattern::Push,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(10, MuscleRole::Primary)],
+    );
+    let hybrid = ex(
+        8,
+        "Weird press",
+        Pattern::Push,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(10, MuscleRole::Primary), (20, MuscleRole::Secondary)],
+    );
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            ..input(Mode::Balanced, vec![hammer, hybrid], h, None, None)
+        },
+        now(),
+    );
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 8)
+        .expect("the hybrid is planned (lats need pays for it)");
+    assert_eq!(
+        item.group, "Chest",
+        "the headline is the prime mover, not the neediest synergist"
+    );
 }
