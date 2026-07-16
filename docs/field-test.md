@@ -7,7 +7,7 @@ Eleven sets across eight movements. This file records what a human athlete runs
 into, each finding's root cause, and its status. Findings are ordered by how much
 they damage the coaching, not by where they live in the code.
 
-## 1. The plan is memoryless within a session — OPEN
+## 1. The plan is memoryless within a session — FIXED
 
 Every logged set re-solves the whole day from scratch, treating a set logged
 seconds ago as ordinary history. One session produced all of these:
@@ -33,7 +33,7 @@ counts on the same cards — never a bigger ask. A calibration is complete after
 its one measurement. `evaluate` stays pure: "what was true at session start" is
 derived from the same history by cutting at today's first set.
 
-## 2. Novelty churn — OPEN
+## 2. Novelty churn — FIXED
 
 The novelty cap bounds *concurrently pending* never-done movements, so each
 completed calibration freed a slot and a new untried movement slid in — side

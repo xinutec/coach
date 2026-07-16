@@ -8,7 +8,13 @@ export type Suggestion = { exerciseId: number, exerciseName: string, pattern: Pa
 /**
  * Work (prescribe) or Assess (measure). Drives the Today card's framing.
  */
-kind: SuggestionKind, sets: number, repLow: number | null, repHigh: number | null, loadKg: number | null, holdS: number | null, 
+kind: SuggestionKind, sets: number, 
+/**
+ * Sets of this item already logged in the session in progress (0 outside
+ * one). The plan is committed at the session's first set; this is the
+ * athlete's progress against that commitment, shown on the card.
+ */
+done: number, repLow: number | null, repHigh: number | null, loadKg: number | null, holdS: number | null, 
 /**
  * The muscle group this targets (for the reason text).
  */

@@ -31,7 +31,7 @@ use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
 use super::residual::{self, Residual};
 use super::types::{
     Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
-    PacingState, Substitution, Suggestion, SuggestionKind,
+    PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
 };
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
@@ -86,6 +86,13 @@ const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 /// lets ordinary coverage decide. This is the whole of the "calibration phase":
 /// there is no phase flag, only an estimate that isn't trusted yet.
 const CONFIRM_UNIT: f64 = 5.0;
+
+/// Longest silence between two sets that still counts as the same session. The
+/// athlete's real in-session gaps run to ~80 minutes (a home session spread over
+/// an afternoon); a morning and an evening visit are two sessions. This is what
+/// makes "the plan is committed at the session's first set" decidable from
+/// history alone — the engine stays a pure function.
+const SESSION_GAP_MIN: i64 = 120;
 
 /// Most never-done movements one session introduces. A calibration day is a few
 /// movements learned properly, not a scattershot of one-off sets across every
@@ -530,12 +537,12 @@ fn candidates<'a>(
     abilities: &HashMap<i64, Ability>,
     residuals: &HashMap<i64, Residual>,
     groups: &Groups,
+    history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Cand<'a>>, Vec<Candidate>) {
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
     let recency = |id: i64| -> f64 {
-        match input
-            .history
+        match history
             .iter()
             .filter(|s| s.exercise_id == id)
             .map(|s| s.logged_at)
@@ -771,6 +778,7 @@ fn build_warmup(
                 pattern: e.pattern,
                 kind: SuggestionKind::Warmup,
                 sets: WARMUP_SETS,
+                done: 0,
                 rep_low: None,
                 rep_high: None,
                 load_kg: None,
@@ -796,6 +804,7 @@ fn build_warmup(
             pattern: w.pattern,
             kind: SuggestionKind::Warmup,
             sets: WARMUP_SETS,
+            done: 0,
             rep_low: w.rep_high, // an easy set of the top of the range
             rep_high: w.rep_high,
             load_kg: Some(inv.snap(load * RAMP_FRACTION)),
@@ -833,17 +842,66 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     let ex_by_id: HashMap<i64, &ExerciseInfo> = input.exercises.iter().map(|e| (e.id, e)).collect();
 
+    // --- the session in progress, if one is ---
+    //
+    // A session is the maximal run of sets separated by no more than
+    // SESSION_GAP_MIN, ending at the most recent set — and we're *in* it if that
+    // set is no further back than the gap. Everything that shapes the plan is
+    // then computed as of the session's first set, so re-evaluating mid-session
+    // reproduces the committed plan exactly instead of re-litigating it against
+    // sets logged minutes ago. Without this, a calibration was re-prescribed
+    // above the max it had just measured, rep targets ratcheted set-over-set,
+    // and half-done movements vanished because their muscles read "recovering".
+    let session_start: Option<NaiveDateTime> = {
+        let mut times: Vec<NaiveDateTime> = input.history.iter().map(|s| s.logged_at).collect();
+        times.sort_unstable();
+        match times.last() {
+            Some(&last) if (now - last).num_minutes() <= SESSION_GAP_MIN => {
+                let mut start = last;
+                for &t in times.iter().rev().skip(1) {
+                    if (start - t).num_minutes() <= SESSION_GAP_MIN {
+                        start = t;
+                    } else {
+                        break;
+                    }
+                }
+                Some(start)
+            }
+            _ => None,
+        }
+    };
+    let in_session = session_start.is_some();
+    // The instant the plan is evaluated as of, and the history it may see: the
+    // session's own sets are progress against the plan, not evidence to replan on.
+    let plan_at = session_start.unwrap_or(now);
+    let planning: Vec<SetRec> = match session_start {
+        Some(cut) => input
+            .history
+            .iter()
+            .filter(|s| s.logged_at < cut)
+            .cloned()
+            .collect(),
+        None => input.history.clone(),
+    };
+
     // Per-exercise ability (RPE-aware e1RM / best reps / best hold, decayed for
     // staleness) — the basis every prescription derives from. Computed once.
-    let abilities = ability::abilities(&input.history, now);
+    let abilities = ability::abilities(&planning, plan_at);
     // How well those estimates have been describing him lately: for each session, what
     // the engine believed beforehand versus what he actually did. Recomputed from
     // history, so the engine stays stateless.
-    let residuals = residual::residuals(&input.history);
+    let residuals = residual::residuals(&planning);
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
-    let roll_cut = now - Duration::days(ROLLING_DAYS);
-    let hist_cut = now - Duration::days(HISTORY_WEEKS * 7);
+    //
+    // Two views of the same history. The *frozen* aggregates (windowed at
+    // `plan_at`, seeing only `planning`) shape the plan: need, recovery, the day
+    // target. The *live* aggregates (windowed at `now`, seeing everything) are
+    // what the athlete is owed as feedback: the balance view and the session's
+    // progress count. Outside a session the two coincide exactly.
+    let roll_cut = plan_at - Duration::days(ROLLING_DAYS);
+    let hist_cut = plan_at - Duration::days(HISTORY_WEEKS * 7);
+    let live_roll_cut = now - Duration::days(ROLLING_DAYS);
     let today = now.date();
     // Region per group, for the graded recovery horizon.
     let region_of: HashMap<i64, Region> = input.groups.iter().map(|g| (g.id, g.region)).collect();
@@ -854,6 +912,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // ramps to zero over its region's recovery horizon (G6). This grades the old
     // binary "≥3 sets in 36 h" gate.
     let mut unrecovered: HashMap<i64, f64> = HashMap::new();
+    let mut live_current: HashMap<i64, f64> = HashMap::new();
+    let mut live_unrecovered: HashMap<i64, f64> = HashMap::new();
     let mut done_today = 0i32;
     let mut raw_hist = 0i32;
     let mut first_hist: Option<NaiveDateTime> = None;
@@ -873,11 +933,27 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         if set.logged_at.date() == today {
             done_today += 1;
         }
+        let live_age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
+        for (g, role) in &ex.groups {
+            let credit = role_credit(*role);
+            if set.logged_at >= live_roll_cut {
+                *live_current.entry(*g).or_default() += credit;
+            }
+            let horizon = region_of.get(g).copied().map_or(48.0, recovery_horizon);
+            if live_age_h < horizon {
+                *live_unrecovered.entry(*g).or_default() += credit * (1.0 - live_age_h / horizon);
+            }
+        }
+        // Everything below shapes the plan, so it sees only what was true when
+        // the session was committed.
+        if set.logged_at >= plan_at {
+            continue;
+        }
         if set.logged_at >= hist_cut {
             raw_hist += 1;
             first_hist = Some(first_hist.map_or(set.logged_at, |f| f.min(set.logged_at)));
         }
-        let age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
+        let age_h = (plan_at - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
             let credit = role_credit(*role);
             if set.logged_at >= hist_cut {
@@ -921,7 +997,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // the day's target. Time passing still can, which is correct — that's
     // detraining, not a measurement artefact.
     let observed_weeks = first_hist
-        .map(|first| ((now - first).num_days() as f64 / 7.0).clamp(0.0, HISTORY_WEEKS as f64))
+        .map(|first| ((plan_at - first).num_days() as f64 / 7.0).clamp(0.0, HISTORY_WEEKS as f64))
         .unwrap_or(0.0);
     // The per-group averages below have their own anchor (blended 50/50 with the
     // literature default), so they need no prior of their own — only a guard against
@@ -1003,13 +1079,19 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         // which is what makes the cover's subtraction mean something physical.
         groups.need[ix] = (target - cur).clamp(0.0, MAX_GROUP_SETS_PER_DAY) * recovery;
 
+        // The balance view is feedback, not planning: it counts the session's
+        // sets the moment they land (outside a session it equals the frozen
+        // numbers exactly).
+        let live_cur = *live_current.get(&gm.id).unwrap_or(&0.0);
+        let live_rec = (1.0 - live_unrecovered.get(&gm.id).copied().unwrap_or(0.0) / RECOVERY_SETS)
+            .clamp(0.0, 1.0);
         balances.push(GroupBalance {
             group: gm.name.clone(),
             region: gm.region,
-            current: cur,
+            current: live_cur,
             target,
-            deficit: groups.deficit[ix],
-            recovering: recovery < RECOVERED_FRACTION,
+            deficit: ((target - live_cur) / target).clamp(0.0, 1.0),
+            recovering: live_rec < RECOVERED_FRACTION,
         });
     }
     // Balance view: most-in-deficit first.
@@ -1030,9 +1112,29 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         .round() as i32)
         .clamp(3, 15);
 
+    // Novel movements already introduced today spend their novelty slots for the
+    // whole day, not just their own session — otherwise finishing a morning's
+    // calibrations would simply let the evening backfill three more. Counted over
+    // `planning`: within a session the committed picks *are* the introductions,
+    // so only earlier sessions bind.
+    let novel_introduced = {
+        let mut first_seen: HashMap<i64, NaiveDateTime> = HashMap::new();
+        for s in &planning {
+            if ex_by_id.get(&s.exercise_id).is_none_or(|e| e.warmup) {
+                continue;
+            }
+            first_seen
+                .entry(s.exercise_id)
+                .and_modify(|t| *t = (*t).min(s.logged_at))
+                .or_insert(s.logged_at);
+        }
+        first_seen.values().filter(|t| t.date() == today).count() as i32
+    };
+    let novelty_cap = (NOVELTY_CAP - novel_introduced).max(0);
+
     // --- cover the need with the kit that's actually here ---
     // No location → we don't know what's doable, and we don't guess: no plan.
-    let (plan, warmup_gaps) = match &input.kit {
+    let (mut plan, warmup_gaps) = match &input.kit {
         Some(kit) => plan_session(
             input,
             kit,
@@ -1040,11 +1142,30 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             &residuals,
             &groups,
             day_target_sets,
+            novelty_cap,
             &ex_by_id,
-            now,
+            &planning,
+            plan_at,
         ),
         None => (Vec::new(), Vec::new()),
     };
+
+    // Progress against the committed plan: the session's sets pay its items in
+    // plan order (a ramp-in warm-up shares its exercise with the work item that
+    // follows, so order is what attributes them).
+    if let Some(start) = session_start {
+        let mut session_sets: HashMap<i64, i32> = HashMap::new();
+        for s in &input.history {
+            if s.logged_at >= start {
+                *session_sets.entry(s.exercise_id).or_default() += 1;
+            }
+        }
+        for item in &mut plan {
+            let rem = session_sets.entry(item.exercise_id).or_default();
+            item.done = (*rem).min(item.sets);
+            *rem -= item.done;
+        }
+    }
     // Kit the coach had to leave out — worked out by the service, which knows why.
     // Only worth saying when there's a session for it to be a hole in.
     let mut notices = if plan.is_empty() {
@@ -1059,11 +1180,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         ));
     }
 
-    // "Next up" for the nudge + Android trigger is the first *training* item, not
-    // the warm-up that leads the visible plan.
+    // "Next up" for the nudge + Android trigger is the first *unfinished*
+    // training item, not the warm-up that leads the visible plan and not
+    // something already done this session.
     let suggestion = plan
         .iter()
-        .find(|s| s.kind != SuggestionKind::Warmup)
+        .find(|s| s.kind != SuggestionKind::Warmup && s.done < s.sets)
         .cloned();
 
     let state = if input.history.is_empty() {
@@ -1103,7 +1225,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let reason = if input.kit.is_none() {
         "Tell me where you're training and I'll plan the session.".to_string()
     } else if suggestion.is_none() {
-        if state == PacingState::Rest {
+        if in_session && done_today > 0 {
+            // Every committed item is done — close the session, don't gloss it
+            // as a rest day.
+            "That's the session — nice work.".to_string()
+        } else if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
         } else {
             "Nothing doable here right now.".to_string()
@@ -1118,10 +1244,19 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             s.window_start_hour, s.window_end_hour
         )
     } else if !spacing_ok {
-        format!(
-            "Just trained {}m ago — take a breather.",
-            minutes_since_last_set.unwrap_or(0)
-        )
+        // Less than the rest interval since the last set — that's *between sets*,
+        // not between sessions (a fresh set always puts us inside the session
+        // window). Name what's next instead of waving the athlete off; the old
+        // "just trained — take a breather" line fired after every single set.
+        match &suggestion {
+            Some(sug) => format!(
+                "Rest a moment — then: {} × {} ({}).",
+                sug.sets - sug.done,
+                sug.exercise_name,
+                sug.group
+            ),
+            None => String::new(),
+        }
     } else if let Some(sug) = &suggestion {
         // Always an invitation to the next movement — never "you're a bit light this
         // week", which frames a returning athlete as behind a quota and pressures the
@@ -1129,7 +1264,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         // the *nudge* (a reminder's timing); it must not colour what the coach says.
         format!(
             "Next up: {} × {} ({}).",
-            sug.sets, sug.exercise_name, sug.group
+            sug.sets - sug.done,
+            sug.exercise_name,
+            sug.group
         )
     } else {
         String::new()
@@ -1171,11 +1308,13 @@ fn plan_session(
     residuals: &HashMap<i64, Residual>,
     groups: &Groups,
     budget: i32,
+    novelty_cap: i32,
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
+    history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>) {
-    let (cands, scored) = candidates(input, kit, abilities, residuals, groups, now);
-    let chosen = cover::select(&scored, &groups.need, budget, NOVELTY_CAP);
+    let (cands, scored) = candidates(input, kit, abilities, residuals, groups, history, now);
+    let chosen = cover::select(&scored, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
     let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
@@ -1226,23 +1365,34 @@ fn plan_session(
         };
 
         let (group, explanation, substituted_for) = match c.label {
-            Some(ix) => (
-                groups.name[ix.0].clone(),
-                Some(Explanation {
-                    deficit: groups.deficit[ix],
-                    recovery: groups.recovery[ix],
-                    pays: pick.pays,
-                    confirming: pick.confirming,
-                    confidence: ability::confidence_of(abilities, c.ex.id),
-                    e1rm: ability.and_then(|a| a.e1rm),
-                    misses: feedback.consecutive_misses,
-                    readiness: input.readiness.map(|r| r.band),
-                }),
-                stood_in
-                    .insert(ix)
-                    .then(|| blocked_ideal(input, kit, &weight, groups.id[ix.0], c.ex.id))
-                    .flatten(),
-            ),
+            Some(ix) => {
+                // A swap note only makes sense when this pick actually *trains*
+                // the label group as a prime mover. Labels can fall to a
+                // secondary group (its primaries covered), and "Triceps
+                // extension — swapped in for Good morning" via a shared
+                // erector-spinae assist is nonsense the athlete rightly
+                // distrusts.
+                let label_is_primary =
+                    c.ex.groups
+                        .iter()
+                        .any(|(g, r)| *r == MuscleRole::Primary && *g == groups.id[ix.0]);
+                (
+                    groups.name[ix.0].clone(),
+                    Some(Explanation {
+                        deficit: groups.deficit[ix],
+                        recovery: groups.recovery[ix],
+                        pays: pick.pays,
+                        confirming: pick.confirming,
+                        confidence: ability::confidence_of(abilities, c.ex.id),
+                        e1rm: ability.and_then(|a| a.e1rm),
+                        misses: feedback.consecutive_misses,
+                        readiness: input.readiness.map(|r| r.band),
+                    }),
+                    (label_is_primary && stood_in.insert(ix))
+                        .then(|| blocked_ideal(input, kit, &weight, groups.id[ix.0], c.ex.id))
+                        .flatten(),
+                )
+            }
             None => (String::new(), None, None),
         };
 
@@ -1253,6 +1403,7 @@ fn plan_session(
                 pattern: c.ex.pattern,
                 kind,
                 sets,
+                done: 0,
                 rep_low,
                 rep_high,
                 load_kg,

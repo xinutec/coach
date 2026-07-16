@@ -28,6 +28,9 @@ fn days_ago(d: i64) -> NaiveDateTime {
 fn hours_ago(h: i64) -> NaiveDateTime {
     now() - Duration::hours(h)
 }
+fn minutes_ago(m: i64) -> NaiveDateTime {
+    now() - Duration::minutes(m)
+}
 
 fn settings() -> PacingSettings {
     PacingSettings {
@@ -735,6 +738,211 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
     );
     assert_eq!(sug.rep_high, Some(6));
     assert!(sug.rep_low.unwrap() >= 3 && sug.rep_low.unwrap() <= 6);
+}
+
+// ---- a session in progress is a commitment ---------------------------------
+//
+// Once the first set of a session lands (a session = sets separated by no more
+// than the session gap), the plan is frozen at what the engine would have said
+// then; later sets only report progress against it. Without this, every logged
+// set re-solved the day: calibrations were re-prescribed above the max just
+// demonstrated, targets ratcheted set-over-set, and half-finished movements
+// vanished as their muscles read "recovering".
+
+#[test]
+fn a_calibration_is_complete_after_its_measurement() {
+    // A never-done movement is measured (one honest AMRAP, logged mid-session).
+    // The plan keeps the card — done, one set of one — and does not turn around
+    // and prescribe more of the movement the athlete just took to form breakdown.
+    let h = vec![bset(2, minutes_ago(30), 6)]; // ring row: first-ever set, today
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let items: Vec<_> = out.plan.iter().filter(|s| s.exercise_id == 2).collect();
+    assert_eq!(items.len(), 1, "one card for the measured movement");
+    assert_eq!(
+        items[0].kind,
+        SuggestionKind::Assess,
+        "still the measurement"
+    );
+    assert_eq!(items[0].sets, 1);
+    assert_eq!(items[0].done, 1, "and it's done");
+    if let Some(sug) = &out.suggestion {
+        assert_ne!(
+            sug.exercise_id, 2,
+            "next up is something unfinished, not the spent calibration"
+        );
+    }
+}
+
+#[test]
+fn the_committed_plan_survives_a_logged_set() {
+    // Mid-session, a movement with one of its sets logged stays on the plan with
+    // its ask unchanged and progress shown — it must not vanish half-done (its
+    // muscles read "recovering"), and untouched movements must not be dropped.
+    let mut h = vec![
+        set(1, days_ago(2)),
+        set(1, days_ago(4)),
+        set(1, days_ago(6)),
+    ];
+    // The commitment is what the engine said at the session's first set — so
+    // that's the instant the un-started plan is read at.
+    let before = evaluate(
+        &input(Mode::Balanced, catalog(), h.clone(), None, None),
+        minutes_ago(10),
+    );
+    let asked = before
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 1)
+        .expect("push-up planned")
+        .sets;
+
+    h.push(set(1, minutes_ago(10)));
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let pushup = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 1)
+        .expect("a half-done movement stays on the plan");
+    assert_eq!(pushup.sets, asked, "the ask is the committed one");
+    assert_eq!(pushup.done, 1, "progress is reported against it");
+    assert!(
+        out.plan.iter().any(|s| s.exercise_id == 3),
+        "untouched movements stay planned too"
+    );
+}
+
+#[test]
+fn no_rep_ratchet_within_a_session() {
+    // Trusted at best 4 → today asks 5. Hitting the 5 must not raise the ask to
+    // 6 before the next set — best+1 is session-over-session, not set-over-set.
+    let mut h = vec![
+        bset(1, days_ago(2), 4),
+        bset(1, days_ago(4), 4),
+        bset(1, days_ago(6), 4),
+    ];
+    h.push(bset(1, minutes_ago(20), 5));
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let pushup = out.plan.iter().find(|s| s.exercise_id == 1).unwrap();
+    assert_eq!(
+        pushup.rep_low,
+        Some(5),
+        "the committed target holds for the whole session"
+    );
+}
+
+#[test]
+fn no_new_novel_movement_backfills_mid_session() {
+    // Completing a calibration frees a slot under the novelty cap — but the
+    // session is committed, so no new never-done movement slides in to spend it.
+    let h = vec![bset(1, minutes_ago(15), 6)];
+    let committed = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let ids = |p: &coach::pacing::types::PacingNow| {
+        let mut v: Vec<i64> = p.plan.iter().map(|s| s.exercise_id).collect();
+        v.sort();
+        v
+    };
+    assert_eq!(
+        ids(&out),
+        ids(&committed),
+        "the session's movements are the ones committed at its start"
+    );
+}
+
+#[test]
+fn a_novel_movement_introduced_today_spends_its_slot_across_sessions() {
+    // The cap is on movements *introduced today*, not on pending picks: a novel
+    // movement first done this morning (session over — gap well past the session
+    // window) still counts, so the evening plan may only introduce cap − 1 more.
+    let exs: Vec<ExerciseInfo> = (0..5)
+        .map(|i| {
+            ex(
+                40 + i,
+                &format!("Back move {i}"),
+                Pattern::Pull,
+                Metric::Reps,
+                false,
+                vec![],
+                vec![(20, MuscleRole::Primary)],
+            )
+        })
+        .collect();
+    let h = vec![bset(40, hours_ago(3), 6)]; // introduced this morning; not in-session now
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            ..input(Mode::Balanced, exs, h, None, None)
+        },
+        now(),
+    );
+    let never_done = out
+        .plan
+        .iter()
+        .filter(|s| s.exercise_id != 40 && s.kind == SuggestionKind::Assess)
+        .count();
+    assert!(
+        never_done <= 2,
+        "one novelty slot is already spent today; got {never_done} new introductions"
+    );
+}
+
+#[test]
+fn mid_session_the_coach_says_whats_next_not_take_a_breather() {
+    // Thirty seconds after a set, with work remaining, the coach names the next
+    // movement — the "just trained, take a breather" line is for after sessions,
+    // not between sets.
+    let mut h = vec![
+        set(1, days_ago(2)),
+        set(1, days_ago(4)),
+        set(1, days_ago(6)),
+    ];
+    h.push(set(1, minutes_ago(5)));
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(
+        !out.reason.contains("breather"),
+        "no breather mid-session: {}",
+        out.reason
+    );
+    assert!(
+        out.reason.contains("Rest a moment"),
+        "the mid-set rest names what's next: {}",
+        out.reason
+    );
+}
+
+#[test]
+fn a_finished_session_says_so() {
+    // Every committed item done → the coach closes the session instead of
+    // reporting rest-day balance boilerplate.
+    let exs = vec![ex(
+        2,
+        "Ring row",
+        Pattern::Pull,
+        Metric::Reps,
+        true,
+        vec![],
+        vec![(20, MuscleRole::Primary)],
+    )];
+    let mut h = vec![
+        set(2, days_ago(2)),
+        set(2, days_ago(4)),
+        set(2, days_ago(6)),
+    ];
+    for m in [50, 40, 30, 20] {
+        h.push(set(2, minutes_ago(m)));
+    }
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            ..input(Mode::Balanced, exs, h, None, None)
+        },
+        now(),
+    );
+    assert!(
+        out.reason.contains("session"),
+        "a finished session is closed, not glossed as a rest day: {}",
+        out.reason
+    );
 }
 
 #[test]

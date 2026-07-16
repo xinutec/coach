@@ -253,6 +253,10 @@ pub struct Suggestion {
     /// Work (prescribe) or Assess (measure). Drives the Today card's framing.
     pub kind: SuggestionKind,
     pub sets: i32,
+    /// Sets of this item already logged in the session in progress (0 outside
+    /// one). The plan is committed at the session's first set; this is the
+    /// athlete's progress against that commitment, shown on the card.
+    pub done: i32,
     pub rep_low: Option<i32>,
     pub rep_high: Option<i32>,
     pub load_kg: Option<f64>,
