@@ -229,3 +229,67 @@ fields adapt on exercise switch. Warm-up doses, "Measured — locked in", the
 kit-blocked swap notes, and the closing "That's the session — nice work." all
 behaved. The remaining gap to a human coach is knowledge (warm-up coverage,
 ordering, rest), not machinery.
+
+# Round 3 — the Office session, verifying the fixes
+
+Same method, same day, third pass: a full Office session (18 sets — 5 warm-up
+drills, 13 work sets across 7 movements) played through prod on the round-2
+build, at the location with the other drill pool and kit. Every round-2 fix
+held up live:
+
+- **Warm-up** (R2-3): five drills, five distinct groups — wrists first
+  (forearms carry the most load in a session of pull-ups, two carries and
+  curls), then shoulders, quads, lower back, deep core. Nothing doubled, and
+  the heavy pressing/hanging work no longer starts cold.
+- **Order** (R2-4): pull-ups → carries → squats → push-up, curls and
+  extensions last.
+- **Banner = pill** (R2-7): "Warm up first: Wrist flexor stretch — 10 slow
+  reps." while the pill sat on the same card; after a compound set the banner
+  read "Rest 2–3 min — then: …" (R2-5).
+- **Counter** (R2-2): closed at exactly **18 / 18** with "That's the session —
+  nice work." A duplicated warm-up set (mis-tap) capped against its card
+  instead of inflating the count, and a set logged through the CLI attributed
+  to the right card.
+- **Stale fields** (R2-1): switching the sheet between a carry (kg + seconds),
+  a squat (kg + reps) and mobility drills re-derived the fields every time —
+  every bodyweight set in the round landed with no load attached.
+- **Labels** (R2-8): "Next up: 2 × Pull-up (bar) (Lats)" — prime mover, not
+  synergist. The picker listed the plan first, in plan order.
+
+## R3-1. No plausibility bounds on logged values — OPEN
+
+A fat-fingered edit (35 → "3530", an append instead of a replace) logged a
+**12 kg farmers walk of 3 530 seconds** — a fifty-nine-minute carry — and
+nothing blinked. The set was stored and would have fed the carry ability
+estimate as a demonstrated max. A coach hearing "I carried it for an hour"
+asks you to repeat that with a straight face.
+
+The metric-shape validation (R2-1) checks *which* fields a set carries, not
+whether their values are humanly possible. Wanted: per-metric sanity bounds at
+the API (reps, seconds, kg each have a ceiling no honest set exceeds), with
+the client surfacing the rejection kindly — or, gentler, an outlier check
+against the athlete's own history that asks before storing.
+
+## R3-2. The budget remainder under-doses a movement — OPEN
+
+The plan carried "Push-up — 1 set" mid-session: the cover's last pick got
+`min(MIN_WORK_SETS, budget left) = 1`. The engine's own constant says a lone
+set of a work movement wastes its setup — the remainder should instead top up
+an already-planned movement (whose marginal value was just re-ranked) or the
+budget should round to full doses.
+
+## R3-3. Movement families aren't deduplicated — OPEN (known)
+
+Farmers walk *and* Farmers walk (waiter) were both planned — cousins differing
+only in where the kettlebell sits. Same class as Hamstring curls vs its
+single-leg variant in round 1; the standing family-dedup item in
+[todo](todo.md).
+
+## Automation note
+
+One warm-up drill was logged twice and another skipped mid-round: the exercise
+dropdown auto-scrolls to keep the selected option visible, so scripted taps at
+remembered coordinates hit neighbours. Recovered in-flow (the card capped the
+duplicate; the skipped drill logged from its own card). Not an app defect —
+but it is the same "targets move under a committed tap" family a rushed human
+thumb meets, and the plan-first picker section made the recovery easy.
