@@ -21,6 +21,14 @@ use super::ability::Confidence;
 pub struct ExerciseInfo {
     pub id: i64,
     pub name: String,
+    /// The movement family — the catalog's base name, shared by its variations
+    /// ("Farmers walk" plain/suitcase/waiter; both "Hamstring curls"). Cousins
+    /// train the same thing the same way, so a session takes at most one entry
+    /// per family (R3-3).
+    pub family: String,
+    /// How hard this variation is (1–5) *relative to its pattern + primary
+    /// group* — the rung it occupies on the variation ladder (G7).
+    pub difficulty: Option<i32>,
     pub pattern: Pattern,
     pub metric: Metric,
     /// Ring/parallette or hold work — biased in Skills mode.

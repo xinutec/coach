@@ -110,6 +110,8 @@ fn barbell_row() -> ExerciseInfo {
     ExerciseInfo {
         id: 5,
         name: "Barbell row".into(),
+        family: "Barbell row".into(),
+        difficulty: None,
         pattern: Pattern::Pull,
         metric: Metric::WeightedReps,
         is_skill: false,
@@ -301,6 +303,8 @@ fn body_ex(id: i64, name: &str, pattern: Pattern, group: i64) -> ExerciseInfo {
     ExerciseInfo {
         id,
         name: name.into(),
+        family: name.into(),
+        difficulty: None,
         pattern,
         metric: Metric::Reps,
         is_skill: false,

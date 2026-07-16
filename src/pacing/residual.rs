@@ -27,7 +27,7 @@
 
 use std::collections::HashMap;
 
-use chrono::NaiveDateTime;
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
 use super::types::SetRec;
@@ -43,6 +43,19 @@ const MISS_MARGIN: f64 = 0.05;
 const BEAT_MARGIN: f64 = 0.05;
 /// Consecutive misses before the load steps down instead of holding.
 pub const BACK_OFF_AFTER: i32 = 2;
+/// Quiet sessions (nothing beaten) between attempts at more. Asking best+1 is a
+/// **probe**, and a probe is earned: by a session that actually beat the
+/// estimate, or periodically after this much consolidation. Without the cadence
+/// the coach re-asked the same failing +1 every session — the estimate never
+/// moves when the athlete matches their best while failing the ask (ability is
+/// a max), so nothing ever answered it. (R4-1, from the athlete simulation.)
+pub const PROBE_EVERY: i32 = 3;
+/// How far back a plateau looks, and the least evidence it needs. A month of
+/// sessions with nothing beaten is a movement that has stopped producing
+/// progress — the trigger for the variation ladder (G7). Fewer sessions than
+/// the minimum is thin data, not a verdict.
+const PLATEAU_WINDOW_DAYS: i64 = 28;
+const PLATEAU_MIN_SESSIONS: usize = 4;
 /// Consecutive misses before the engine stops prescribing and measures again. A
 /// wrong estimate is not a run of bad luck, and grinding an athlete against it is
 /// how you dig a hole.
@@ -62,8 +75,10 @@ pub enum Outcome {
 /// The recent prediction error for one exercise.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Residual {
-    /// Sessions, oldest first — the ledger itself.
-    pub outcomes: Vec<Outcome>,
+    /// Sessions, oldest first, each judged at its own date — the ledger itself.
+    /// Dated so plateau detection can ask "how long since anything was beaten?"
+    /// in weeks rather than in sessions of unknown spacing.
+    pub outcomes: Vec<(NaiveDate, Outcome)>,
     /// Misses at the end of the ledger. This is what the engine acts on: a miss
     /// answered by the next session's success is history, not a trend.
     pub consecutive_misses: i32,
@@ -83,6 +98,34 @@ impl Residual {
     /// Any miss at all → don't add load or reps on top of it.
     pub fn wants_hold(&self) -> bool {
         self.consecutive_misses > 0
+    }
+    /// Sessions since the athlete last beat the estimate — every one of them, when
+    /// nothing was ever beaten. Zero for a movement with no ledger yet: a fresh
+    /// movement progresses eagerly, there is nothing to consolidate.
+    pub fn sessions_since_beat(&self) -> i32 {
+        self.outcomes
+            .iter()
+            .rev()
+            .take_while(|(_, o)| *o != Outcome::Beat)
+            .count() as i32
+    }
+    /// Is today a day to ask for more? Immediately after a beat (an earned climb
+    /// keeps climbing), and periodically after enough quiet sessions; the sessions
+    /// in between consolidate at the demonstrated best.
+    pub fn probe_due(&self) -> bool {
+        let n = self.sessions_since_beat();
+        n == 0 || n % PROBE_EVERY == 0
+    }
+    /// A month of real sessions with nothing beaten: the movement has stopped
+    /// producing progress. Not a slump — misses are the back-off's business, and
+    /// stepping *up* the ladder mid-slump would answer weakness with more.
+    pub fn plateaued(&self, now: NaiveDateTime) -> bool {
+        if self.consecutive_misses > 0 {
+            return false;
+        }
+        let cut = now.date() - Duration::days(PLATEAU_WINDOW_DAYS);
+        let recent: Vec<_> = self.outcomes.iter().filter(|(d, _)| *d >= cut).collect();
+        recent.len() >= PLATEAU_MIN_SESSIONS && recent.iter().all(|(_, o)| *o != Outcome::Beat)
     }
 }
 
@@ -139,14 +182,14 @@ fn ledger(sets: &[&SetRec]) -> Residual {
         let actual = ability::estimate(&today, *day);
 
         if let Some(o) = compare(&predicted, &actual) {
-            outcomes.push(o);
+            outcomes.push((day.date(), o));
         }
     }
 
     let consecutive_misses = outcomes
         .iter()
         .rev()
-        .take_while(|o| **o == Outcome::Missed)
+        .take_while(|(_, o)| *o == Outcome::Missed)
         .count() as i32;
     Residual {
         outcomes,

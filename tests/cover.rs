@@ -29,6 +29,7 @@ fn cand(
 ) -> Candidate {
     Candidate {
         id,
+        family: format!("ex{id}"),
         credit: vec_of(credit),
         weight,
         confirm,
@@ -36,6 +37,25 @@ fn cand(
         min,
         cap,
     }
+}
+
+// R3-3: cousins of one movement family (farmers walk plain/suitcase/waiter, the
+// hamstring-curl variants) train the same thing the same way — a session takes
+// at most one of them, and the freed budget goes to whatever else still pays.
+#[test]
+fn one_pick_per_movement_family() {
+    let mut a = cand(1, vec![1.0], 2.0, 0.0, false, 2, 4);
+    let mut b = cand(2, vec![1.0], 2.0, 0.0, false, 2, 4);
+    a.family = "Farmers walk".into();
+    b.family = "Farmers walk".into();
+    // Need deep enough that, without the family gate, the second cousin would
+    // enter once the first hits its per-exercise cap.
+    let chosen = select(&[a, b], &vec_of(vec![10.0]), 8, 5);
+    assert_eq!(chosen.len(), 1, "one movement per family per session");
+    assert_eq!(
+        chosen[0].sets, 4,
+        "the family's pick still earns its full dose"
+    );
 }
 
 #[test]

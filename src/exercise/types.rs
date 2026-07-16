@@ -119,6 +119,9 @@ pub struct Exercise {
     /// single-arm row) or two (dumbbell bench press). Decides how a finite disc
     /// budget is shared out, and so which loads are actually buildable.
     pub implements: i32,
+    /// How hard this variation is (1–5) relative to its pattern + primary group
+    /// — the rung it occupies on the variation ladder (G7).
+    pub difficulty: Option<i32>,
     pub is_active: bool,
     pub equipment: Vec<String>,
     pub has_image: bool,
@@ -136,6 +139,7 @@ pub(crate) struct ExerciseListRow {
     pub skill: bool,
     pub warmup: bool,
     pub implements: i32,
+    pub difficulty: Option<i32>,
     pub is_active: bool,
     pub equipment_csv: Option<String>,
     pub has_image: i64,
@@ -157,6 +161,7 @@ impl TryFrom<ExerciseListRow> for Exercise {
             skill: r.skill,
             warmup: r.warmup,
             implements: r.implements,
+            difficulty: r.difficulty,
             is_active: r.is_active,
             equipment: r
                 .equipment_csv

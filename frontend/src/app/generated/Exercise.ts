@@ -22,4 +22,9 @@ warmup: boolean,
  * single-arm row) or two (dumbbell bench press). Decides how a finite disc
  * budget is shared out, and so which loads are actually buildable.
  */
-implements: number, isActive: boolean, equipment: Array<string>, hasImage: boolean, };
+implements: number, 
+/**
+ * How hard this variation is (1–5) relative to its pattern + primary group
+ * — the rung it occupies on the variation ladder (G7).
+ */
+difficulty: number | null, isActive: boolean, equipment: Array<string>, hasImage: boolean, };

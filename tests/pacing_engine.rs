@@ -74,6 +74,8 @@ fn ex(
     ExerciseInfo {
         id,
         name: name.into(),
+        family: name.into(),
+        difficulty: None,
         pattern,
         metric,
         is_skill,
@@ -88,6 +90,8 @@ fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
     ExerciseInfo {
         id,
         name: name.into(),
+        family: name.into(),
+        difficulty: None,
         pattern: Pattern::Core,
         metric: Metric::Reps,
         is_skill: false,
@@ -813,13 +817,10 @@ fn the_committed_plan_survives_a_logged_set() {
 
 #[test]
 fn no_rep_ratchet_within_a_session() {
-    // Trusted at best 4 → today asks 5. Hitting the 5 must not raise the ask to
-    // 6 before the next set — best+1 is session-over-session, not set-over-set.
-    let mut h = vec![
-        bset(1, days_ago(2), 4),
-        bset(1, days_ago(4), 4),
-        bset(1, days_ago(6), 4),
-    ];
+    // Trusted at best 4 with today's probe due (a steady history of quiet
+    // sessions — R4-1) → today asks 5. Hitting the 5 must not raise the ask to
+    // 6 before the next set — a probe is session-over-session, not set-over-set.
+    let mut h: Vec<SetRec> = (1..=7).map(|i| bset(1, days_ago(2 * i), 4)).collect();
     h.push(bset(1, minutes_ago(20), 5));
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     let pushup = out.plan.iter().find(|s| s.exercise_id == 1).unwrap();
@@ -986,18 +987,20 @@ fn a_warmup_is_an_instruction_with_a_dose() {
 
 #[test]
 fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
-    // Three recent sessions ground out at 2 reps — an honest maximum, shown while
+    // Recent sessions ground out at 2 reps — an honest maximum, shown while
     // doing one's best. Balanced mode *likes* 8–12 reps, but a style preference is
     // a ceiling to climb toward, not a floor to demand: asking 8 from an athlete
     // who has shown 2 prescribes failure, and it silently defeats the
-    // miss-response too (aim best−1, clamped straight back up to 8). The target is
-    // one rep above the best demonstrated.
-    let h = vec![
-        bset(1, days_ago(2), 2),
-        bset(1, days_ago(4), 2),
-        bset(1, days_ago(6), 2),
-    ];
-    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    // miss-response too (aim best−1, clamped straight back up to 8). A steady
+    // every-other-day history long enough that today's probe is due (R4-1) and
+    // this week is no spike over the baseline: the target is one rep above the
+    // best demonstrated. Only the push-up is on offer — the other groups'
+    // calibration cards are beside the point and would eat the small day budget.
+    let h: Vec<SetRec> = (1..=7).map(|i| bset(1, days_ago(2 * i), 2)).collect();
+    let out = evaluate(
+        &input(Mode::Balanced, vec![catalog().remove(0)], h, None, None),
+        now(),
+    );
     let pushup = out
         .plan
         .iter()
@@ -1693,6 +1696,7 @@ fn a_carry_climbs_the_clock_then_steps_the_weight() {
         cset(7, days_ago(2), 12.0, 30),
         cset(7, days_ago(5), 12.0, 30),
         cset(7, days_ago(9), 12.0, 30),
+        cset(7, days_ago(12), 12.0, 30),
     ]);
     let w = climbing
         .plan
@@ -1716,6 +1720,7 @@ fn a_carry_climbs_the_clock_then_steps_the_weight() {
         cset(7, days_ago(2), 12.0, 60),
         cset(7, days_ago(5), 12.0, 60),
         cset(7, days_ago(9), 12.0, 60),
+        cset(7, days_ago(12), 12.0, 60),
     ]);
     let w = topped
         .plan
@@ -2052,6 +2057,8 @@ fn warmup_labels_name_distinct_groups() {
         ExerciseInfo {
             id: 101,
             name: "Reach and roll".into(),
+            family: "Reach and roll".into(),
+            difficulty: None,
             pattern: Pattern::Core,
             metric: Metric::Reps,
             is_skill: false,
@@ -2402,5 +2409,190 @@ fn an_items_label_is_a_prime_mover() {
     assert_eq!(
         item.group, "Chest",
         "the headline is the prime mover, not the neediest synergist"
+    );
+}
+
+// ---- round 4: the simulated-athlete findings --------------------------------
+//
+// E3 (src/bin/simulate.rs) played a deterministic athlete against the engine for
+// eight simulated weeks and surfaced three coaching failures the back-test could
+// never show (they only exist in the loop the engine's own prescriptions create):
+// a failing +1 re-asked verbatim every session for weeks, a topped-out or
+// plateaued movement prescribed against its wall forever, and near-duplicate
+// movements (hamstring-curl cousins) sharing one session. These tests pin the
+// fixes.
+
+// R4-1: the +1 ask is a probe, and a probe is earned. An athlete who matches
+// their best while failing the ask keeps the same estimate (ability is a max),
+// so before this the coach re-asked best+1 every single session — grinding, not
+// coaching. Between probes the ask consolidates at the demonstrated best.
+#[test]
+fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
+    let row = || catalog().remove(1); // Ring row — bodyweight, Lats
+    // Three sessions at a steady 10 reps: High confidence, two quiet outcomes —
+    // mid-cadence, so today consolidates.
+    let history = vec![
+        bset(2, days_ago(8), 10),
+        bset(2, days_ago(6), 10),
+        bset(2, days_ago(4), 10),
+    ];
+    let out = evaluate(
+        &input(Mode::Balanced, vec![row()], history, None, None),
+        now(),
+    );
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 2)
+        .expect("the row is planned");
+    assert_eq!(
+        item.rep_low,
+        Some(10),
+        "between probes the ask is the demonstrated best, not best+1"
+    );
+
+    // A fourth identical session: the third quiet outcome earns the next probe.
+    let history = vec![
+        bset(2, days_ago(8), 10),
+        bset(2, days_ago(6), 10),
+        bset(2, days_ago(4), 10),
+        bset(2, days_ago(2), 10),
+    ];
+    let out = evaluate(
+        &input(Mode::Balanced, vec![row()], history, None, None),
+        now(),
+    );
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 2)
+        .expect("the row is planned");
+    assert_eq!(item.rep_low, Some(11), "the periodic probe still reaches");
+}
+
+/// The hamstring-curl pair from the real catalog: same family, same primaries,
+/// the single-leg variant one difficulty rung up.
+fn curls_pair() -> (ExerciseInfo, ExerciseInfo) {
+    let mut easy = ex(
+        7,
+        "Hamstring curls",
+        Pattern::Legs,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(30, MuscleRole::Primary)],
+    );
+    easy.difficulty = Some(2);
+    let mut hard = ex(
+        8,
+        "Hamstring curls (single leg)",
+        Pattern::Legs,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(30, MuscleRole::Primary)],
+    );
+    hard.family = "Hamstring curls".into();
+    hard.difficulty = Some(3);
+    (easy, hard)
+}
+
+// R4-2 (G7): a month of steady sessions with nothing beaten is a plateau — this
+// movement has stopped producing progress, and prescribing it again is
+// prescribing the wall. The coach steps the athlete up the variation ladder:
+// the plateaued rung leaves the session, the next-harder sibling is measured
+// (never guessed at), and the step is said out loud.
+#[test]
+fn a_plateaued_movement_hands_over_to_its_harder_sibling() {
+    let (easy, hard) = curls_pair();
+    // Twice-ish a week for a month, always the same 10 reps: High confidence,
+    // a window full of quiet outcomes, no slump.
+    let history: Vec<SetRec> = (0..10).map(|i| bset(7, days_ago(30 - i * 3), 10)).collect();
+    let out = evaluate(
+        &input(Mode::Balanced, vec![easy, hard], history, None, None),
+        now(),
+    );
+    assert!(
+        out.plan.iter().all(|s| s.exercise_id != 7),
+        "the plateaued rung steps aside"
+    );
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 8)
+        .expect("the harder sibling takes the slot");
+    assert_eq!(
+        item.kind,
+        SuggestionKind::Assess,
+        "a new variation is measured, not guessed at"
+    );
+    assert!(
+        out.notices
+            .iter()
+            .any(|n| n.contains("Hamstring curls (single leg)")),
+        "the step up is said, not implied: {:?}",
+        out.notices
+    );
+}
+
+// R4-3: a coarse rack must not snap the working load into a phantom miss. With
+// bells at 4 and 5 kg and an estimate measured at 5 kg, the computed working
+// load lands between rungs; the *nearest* rung (4 kg) caps what the rep range
+// can demonstrate below the estimate itself, so every session reads as a miss
+// no matter how well it goes — misses block progression, three trigger a
+// re-measure, and the loop repeats (the simulation's OHP finding). The coach
+// hands over the heavier bell instead: fewer reps, and success is achievable.
+#[test]
+fn a_coarse_rack_snaps_the_working_load_up_not_into_a_phantom_miss() {
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: HashMap::from([(5, vec![4.0, 5.0])]),
+            ..input(
+                Mode::Balanced,
+                vec![barbell_row()],
+                vec![wset(5, days_ago(2), 5.0, 5)],
+                None,
+                None,
+            )
+        },
+        now(),
+    );
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5 && s.kind != SuggestionKind::Warmup)
+        .expect("a trusted row in deficit is planned");
+    assert_eq!(w.kind, SuggestionKind::Work);
+    assert_eq!(
+        w.load_kg,
+        Some(5.0),
+        "the rung above the working load — a rung the estimate can be met at"
+    );
+}
+
+// R4-2 (G7): topping out the rep range is the same wall reached sooner — the
+// ask is clamped at the range top, so "keep doing 12s" would be forever. The
+// ladder fires on the ceiling itself, without waiting a month.
+#[test]
+fn a_topped_out_movement_hands_over_even_while_meeting_it() {
+    let (easy, hard) = curls_pair();
+    // Three recent sessions at the Balanced bodyweight range top (12).
+    let history = vec![
+        bset(7, days_ago(8), 12),
+        bset(7, days_ago(6), 12),
+        bset(7, days_ago(4), 12),
+    ];
+    let out = evaluate(
+        &input(Mode::Balanced, vec![easy, hard], history, None, None),
+        now(),
+    );
+    assert!(
+        out.plan.iter().all(|s| s.exercise_id != 7),
+        "the range top is a wall, not a target to re-serve"
+    );
+    assert!(
+        out.plan.iter().any(|s| s.exercise_id == 8),
+        "the harder sibling takes the slot"
     );
 }

@@ -93,6 +93,11 @@ impl ByGroup<f64> {
 pub struct Candidate {
     /// Exercise id — carried only to break ties deterministically.
     pub id: i64,
+    /// The movement family (the catalog's base name). Variations of one movement
+    /// train the same thing the same way, so a session takes at most one entry
+    /// per family — the second cousin is redundant stimulus wearing a different
+    /// label, and its slot goes to whatever else still pays (R3-3).
+    pub family: String,
     /// What ONE set pays into each group (role credit × that group's recovery).
     pub credit: ByGroup<f64>,
     /// Style preference: mode fit + novelty. Scales rank; never qualifies.
@@ -181,6 +186,8 @@ pub fn select(
     let mut left = budget.max(0);
     // Never-done movements introduced so far — bounded by `novelty_cap`.
     let mut novel_taken = 0i32;
+    // Movement families already in the session — each admits one entry (R3-3).
+    let mut families: std::collections::HashSet<&str> = std::collections::HashSet::new();
 
     while left > 0 {
         let mut best: Option<(usize, f64, f64, f64)> = None; // (index, cover, pay, rank)
@@ -192,6 +199,11 @@ pub fn select(
             // A fresh novel movement past the cap doesn't get to start — but one
             // already in the session may still earn further sets on coverage.
             if entering && c.novel && novel_taken >= novelty_cap {
+                continue;
+            }
+            // A cousin of a movement already picked is redundant stimulus, not
+            // variety — one entry per family per session.
+            if entering && families.contains(c.family.as_str()) {
                 continue;
             }
             // Entering a movement means committing to its full minimum dose; a
@@ -229,6 +241,7 @@ pub fn select(
         // the session takes a single set (its marginal gain was just re-checked).
         let take = if sets[i] == 0 {
             order.push(i);
+            families.insert(c.family.as_str());
             first_cover[i] = cover;
             // It earned its place on confirmation, not volume, when coverage alone
             // couldn't have cleared the bar. That's the reason the coach will give.

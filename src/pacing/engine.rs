@@ -127,6 +127,13 @@ const SESSION_GAP_MIN: i64 = 120;
 /// before piling on more, and the same holds on a cold start — a focused first
 /// session that samples a few patterns beats a broad one nobody can attend to.
 const NOVELTY_CAP: i32 = 3;
+/// The one-time need (effective sets) to measure the next rung of a variation
+/// ladder the athlete has outgrown (G7). Same mechanism as confirmation: knowing
+/// what you can do on the movement that replaces a topped-out one *is* a need,
+/// so it qualifies the rung into a session even when the group's volume is
+/// already covered — otherwise the step-up stays a notice forever while the
+/// cover keeps picking other trusted work for the group.
+const LADDER_CONFIRM: f64 = 1.0;
 
 // ---- tunable heuristics ----------------------------------------------------
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
@@ -357,6 +364,12 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &HashMap<i64, Vec<f64>>) -> Optio
 /// weights. Without that, ability is a max over decayed sets and a miss pulls
 /// nothing down — the athlete gets handed the same number the sets just
 /// contradicted, which is how you grind someone into a hole.
+///
+/// And asking for *more* is a **probe**, not the default: earned by a session
+/// that beat the estimate, or periodic after enough consolidation
+/// ([`Residual::probe_due`]). Matching your best while failing the ask moves
+/// nothing (ability is a max), so without the cadence the same failing +1 was
+/// re-asked verbatim every session for weeks — the R4-1 simulation finding.
 fn prescribe(
     loaded: &Loaded,
     ability: &Known,
@@ -368,6 +381,7 @@ fn prescribe(
     // different reason; either is enough.)
     let advance = advance && !feedback.wants_hold();
     let back_off = feedback.wants_back_off();
+    let probe = advance && feedback.probe_due();
     let reserve = if advance {
         TARGET_RIR
     } else {
@@ -379,8 +393,23 @@ fn prescribe(
             match ability.e1rm {
                 Some(e) => {
                     // Working load: the weight you own nearest the one that puts
-                    // the top of the range within reach at the target reserve.
-                    let target = inv.snap(load_for(e, range.high as f64, reserve));
+                    // the top of the range within reach at the target reserve —
+                    // rounding *up* between rungs on a full-effort day. A rung
+                    // below caps what the rep range can demonstrate under the
+                    // estimate itself, so on a coarse rack every session would
+                    // read as a miss no matter how well it went: misses block
+                    // progression, three trigger a re-measure, and the loop
+                    // repeats (the simulation's OHP finding, R4-3). The rung
+                    // above asks fewer reps and leaves success achievable. On an
+                    // eased day (low readiness, or holding after a miss) the
+                    // lighter rung is the point, so the nearest one stands.
+                    let ideal = load_for(e, range.high as f64, reserve);
+                    let nearest = inv.snap(ideal);
+                    let target = if advance && nearest + 1e-9 < ideal {
+                        inv.next_above(nearest)
+                    } else {
+                        nearest
+                    };
                     // Missed it twice running → the estimate is too heavy, not the
                     // day. Take a rung off and rebuild from there.
                     let load = if back_off {
@@ -394,8 +423,12 @@ fn prescribe(
                     // *floor* deliberately doesn't apply: it's a style preference,
                     // and when the lightest owned rung is heavy for the estimate,
                     // raising the ask to the floor prescribes a set the athlete
-                    // has no way to finish.
-                    let low = (reps_at(e, load, reserve).round() as i32).clamp(1, range.high);
+                    // has no way to finish. A probe may round the ask up; a
+                    // consolidation session never asks past what the sets have
+                    // shown.
+                    let raw = reps_at(e, load, reserve);
+                    let aim = if probe { raw.round() } else { raw.floor() };
+                    let low = (aim as i32).clamp(1, range.high);
                     Dose::Weighted {
                         load,
                         reps: RepTarget { low, ..range },
@@ -415,13 +448,13 @@ fn prescribe(
             let range = rep_range(mode, false);
             let low = match ability.best_reps {
                 Some(best) => {
-                    // Climb, hold, or (after two misses) ask for one rep fewer than
-                    // the number that isn't happening. Capped at the range top only
-                    // — the range floor is a style preference, and demonstrated
-                    // ability outranks it. Clamping up to the floor would ask an
-                    // athlete who ground out 2 for 8, and quietly undo the
-                    // miss-response above (aim best−1, hauled straight back up).
-                    let aim = match (advance, back_off) {
+                    // Probe (+1), consolidate (best), or (after two misses) ask one
+                    // rep fewer than the number that isn't happening. Capped at the
+                    // range top only — the range floor is a style preference, and
+                    // demonstrated ability outranks it. Clamping up to the floor
+                    // would ask an athlete who ground out 2 for 8, and quietly undo
+                    // the miss-response above (aim best−1, hauled straight back up).
+                    let aim = match (probe, back_off) {
                         (_, true) => best - 1,
                         (true, false) => best + 1,
                         (false, false) => best,
@@ -436,7 +469,7 @@ fn prescribe(
         }
         Loaded::Hold => {
             let base = ability.best_hold.unwrap_or(COLD_HOLD_S);
-            let secs = match (advance, back_off) {
+            let secs = match (probe, back_off) {
                 (_, true) => base - HOLD_STEP_S,
                 (true, false) => base + HOLD_STEP_S,
                 (false, false) => base,
@@ -455,13 +488,13 @@ fn prescribe(
                 load: inv.next_below(inv.snap(c.load)),
                 secs: CARRY_BASE_S,
             },
-            Some(c) if c.secs >= CARRY_TOP_S && advance => Dose::WeightedHold {
+            Some(c) if c.secs >= CARRY_TOP_S && probe => Dose::WeightedHold {
                 load: inv.next_above(c.load),
                 secs: CARRY_BASE_S,
             },
             Some(c) => Dose::WeightedHold {
                 load: inv.snap(c.load),
-                secs: if advance {
+                secs: if probe {
                     (c.secs + HOLD_STEP_S).min(CARRY_TOP_S)
                 } else {
                     c.secs
@@ -568,6 +601,11 @@ struct Cand<'a> {
 /// minus anything the kit can't do, minus weighted lifts with no registered
 /// weights or enough implements to go round (the service names those in the
 /// verdict's notices — a drop the athlete can act on, not a silent gap).
+///
+/// Also where the **variation ladder** (G7) turns: a movement the athlete has
+/// topped out or plateaued on steps out of candidacy when a harder doable
+/// variation exists, and the returned notes say so — the step up is coaching,
+/// and coaching gets said.
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
@@ -576,7 +614,7 @@ fn candidates<'a>(
     groups: &Groups,
     history: &[SetRec],
     now: NaiveDateTime,
-) -> (Vec<Cand<'a>>, Vec<Candidate>) {
+) -> (Vec<Cand<'a>>, Vec<Candidate>, Vec<String>) {
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
     let recency = |id: i64| -> f64 {
         match history
@@ -589,6 +627,55 @@ fn candidates<'a>(
             None => 1.0,
         }
     };
+
+    // G7 — the variation ladder, decided up front. Two walls end a movement's
+    // usefulness as a prescription: the rep range's ceiling (the ask is clamped
+    // there, so "keep doing 12s" would be forever) and a plateau (a month of
+    // sessions with nothing beaten — see [`Residual::plateaued`]). At High
+    // confidence that's a verdict, not thin data: the rung steps aside, and its
+    // next-harder doable sibling becomes a measurement need. The step is
+    // announced while the sibling is still news; once it has its own estimate
+    // it's simply in the rotation.
+    let mut stepped_aside: std::collections::HashSet<i64> = Default::default();
+    let mut ladder_targets: std::collections::HashSet<i64> = Default::default();
+    let mut ladder_notes = Vec::new();
+    for ex in &input.exercises {
+        if ex.warmup || !kit.has_all(&ex.equipment) {
+            continue;
+        }
+        let Some(loaded) = loadable(ex, &input.exercise_loads) else {
+            continue;
+        };
+        if ability::confidence_of(abilities, ex.id) != Confidence::High {
+            continue;
+        }
+        let Some(d) = ex.difficulty else {
+            continue;
+        };
+        let topped = matches!(loaded, Loaded::Reps)
+            && abilities
+                .get(&ex.id)
+                .and_then(|a| a.best_reps)
+                .is_some_and(|b| b >= rep_range(input.mode, false).high);
+        let plateaued = residuals.get(&ex.id).is_some_and(|r| r.plateaued(now));
+        if !(topped || plateaued) {
+            continue;
+        }
+        let Some(next) = harder_sibling(ex, d, input, kit) else {
+            continue;
+        };
+        stepped_aside.insert(ex.id);
+        if matches!(
+            ability::confidence_of(abilities, next.id),
+            Confidence::None | Confidence::Low
+        ) {
+            ladder_targets.insert(next.id);
+            ladder_notes.push(format!(
+                "{} has stopped progressing — stepping up to {}.",
+                ex.name, next.name
+            ));
+        }
+    }
 
     let mut cands = Vec::new();
     let mut scored = Vec::new();
@@ -645,6 +732,10 @@ fn candidates<'a>(
         };
         let confidence = ability::confidence_of(abilities, ex.id);
         let sessions = abilities.get(&ex.id).map_or(0, |a| a.sessions_recent);
+        // An outgrown ladder rung isn't selectable — its successor is (below).
+        if stepped_aside.contains(&ex.id) {
+            continue;
+        }
         // Confirmation waits on recovery: don't ask someone to repeat a movement
         // whose prime movers are still fried just to firm up its estimate — the
         // coverage gate already refuses to re-train a fried group for volume, and
@@ -664,6 +755,15 @@ fn candidates<'a>(
             1.0
         };
         let confirm = confirm_need(confidence, sessions) * prime_recovery;
+        // The next rung of a ladder the athlete has outgrown: measuring it is a
+        // need of its own (the same reasoning as confirmation), so it qualifies
+        // even when the group's volume is already covered — gated by the same
+        // recovery physiology.
+        let confirm = if ladder_targets.contains(&ex.id) {
+            confirm.max(LADDER_CONFIRM * prime_recovery)
+        } else {
+            confirm
+        };
         let novel = matches!(confidence, Confidence::None);
         // The freshness term rewards variety — but a movement you're *confirming* is
         // one you deliberately want to repeat, and having just done it must not drag
@@ -673,6 +773,7 @@ fn candidates<'a>(
         let novelty = if confirm > 0.0 { 1.0 } else { recency(ex.id) };
         scored.push(Candidate {
             id: ex.id,
+            family: ex.family.clone(),
             credit,
             weight: mode_fit(input.mode, ex) * 2.0 + novelty,
             confirm,
@@ -683,7 +784,38 @@ fn candidates<'a>(
         cands.push(Cand { ex, loaded, label });
     }
 
-    (cands, scored)
+    (cands, scored, ladder_notes)
+}
+
+/// The next rung up the variation ladder from `ex` (difficulty `d`): the
+/// easiest *harder* doable variation sharing its pattern and a primary muscle
+/// group. The nearest rung, not the top — outgrowing incline push-ups earns
+/// push-ups, not planche. Ties break to the lower id, so it stays deterministic.
+fn harder_sibling<'a>(
+    ex: &ExerciseInfo,
+    d: i32,
+    input: &'a PacingInput,
+    kit: &Kit,
+) -> Option<&'a ExerciseInfo> {
+    input
+        .exercises
+        .iter()
+        .filter(|y| {
+            y.id != ex.id
+                && !y.warmup
+                && y.pattern == ex.pattern
+                && y.difficulty.is_some_and(|yd| yd > d)
+                && y.groups.iter().any(|(g, r)| {
+                    *r == MuscleRole::Primary
+                        && ex
+                            .groups
+                            .iter()
+                            .any(|(xg, xr)| *xr == MuscleRole::Primary && xg == g)
+                })
+                && kit.has_all(&y.equipment)
+                && loadable(y, &input.exercise_loads).is_some()
+        })
+        .min_by_key(|y| (y.difficulty, y.id))
 }
 
 /// The exercise the athlete *would* be doing for this group if the kit allowed:
@@ -1232,7 +1364,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- cover the need with the kit that's actually here ---
     // No location → we don't know what's doable, and we don't guess: no plan.
-    let (mut plan, warmup_gaps) = match &input.kit {
+    let (mut plan, warmup_gaps, ladder_notes) = match &input.kit {
         Some(kit) => plan_session(
             input,
             kit,
@@ -1245,7 +1377,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             &planning,
             plan_at,
         ),
-        None => (Vec::new(), Vec::new()),
+        None => (Vec::new(), Vec::new(), Vec::new()),
     };
 
     // Progress against the committed plan: the session's sets pay its items in
@@ -1276,6 +1408,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             "I don't know a warm-up for {} — warm those up your own way.",
             warmup_gaps.join(", ")
         ));
+    }
+    // The variation ladder's step-ups (G7) — coaching, so it gets said. Only
+    // alongside a session, same as every other notice: on a rest day there is
+    // no plan for the step to be part of.
+    if !plan.is_empty() {
+        notices.extend(ladder_notes);
     }
 
     // "Next up" for the nudge + Android trigger is the first *unfinished*
@@ -1430,8 +1568,9 @@ fn plan_session(
     ex_by_id: &HashMap<i64, &ExerciseInfo>,
     history: &[SetRec],
     now: NaiveDateTime,
-) -> (Vec<Suggestion>, Vec<String>) {
-    let (cands, scored) = candidates(input, kit, abilities, residuals, groups, history, now);
+) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
+    let (cands, scored, ladder_notes) =
+        candidates(input, kit, abilities, residuals, groups, history, now);
     let chosen = cover::select(&scored, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
@@ -1545,5 +1684,5 @@ fn plan_session(
         .map(|g| (g.id, g.name.clone()))
         .collect();
     let (warmup, gaps) = build_warmup(&work, input, kit, ex_by_id, &group_name);
-    (warmup.into_iter().chain(work).collect(), gaps)
+    (warmup.into_iter().chain(work).collect(), gaps, ladder_notes)
 }

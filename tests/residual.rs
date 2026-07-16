@@ -47,8 +47,66 @@ fn a_steady_history_records_no_misses() {
 #[test]
 fn improving_sessions_are_beats_not_misses() {
     let r = ledger_for(vec![wset(0, 40.0, 5), wset(7, 45.0, 5), wset(14, 50.0, 5)]);
-    assert!(r.outcomes.iter().all(|o| *o != Outcome::Missed));
+    assert!(r.outcomes.iter().all(|(_, o)| *o != Outcome::Missed));
     assert_eq!(r.consecutive_misses, 0);
+}
+
+// R4-1 (simulation finding): asking best+1 is a *probe*, and a probe is earned —
+// by a session that actually beat the estimate, or periodically after enough
+// consolidation. Without this the coach re-asked the same failing +1 every
+// session for weeks (ability is a max, so matching your best while failing the
+// ask changes nothing), which is grinding, not coaching.
+#[test]
+fn a_probe_is_earned_not_daily() {
+    // Two quiet sessions since anything was beaten: consolidate.
+    let r = ledger_for(vec![wset(0, 40.0, 5), wset(2, 40.0, 5), wset(4, 40.0, 5)]);
+    assert_eq!(r.sessions_since_beat(), 2);
+    assert!(
+        !r.probe_due(),
+        "mid-cadence sessions consolidate at the best"
+    );
+
+    // The third quiet session earns another attempt.
+    let r = ledger_for(vec![
+        wset(0, 40.0, 5),
+        wset(2, 40.0, 5),
+        wset(4, 40.0, 5),
+        wset(6, 40.0, 5),
+    ]);
+    assert_eq!(r.sessions_since_beat(), 3);
+    assert!(r.probe_due(), "every third consolidation earns a probe");
+
+    // A session that beat the estimate re-opens progression immediately.
+    let r = ledger_for(vec![wset(0, 40.0, 5), wset(2, 45.0, 5)]);
+    assert_eq!(r.sessions_since_beat(), 0);
+    assert!(r.probe_due(), "an earned climb keeps climbing");
+}
+
+// R4-1: a month of steady sessions with nothing beaten is a plateau — the signal
+// that this movement has stopped producing progress and the variation ladder
+// (G7) should offer the next rung.
+#[test]
+fn a_month_of_no_progress_at_steady_sessions_is_a_plateau() {
+    // Twice-ish a week for a month, always the same session.
+    let sets: Vec<SetRec> = (0..10).map(|i| wset(i * 3, 40.0, 5)).collect();
+    assert!(ledger_for(sets).plateaued(day(28)));
+}
+
+#[test]
+fn a_recent_beat_thin_data_or_a_slump_is_not_a_plateau() {
+    // Improving at the end: progress, not a plateau.
+    let mut sets: Vec<SetRec> = (0..9).map(|i| wset(i * 3, 40.0, 5)).collect();
+    sets.push(wset(27, 45.0, 5));
+    assert!(!ledger_for(sets).plateaued(day(28)));
+
+    // Two recent sessions is not enough evidence to call anything.
+    let sets = vec![wset(0, 40.0, 5), wset(20, 40.0, 5), wset(24, 40.0, 5)];
+    assert!(!ledger_for(sets).plateaued(day(28)));
+
+    // A slump is answered by the back-off, never by a harder variation.
+    let mut sets: Vec<SetRec> = (0..8).map(|i| wset(i * 3, 40.0, 5)).collect();
+    sets.push(wset(25, 30.0, 5));
+    assert!(!ledger_for(sets).plateaued(day(28)));
 }
 
 #[test]
@@ -113,4 +171,8 @@ fn the_first_session_is_never_a_miss() {
     let r = ledger_for(vec![wset(0, 40.0, 5)]);
     assert!(r.outcomes.is_empty());
     assert_eq!(r.consecutive_misses, 0);
+    assert!(
+        r.probe_due(),
+        "a fresh movement progresses eagerly — there is nothing to consolidate yet"
+    );
 }

@@ -134,11 +134,14 @@ pub async fn context(
             // suggestion would misname what the coach is actually asking for.
             let name = match &e.variation {
                 Some(v) => format!("{} ({v})", e.name),
-                None => e.name,
+                None => e.name.clone(),
             };
             ExerciseInfo {
                 id: e.id,
                 name,
+                // The bare base name is the movement family: variations share it.
+                family: e.name,
+                difficulty: e.difficulty,
                 pattern: e.pattern,
                 metric: e.metric,
                 is_skill,

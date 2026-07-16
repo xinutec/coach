@@ -33,6 +33,8 @@ fn catalog() -> Vec<ExerciseInfo> {
     let mk = |id, pat, metric, skill, equip: Vec<i64>, group| ExerciseInfo {
         id,
         name: format!("ex{id}"),
+        family: format!("ex{id}"),
+        difficulty: None,
         pattern: pat,
         metric,
         is_skill: skill,
