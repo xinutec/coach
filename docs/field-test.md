@@ -111,7 +111,7 @@ the plan never reshaped mid-session, done counts landed on the right cards, the
 sheet survived the whole run, and the closing banner fired. The findings below
 are what still separates it from a good coach.
 
-## R2-1. A hidden stale load was written into the record — OPEN
+## R2-1. A hidden stale load was written into the record — FIXED
 
 Switching the log sheet's exercise (biceps curl prefill → Squat sky reach) hides
 the load field, but the component kept `loadKg = 4` and sent it: two bodyweight
@@ -120,22 +120,25 @@ on screen showed a load at log time — silent data corruption, and the server
 accepted a load on a `reps`-metric exercise without complaint.
 
 Root cause, two layers: the sheet posts whatever the (possibly hidden) fields
-hold, and the API trusts it. Fix: the sheet re-derives visible fields from the
-selected exercise's metric and nulls the rest on switch (stale reps are also
-cleared — a 5 from dips must not become a hamstring-curl calibration), and the
-server rejects load/hold values the exercise's metric cannot carry.
+hold, and the API trusts it. Fixed in both: switching the sheet's exercise
+re-derives every field (the plan's prescription for a planned movement, blank
+otherwise — a 5 from dips can no longer become a hamstring-curl calibration),
+the payload only carries the fields the metric owns, and the server 400s any
+load/reps/hold the exercise's metric cannot carry (`NewSet::shape_error`).
 
-## R2-2. The day counter double-books its own plan — OPEN
+## R2-2. The day counter double-books its own plan — FIXED
 
 The plan header finished at "**14 / 13 sets**". The denominator (13) excludes
 the 3 warm-up slots; the numerator excludes the two mobility drills but *counts
 the ramp-in curl* (it shares an exercise with a work item), so completing the
 plan exactly reads 14/13 — and mid-session, after all three warm-ups, it read
-1/13 while three cards showed Done. One plan, two bookkeeping rules. Fix: count
-plan items — done and target both over the committed plan's sets, warm-ups
-included, so finishing the plan is by construction N/N.
+1/13 while three cards showed Done. One plan, two bookkeeping rules. Fixed:
+the header sums the plan's own cards — sets and done both, warm-ups included —
+so it cannot disagree with them and finishing the plan is N/N by construction.
+(The engine's `dayTargetSets` keeps its estimator meaning; it sizes the plan
+and drives the nudge, and no longer doubles as the header.)
 
-## R2-3. The warm-up doesn't warm up the session it precedes — OPEN
+## R2-3. The warm-up doesn't warm up the session it precedes — FIXED
 
 The session's heavy work was dips, pull-ups, push-ups — and the warm-up spent
 two of its three slots loosening **Obliques twice** (Squat sky reach + Side
@@ -149,22 +152,25 @@ Two independent defects:
   exist in the catalog — the Office plan picked them the same morning — and the
   Home plan left them out while programming three pressing/hanging movements.
 
-Fix: warm-up selection dedups by group and ranks groups by their load in the
-committed plan, so the highest-loaded groups with any known drill get covered
-first. The catalog gaps (no drill at all for Chest/Lats/Triceps/Hamstrings/…)
-remain the standing "12 warm-up drills" item in [todo](todo.md).
+Fixed: warm-up coverage now follows the committed plan's *load* — effective
+sets per group, primaries and secondaries both, ranked heaviest first — one
+drill per group, each card labelled with the group it was picked for (so two
+cards can never both read "loosen up Obliques"). The catalog gaps (no drill at
+all for Chest/Lats/Triceps/Hamstrings/…) remain the standing "12 warm-up
+drills" item in [todo](todo.md).
 
-## R2-4. Isolations are programmed before the compounds they sabotage — OPEN
+## R2-4. Isolations are programmed before the compounds they sabotage — FIXED
 
 Plan order: … biceps curl → triceps extension → **pull-up** → **push-up**.
 Curling to near-failure immediately before pull-ups (and triceps extensions
 before push-ups) is a sequencing error no human coach makes: the isolation
 pre-fatigues the smaller muscle that the compound needs as a link, so the
 compound reads artificially weak — and this session's compound numbers *are*
-ability measurements. Fix: order work items compounds-first (multi-group
-movements before single-group isolations of a muscle the compound uses).
+ability measurements. Fixed: session order now goes by movement *breadth*
+(muscle groups trained at primary/secondary credit) — three or more is a
+compound and leads; being weighted no longer is what puts a movement early.
 
-## R2-5. Rest guidance is a shrug — OPEN
+## R2-5. Rest guidance is a shrug — FIXED
 
 Two gaps a coach fills without being asked:
 
@@ -174,37 +180,44 @@ Two gaps a coach fills without being asked:
   (2–3 min after a hard compound set, ~90 s after an isolation), and the gap is
   knowable from the set just logged.
 
-Fix: no rest prompt after warm-up-kind sets; rest prompts carry a duration from
-the logged set's kind (compound/isolation/calibration).
+Fixed: a mobility drill starts no rest clock at all, and a rest prompt now
+carries a length from the movement just done — "Rest 2–3 min" after a compound
+set, "Rest 90 s" after an isolation.
 
-## R2-6. The range floor is the prefill — OPEN
+## R2-6. "3–12 reps" reads as a floor of 3 — FIXED
 
 Dips prescribed "3–12 reps" and the log sheet prefilled **3** (pull-ups: 4).
-Anchoring at the floor invites the minimum; the range's low end is a bail-out,
-not a target. Fix: prefill the expected reps — last comparable performance at
-this ability, not `repLow`.
+The diagnosis in the field notes ("prefill anchors at the range floor") turned
+out wrong on inspection: the low end already *is* the engine's aim — the
+demonstrated best ± the day's adjustment — and the high end is the mode's
+style ceiling, so prefilling it was correct. What was broken is that nothing
+said so: "3–12" reads as "at least 3", which invites the minimum. Fixed in the
+card copy: a work item now reads "aim 3, up to 12 reps".
 
-## R2-7. The banner and the plan disagree on "next" — OPEN
+## R2-7. The banner and the plan disagree on "next" — FIXED
 
 Fresh session: banner says "Next up: 2 × Dips" while the Next-up pill sits on
 Squat sky reach (warm-up #1). The suggestion skips warm-ups; the pill doesn't.
-A coach doesn't name two different next things. Fix: the banner names the
-warm-up when that's what's next ("Warm up first — 10 slow Squat sky reaches"),
-keeping one notion of "next" everywhere.
+A coach doesn't name two different next things. Fixed: the banner speaks from
+the same "first unfinished plan item" the pill points at — "Warm up first:
+Squat sky reach — 10 slow reps." — and the rest prompt names that item too.
 
 ## R2-8. Small frictions
 
-- The log sheet's exercise dropdown is ~120 items in **catalog order** — no
-  search, no alphabetical order, no "today's plan first" section. Mid-workout
-  selection is a scroll hunt. (The Library page has search; the sheet doesn't.)
-- Dips headlined "(Serratus)" — the label falls to the neediest group, not the
-  movement's prime mover; a coach says "dips: chest/triceps". Known label-drift,
-  belongs with the need-ranked-headline work.
-- Logging reflows the page under an open tap twice this round (a "Why this?"
-  expansion shifted every button; a post-log refresh moved a card mid-tap and
-  navigated to the Library). Refresh-in-place should preserve scroll/layout of
-  untouched cards.
-- Triceps extension has no catalog image (placeholder icon).
+- The log sheet's exercise dropdown was ~120 items in **catalog order** — a
+  mid-workout scroll hunt. FIXED: today's planned movements first, in plan
+  order, then everything else alphabetically. (No search field yet; the
+  Library page has one if you're browsing.)
+- Dips headlined "(Serratus)" — the label fell to the neediest group it touched
+  at all. FIXED: the headline is now the movement's neediest *prime mover*; a
+  synergist can only ever label a movement the catalog gives no primary.
+- Logging reflowed the page under an open tap twice during the round (once
+  ending on the Library page). Not reproducible on inspection — the plan list
+  re-renders in place and both incidents are consistent with automation tap
+  timing rather than a layout fault. Watching, no code change.
+- Triceps extension has no catalog image (placeholder icon). OPEN — needs an
+  actual picture; `scripts/add-image.py <slug> <url-or-file>` seeds it once one
+  is found.
 
 ## What round 2 confirmed is right
 

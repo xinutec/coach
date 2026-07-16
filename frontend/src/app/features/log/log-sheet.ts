@@ -21,6 +21,9 @@ export interface LogPrefill {
 export interface LogSheetData {
   exercises: Exercise[];
   prefill?: LogPrefill;
+  /** Today's prescriptions, one per planned exercise — switching the sheet to
+   *  a planned movement lands on its numbers; anything else starts blank. */
+  planPrefills?: LogPrefill[];
   /** Called after each set lands, so the page behind can refresh while the
    *  sheet stays up. */
   onLogged?: () => void;
@@ -50,13 +53,27 @@ export class LogSheet {
   private ref = inject<MatBottomSheetRef<LogSheet, number>>(MatBottomSheetRef);
   readonly data = inject<LogSheetData>(MAT_BOTTOM_SHEET_DATA);
 
-  readonly exercises = this.data.exercises;
+  /** Planned movements first, in plan order — mid-workout the next exercise is
+   *  almost always one of these — then the rest alphabetically. The raw catalog
+   *  order made the picker a 120-item scroll hunt. */
+  readonly exercises: Exercise[] = (() => {
+    const all = this.data.exercises;
+    const planIds = (this.data.planPrefills ?? []).map((p) => p.exerciseId);
+    const planned = planIds
+      .map((id) => all.find((e) => e.id === id))
+      .filter((e): e is Exercise => e !== undefined);
+    const rest = all
+      .filter((e) => !planIds.includes(e.id))
+      .sort((a, b) => displayName(a).localeCompare(displayName(b)));
+    return [...planned, ...rest];
+  })();
+
   readonly exerciseId = signal<number | null>(
     this.data.prefill?.exerciseId ?? this.exercises[0]?.id ?? null,
   );
-  reps: number | null = this.data.prefill?.reps ?? null;
-  loadKg: number | null = this.data.prefill?.loadKg ?? null;
-  holdS: number | null = this.data.prefill?.holdS ?? null;
+  readonly reps = signal<number | null>(this.data.prefill?.reps ?? null);
+  readonly loadKg = signal<number | null>(this.data.prefill?.loadKg ?? null);
+  readonly holdS = signal<number | null>(this.data.prefill?.holdS ?? null);
   readonly note = signal("");
   readonly saving = signal(false);
   /** Sets logged since the sheet opened — the run this sheet represents. */
@@ -70,16 +87,34 @@ export class LogSheet {
     return displayName(e);
   }
 
+  /** Switching movements re-derives every field: the plan's prescription for a
+   *  planned movement, blank otherwise. Nothing survives the switch — a stale
+   *  value behind a *hidden* field once logged "10 reps · 4 kg" against a
+   *  bodyweight drill, invisible at log time (field-test R2-1). */
+  onExercise(id: number): void {
+    this.exerciseId.set(id);
+    const p =
+      this.data.prefill?.exerciseId === id
+        ? this.data.prefill
+        : this.data.planPrefills?.find((x) => x.exerciseId === id);
+    this.reps.set(p?.reps ?? null);
+    this.loadKg.set(p?.loadKg ?? null);
+    this.holdS.set(p?.holdS ?? null);
+  }
+
   save(): void {
-    const id = this.exerciseId();
-    if (id == null) return;
+    const ex = this.selected();
+    if (ex === null) return;
+    const m = ex.metric;
     this.saving.set(true);
     this.api
       .logSet({
-        exerciseId: id,
-        reps: this.reps,
-        loadKg: this.loadKg,
-        holdS: this.holdS,
+        exerciseId: ex.id,
+        // Only the fields the metric owns — the server rejects the rest, and a
+        // value the form isn't showing must never ride along.
+        reps: m === "reps" || m === "weighted_reps" ? this.reps() : null,
+        loadKg: m === "weighted_reps" || m === "weighted_hold" ? this.loadKg() : null,
+        holdS: m === "hold" || m === "weighted_hold" ? this.holdS() : null,
         // Never asked for, so never sent. The wire field stays (the ability model
         // reads an RPE when history has one — imported sets do), but the app does
         // not solicit a self-rating of effort. See docs/trainer.md.

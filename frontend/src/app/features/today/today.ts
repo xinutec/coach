@@ -10,7 +10,7 @@ import { CoachApi } from "../../coach-api";
 import type { Band, Explanation, PacingNow, Substitution, Suggestion } from "../../models";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
-import { LogSheet, type LogSheetData } from "../log/log-sheet";
+import { LogSheet, type LogPrefill, type LogSheetData } from "../log/log-sheet";
 
 @Component({
 	selector: "app-today",
@@ -277,6 +277,24 @@ export class Today {
 		this.sheet.open(ExerciseSheet, { data: { exerciseId: s.exerciseId } });
 	}
 
+	/** One prefill per planned exercise — its next-undone item's numbers (the
+	 *  ramp-in before the work sets, the work sets after) — so switching the
+	 *  sheet to a planned movement lands on its prescription instead of
+	 *  whatever the last movement's fields held. */
+	private planPrefills(): LogPrefill[] {
+		const by = new Map<number, Suggestion>();
+		for (const s of this.pacing()?.plan ?? []) {
+			const cur = by.get(s.exerciseId);
+			if (!cur || (cur.done >= cur.sets && s.done < s.sets)) by.set(s.exerciseId, s);
+		}
+		return [...by.values()].map((s) => ({
+			exerciseId: s.exerciseId,
+			reps: s.repLow,
+			loadKg: s.loadKg,
+			holdS: s.holdS,
+		}));
+	}
+
 	/** Open the log sheet, optionally prefilled from a specific plan item. The
 	 *  bare + button prefills from the next unfinished plan item — mid-session
 	 *  that's almost always the set being logged (and it's changeable), where an
@@ -285,6 +303,7 @@ export class Today {
 		const source = from ?? this.nextUp() ?? undefined;
 		const data: LogSheetData = {
 			exercises: this.exercises(),
+			planPrefills: this.planPrefills(),
 			// Each set refreshes the plan underneath; the sheet itself stays up
 			// for the rest of the run (it never self-dismisses — see LogSheet).
 			onLogged: () => this.reloadPacing(),
@@ -298,6 +317,17 @@ export class Today {
 			};
 		}
 		this.sheet.open(LogSheet, { data });
+	}
+
+	/** The header's arithmetic is the plan's own: summed card sets, warm-ups
+	 *  included. It must be impossible for the header and the cards to disagree
+	 *  — the engine's day-size estimate once said 13 while the cards held 16
+	 *  sets, and finishing them all read "14 / 13" (field-test R2-2). */
+	planSets(p: PacingNow): number {
+		return p.plan.reduce((a, s) => a + s.sets, 0);
+	}
+	planDone(p: PacingNow): number {
+		return p.plan.reduce((a, s) => a + s.done, 0);
 	}
 
 	/** The first plan item with sets still to do — what "Next up" points at and

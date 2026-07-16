@@ -38,9 +38,9 @@
       <h3>{{ p.afterWindow ? "Tomorrow's session" : "Today's session" }}</h3>
       <span class="plan-count">
         @if (p.afterWindow) {
-          {{ p.dayTargetSets }} sets
+          {{ planSets(p) }} sets
         } @else {
-          {{ p.dayDoneSets }} / {{ p.dayTargetSets }} sets
+          {{ planDone(p) }} / {{ planSets(p) }} sets
         }
       </span>
     </div>
@@ -115,11 +115,14 @@
               } @else {
                 {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
               }
+              <!-- The low end is the day's aim (demonstrated ability ± the
+                   day's adjustment), the high end the style ceiling — "3–12"
+                   read as a floor of 3, which invites the minimum. -->
               @if (s.repLow !== null) {
                 @if (s.repLow === s.repHigh) {
                   · {{ s.repLow }} reps
                 } @else {
-                  · {{ s.repLow }}–{{ s.repHigh }} reps
+                  · aim {{ s.repLow }}, up to {{ s.repHigh }} reps
                 }
               }
               @if (s.loadKg !== null) {
