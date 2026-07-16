@@ -1416,6 +1416,10 @@
       {
         "slug": "rectus_abdominis",
         "role": "stabilizer"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2187,6 +2191,10 @@
       {
         "slug": "erector_spinae",
         "role": "stabilizer"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "stabilizer"
       }
     ],
     "equipment": [
@@ -2297,6 +2305,10 @@
       {
         "slug": "rectus_abdominis",
         "role": "stabilizer"
+      },
+      {
+        "slug": "serratus_anterior",
+        "role": "secondary"
       }
     ],
     "equipment": [
@@ -5772,7 +5784,7 @@
         "role": "primary"
       },
       {
-        "slug": "deltoid_posterior",
+        "slug": "deltoid_anterior",
         "role": "secondary"
       },
       {
