@@ -6,17 +6,30 @@ use axum::http::StatusCode;
 use serde::Deserialize;
 
 use crate::error::AppError;
+use crate::exercise::repo as exercise_repo;
 use crate::session::AuthUser;
 use crate::state::AppState;
 use crate::workout::repo;
 use crate::workout::types::{NewSet, WorkoutSet};
 
 /// POST /api/sets → log a set.
+///
+/// The body is checked against the exercise's metric before it's stored: a
+/// bodyweight drill can't carry a load, a hold can't carry reps. The round-2
+/// field test logged "10 reps · 4 kg" mobility drills because the client kept a
+/// stale hidden field — the client is fixed too, but data this wrong must not
+/// be one bug away from the ability model.
 pub async fn create(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,
     Json(body): Json<NewSet>,
 ) -> Result<Json<WorkoutSet>, AppError> {
+    let ex = exercise_repo::get(&app.pool, body.exercise_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    if let Some(msg) = body.shape_error(ex.metric) {
+        return Err(AppError::BadRequest(msg.to_string()));
+    }
     Ok(Json(repo::create(&app.pool, &user.user_id, &body).await?))
 }
 
