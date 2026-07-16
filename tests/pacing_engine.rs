@@ -2168,8 +2168,11 @@ fn a_secondary_group_under_real_load_gets_warmed_too() {
 // "weighted" is not what makes a movement lead a session.
 #[test]
 fn compounds_run_before_isolations() {
+    // Four training days → a day target of 4, so both movements fit at their
+    // full 2-set minimum (a 3-set budget would rightly refuse the second a
+    // 1-set orphan entry — see the cover's remainder rule).
     let mut h = Vec::new();
-    for d in [2, 4, 9] {
+    for d in [2, 4, 6, 9] {
         h.push(bset(7, days_ago(d), 8)); // pull-up trusted
         h.push(wset(9, days_ago(d), 8.0, 10)); // curl trusted
     }
@@ -2177,6 +2180,13 @@ fn compounds_run_before_isolations() {
         &PacingInput {
             groups: r2_groups(),
             exercise_loads: HashMap::from([(9, vec![6.0, 8.0, 10.0])]),
+            // Steady readiness: the 9-day fixture otherwise trips the
+            // volume-spike deload proxy and shrinks the budget below two
+            // full doses.
+            readiness: Some(Readiness {
+                score: 0.5,
+                band: Band::Normal,
+            }),
             ..input(
                 Mode::Balanced,
                 vec![r2_pullup(), r2_curl()],

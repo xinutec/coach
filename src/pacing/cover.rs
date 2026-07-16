@@ -194,6 +194,14 @@ pub fn select(
             if entering && c.novel && novel_taken >= novelty_cap {
                 continue;
             }
+            // Entering a movement means committing to its full minimum dose; a
+            // budget remainder too small for that must not start it ("Push-up —
+            // 1 set", the round-3 orphan). The spare set instead tops up a
+            // movement already in the session — re-ranked below like any other —
+            // or goes honestly unspent.
+            if entering && left < c.min.min(c.cap) {
+                continue;
+            }
             // Coverage is what this set pays into remaining group need. Confirmation
             // is a one-time entry need — it qualifies a first set, nothing after.
             let cover = need.dot(&c.credit);

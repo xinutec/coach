@@ -119,3 +119,47 @@ fn a_non_novel_movement_is_never_held_back_by_the_novelty_cap() {
         "cap 0 drops the novel pick, keeps the known one"
     );
 }
+
+#[test]
+fn the_budget_remainder_never_starts_a_movement_below_its_minimum_dose() {
+    // Two movements on disjoint groups, both with a 2-set minimum, budget 3.
+    // The remainder after the first pick is one set — not enough to *commit* to
+    // the second movement, so it must not appear as a 1-set orphan ("Push-up —
+    // 1 set", round-3 field test). The spare set tops up the first movement
+    // instead: its marginal gain was just re-ranked and it's already set up.
+    let cands = vec![
+        cand(1, vec![1.0, 0.0], 2.0, 0.0, false, 2, 4),
+        cand(2, vec![0.0, 1.0], 2.0, 0.0, false, 2, 4),
+    ];
+    let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 3, 5);
+    for c in &chosen {
+        assert!(
+            c.sets >= cands[c.index].min,
+            "movement {} entered with {} sets — below its minimum dose",
+            cands[c.index].id,
+            c.sets
+        );
+    }
+    let total: i32 = chosen.iter().map(|c| c.sets).sum();
+    assert_eq!(total, 3, "the spare set tops up an existing pick");
+}
+
+#[test]
+fn a_one_set_calibration_still_fits_a_one_set_remainder() {
+    // A calibration's full dose IS one set (min = cap = 1) — the remainder rule
+    // must not lock it out.
+    let cands = vec![
+        cand(1, vec![1.0, 0.0], 2.0, 0.0, false, 2, 4),
+        cand(2, vec![0.0, 1.0], 2.0, 0.0, true, 1, 1),
+    ];
+    let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 3, 5);
+    let calib = chosen.iter().find(|c| cands[c.index].id == 2);
+    assert!(
+        calib.is_some_and(|c| c.sets == 1),
+        "the calibration takes the last set: {:?}",
+        chosen
+            .iter()
+            .map(|c| (cands[c.index].id, c.sets))
+            .collect::<Vec<_>>()
+    );
+}
