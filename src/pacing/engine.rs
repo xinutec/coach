@@ -71,6 +71,16 @@ const WARMUP_HOLD_S: i32 = 20;
 /// field test went into dips, pull-ups and push-ups with two obliques drills and
 /// cold shoulders because coverage followed primary *labels*, not session load.
 const WARMUP_MIN_LOAD: f64 = 1.0;
+/// One mobility drill per this many committed work sets — the warm-up scales
+/// with the session it precedes — bounded both ways: even a short session warms
+/// its top groups, and even a huge one keeps the block well short of the work.
+/// With a gap-free drill catalog, every loaded group would otherwise claim a
+/// slot (11 drills before 9 working sets in the round-3 back-test); a coach
+/// triages — the heaviest areas get drills, the tail warms up through general
+/// movement and the ramp-ins.
+const WARMUP_SETS_PER_DRILL: i32 = 3;
+const WARMUP_MIN_DRILLS: i32 = 3;
+const WARMUP_MAX_DRILLS: i32 = 6;
 /// Non-stabilizer muscle groups at which a movement counts as a compound —
 /// session ordering runs compounds first (see [`tier`]).
 const COMPOUND_BREADTH: usize = 3;
@@ -800,10 +810,21 @@ fn build_warmup(
             .collect()
     };
 
+    // The block is sized to the session: one drill per few committed sets,
+    // bounded. Groups past the cap are triage, not gaps — the coach chose the
+    // heaviest, it isn't missing a drill — so they get no "warm up your own
+    // way" note either.
+    let work_sets: i32 = work.iter().map(|w| w.sets).sum();
+    let drill_cap = ((work_sets + WARMUP_SETS_PER_DRILL - 1) / WARMUP_SETS_PER_DRILL)
+        .clamp(WARMUP_MIN_DRILLS, WARMUP_MAX_DRILLS);
+
     let mut covered: std::collections::HashSet<i64> = std::collections::HashSet::new();
     let mut out: Vec<Suggestion> = Vec::new();
     let mut gaps: Vec<String> = Vec::new();
     for (g, _) in &want {
+        if out.len() as i32 >= drill_cap {
+            break;
+        }
         if covered.contains(g) {
             continue;
         }

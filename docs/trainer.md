@@ -150,11 +150,16 @@ The plan is ordered by training tier: warm-up → skill and hold work while the
 nervous system is fresh → heavy compound weighted work → accessories → core and
 conditioning finishers.
 
-The **warm-up block** leads it: mobility drills for the groups the session trains
-(one per group, so drills don't stack) plus a half-load ramp-in of the first weighted
-lift. Warm-up sets credit no volume and are drawn only from catalog moves tagged
-`warmup`, so they never eat the day's targets. A group the session trains that has no
-drill in the catalog is **named**, not silently skipped.
+The **warm-up block** leads it: mobility drills for the committed session's
+heaviest-loaded groups (one drill per group, so drills don't stack) plus a half-load
+ramp-in of the first weighted lift. The block is **sized to the session** — one
+drill per ~3 committed sets, never more than 6 — because with a drill for every
+group, every loaded group would claim a slot and the warm-up outgrows the work it
+warms up for; the tail groups get their prep from general movement and the
+ramp-ins. Warm-up sets credit no volume and are drawn only from catalog moves
+tagged `warmup`, so they never eat the day's targets. A group the coach *wanted*
+to warm but has no available drill for is **named**, not silently skipped; a group
+left out by the size cap is triage, not ignorance, and carries no note.
 
 Where a group's top-ranked movement is genuinely blocked, the item carries a
 **substitution** naming the ideal and the blocker. It is set only when that movement

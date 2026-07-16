@@ -2163,6 +2163,67 @@ fn a_secondary_group_under_real_load_gets_warmed_too() {
     );
 }
 
+// The warm-up is sized to the session it precedes. A broad compound pushes five
+// groups past the warm-up threshold, but two committed work sets don't earn five
+// drills — the block keeps to the heaviest-loaded groups and leaves the tail to
+// general movement and ramp-ins. (With a gap-free drill catalog, an unbounded
+// block reached 11 drills before 9 working sets — a warm-up longer than the
+// session it warmed up for.)
+#[test]
+fn a_short_session_earns_a_short_warmup() {
+    let mut h = Vec::new();
+    for d in [2, 4, 9] {
+        h.push(bset(7, days_ago(d), 8)); // trusted → full work dose, no calibration
+    }
+    let exercises = vec![
+        ex(
+            7,
+            "Wide row",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![
+                (20, MuscleRole::Primary),
+                (40, MuscleRole::Secondary),
+                (50, MuscleRole::Secondary),
+                (60, MuscleRole::Secondary),
+                (65, MuscleRole::Secondary),
+            ],
+        ),
+        warmup_ex(90, "Lat opener", 20),
+        warmup_ex(91, "Biceps opener", 40),
+        warmup_ex(92, "Scap opener", 50),
+        warmup_ex(93, "Curl opener", 60),
+        warmup_ex(94, "Wrist opener", 65),
+    ];
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            ..input(Mode::Balanced, exercises, h, None, None)
+        },
+        now(),
+    );
+    let work_sets: i32 = out
+        .plan
+        .iter()
+        .filter(|s| s.kind != SuggestionKind::Warmup)
+        .map(|s| s.sets)
+        .sum();
+    assert!(work_sets <= 6, "precondition: a genuinely short session");
+    let labels: Vec<&str> = out
+        .plan
+        .iter()
+        .filter(|s| s.kind == SuggestionKind::Warmup)
+        .map(|s| s.group.as_str())
+        .collect();
+    assert_eq!(
+        labels,
+        vec!["Lats", "Biceps", "Upper back"],
+        "the heaviest-loaded groups get the drills; the tail is triage, not a gap"
+    );
+}
+
 // R2-4: compounds run before the isolations that would pre-fatigue them. A
 // weighted curl before bodyweight pull-ups is the sequencing error this pins —
 // "weighted" is not what makes a movement lead a session.
