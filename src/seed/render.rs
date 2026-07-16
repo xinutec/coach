@@ -56,8 +56,8 @@ pub struct Rendered {
 }
 
 /// Render `raw` for display. Returns the original bytes untouched when it needs no
-/// rendering — which is the common case, and keeps a re-seed from rewriting 119
-/// photographs.
+/// rendering — which is the common case, and keeps a re-seed from rewriting every
+/// photograph in the bundle.
 pub fn render(raw: &[u8], content_type: &str, what: &str) -> Result<Rendered> {
     // Decide from the *header* first. Most of the bundle is landscape photographs
     // with no alpha channel at all, and fully decoding 15 MB of them just to learn

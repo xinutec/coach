@@ -271,12 +271,6 @@ labelled constants per athlete by choosing, from a small labelled grid, the ones
 minimising historical residual. Calibration, not learning: the model form never
 changes, and the back-test shows exactly what a switch does. *(E4.)*
 
-**Warm-up coverage.** The 10 drills reach 7 muscle groups (deltoids, rotator cuff,
-forearms, quads, obliques, deep core, lower back). Twelve have none: abdominals,
-adductors, biceps, chest, glutes, hamstrings, hip flexors, lats, lower leg, trapezius,
-triceps, upper back. The engine says so rather than opening with a silently empty
-warm-up. Pure catalog authoring.
-
 **A commercial gym is mostly unrepresentable.** The kit taxonomy has no lat pulldown,
 leg press, chest press, seated row, leg curl or extension, smith machine or squat
 rack — so in a gym full of them the coach cannot be told they are there, and plans

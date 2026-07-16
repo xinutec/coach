@@ -27,7 +27,7 @@
 //! way in (see [`render`]): the bundle is the source and keeps its alpha, while
 //! what the app is served is what the app can actually display.
 //!
-//! This keeps the 119-row catalog and its ~15 MB of images out of SQL migrations
+//! This keeps the exercise catalog and its ~15 MB of images out of SQL migrations
 //! while still making any fresh DB (dev or prod) reproduce the full library.
 
 use std::collections::HashMap;

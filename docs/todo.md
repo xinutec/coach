@@ -12,5 +12,9 @@ data only Pippijn can supply.
 - **The cable stack's pin ladder** at the office. The kit is registered but has no
   weights, so the coach drops all five cable movements and says so. One line of
   `coachctl weights` fixes it.
-- **The 12 muscle groups with no warm-up drill** (trainer.md, G5) — the largest
-  hole in the warm-up block, and pure catalog authoring.
+- **Pictures for the 11 warm-up drills added 2026-07-16** (arm swing crossovers,
+  scapular push-up, kneeling lat reach, scapular squeeze, cat-cow, biceps wall
+  stretch, overhead triceps stretch, both leg swings, glute bridge, heel-toe
+  rocks). They shipped image-less so every muscle group has a drill *now*;
+  `scripts/add-image.py <slug> <url-or-file>` seeds each one. Demo videos are
+  covered by the `coachctl todo` bullet above.

@@ -156,8 +156,10 @@ Fixed: warm-up coverage now follows the committed plan's *load* — effective
 sets per group, primaries and secondaries both, ranked heaviest first — one
 drill per group, each card labelled with the group it was picked for (so two
 cards can never both read "loosen up Obliques"). The catalog gaps (no drill at
-all for Chest/Lats/Triceps/Hamstrings/…) remain the standing "12 warm-up
-drills" item in [todo](todo.md).
+all for Chest/Lats/Triceps/Hamstrings/…) were closed after round 3: every
+muscle group now has at least one equipment-free drill, so the "I don't know a
+warm-up for X" fallback can no longer fire. The new drills await pictures and
+demos ([todo](todo.md)).
 
 ## R2-4. Isolations are programmed before the compounds they sabotage — FIXED
 

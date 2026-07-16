@@ -5914,5 +5914,366 @@
       "file": "curl_biceps_dumbbell_alternating.jpg",
       "type": "image/jpeg"
     }
+  },
+  {
+    "slug": "arm_swing_crossovers",
+    "name": "Arm swing crossovers",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Swing both arms wide open, then across the chest — alternate which arm crosses on top",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "pectoralis_major",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "scapular_pushup",
+    "name": "Scapular push-up",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "prone",
+    "unilateral": false,
+    "cue": "Plank with arms locked straight — pinch the shoulder blades together, then push the floor away until they spread",
+    "demoUrl": null,
+    "summary": "on floor",
+    "muscles": [
+      {
+        "slug": "serratus_anterior",
+        "role": "primary"
+      },
+      {
+        "slug": "pectoralis_minor",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_abdominis",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "kneeling_lat_reach",
+    "name": "Kneeling lat reach",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Sit back toward the heels, hands far ahead — walk both hands to one side until the lat pulls, then the other",
+    "demoUrl": null,
+    "summary": "kneeling, on floor",
+    "muscles": [
+      {
+        "slug": "latissimus_dorsi",
+        "role": "primary"
+      },
+      {
+        "slug": "teres_major",
+        "role": "secondary"
+      },
+      {
+        "slug": "external_obliques",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "scapular_squeeze",
+    "name": "Scapular squeeze",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Elbows at shoulder height — pull the blades together and down, hold a beat, release slowly",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "rhomboids",
+        "role": "primary"
+      },
+      {
+        "slug": "trapezius",
+        "role": "primary"
+      },
+      {
+        "slug": "deltoid_posterior",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "cat_cow",
+    "name": "Cat-cow",
+    "variation": null,
+    "pattern": "core",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "kneeling",
+    "unilateral": false,
+    "cue": "Round the whole spine up, then arch it down — slow, one breath per rep",
+    "demoUrl": null,
+    "summary": "kneeling, on floor",
+    "muscles": [
+      {
+        "slug": "rectus_abdominis",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      },
+      {
+        "slug": "transversus_abdominis",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "biceps_wall_stretch",
+    "name": "Biceps wall stretch",
+    "variation": null,
+    "pattern": "pull",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": true,
+    "cue": "Palm on the wall behind you, arm straight — turn the chest away until the biceps pulls, ease in and out",
+    "demoUrl": null,
+    "summary": "standing, wall",
+    "muscles": [
+      {
+        "slug": "biceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "brachialis",
+        "role": "secondary"
+      },
+      {
+        "slug": "deltoid_anterior",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "triceps_stretch_overhead",
+    "name": "Overhead triceps stretch",
+    "variation": null,
+    "pattern": "push",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": true,
+    "cue": "Hand between the shoulder blades, other hand eases the elbow back — gentle pulses, no yanking",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "triceps_brachii",
+        "role": "primary"
+      },
+      {
+        "slug": "latissimus_dorsi",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "leg_swings_front_to_back",
+    "name": "Leg swings",
+    "variation": "front to back",
+    "pattern": "legs",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": true,
+    "cue": "Hold something for balance — swing the leg loose and tall, letting the range grow each rep",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "iliopsoas",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_maximus",
+        "role": "secondary"
+      },
+      {
+        "slug": "rectus_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "leg_swings_side_to_side",
+    "name": "Leg swings",
+    "variation": "side to side",
+    "pattern": "legs",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": true,
+    "cue": "Swing the leg across the body and out wide — hips square, let the range grow on its own",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "adductor_longus",
+        "role": "primary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "primary"
+      },
+      {
+        "slug": "gracilis",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "glute_bridge",
+    "name": "Glute bridge",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "supine",
+    "unilateral": false,
+    "cue": "Drive through the heels and squeeze at the top for a beat — ribs down, no back arch",
+    "demoUrl": null,
+    "summary": "supine, on floor",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "secondary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "secondary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "stabilizer"
+      }
+    ],
+    "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "heel_toe_rocks",
+    "name": "Heel-toe rocks",
+    "variation": null,
+    "pattern": "legs",
+    "metric": "reps",
+    "skill": false,
+    "warmup": true,
+    "difficulty": 1,
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Rock high onto the toes, then back onto the heels with the toes pulled up — steady rhythm",
+    "demoUrl": null,
+    "summary": "standing",
+    "muscles": [
+      {
+        "slug": "gastrocnemius",
+        "role": "primary"
+      },
+      {
+        "slug": "soleus",
+        "role": "primary"
+      },
+      {
+        "slug": "tibialis_anterior",
+        "role": "primary"
+      }
+    ],
+    "equipment": [],
+    "image": null
   }
 ]
