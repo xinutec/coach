@@ -84,3 +84,64 @@ fn partial_data_within_the_metric_is_fine() {
             .is_none()
     );
 }
+
+// ---- plausibility bounds (round 3, R3-1): values must describe something a
+// human did. The field test stored a fat-fingered 3 530-second farmers walk.
+
+#[test]
+fn a_fifty_nine_minute_carry_is_not_a_set() {
+    assert!(
+        set(None, Some(12.0), Some(3530))
+            .shape_error(Metric::WeightedHold)
+            .is_some()
+    );
+    assert!(
+        set(None, Some(12.0), Some(35))
+            .shape_error(Metric::WeightedHold)
+            .is_none()
+    );
+}
+
+#[test]
+fn zero_and_negative_values_are_refused() {
+    assert!(set(Some(0), None, None).shape_error(Metric::Reps).is_some());
+    assert!(
+        set(Some(5), Some(-2.0), None)
+            .shape_error(Metric::WeightedReps)
+            .is_some()
+    );
+    assert!(set(None, None, Some(0)).shape_error(Metric::Hold).is_some());
+}
+
+#[test]
+fn generous_but_finite_ceilings() {
+    assert!(
+        set(Some(500), None, None)
+            .shape_error(Metric::Reps)
+            .is_some()
+    );
+    assert!(
+        set(Some(100), None, None)
+            .shape_error(Metric::Reps)
+            .is_none()
+    );
+    assert!(
+        set(Some(5), Some(400.0), None)
+            .shape_error(Metric::WeightedReps)
+            .is_some()
+    );
+    assert!(
+        set(None, None, Some(600))
+            .shape_error(Metric::Hold)
+            .is_none()
+    );
+}
+
+#[test]
+fn an_out_of_scale_rpe_is_refused() {
+    let mut s = set(Some(5), None, None);
+    s.rpe = Some(11);
+    assert!(s.shape_error(Metric::Reps).is_some());
+    s.rpe = Some(9);
+    assert!(s.shape_error(Metric::Reps).is_none());
+}

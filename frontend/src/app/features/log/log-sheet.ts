@@ -76,6 +76,10 @@ export class LogSheet {
   readonly holdS = signal<number | null>(this.data.prefill?.holdS ?? null);
   readonly note = signal("");
   readonly saving = signal(false);
+  /** The server's objection to the last attempt (e.g. a value outside human
+   *  range) — shown in the sheet. A silently swallowed rejection looks exactly
+   *  like a logged set, which is worse than the bad value it refused. */
+  readonly error = signal<string | null>(null);
   /** Sets logged since the sheet opened — the run this sheet represents. */
   readonly logged = signal(0);
 
@@ -93,6 +97,7 @@ export class LogSheet {
    *  bodyweight drill, invisible at log time (field-test R2-1). */
   onExercise(id: number): void {
     this.exerciseId.set(id);
+    this.error.set(null);
     const p =
       this.data.prefill?.exerciseId === id
         ? this.data.prefill
@@ -107,6 +112,7 @@ export class LogSheet {
     if (ex === null) return;
     const m = ex.metric;
     this.saving.set(true);
+    this.error.set(null);
     this.api
       .logSet({
         exerciseId: ex.id,
@@ -131,7 +137,11 @@ export class LogSheet {
           this.saving.set(false);
           this.data.onLogged?.();
         },
-        error: () => this.saving.set(false),
+        error: (err: unknown) => {
+          this.saving.set(false);
+          const msg = (err as { error?: { error?: string } }).error?.error;
+          this.error.set(msg ?? "That didn't save — try again");
+        },
       });
   }
 

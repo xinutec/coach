@@ -256,7 +256,7 @@ held up live:
 - **Labels** (R2-8): "Next up: 2 × Pull-up (bar) (Lats)" — prime mover, not
   synergist. The picker listed the plan first, in plan order.
 
-## R3-1. No plausibility bounds on logged values — OPEN
+## R3-1. No plausibility bounds on logged values — FIXED
 
 A fat-fingered edit (35 → "3530", an append instead of a replace) logged a
 **12 kg farmers walk of 3 530 seconds** — a fifty-nine-minute carry — and
@@ -264,19 +264,22 @@ nothing blinked. The set was stored and would have fed the carry ability
 estimate as a demonstrated max. A coach hearing "I carried it for an hour"
 asks you to repeat that with a straight face.
 
-The metric-shape validation (R2-1) checks *which* fields a set carries, not
-whether their values are humanly possible. Wanted: per-metric sanity bounds at
-the API (reps, seconds, kg each have a ceiling no honest set exceeds), with
-the client surfacing the rejection kindly — or, gentler, an outlier check
-against the athlete's own history that asks before storing.
+The metric-shape validation (R2-1) checked *which* fields a set carries, not
+whether their values are humanly possible. Fixed: `NewSet::shape_error` now
+also bounds the values — reps 1–100, seconds 1–600, load 0–300 kg, RPE 1–10 —
+generous ceilings no honest set exceeds, so a real outlier day is never
+refused. The log sheet shows the server's objection under the fields instead
+of failing silently (a swallowed rejection reads exactly like a logged set).
 
-## R3-2. The budget remainder under-doses a movement — OPEN
+## R3-2. The budget remainder under-doses a movement — FIXED
 
 The plan carried "Push-up — 1 set" mid-session: the cover's last pick got
 `min(MIN_WORK_SETS, budget left) = 1`. The engine's own constant says a lone
-set of a work movement wastes its setup — the remainder should instead top up
-an already-planned movement (whose marginal value was just re-ranked) or the
-budget should round to full doses.
+set of a work movement wastes its setup. Fixed in the cover: entering a
+movement now requires budget for its full minimum dose; a too-small remainder
+tops up a movement already in the session (re-ranked like any other set) or
+goes honestly unspent. A one-set calibration still fits a one-set remainder —
+one set *is* its full dose.
 
 ## R3-3. Movement families aren't deduplicated — OPEN (known)
 

@@ -37,12 +37,22 @@ pub struct NewSet {
     pub logged_at: Option<NaiveDateTime>,
 }
 
+/// Value ceilings no honest set exceeds — plausibility, not policy. Generous
+/// on purpose: a real outlier day must never be refused, only a number that
+/// describes nothing a human did. The round-3 field test stored a fat-fingered
+/// **3 530-second** farmers walk (an "append" instead of a replace) and the
+/// carry ability model would have read it as a demonstrated max.
+const MAX_REPS: i32 = 100;
+const MAX_HOLD_S: i32 = 600;
+const MAX_LOAD_KG: f64 = 300.0;
+
 impl NewSet {
     /// The fields a set may carry are its exercise metric's fields — nothing
-    /// else. A load on a bodyweight mobility drill isn't extra detail, it's a
-    /// falsehood the ability model would ingest (a client once posted exactly
-    /// that from a stale hidden form field). Returns what's wrong, or `None`
-    /// when the shape is honest.
+    /// else — and their values must describe something a human did. A load on
+    /// a bodyweight mobility drill isn't extra detail, it's a falsehood the
+    /// ability model would ingest (a client once posted exactly that from a
+    /// stale hidden form field); a 59-minute carry is the same lie told in
+    /// seconds. Returns what's wrong, or `None` when the set is honest.
     pub fn shape_error(&self, metric: Metric) -> Option<&'static str> {
         let (load_ok, reps_ok, hold_ok) = match metric {
             Metric::Reps => (false, true, false),
@@ -58,6 +68,18 @@ impl NewSet {
         }
         if self.hold_s.is_some() && !hold_ok {
             return Some("this exercise is measured in reps, not seconds");
+        }
+        if self.reps.is_some_and(|r| !(1..=MAX_REPS).contains(&r)) {
+            return Some("reps must be between 1 and 100");
+        }
+        if self.hold_s.is_some_and(|s| !(1..=MAX_HOLD_S).contains(&s)) {
+            return Some("seconds must be between 1 and 600");
+        }
+        if self.load_kg.is_some_and(|l| !(l > 0.0 && l <= MAX_LOAD_KG)) {
+            return Some("load must be between 0 and 300 kg");
+        }
+        if self.rpe.is_some_and(|r| !(1..=10).contains(&r)) {
+            return Some("RPE is 1-10");
         }
         None
     }

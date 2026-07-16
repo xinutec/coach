@@ -16,3 +16,11 @@
     opacity: 0.7;
   }
 }
+
+// The server refused the set (impossible value, wrong field) — say so where
+// the thumb is looking, or the rejection reads as a successful log.
+.error {
+  margin: 0 0 0.4rem;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-medium);
+}
