@@ -120,10 +120,26 @@ Three things fall out rather than being special-cased:
 - **Style ranks but never qualifies.** The gate (`MIN_PAY`) is on need paid down, in
   physical units; mode-fit and novelty only break ties among movements that all
   genuinely need doing.
+- **One movement per family.** Variations of one movement — the catalog's base name:
+  both hamstring-curl entries, the three farmers-walk carries — train the same thing
+  the same way, so a session admits one entry per family; the second cousin is
+  redundant stimulus wearing a different label, and its budget goes to whatever else
+  still pays.
 
 Only movements that are actually doable are candidates: the kit must be present, and
 a weighted lift must have registered weights at this location. A lift dropped for
 want of weights is **named in a notice**, not silently omitted.
+
+**The variation ladder.** `difficulty` (1–5, relative within a pattern + primary
+group) ranks a movement's variations. A movement the athlete has **topped out** (the
+rep range's ceiling, at `High` confidence — the ask is clamped there, so "keep doing
+12s" would be forever) or **plateaued** on (a month of sessions with nothing beaten)
+has stopped producing progress; while a harder doable variation of the same pattern
+and primary group exists, that rung steps out of candidacy, measuring its successor
+becomes a need of its own (the same mechanism as confirmation, so it qualifies even
+when the group's volume is covered), and the step is announced until the successor
+has an estimate of its own. "You've outgrown incline push-ups" is something this
+coach can now say.
 
 ### 4. Dose — what to actually do
 
@@ -131,13 +147,29 @@ want of weights is **named in a notice**, not silently omitted.
 weighted lift *has* a load and a carry *has* both a weight and a time.
 
 - **Weighted:** the load whose top-of-range reps the estimate supports (inverse
-  Epley), snapped to the nearest weight you own. Double progression follows: reps
-  climb to the top of the range, and the load steps only when logged sets raise the
-  estimate past the next owned weight — never a blind +2.5 kg the reps don't support.
+  Epley), snapped to what you own — **rounding up between rungs on a full-effort
+  day**. The rung below caps what the rep range can demonstrate under the estimate
+  itself, so on a coarse rack every session would read as a miss no matter how well
+  it went. Double progression follows: reps climb to the top of the range, and the
+  load steps only when logged sets raise the estimate past the next owned weight —
+  never a blind +2.5 kg the reps don't support.
 - **Reps:** climb the range off the decayed best.
 - **Hold:** off the best hold.
 - **Loaded carry:** the same double progression with seconds where the reps go —
   climb the clock to the ceiling, then take the next weight you own and reset it.
+
+**Asking for more is a probe, and the sets answer it.** Every prescription is a
+prediction; the prediction-error ledger ([`pacing/residual.rs`]) recomputes, from
+history alone, how each recent session compared with what the engine believed that
+morning (best set against the morning's estimate — sessions, not sets, because the
+third set's fatigue is not a miss). One miss **holds** the numbers; two in a row
+**step down** a rung; three **re-open the measurement** — a repeatedly wrong estimate
+is a wrong number, not a run of bad luck. And the +1 rep, the +5 s, the next bell is
+**earned**: by a session that beat the estimate, or periodically after every third
+quiet session — the sessions in between consolidate at the demonstrated best.
+Matching your best while failing the ask moves nothing (ability is a max), so
+without the cadence the same failing +1 was re-asked verbatim every session for
+weeks.
 
 When confidence is `Low`/`None` the item is a **calibration** instead, with a
 protocol per metric (build up to a hard set of ~5; AMRAP; one max hold; carry it and
@@ -232,10 +264,22 @@ the logged sets and must recover the hidden true ability. This is what makes
 asserts convergence to within 6 % of a true 1RM off the weight grid, stability once
 converged, tracking when ability grows, and that the estimate never exceeds truth.
 
+**Simulated futures** (`src/bin/simulate.rs`, run via `scripts/simulate.sh`). The
+test above is one athlete on one exercise; this plays a whole athlete against the
+whole engine for simulated weeks, growing forward from the real history in the dev
+DB: each day's verdict is performed as well as a temperament's hidden true ability
+allows — `improver`, `plateauer`, `badweek` — logged, and the walk continues on the
+grown history. It exercises the loop the athlete actually lives in (prescribe →
+perform → re-estimate → prescribe), which the back-test structurally cannot: replayed
+history never responds to the coach. Deterministic, so traces diff across engine
+changes. The probe cadence, the plateau/ladder pair and the coarse-rack rounding rule
+all came out of its first traces.
+
 **Explanations as data** (`Explanation`). Every work and calibration item carries the
-factors that produced it — deficit, recovery, confidence, e1RM, readiness — so "why
-did it tell me to do X?" is answerable exactly, and tests assert on the trace rather
-than string-matching sentences.
+factors that produced it — deficit, recovery, the pay that qualified it, confidence,
+e1RM, the ledger's miss streak, readiness — so "why did it tell me to do X?" is
+answerable exactly, and tests assert on the trace rather than string-matching
+sentences.
 
 **Real SQL against a real database** (`tests/db.rs`). The pure tests cannot see the
 layer between the code and the database. A `FromRow` struct binds its columns *by
@@ -248,19 +292,6 @@ it isn't providing.
 
 ## Not built yet
 
-**Feedback-aware progression.** Ability is a max over decayed sets, so a *miss* pulls
-nothing down: a bad day is ignored rather than answered. Wanted: repeat rather than
-bump after a missed rep floor; back off ~10 % after two consecutive misses; detect a
-plateau (no improvement over 4 weeks at `High` confidence) and offer the next-best
-variation. *(Referred to as G4 in code comments.)*
-
-**Variation ladders.** A `reps` movement that tops its range is prescribed the top
-forever; there is no notion of one exercise being the harder variation of another, so
-the engine can never say "you've outgrown incline push-ups". The `difficulty` field
-(1–5, relative within a pattern + primary group) exists for this and is populated but
-read by nothing. Wanted: when a movement is topped out at `High` confidence, offer the
-next-harder catalog entry sharing its pattern and primary group. *(G7.)*
-
 **Cross-exercise priors.** A never-done exercise starts from nothing. A first attempt
 — a flat variation discount over any same-pattern, same-group sibling — was built and
 back-tested, which caught it prescribing a 62 kg good morning off an RDL estimate: a
@@ -269,12 +300,11 @@ strength or risk profile. Correct sequence: derive real ratios from `difficulty`
 even then a prior may only *seed a calibration's starting load*, never skip the
 calibration. *(G1 tail.)*
 
-**Prediction-error ledger.** Every prescription is a prediction; the logged outcome
-makes the residual computable from history alone, still stateless. It would drive
-re-measurement (persistent misses → confidence drops), and later calibrate the
-labelled constants per athlete by choosing, from a small labelled grid, the ones
-minimising historical residual. Calibration, not learning: the model form never
-changes, and the back-test shows exactly what a switch does. *(E4.)*
+**Per-athlete calibration of the labelled constants.** The prediction-error ledger
+(built — see §4) makes it possible to *choose*, from a small labelled grid, the
+constants that minimise historical residual for this athlete. Calibration, not
+learning: the model form never changes, and the back-test shows exactly what a
+switch does. *(The E4 tail.)*
 
 **A commercial gym is mostly unrepresentable.** The kit taxonomy has no lat pulldown,
 leg press, chest press, seated row, leg curl or extension, smith machine or squat
@@ -297,6 +327,7 @@ not a fix.
 [`Dose`]: ../src/pacing/dose.rs
 [`engine.rs`]: ../src/pacing/engine.rs
 [`pacing/ability.rs`]: ../src/pacing/ability.rs
+[`pacing/residual.rs`]: ../src/pacing/residual.rs
 [`pacing/cover.rs`]: ../src/pacing/cover.rs
 [`pacing/dose.rs`]: ../src/pacing/dose.rs
 [`seed/render.rs`]: ../src/seed/render.rs

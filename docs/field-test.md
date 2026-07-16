@@ -283,12 +283,13 @@ tops up a movement already in the session (re-ranked like any other set) or
 goes honestly unspent. A one-set calibration still fits a one-set remainder —
 one set *is* its full dose.
 
-## R3-3. Movement families aren't deduplicated — OPEN (known)
+## R3-3. Movement families aren't deduplicated — FIXED (round 4)
 
 Farmers walk *and* Farmers walk (waiter) were both planned — cousins differing
 only in where the kettlebell sits. Same class as Hamstring curls vs its
-single-leg variant in round 1; the standing family-dedup item in
-[todo](todo.md).
+single-leg variant in round 1. Closed in round 4: the cover admits one entry
+per catalog family per session (the family is the catalog's base name), and
+the freed budget goes to whatever else still pays.
 
 ## Automation note
 
@@ -298,3 +299,93 @@ remembered coordinates hit neighbours. Recovered in-flow (the card capped the
 duplicate; the skipped drill logged from its own card). Not an app defect —
 but it is the same "targets move under a committed tap" family a rushed human
 thumb meets, and the plan-first picker section made the recovery easy.
+
+# Round 4 — simulated futures: the coach against a virtual athlete
+
+Rounds 1–3 played single sessions. This round asked the question a session
+can't: **is it a good coach over weeks?** The back-test can't answer it either
+— replayed history never responds to the coach — so round 4 built E3
+(`src/bin/simulate.rs`): a deterministic virtual athlete grows forward from
+the real logged history in the dev DB, performing each day's verdict exactly
+as the cards present it (instruct → try → record, never reporting an RPE) as
+well as a hidden true ability allows, for eight simulated weeks per
+temperament — `improver` (steady gains), `plateauer` (two weeks of gains,
+then flat), `badweek` (an improver whose week 3 goes badly). Everything below
+came out of the first traces and is pinned by tests.
+
+## R4-1. A failing ask was re-asked verbatim, forever — FIXED
+
+The improver was asked "4 pull-ups" and did 3 — then asked 4 again next
+session, and the next, for weeks, with the ledger reading *zero* misses: the
+ledger compares a session against the **estimate**, and matching your best
+while failing the +1 is a Met. Ability is a max, so nothing ever moved. The
+plateauer collected **163 missed cards in 56 sessions** — a coach who never
+listens.
+
+Fixed: asking for more is now a **probe**, earned by a session that beat the
+estimate or periodic after every third quiet session; the sessions between
+consolidate at the demonstrated best (and a consolidation ask never rounds up
+past what the sets have shown). Missed cards: improver 118 → 53, plateauer
+163 → 62, badweek 110 → 62 — while the improver's end-of-trace estimates came
+out *equal or higher* (supine pull-up reached the range top instead of
+stalling below it). Calmer and faster at once.
+
+## R4-2. A movement at its wall was prescribed into it forever — FIXED
+
+The supine pull-up sat at the rep range's top for six weeks (true ability well
+above); Lateral raise and Dead bug plateaued and were re-served anyway. The
+`difficulty` field existed for exactly this and was read by nothing (G7).
+
+Fixed, in two pieces. **Detection:** a month of sessions with nothing beaten
+(and no slump — misses are the back-off's business) is a plateau; the rep
+range's ceiling at `High` confidence is the same wall reached sooner.
+**Response:** the rung steps out of candidacy while a harder doable variation
+of the same pattern + primary group exists, measuring that successor becomes a
+need of its own (without this the step stayed a nagging notice for weeks while
+the cover kept covering the group with other trusted work — the first
+implementation did exactly that), and the step is said out loud until the
+successor has an estimate. The traces now show the sequence a human coach
+would run: *"Lateral raise has stopped progressing — stepping up to single-arm
+overhead press"*, an Assess of the press in the same session, and the press in
+the work rotation two days later. Other rungs taken: single-leg hamstring
+curls → Nordic eccentric, Dead bug → knee tuck.
+
+## R4-3. A coarse rack turned the estimate into a phantom miss — FIXED
+
+The overhead press estimate (≈5.8 kg e1RM, measured at 5 kg × 5) computed a
+working load between the owned 4 kg and 5 kg bells, and snapping to the
+*nearest* rung chose 4 kg — where the rep range's top can only demonstrate
+≈5.3 kg. Every session read as a miss **no matter how well it went**; misses
+held progression, two stepped down, three re-opened the measurement, and the
+loop repeated. Fixed: on a full-effort day the working load rounds **up**
+between rungs — fewer reps, and success is achievable. On an eased day (low
+readiness, or holding after a genuine miss) the lighter rung is the point and
+stands. Week-7 rollups after the fix: every miss-streak zero.
+
+## What round 4 confirmed is right
+
+- **The badweek regression is answered exactly as designed.** Week 3's dip
+  produced genuine misses, and the trace shows the ledger working: hold, then
+  a rung down, met at the reduced number, rebuilt as the athlete recovered.
+- **The ladder picks the rungs a human coach would name** — no absurd
+  step-ups; pattern + shared prime mover + next difficulty is a good
+  definition of "the harder version of this".
+- **Family dedup holds in the real corpus**: the back-test no longer plans
+  Pull-up (L-sit) beside Pull-up (bar), and a cold-start day assesses one
+  Dips variant, not two.
+
+## Surfaced, not fixed
+
+- **No rest day in 56 days**, all three temperaments. The volume model spreads
+  weekly need across daily micro-sessions, and in production it is biometric
+  readiness (absent from the simulation) that scales down-days. Worth watching
+  in real use before inventing a deload scheduler the reactive design doesn't
+  want.
+- **A rack ceiling still has no voice.** An athlete whose true curl outgrows
+  the heaviest dumbbell owned just tops out; the plateau will eventually hand
+  over to a harder variation where one exists, but "you've outgrown your
+  heaviest bell" would be a better sentence. Kit-limit notices are future
+  work (G9 territory).
+- **`difficulty` is now load-bearing.** The ladder reads it, so a wrong rung
+  is a wrong step-up; the values deserve an authoring pass per pattern +
+  primary group (see [todo](todo.md)).
