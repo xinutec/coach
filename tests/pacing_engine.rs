@@ -106,6 +106,19 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
     }
 }
 
+/// A bodyweight set with an explicit rep count — for scenarios where the
+/// demonstrated maximum, not the volume, is the point.
+fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
+    SetRec {
+        exercise_id,
+        logged_at: at,
+        reps: Some(reps),
+        load_kg: None,
+        hold_s: None,
+        rpe: None,
+    }
+}
+
 /// A weighted set (load + reps) — feeds the ability estimate that prescription
 /// derives from.
 fn wset(exercise_id: i64, at: NaiveDateTime, load: f64, reps: i32) -> SetRec {
@@ -722,6 +735,79 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
     );
     assert_eq!(sug.rep_high, Some(6));
     assert!(sug.rep_low.unwrap() >= 3 && sug.rep_low.unwrap() <= 6);
+}
+
+#[test]
+fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
+    // Three recent sessions ground out at 2 reps — an honest maximum, shown while
+    // doing one's best. Balanced mode *likes* 8–12 reps, but a style preference is
+    // a ceiling to climb toward, not a floor to demand: asking 8 from an athlete
+    // who has shown 2 prescribes failure, and it silently defeats the
+    // miss-response too (aim best−1, clamped straight back up to 8). The target is
+    // one rep above the best demonstrated.
+    let h = vec![
+        bset(1, days_ago(2), 2),
+        bset(1, days_ago(4), 2),
+        bset(1, days_ago(6), 2),
+    ];
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let pushup = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 1)
+        .expect("a trusted, recovered movement in deficit is planned");
+    assert_eq!(pushup.kind, SuggestionKind::Work);
+    assert_eq!(
+        pushup.rep_low,
+        Some(3),
+        "one rep above the demonstrated 2 — not the mode floor of 8"
+    );
+    assert_eq!(
+        pushup.rep_high,
+        Some(12),
+        "the style range still names where the climb tops out"
+    );
+}
+
+#[test]
+fn a_bodyweight_target_never_asks_past_the_mode_ceiling() {
+    // The dual bound: an athlete showing 15 clean reps in Balanced mode isn't
+    // asked for 16 — past the top of the range the answer is a harder variation,
+    // not more of this one.
+    let h = vec![
+        bset(1, days_ago(2), 15),
+        bset(1, days_ago(4), 15),
+        bset(1, days_ago(6), 15),
+    ];
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let pushup = out.plan.iter().find(|s| s.exercise_id == 1).unwrap();
+    assert_eq!(pushup.rep_low, Some(12));
+}
+
+#[test]
+fn a_weighted_target_respects_ability_when_the_lightest_weight_is_heavy() {
+    // e1RM ≈ 22 kg, but nothing lighter than 20 kg is owned. At 20 kg the estimate
+    // supports ~3 reps; the Balanced floor of 6 must not talk that up into a set
+    // the athlete has no way to finish. The rung is what you own — the rep target
+    // is what you can do on it.
+    let inp = PacingInput {
+        groups: back_only(),
+        exercise_loads: owned(),
+        ..input(
+            Mode::Balanced,
+            vec![barbell_row()],
+            vec![wset(5, days_ago(2), 20.0, 3)],
+            None,
+            None,
+        )
+    };
+    let sug = evaluate(&inp, now()).suggestion.unwrap();
+    assert_eq!(sug.load_kg, Some(20.0), "the lightest owned rung");
+    assert_eq!(
+        sug.rep_low,
+        Some(3),
+        "the reps the estimate supports at that weight — not the style floor of 6"
+    );
 }
 
 #[test]

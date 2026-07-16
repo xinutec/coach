@@ -357,10 +357,13 @@ fn prescribe(
                         target
                     };
                     // At that (discrete) weight, how many reps are actually in
-                    // reach? Clamped into the range — this is the rep target that
-                    // climbs to the top before the weight is allowed to step.
-                    let low =
-                        (reps_at(e, load, reserve).round() as i32).clamp(range.low, range.high);
+                    // reach? Capped at the range top — this is the rep target that
+                    // climbs there before the weight is allowed to step. The range
+                    // *floor* deliberately doesn't apply: it's a style preference,
+                    // and when the lightest owned rung is heavy for the estimate,
+                    // raising the ask to the floor prescribes a set the athlete
+                    // has no way to finish.
+                    let low = (reps_at(e, load, reserve).round() as i32).clamp(1, range.high);
                     Dose::Weighted {
                         load,
                         reps: RepTarget { low, ..range },
@@ -381,13 +384,17 @@ fn prescribe(
             let low = match ability.best_reps {
                 Some(best) => {
                     // Climb, hold, or (after two misses) ask for one rep fewer than
-                    // the number that isn't happening.
+                    // the number that isn't happening. Capped at the range top only
+                    // — the range floor is a style preference, and demonstrated
+                    // ability outranks it. Clamping up to the floor would ask an
+                    // athlete who ground out 2 for 8, and quietly undo the
+                    // miss-response above (aim best−1, hauled straight back up).
                     let aim = match (advance, back_off) {
                         (_, true) => best - 1,
                         (true, false) => best + 1,
                         (false, false) => best,
                     };
-                    aim.clamp(range.low, range.high)
+                    aim.clamp(1, range.high)
                 }
                 None => range.low,
             };
