@@ -946,6 +946,45 @@ fn a_finished_session_says_so() {
 }
 
 #[test]
+fn a_warmup_is_an_instruction_with_a_dose() {
+    // A mobility drill names its dose — reps (or seconds, by its metric) —
+    // rather than an undosed "loosen up". And logging it completes it: the
+    // warm-up card is part of the session's progress like everything else.
+    let exs = vec![
+        ex(
+            1,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        warmup_ex(9, "Arm circles", 10),
+    ];
+    let out = evaluate(
+        &input(Mode::Balanced, exs.clone(), vec![], None, None),
+        now(),
+    );
+    let wu = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 9)
+        .expect("the drill leads the plan");
+    assert_eq!(wu.rep_low, Some(10), "a dose, not a vibe");
+
+    // Log the drill mid-session → its card reads done.
+    let h = vec![set(9, minutes_ago(10))];
+    let out = evaluate(&input(Mode::Balanced, exs, h, None, None), now());
+    let wu = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 9)
+        .expect("still on the plan");
+    assert_eq!(wu.done, 1, "a logged warm-up completes its card");
+}
+
+#[test]
 fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
     // Three recent sessions ground out at 2 reps — an honest maximum, shown while
     // doing one's best. Balanced mode *likes* 8–12 reps, but a style preference is

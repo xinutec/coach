@@ -10,7 +10,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatSelectModule } from "@angular/material/select";
 
 import { CoachApi } from "../../coach-api";
-import { Exercise, WorkoutSet, displayName } from "../../models";
+import { Exercise, displayName } from "../../models";
 
 export interface LogPrefill {
   exerciseId: number;
@@ -21,9 +21,18 @@ export interface LogPrefill {
 export interface LogSheetData {
   exercises: Exercise[];
   prefill?: LogPrefill;
+  /** Called after each set lands, so the page behind can refresh while the
+   *  sheet stays up. */
+  onLogged?: () => void;
 }
 
-/** Fast "log a set" bottom sheet. Fields shown adapt to the exercise's metric. */
+/** Fast "log a set" bottom sheet. Fields shown adapt to the exercise's metric.
+ *
+ *  The sheet stays open across sets: sets come in runs, and a sheet that
+ *  dismisses itself after each one swallows the tap meant for it — that's how
+ *  a "Log set" tap once landed on the History tab underneath, and a typed
+ *  edit was once lost so the *prefilled* value logged silently. Only an
+ *  explicit Done (or the backdrop) closes it. */
 @Component({
   selector: "app-log-sheet",
   templateUrl: "./log-sheet.html",
@@ -38,8 +47,7 @@ export interface LogSheetData {
 })
 export class LogSheet {
   private api = inject(CoachApi);
-  private ref =
-    inject<MatBottomSheetRef<LogSheet, WorkoutSet | null>>(MatBottomSheetRef);
+  private ref = inject<MatBottomSheetRef<LogSheet, number>>(MatBottomSheetRef);
   readonly data = inject<LogSheetData>(MAT_BOTTOM_SHEET_DATA);
 
   readonly exercises = this.data.exercises;
@@ -49,8 +57,10 @@ export class LogSheet {
   reps: number | null = this.data.prefill?.reps ?? null;
   loadKg: number | null = this.data.prefill?.loadKg ?? null;
   holdS: number | null = this.data.prefill?.holdS ?? null;
-  note = "";
+  readonly note = signal("");
   readonly saving = signal(false);
+  /** Sets logged since the sheet opened — the run this sheet represents. */
+  readonly logged = signal(0);
 
   readonly selected = computed(
     () => this.exercises.find((e) => e.id === this.exerciseId()) ?? null,
@@ -74,16 +84,23 @@ export class LogSheet {
         // reads an RPE when history has one — imported sets do), but the app does
         // not solicit a self-rating of effort. See docs/trainer.md.
         rpe: null,
-        note: this.note.trim() || null,
+        note: this.note().trim() || null,
         loggedAt: null,
       })
       .subscribe({
-        next: (s) => this.ref.dismiss(s),
+        // Keep the sheet up with the same numbers — the next set of a run is
+        // usually the same prescription. The page behind refreshes underneath.
+        next: () => {
+          this.logged.update((n) => n + 1);
+          this.note.set("");
+          this.saving.set(false);
+          this.data.onLogged?.();
+        },
         error: () => this.saving.set(false),
       });
   }
 
-  cancel(): void {
-    this.ref.dismiss(null);
+  done(): void {
+    this.ref.dismiss(this.logged());
   }
 }

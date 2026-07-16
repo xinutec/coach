@@ -44,12 +44,13 @@
         }
       </span>
     </div>
-    @for (s of p.plan; track s.exerciseId; let first = $first) {
+    @for (s of p.plan; track $index; let i = $index) {
       <mat-card
         class="suggestion"
         [class.assess]="s.kind === 'assess'"
         [class.warmup]="s.kind === 'warmup'"
-        [class.next]="first && p.withinWindow"
+        [class.next]="isNextUp(i)"
+        [class.done]="s.done >= s.sets"
       >
         <mat-card-content>
           <div class="s-head">
@@ -69,9 +70,13 @@
             </button>
             <div class="s-titles">
               <div class="s-pills">
-                <!-- "Next up" only when the coach actually wants action now. -->
-                @if (first && p.withinWindow) {
+                <!-- "Next up" points at the first item with sets still to do —
+                     never at something already finished this session. -->
+                @if (isNextUp(i)) {
                   <span class="pill next-pill">Next up</span>
+                }
+                @if (s.done >= s.sets) {
+                  <span class="pill done-pill"><mat-icon>check</mat-icon> Done</span>
                 }
                 @if (s.kind === "warmup") {
                   <span class="pill warmup-pill"><mat-icon>waves</mat-icon> Warm-up</span>
@@ -92,18 +97,30 @@
           @if (s.kind === "warmup") {
             <p class="s-detail">{{ warmupNote(s) }}</p>
           } @else if (s.kind === "assess") {
-            <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
-            @if (s.loadKg !== null) {
-              <p class="s-detail">Start around {{ s.loadKg }} kg</p>
+            @if (s.done >= s.sets) {
+              <p class="s-assess">Measured — that number's locked in for next time.</p>
+            } @else {
+              <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
+              @if (s.loadKg !== null) {
+                <p class="s-detail">Start around {{ s.loadKg }} kg</p>
+              }
             }
           } @else {
             <!-- A single-arm movement counts per side: one set is both arms, and the
                  reps/seconds are what each one does. Saying "3 × 10" without that
                  is half a session or a double one depending on how you read it. -->
             <p class="s-detail">
-              {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
+              @if (s.done > 0) {
+                {{ s.done }}/{{ s.sets }} sets
+              } @else {
+                {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
+              }
               @if (s.repLow !== null) {
-                · {{ s.repLow }}–{{ s.repHigh }} reps
+                @if (s.repLow === s.repHigh) {
+                  · {{ s.repLow }} reps
+                } @else {
+                  · {{ s.repLow }}–{{ s.repHigh }} reps
+                }
               }
               @if (s.loadKg !== null) {
                 · {{ s.loadKg }} kg
@@ -116,19 +133,31 @@
               }
             </p>
           }
-          @if (s.kind !== "warmup") {
-            <div class="s-actions">
+          <div class="s-actions">
+            @if (s.done >= s.sets) {
+              <!-- Finished — the quiet stroked button still allows an extra set,
+                   but nothing shouts for one. -->
+              <button mat-stroked-button (click)="openLog(s)">
+                <mat-icon>add</mat-icon>
+                Log another
+              </button>
+            } @else if (s.kind === "warmup") {
+              <button mat-stroked-button (click)="openLog(s)">
+                <mat-icon>check</mat-icon>
+                Mark done
+              </button>
+            } @else {
               <button mat-flat-button (click)="openLog(s)">
                 <mat-icon>{{ s.kind === "assess" ? "science" : "add" }}</mat-icon>
                 {{ s.kind === "assess" ? "Log the calibration set" : "Log this set" }}
               </button>
-              @if (s.explanation) {
-                <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
-                  {{ isWhyOpen(s.exerciseId) ? "Hide" : "Why this?" }}
-                </button>
-              }
-            </div>
-          }
+            }
+            @if (s.explanation) {
+              <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
+                {{ isWhyOpen(s.exerciseId) ? "Hide" : "Why this?" }}
+              </button>
+            }
+          </div>
           @if (s.explanation; as e) {
             @if (isWhyOpen(s.exerciseId)) {
               <ul class="why-list">

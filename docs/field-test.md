@@ -43,7 +43,7 @@ maximum fatigue. Fix: count movements *introduced today* (first-ever set today)
 against the cap, so finishing a calibration spends the slot instead of recycling
 it.
 
-## 3. Mid-session messaging — OPEN
+## 3. Mid-session messaging — FIXED
 
 - "**Just trained 0m ago — take a breather.**" after every set: the
   between-sessions rest gate firing between sets. Mid-session the banner should
@@ -59,7 +59,7 @@ it.
   should only name an ideal blocked by kit for the group the pick actually
   labels to.
 
-## 4. The log dialog dies under your finger — OPEN
+## 4. The log dialog dies under your finger — FIXED
 
 The background re-plan closed an open log dialog. Twice a "Log set" tap landed
 on the bottom-nav **History** tab beneath it; once an edit didn't land and the
@@ -71,7 +71,7 @@ reload.
 Fix: an open dialog is never closed by a background refresh, and the sheet keeps
 a safe margin from the bottom nav.
 
-## 5. Warm-ups are inert — OPEN
+## 5. Warm-ups are inert — FIXED
 
 Warm-up cards have no dose (how many? how long?), no way to be marked done, the
 same generic copy on every card, and the "Next up" chip points at them all
@@ -79,7 +79,7 @@ session. Zero warm-up sets exist in the entire history because only the manual
 + dialog can log one. Fix: warm-up cards carry a dose, log from the card, show
 done, and Next up advances past them.
 
-## 6. Small UI faults — OPEN
+## 6. Small UI faults — FIXED
 
 - "**10–10 reps**" renders when low == high; should read "10 reps".
 - The manual + dialog defaults to "Arm circles" (alphabetical); it should default

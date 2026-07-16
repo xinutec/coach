@@ -55,11 +55,44 @@ export class Today {
 		effect(() => {
 			if (this.didInit || !this.locationsStore.loaded()) return;
 			this.didInit = true;
+			// A location picked by hand holds for the rest of the day — a reload
+			// must not silently revert to the detected one and change the plan's
+			// loads under the athlete mid-session.
+			const picked = this.pickedToday();
+			if (picked !== null && this.locations().some((l) => l.id === picked)) {
+				this.userPickedLocation = true;
+				this.selectedLocationId.set(picked);
+				this.reloadPacing();
+				return;
+			}
 			const def = this.locations().find((l) => l.isDefault);
 			this.selectedLocationId.set(def ? def.id : null);
 			this.reloadPacing();
 			this.autoSelect();
 		});
+	}
+
+	/** Today's manual location pick, if one was made (per-day, localStorage). */
+	private pickedToday(): number | null {
+		try {
+			const raw = localStorage.getItem("coach.pickedLocation");
+			if (!raw) return null;
+			const { id, day } = JSON.parse(raw) as { id: number; day: string };
+			return day === new Date().toDateString() ? id : null;
+		} catch {
+			return null;
+		}
+	}
+
+	private rememberPick(id: number): void {
+		try {
+			localStorage.setItem(
+				"coach.pickedLocation",
+				JSON.stringify({ id, day: new Date().toDateString() }),
+			);
+		} catch {
+			// Storage unavailable (private mode) — the pick just won't survive a reload.
+		}
 	}
 
 	loadAll(): void {
@@ -97,6 +130,7 @@ export class Today {
 		this.userPickedLocation = true;
 		this.autoDetected.set(false);
 		this.selectedLocationId.set(id);
+		this.rememberPick(id);
 		this.reloadPacing();
 	}
 
@@ -139,7 +173,13 @@ export class Today {
 				none: "New to you — calibrating from scratch",
 			};
 			lines.push(conf[e.confidence]);
-			lines.push(`${Math.round(e.deficit * 100)}% below this week's target for this group`);
+			// Plain speech, not maths-speak: "100% below target" reads like an
+			// error; what it means is the group hasn't been trained this week.
+			lines.push(
+				e.deficit >= 0.995
+					? "Untrained this week — the whole target is still to come"
+					: `${Math.round(e.deficit * 100)}% of this week's target still to go`,
+			);
 		}
 		lines.push(
 			e.recovery >= 0.99 ? "Fully recovered" : `${Math.round(e.recovery * 100)}% recovered`,
@@ -151,8 +191,10 @@ export class Today {
 		else if (e.misses >= 2)
 			lines.push(`${e.misses} sessions under target — backed the load off to rebuild`);
 		if (e.readiness) {
+			// States the reading; never urges intensity ("push") — the athlete
+			// decides how hard, same rule as the headline (see engine day_note).
 			const r: Record<Band, string> = {
-				high: "Biometrics say recovered — a good day to push",
+				high: "Biometrics say recovered",
 				normal: "Steady readiness",
 				low: "Low readiness — easing the volume off",
 			};
@@ -161,9 +203,16 @@ export class Today {
 		return lines;
 	}
 
-	/** One-line description for a warm-up item: a ramp-in set vs a mobility drill. */
+	/** One-line description for a warm-up item: a ramp-in set vs a mobility
+	 *  drill — with its dose, so "warm up" is an instruction, not a vibe. */
 	warmupNote(s: Suggestion): string {
-		if (s.loadKg !== null) return `Ramp-in set · ${s.loadKg} kg — groove the movement`;
+		if (s.loadKg !== null) {
+			const reps = s.repLow !== null ? `${s.repLow} × ` : "";
+			return `Ramp-in set · ${reps}${s.loadKg} kg — groove the movement`;
+		}
+		if (s.holdS !== null) return `${s.holdS}s ${this.perSide(s.exerciseId) ? "each side " : ""}— easy, controlled`;
+		if (s.repLow !== null)
+			return `${s.repLow} slow reps${this.perSide(s.exerciseId) ? " each side" : ""} — loosen up ${s.group}`;
 		return "Mobility — loosen up the muscles you're about to train";
 	}
 
@@ -228,22 +277,41 @@ export class Today {
 		this.sheet.open(ExerciseSheet, { data: { exerciseId: s.exerciseId } });
 	}
 
-	/** Open the log sheet, optionally prefilled from a specific plan item. */
+	/** Open the log sheet, optionally prefilled from a specific plan item. The
+	 *  bare + button prefills from the next unfinished plan item — mid-session
+	 *  that's almost always the set being logged (and it's changeable), where an
+	 *  alphabetical default meant scrolling past "Arm circles" every time. */
 	openLog(from?: Suggestion): void {
-		const data: LogSheetData = { exercises: this.exercises() };
-		if (from) {
+		const source = from ?? this.nextUp() ?? undefined;
+		const data: LogSheetData = {
+			exercises: this.exercises(),
+			// Each set refreshes the plan underneath; the sheet itself stays up
+			// for the rest of the run (it never self-dismisses — see LogSheet).
+			onLogged: () => this.reloadPacing(),
+		};
+		if (source) {
 			data.prefill = {
-				exerciseId: from.exerciseId,
-				reps: from.repLow,
-				loadKg: from.loadKg,
-				holdS: from.holdS,
+				exerciseId: source.exerciseId,
+				reps: source.repLow,
+				loadKg: source.loadKg,
+				holdS: source.holdS,
 			};
 		}
-		this.sheet
-			.open(LogSheet, { data })
-			.afterDismissed()
-			.subscribe((res) => {
-				if (res) this.reloadPacing();
-			});
+		this.sheet.open(LogSheet, { data });
+	}
+
+	/** The first plan item with sets still to do — what "Next up" points at and
+	 *  what the bare + defaults to. Warm-ups count: done ones stop leading. */
+	nextUp(): Suggestion | null {
+		const p = this.pacing();
+		return p?.plan.find((s) => s.done < s.sets) ?? null;
+	}
+
+	/** Whether this plan item is the one to do now (by position, not id — a
+	 *  ramp-in warm-up shares its exercise id with the work item after it). */
+	isNextUp(index: number): boolean {
+		const p = this.pacing();
+		if (!p?.withinWindow) return false;
+		return p.plan.findIndex((s) => s.done < s.sets) === index;
 	}
 }

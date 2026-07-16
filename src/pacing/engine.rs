@@ -59,6 +59,11 @@ const CARRY_BASE_S: i32 = 30;
 const CARRY_TOP_S: i32 = 60;
 /// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
 const WARMUP_SETS: i32 = 1;
+/// A mobility drill's dose. "Warm up" with no number is a vibe, not an
+/// instruction — the athlete asked, reasonably, "how many? for how long?".
+/// Deliberately easy: prep, not training.
+const WARMUP_REPS: i32 = 10;
+const WARMUP_HOLD_S: i32 = 20;
 /// A ramp-in set runs at this fraction of the first heavy lift's working load.
 const RAMP_FRACTION: f64 = 0.5;
 
@@ -772,6 +777,12 @@ fn build_warmup(
                 .iter()
                 .find_map(|g| group_name.get(g).cloned())
                 .unwrap_or_default();
+            // The drill's dose, in its own metric — reps to move through, or
+            // seconds to hold. Always unloaded: this is prep, not training.
+            let (rep_low, rep_high, hold_s) = match e.metric {
+                Metric::Reps | Metric::WeightedReps => (Some(WARMUP_REPS), Some(WARMUP_REPS), None),
+                Metric::Hold | Metric::WeightedHold => (None, None, Some(WARMUP_HOLD_S)),
+            };
             out.push(Suggestion {
                 exercise_id: e.id,
                 exercise_name: e.name.clone(),
@@ -779,10 +790,10 @@ fn build_warmup(
                 kind: SuggestionKind::Warmup,
                 sets: WARMUP_SETS,
                 done: 0,
-                rep_low: None,
-                rep_high: None,
+                rep_low,
+                rep_high,
                 load_kg: None,
-                hold_s: None,
+                hold_s,
                 group: gname,
                 substituted_for: None,
                 explanation: None,

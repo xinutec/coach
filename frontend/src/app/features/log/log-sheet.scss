@@ -1,3 +1,18 @@
 :host {
   display: block;
+  // Keep the action row clear of the bottom nav under the sheet — a "Log set"
+  // button flush with the History tab is a mis-tap waiting for a moving thumb.
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .logged-count {
+    margin-right: auto;
+    font: var(--mat-sys-body-medium);
+    opacity: 0.7;
+  }
 }

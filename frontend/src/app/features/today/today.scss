@@ -89,6 +89,16 @@ mat-card {
     color: var(--mat-sys-on-primary-container);
   }
 
+  // Finished this session: stays on the plan (it's the commitment's receipt),
+  // visibly settled.
+  &.done {
+    opacity: 0.62;
+  }
+  .done-pill {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface-variant);
+  }
+
   .s-head {
     display: flex;
     align-items: center;
@@ -213,9 +223,10 @@ mat-card {
   &.warmup:not(.next) {
     opacity: 0.8;
   }
-  .warmup-pill {
-    background: var(--mat-sys-secondary-container);
-    color: var(--mat-sys-on-secondary-container);
+  // One icon-in-pill shape, three colourways.
+  .warmup-pill,
+  .assess-pill,
+  .done-pill {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
@@ -225,17 +236,13 @@ mat-card {
       height: 16px;
     }
   }
+  .warmup-pill {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
   .assess-pill {
     background: var(--mat-sys-tertiary-container);
     color: var(--mat-sys-on-tertiary-container);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
   }
 }
 
