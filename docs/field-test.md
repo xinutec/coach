@@ -437,15 +437,31 @@ Missed cards across the eight-week traces: improver 53 → **28**, plateauer 62 
 **42**, badweek 62 → **43**, while more distinct movements got trained (45 → 47) and
 spurious re-measures fell. The back-test moved only where R4-3 was reverted.
 
-## R5-2. Readiness — STILL OPEN
+## R5-2. A badly-slept night was recorded as your failure — FIXED
 
-The second row of that table is not fixed. A low-readiness day eases the ask too,
-but readiness comes from health-sync and is not reconstructible from set history, so
-the ledger judges those sessions as full-effort. A badly-slept day, complied with
-perfectly, is still recorded as a miss. The route is a per-day recovery read on
-health's `/internal/*` group — it already queries 28 days of every stream and
-discards all but the summary, so it is an additive projection, not new data. Tracked
-in [trainer.md](trainer.md) under "Not built yet".
+The second row of that table: low readiness eases the ask too, and readiness comes
+from health-sync, so it was not reconstructible from set history. The coach asked
+for less because the athlete was under-recovered, then marked them down for
+complying — and because a miss holds progression, sleeping badly on Tuesday made
+Thursday's ask smaller too.
+
+Fixed across both services. health-sync grew
+`GET /internal/recovery/history?from&to`: the same raw streams as `/internal/recovery`
+(which already queried 28 days and discarded all but the summary), projected over a
+range and answered **as of** each day, so nothing the backfill has since filled in
+leaks backwards into a morning that didn't know it. Both endpoints now share one
+implementation. Coach composes the score from those raw numbers exactly as it does
+for today — health stays unopinionated, so there is one definition of readiness —
+and hands the ledger what the coach knew each morning. A day health can't answer for
+is judged full-effort: a missing signal must never invent an easing that didn't
+happen, and that mirror case is tested too.
+
+Rejected on the way: coach storing the readiness score it computed, per day. It
+would be zero-drift by construction, but it makes readiness the one input that stops
+re-deriving when the formula is tuned while every other number in the engine moves —
+and when a past morning's sleep data is corrected, that morning's readiness genuinely
+*was* different from what we believed. Re-deriving from the source of truth is the
+honest answer.
 
 ## What round 5 confirmed is right
 

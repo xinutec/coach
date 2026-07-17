@@ -167,8 +167,8 @@ the cadence the same failing +1 was re-asked verbatim every session for weeks.
 
 **The ledger judges the ask, not the ceiling** — and this is the load-bearing
 distinction. The engine does not always ask for everything the estimate supports:
-whenever it is holding or backing off (and, once readiness is reconstructible, on an
-under-recovered day) it deliberately asks for *less*. Judged against the ceiling,
+whenever it is holding or backing off, and on an under-recovered day, it deliberately
+asks for *less*. Judged against the ceiling,
 full compliance with that reduced ask read as failure — and the back-off fed itself,
 because two real misses eased the ask and the eased session then became miss number
 three, sending a perfectly good estimate back to calibration. "Back off and rebuild"
@@ -180,6 +180,17 @@ miss), and a session sharing no metric with the estimate is not evidence either 
 the engine must never back off from silence. The dose constants both sides read live
 in one place ([`pacing/dose.rs`]): two copies would mean the coach asking one number
 and the ledger marking another, with the athlete taking the blame for the gap.
+
+Readiness is the half of the ask that isn't in the set history, so it is reconstructed
+by asking health what it knew that morning (`/internal/recovery/history`, composed
+into a score by coach exactly as today's is — health stays unopinionated, and there is
+one definition of readiness). A day health can't answer for is judged full-effort: a
+missing signal must never invent an easing that didn't happen. Coach deliberately does
+**not** store the score it computed. That would be the one input that stops re-deriving
+when the formula is tuned, while every other number in the engine moves — and if a past
+morning's sleep data is later corrected, that morning's readiness genuinely *was*
+different from what the coach believed. Re-deriving from the source of truth is the
+honest answer, not the lossy one.
 
 When confidence is `Low`/`None` the item is a **calibration** instead, with a
 protocol per metric (build up to a hard set of ~5; AMRAP; one max hold; carry it and
@@ -315,17 +326,6 @@ calibration. *(G1 tail.)*
 constants that minimise historical residual for this athlete. Calibration, not
 learning: the model form never changes, and the back-test shows exactly what a
 switch does. *(The E4 tail.)*
-
-**An under-recovered day still reads as a failure.** Low readiness makes the engine
-ask for less, but readiness lives in health-sync and is not reconstructible from set
-history — so the ledger judges those sessions as though they were full-effort, and
-full compliance on a badly-slept day is recorded as a miss. Everything else that eases
-the ask is already handled (see §4); this is the last hole. Wanted: a per-day recovery
-read on health's `/internal/*` group — it already queries 28 days of every stream and
-throws all but the summary away — so the ledger can ask what the coach knew that
-morning. Deliberately *not* solved by coach storing the score it computed: that would
-be the one input that stops re-deriving when the formula is tuned, while every other
-number in the engine moves. *(The G4 tail.)*
 
 **A commercial gym is mostly unrepresentable.** The kit taxonomy has no lat pulldown,
 leg press, chest press, seated row, leg curl or extension, smith machine or squat
