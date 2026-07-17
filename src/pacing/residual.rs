@@ -30,8 +30,8 @@ use std::collections::HashMap;
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
-use super::dose::{CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, rep_range, reserve};
-use super::types::SetRec;
+use super::dose::{CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, readiness_advances, rep_range, reserve};
+use super::types::{Readiness, SetRec};
 use crate::settings::types::Mode;
 
 // ---- tunable heuristics ----------------------------------------------------
@@ -136,18 +136,22 @@ impl Residual {
 /// Takes no `now`: every session is judged at *its own* moment, against what was
 /// known *then*. The ledger is a fact about the past and does not change with the
 /// clock — which is also what makes it cheap to recompute on every verdict.
-pub fn residuals(history: &[SetRec], mode: Mode) -> HashMap<i64, Residual> {
+pub fn residuals(
+    history: &[SetRec],
+    mode: Mode,
+    readiness: &HashMap<NaiveDate, Readiness>,
+) -> HashMap<i64, Residual> {
     let mut by_ex: HashMap<i64, Vec<&SetRec>> = HashMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
     by_ex
         .into_iter()
-        .map(|(id, sets)| (id, ledger(&sets, mode)))
+        .map(|(id, sets)| (id, ledger(&sets, mode, readiness)))
         .collect()
 }
 
-fn ledger(sets: &[&SetRec], mode: Mode) -> Residual {
+fn ledger(sets: &[&SetRec], mode: Mode, readiness: &HashMap<NaiveDate, Readiness>) -> Residual {
     // Sessions, oldest first. A session is a distinct local day — the same unit
     // confidence counts in.
     let mut days: Vec<NaiveDateTime> = sets.iter().map(|s| s.logged_at).collect();
@@ -184,7 +188,10 @@ fn ledger(sets: &[&SetRec], mode: Mode) -> Residual {
             .filter(|s| s.logged_at.date() == day.date())
             .collect();
 
-        if let Some(o) = judge(&predicted, &today, &led, mode) {
+        // What health knew about that morning — absent means no reason to think the
+        // day was anything but full-effort.
+        let recovered = readiness_advances(readiness.get(&day.date()).map(|r| r.score));
+        if let Some(o) = judge(&predicted, &today, &led, mode, recovered) {
             led.consecutive_misses = if o == Outcome::Missed {
                 led.consecutive_misses + 1
             } else {
@@ -217,19 +224,20 @@ fn ledger(sets: &[&SetRec], mode: Mode) -> Residual {
 /// not evidence either way, and must not be recorded as a miss, which would have
 /// the engine back off from silence.
 ///
-/// One gap remains, deliberately: a **low-readiness** day also eases the ask, and
-/// readiness is not reconstructible from set history — it lives in health-sync. So
-/// an eased-by-biometrics session can still read as a miss. Closing that needs a
-/// per-day recovery read from health; until then this function assumes the day was
-/// full-effort unless the ledger itself says otherwise.
+/// `recovered` is the other half of the ask: a low-readiness morning eases it too,
+/// and that fact lives in health-sync rather than in the set history, so it is
+/// reconstructed by asking health what it knew that day
+/// ([`PacingInput::readiness_history`]). A day health can't answer for is judged
+/// full-effort — a missing signal must never invent an easing that didn't happen.
 fn judge(
     predicted: &Ability,
     today: &[&SetRec],
     feedback: &Residual,
     mode: Mode,
+    recovered: bool,
 ) -> Option<Outcome> {
     // Exactly the reconstruction `prescribe` performs from the same inputs.
-    let advance = !feedback.wants_hold();
+    let advance = recovered && !feedback.wants_hold();
     let probe = advance && feedback.probe_due();
     let back_off = feedback.wants_back_off();
     let rir = reserve(advance);

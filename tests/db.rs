@@ -224,7 +224,9 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
     .await
     .unwrap();
 
-    let verdict = service::now(pool, u, Some(loc.id), None).await.unwrap();
+    let verdict = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
     assert!(
         !verdict.plan.is_empty(),
         "a stocked location with no history should still yield a plan (all calibration): {}",
@@ -267,7 +269,9 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
         .await
         .unwrap();
     }
-    let after = service::now(pool, u, Some(loc.id), None).await.unwrap();
+    let after = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
     assert!(
         after.day_done_sets >= 3,
         "logged sets didn't reach the verdict: {} done",
@@ -328,7 +332,9 @@ async fn a_cable_stack_carries_a_load() {
         );
     }
     // And it reaches the athlete: the plan prescribes (well — measures) them.
-    let verdict = service::now(pool, u, Some(loc.id), None).await.unwrap();
+    let verdict = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
     assert!(!verdict.plan.is_empty(), "no plan at the cable gym");
 }
 

@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -125,6 +125,16 @@ pub struct PacingInput {
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,
+    /// Readiness as it stood on each past training day, keyed by local date.
+    ///
+    /// The prediction-error ledger needs it. The coach asks for *less* on an
+    /// under-recovered morning, so judging that session as though it had been
+    /// full-effort records the athlete's compliance as a failure — which then holds
+    /// their progression back for having slept badly. A day that's absent (health
+    /// has no data, or is down) is judged full-effort: exactly what the ledger did
+    /// before it could ask the question, so a missing signal never invents an easing
+    /// that didn't happen.
+    pub readiness_history: HashMap<NaiveDate, Readiness>,
 }
 
 /// How recovered the user is right now, from biometrics (health-derived).

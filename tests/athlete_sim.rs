@@ -146,6 +146,7 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         equipment_names: HashMap::new(),
         notices: Vec::new(),
         readiness: None,
+        readiness_history: Default::default(),
     }
 }
 
@@ -368,6 +369,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             equipment_names: HashMap::new(),
             notices: Vec::new(),
             readiness: None,
+            readiness_history: Default::default(),
         };
         let out = evaluate(&input, now);
 

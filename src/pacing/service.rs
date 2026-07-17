@@ -6,7 +6,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, anyhow};
-use chrono::{Duration, NaiveDateTime, TimeZone, Utc};
+use chrono::{Duration, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use sqlx::MySqlPool;
 
@@ -282,6 +282,7 @@ pub fn input_from(
     history: Vec<SetRec>,
     last_set_at: Option<NaiveDateTime>,
     readiness: Option<Readiness>,
+    readiness_history: HashMap<NaiveDate, Readiness>,
 ) -> PacingInput {
     PacingInput {
         mode: ctx.mode,
@@ -297,6 +298,7 @@ pub fn input_from(
         equipment_names: ctx.equipment_names.clone(),
         notices: ctx.notices.clone(),
         readiness,
+        readiness_history,
     }
 }
 
@@ -310,6 +312,7 @@ pub async fn now(
     user_id: &str,
     location_id: Option<i64>,
     readiness: Option<Readiness>,
+    readiness_history: HashMap<NaiveDate, Readiness>,
 ) -> Result<PacingNow> {
     let ctx = context(pool, user_id, location_id).await?;
     let now_local = Utc::now().with_timezone(&ctx.tz).naive_local();
@@ -336,6 +339,6 @@ pub async fn now(
         .collect();
     let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);
 
-    let inp = input_from(&ctx, history, last_set_at, readiness);
+    let inp = input_from(&ctx, history, last_set_at, readiness, readiness_history);
     Ok(engine::evaluate(&inp, now_local))
 }

@@ -54,6 +54,17 @@ pub const HOLD_STEP_S: i32 = 5;
 pub const CARRY_BASE_S: i32 = 30;
 pub const CARRY_TOP_S: i32 = 60;
 
+/// Readiness score below this → hold progression (don't chase PRs on a bad day).
+pub const READINESS_HOLD_BELOW: f64 = 0.40;
+
+/// Was this a full-effort day, biometrically? `None` (health has no data, or the
+/// day is too old to reconstruct) means "no reason to think otherwise" — the same
+/// answer the engine gives when health is down, so a missing signal never invents
+/// an easing that didn't happen.
+pub fn readiness_advances(score: Option<f64>) -> bool {
+    !matches!(score, Some(s) if s < READINESS_HOLD_BELOW)
+}
+
 /// The reserve the ask leaves. `advance` is "today is a full-effort day" — false
 /// on a low-readiness day or while the miss-response is easing off.
 pub fn reserve(advance: bool) -> f64 {

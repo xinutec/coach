@@ -168,6 +168,7 @@ fn input(
         equipment_names: HashMap::new(),
         notices: Vec::new(),
         readiness: None,
+        readiness_history: Default::default(),
     }
 }
 
@@ -2574,7 +2575,7 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
 
     let mut done = h;
     done.push(wset(5, now(), w.load_kg.unwrap(), asked));
-    let led = coach::pacing::residual::residuals(&done, Mode::Balanced)
+    let led = coach::pacing::residual::residuals(&done, Mode::Balanced, &Default::default())
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(
@@ -2631,7 +2632,7 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
         w.load_kg.expect("a weighted lift has a load"),
         w.rep_low.expect("and a rep target"),
     ));
-    coach::pacing::residual::residuals(&h, Mode::Strength)
+    coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
         .remove(&5)
         .unwrap_or_default()
 }
@@ -2659,7 +2660,7 @@ fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
         wset(5, days_ago(2), 30.0, 5), // a real miss
         wset(5, days_ago(1), 30.0, 5), // and another — the coach eases off
     ];
-    let before = coach::pacing::residual::residuals(&h, Mode::Strength)
+    let before = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(before.consecutive_misses, 2, "two genuine misses");
@@ -2701,7 +2702,7 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
         .unwrap();
     // Two reps short of the eased ask.
     h.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
-    let led = coach::pacing::residual::residuals(&h, Mode::Strength)
+    let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(
@@ -2711,5 +2712,88 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
     assert!(
         led.wants_remeasure(),
         "three real misses running is a wrong estimate — go and measure it"
+    );
+}
+
+// R5-2: the other half of the ask. A low-readiness morning makes the coach ask for
+// less — and until the ledger could see that, doing exactly what it asked on a
+// badly-slept day was recorded as the athlete falling short, which then held their
+// progression back for having slept badly. Readiness isn't in the set history (it
+// lives in health-sync), so the ledger is told what the coach knew that morning.
+#[test]
+fn an_eased_day_is_not_recorded_as_a_failure() {
+    let h = vec![
+        wset(5, days_ago(8), 40.0, 5),
+        wset(5, days_ago(6), 40.0, 5),
+        wset(5, days_ago(4), 40.0, 5),
+    ];
+    let spent = Readiness {
+        score: 0.2,
+        band: Band::Low,
+    };
+    let out = evaluate(
+        &PacingInput {
+            readiness: Some(spent),
+            ..strength_row(h.clone())
+        },
+        now(),
+    );
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .expect("a trusted lift is still prescribed on a bad day, just lighter");
+
+    // Do precisely what the eased card said.
+    let mut done = h;
+    done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap()));
+
+    // Judged as though it were a full-effort day, this reads as a failure...
+    let blind = coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default())
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(
+        blind.consecutive_misses, 1,
+        "precondition: without knowing the day was eased, compliance looks like a miss"
+    );
+
+    // ...but told what the coach knew that morning, it reads as what it was.
+    let known = HashMap::from([(now().date(), spent)]);
+    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known)
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(
+        led.outcomes.last().map(|(_, o)| *o),
+        Some(coach::pacing::residual::Outcome::Met),
+        "a badly-slept night is not a failure to hold against him"
+    );
+    assert_eq!(led.consecutive_misses, 0);
+}
+
+// The mirror: a day health can't answer for must not invent an easing that didn't
+// happen. An absent reading means full-effort — the same judgment the ledger made
+// before health could be asked at all.
+#[test]
+fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
+    let h = vec![
+        wset(5, days_ago(8), 40.0, 5),
+        wset(5, days_ago(6), 40.0, 5),
+        wset(5, days_ago(4), 40.0, 5),
+    ];
+    let out = evaluate(&strength_row(h.clone()), now());
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .unwrap();
+    // Two reps short of a full-effort ask, on a day health knows nothing about.
+    let mut done = h;
+    done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
+    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default())
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(
+        led.consecutive_misses, 1,
+        "no biometrics is not an excuse the coach invents on his behalf"
     );
 }

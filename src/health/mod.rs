@@ -9,6 +9,7 @@
 
 use std::time::Duration;
 
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -82,6 +83,18 @@ pub struct Recovery {
     pub resting_hr: Option<Stat>,
 }
 
+/// The same raw recovery, but *as of* a named past day
+/// (`/internal/recovery/history`). The prediction-error ledger needs it: the coach
+/// eases the ask on an under-recovered morning, and judging that session as though
+/// it had been full-effort records the athlete's compliance as a failure.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DayRecovery {
+    pub as_of: NaiveDate,
+    #[serde(flatten)]
+    pub recovery: Recovery,
+}
+
 const TIMEOUT: Duration = Duration::from_secs(3);
 const HEADER: &str = "X-Service-Token";
 
@@ -113,6 +126,27 @@ pub async fn current_place(
         Err(e) => {
             tracing::debug!("health current-place lookup failed: {e:#}");
             None
+        }
+    }
+}
+
+/// The user's raw recovery as of each day in `from..=to`, oldest first. Empty on
+/// any failure — the ledger then judges those days as full-effort, which is what it
+/// did before health could answer the question at all.
+pub async fn recovery_history(
+    http: &reqwest::Client,
+    base: &str,
+    token: &str,
+    user: &str,
+    from: NaiveDate,
+    to: NaiveDate,
+) -> Vec<DayRecovery> {
+    let path = format!("/internal/recovery/history?from={from}&to={to}");
+    match get::<Vec<DayRecovery>>(http, base, &path, token, user).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::debug!("health recovery history lookup failed: {e:#}");
+            Vec::new()
         }
     }
 }

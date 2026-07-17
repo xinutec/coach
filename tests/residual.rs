@@ -33,7 +33,7 @@ fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
 }
 
 fn ledger_for(sets: Vec<SetRec>) -> coach::pacing::residual::Residual {
-    residuals(&sets, Mode::Balanced)
+    residuals(&sets, Mode::Balanced, &Default::default())
         .remove(&1)
         .unwrap_or_default()
 }

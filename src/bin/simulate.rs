@@ -409,7 +409,7 @@ async fn main() -> Result<()> {
         let week = d / 7;
         let now = date.and_hms_opt(SESSION_HOUR, 0, 0).unwrap();
         let last_set_at = hist.last().map(|s| s.logged_at);
-        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None);
+        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None, Default::default());
         let verdict = engine::evaluate(&inp, now);
 
         let train = verdict.state == PacingState::Active
@@ -486,7 +486,7 @@ async fn main() -> Result<()> {
         if d % 7 == 6 {
             let eow = date.and_hms_opt(23, 0, 0).unwrap();
             let est = ability::abilities(&hist, eow);
-            let res = residual::residuals(&hist, ctx.mode);
+            let res = residual::residuals(&hist, ctx.mode, &Default::default());
             let mut rows: BTreeMap<String, String> = BTreeMap::new();
             for id in &touched {
                 let name = name_of.get(id).cloned().unwrap_or_else(|| id.to_string());

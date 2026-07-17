@@ -130,7 +130,7 @@ async fn main() -> Result<()> {
             .cloned()
             .collect();
         let last_set_at = hist.iter().map(|s| s.logged_at).max();
-        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None);
+        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None, Default::default());
         let verdict = engine::evaluate(&inp, now_local);
 
         // Confidence the estimate carries into this morning's plan.

@@ -29,16 +29,13 @@ use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{
     CARRY_BASE_S, CARRY_TOP_S, Dose, HOLD_STEP_S, Inventory, Known, LOW_READINESS_EXTRA_RIR,
-    Measure, RepTarget, rep_range, reserve,
+    Measure, RepTarget, readiness_advances, rep_range, reserve,
 };
 use super::residual::{self, Residual};
 use super::types::{
     Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
     PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
 };
-
-/// Readiness score below this → hold progression (don't chase PRs on a bad day).
-const READINESS_HOLD_BELOW: f64 = 0.40;
 
 /// Cold-start hold (seconds) when an isometric has no history yet.
 const COLD_HOLD_S: i32 = 20;
@@ -1073,7 +1070,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // How well those estimates have been describing him lately: for each session, what
     // the engine believed beforehand versus what he actually did. Recomputed from
     // history, so the engine stays stateless.
-    let residuals = residual::residuals(&planning, input.mode);
+    let residuals = residual::residuals(&planning, input.mode, &input.readiness_history);
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     //
@@ -1527,7 +1524,7 @@ fn plan_session(
     let chosen = cover::select(&scored, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
-    let advance = !matches!(input.readiness, Some(r) if r.score < READINESS_HOLD_BELOW);
+    let advance = readiness_advances(input.readiness.map(|r| r.score));
     let weight = |e: &ExerciseInfo| mode_fit(input.mode, e) * 2.0;
 
     // Only the *first* exercise the cover picks for a group is a stand-in for that
