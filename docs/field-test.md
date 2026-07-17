@@ -350,17 +350,21 @@ overhead press"*, an Assess of the press in the same session, and the press in
 the work rotation two days later. Other rungs taken: single-leg hamstring
 curls → Nordic eccentric, Dead bug → knee tuck.
 
-## R4-3. A coarse rack turned the estimate into a phantom miss — FIXED
+## R4-3. A coarse rack turned the estimate into a phantom miss — SUPERSEDED (round 5)
 
 The overhead press estimate (≈5.8 kg e1RM, measured at 5 kg × 5) computed a
 working load between the owned 4 kg and 5 kg bells, and snapping to the
 *nearest* rung chose 4 kg — where the rep range's top can only demonstrate
 ≈5.3 kg. Every session read as a miss **no matter how well it went**; misses
 held progression, two stepped down, three re-opened the measurement, and the
-loop repeated. Fixed: on a full-effort day the working load rounds **up**
-between rungs — fewer reps, and success is achievable. On an eased day (low
-readiness, or holding after a genuine miss) the lighter rung is the point and
-stands. Week-7 rollups after the fix: every miss-streak zero.
+loop repeated. Fixed at the time by rounding the working load **up** between
+rungs, so the reps could demonstrate the estimate. **Round 5 reverted that** and
+fixed the cause instead — the phantom miss was the ledger judging sessions
+against the ceiling rather than the ask (R5-1), and once the ask is judged at
+the load actually used, the nearest rung is honest. Rounding up turned out to be
+actively harmful: it asked for reps below the mode's range, and it made the load
+oscillate between two rungs session after session. The diagnosis here was right;
+the fix was a workaround.
 
 ## What round 4 confirmed is right
 
@@ -389,3 +393,68 @@ stands. Week-7 rollups after the fix: every miss-streak zero.
 - **`difficulty` is now load-bearing.** The ladder reads it, so a wrong rung
   is a wrong step-up; the values deserve an authoring pass per pattern +
   primary group (see [todo](todo.md)).
+
+# Round 5 — the coach marking its own easing as your failure
+
+Round 4 closed with one thing flagged and unexamined: an eased session might read
+as a miss. It does, and it was worse than flagged. The test is one an engine of
+pure functions makes cheap — play a session through `evaluate`, have an athlete do
+**exactly** what the card says, and ask the ledger what it made of that:
+
+| session | the card | complied | ledger said |
+| --- | --- | --- | --- |
+| normal day | 5 @ 40 kg | 5 @ 40 kg | Met |
+| low-readiness day | 5 @ 37.5 kg | 5 @ 37.5 kg | **Missed** |
+| back-off day (after 2 real misses) | 6 @ 35 kg | 6 @ 35 kg | **Missed → streak 3** |
+
+## R5-1. The back-off fed itself — FIXED
+
+The third row is the serious one. Two genuine misses ease the ask down a rung to
+rebuild from; the eased session then reads as miss number three, which trips
+`REMEASURE_AFTER` and throws the exercise back to calibration. So the "back off
+and rebuild" behaviour written up in round 4 **never rebuilt** — every real slump
+slid into a re-measurement, and the rung it backed off to never got the chance to
+prove anything. The badweek simulation hid it: that athlete's true strength really
+did drop, so the misses looked earned.
+
+Cause: the ledger compared each session against the athlete's **ceiling** (the
+ability estimate), while the engine deliberately prescribes **below** the ceiling
+whenever it eases — and a set logged without an RPE is taken at face value, as if
+it were taken to failure. The ledger could not tell "eased on purpose" from "fell
+short". Same family as R4-1 and R4-3: the coach not understanding its own
+instructions.
+
+Fixed: the ledger reconstructs **what was asked** and judges compliance with it.
+It walks sessions forward, so at each step it holds exactly the feedback the engine
+held that morning, and it recomputes the ask at **the load actually logged** — so
+the weight rack never has to be reconstructed, and an improvised weight is judged
+honestly rather than as a shortfall. The dose constants both sides read moved into
+`dose.rs`: two copies would have the coach asking one number and the ledger marking
+another. A genuine shortfall against an eased ask still escalates — the fix must not
+buy its calm by going deaf.
+
+Missed cards across the eight-week traces: improver 53 → **28**, plateauer 62 →
+**42**, badweek 62 → **43**, while more distinct movements got trained (45 → 47) and
+spurious re-measures fell. The back-test moved only where R4-3 was reverted.
+
+## R5-2. Readiness — STILL OPEN
+
+The second row of that table is not fixed. A low-readiness day eases the ask too,
+but readiness comes from health-sync and is not reconstructible from set history, so
+the ledger judges those sessions as full-effort. A badly-slept day, complied with
+perfectly, is still recorded as a miss. The route is a per-day recovery read on
+health's `/internal/*` group — it already queries 28 days of every stream and
+discards all but the summary, so it is an additive projection, not new data. Tracked
+in [trainer.md](trainer.md) under "Not built yet".
+
+## What round 5 confirmed is right
+
+- **The simulator earns its keep.** Every bug in rounds 4 and 5 lives in the loop
+  between the coach's own prescription and its own reading of the result; no unit
+  test and no back-test can see that seam, because replayed history never responds
+  to the coach.
+- **A fix that needs a workaround elsewhere is the wrong fix.** R4-3 was a real
+  diagnosis with a symptomatic cure, and it survived a back-test, a full suite and
+  three simulated futures. What exposed it was fixing the actual cause and watching
+  the workaround start fighting it (the convergence property test caught the load
+  oscillating between rungs).

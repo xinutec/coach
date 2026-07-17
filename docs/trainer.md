@@ -147,29 +147,39 @@ coach can now say.
 weighted lift *has* a load and a carry *has* both a weight and a time.
 
 - **Weighted:** the load whose top-of-range reps the estimate supports (inverse
-  Epley), snapped to what you own — **rounding up between rungs on a full-effort
-  day**. The rung below caps what the rep range can demonstrate under the estimate
-  itself, so on a coarse rack every session would read as a miss no matter how well
-  it went. Double progression follows: reps climb to the top of the range, and the
-  load steps only when logged sets raise the estimate past the next owned weight —
-  never a blind +2.5 kg the reps don't support.
+  Epley), snapped to the nearest weight you own. Double progression follows: reps
+  climb to the top of the range, and the load steps only when logged sets raise the
+  estimate past the next owned weight — never a blind +2.5 kg the reps don't support.
 - **Reps:** climb the range off the decayed best.
 - **Hold:** off the best hold.
 - **Loaded carry:** the same double progression with seconds where the reps go —
   climb the clock to the ceiling, then take the next weight you own and reset it.
 
 **Asking for more is a probe, and the sets answer it.** Every prescription is a
-prediction; the prediction-error ledger ([`pacing/residual.rs`]) recomputes, from
-history alone, how each recent session compared with what the engine believed that
-morning (best set against the morning's estimate — sessions, not sets, because the
-third set's fatigue is not a miss). One miss **holds** the numbers; two in a row
-**step down** a rung; three **re-open the measurement** — a repeatedly wrong estimate
-is a wrong number, not a run of bad luck. And the +1 rep, the +5 s, the next bell is
-**earned**: by a session that beat the estimate, or periodically after every third
+prediction, and the prediction-error ledger ([`pacing/residual.rs`]) recomputes from
+history alone how each session turned out. One miss **holds** the numbers; two in a
+row **step down** a rung; three **re-open the measurement** — a repeatedly wrong
+estimate is a wrong number, not a run of bad luck. And the +1 rep, the +5 s, the next
+bell is **earned**: by a session that beat the ask, or periodically after every third
 quiet session — the sessions in between consolidate at the demonstrated best.
-Matching your best while failing the ask moves nothing (ability is a max), so
-without the cadence the same failing +1 was re-asked verbatim every session for
-weeks.
+Matching your best while failing the ask moves nothing (ability is a max), so without
+the cadence the same failing +1 was re-asked verbatim every session for weeks.
+
+**The ledger judges the ask, not the ceiling** — and this is the load-bearing
+distinction. The engine does not always ask for everything the estimate supports:
+whenever it is holding or backing off (and, once readiness is reconstructible, on an
+under-recovered day) it deliberately asks for *less*. Judged against the ceiling,
+full compliance with that reduced ask read as failure — and the back-off fed itself,
+because two real misses eased the ask and the eased session then became miss number
+three, sending a perfectly good estimate back to calibration. "Back off and rebuild"
+could never rebuild. So the ask is reconstructed from the same numbers `prescribe`
+used, at **the load the athlete actually logged** — which means the owned-weight rack
+never has to be reconstructed, and an improvised weight is judged honestly instead of
+as a shortfall. A session is judged on its best set (the third set's fatigue is not a
+miss), and a session sharing no metric with the estimate is not evidence either way —
+the engine must never back off from silence. The dose constants both sides read live
+in one place ([`pacing/dose.rs`]): two copies would mean the coach asking one number
+and the ledger marking another, with the athlete taking the blame for the gap.
 
 When confidence is `Low`/`None` the item is a **calibration** instead, with a
 protocol per metric (build up to a hard set of ~5; AMRAP; one max hold; carry it and
@@ -306,6 +316,17 @@ constants that minimise historical residual for this athlete. Calibration, not
 learning: the model form never changes, and the back-test shows exactly what a
 switch does. *(The E4 tail.)*
 
+**An under-recovered day still reads as a failure.** Low readiness makes the engine
+ask for less, but readiness lives in health-sync and is not reconstructible from set
+history — so the ledger judges those sessions as though they were full-effort, and
+full compliance on a badly-slept day is recorded as a miss. Everything else that eases
+the ask is already handled (see §4); this is the last hole. Wanted: a per-day recovery
+read on health's `/internal/*` group — it already queries 28 days of every stream and
+throws all but the summary away — so the ledger can ask what the coach knew that
+morning. Deliberately *not* solved by coach storing the score it computed: that would
+be the one input that stops re-deriving when the formula is tuned, while every other
+number in the engine moves. *(The G4 tail.)*
+
 **A commercial gym is mostly unrepresentable.** The kit taxonomy has no lat pulldown,
 leg press, chest press, seated row, leg curl or extension, smith machine or squat
 rack — so in a gym full of them the coach cannot be told they are there, and plans
@@ -328,6 +349,7 @@ not a fix.
 [`engine.rs`]: ../src/pacing/engine.rs
 [`pacing/ability.rs`]: ../src/pacing/ability.rs
 [`pacing/residual.rs`]: ../src/pacing/residual.rs
+[`pacing/dose.rs`]: ../src/pacing/dose.rs
 [`pacing/cover.rs`]: ../src/pacing/cover.rs
 [`pacing/dose.rs`]: ../src/pacing/dose.rs
 [`seed/render.rs`]: ../src/seed/render.rs
