@@ -486,7 +486,7 @@ async fn main() -> Result<()> {
         if d % 7 == 6 {
             let eow = date.and_hms_opt(23, 0, 0).unwrap();
             let est = ability::abilities(&hist, eow);
-            let res = residual::residuals(&hist);
+            let res = residual::residuals(&hist, ctx.mode);
             let mut rows: BTreeMap<String, String> = BTreeMap::new();
             for id in &touched {
                 let name = name_of.get(id).cloned().unwrap_or_else(|| id.to_string());

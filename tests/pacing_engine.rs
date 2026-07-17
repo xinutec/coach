@@ -2535,39 +2535,51 @@ fn a_plateaued_movement_hands_over_to_its_harder_sibling() {
     );
 }
 
-// R4-3: a coarse rack must not snap the working load into a phantom miss. With
-// bells at 4 and 5 kg and an estimate measured at 5 kg, the computed working
-// load lands between rungs; the *nearest* rung (4 kg) caps what the rep range
-// can demonstrate below the estimate itself, so every session reads as a miss
-// no matter how well it goes — misses block progression, three trigger a
-// re-measure, and the loop repeats (the simulation's OHP finding). The coach
-// hands over the heavier bell instead: fewer reps, and success is achievable.
+// R5-3 (supersedes R4-3): a coarse rack must not manufacture a miss. With bells
+// at 4 and 5 kg and an estimate measured at 5 kg, the computed working load lands
+// between rungs. Round 4 answered that by rounding the *load* up, so the rep range
+// could demonstrate the estimate — but that was treating a symptom: the misses came
+// from the ledger judging sessions against the athlete's ceiling instead of against
+// the ask. The ask is now reconstructed at the load actually used, so the nearest
+// rung is judged honestly — and it is also the better prescription, because rounding
+// up asked for reps below the mode's range and made the load oscillate between two
+// rungs session after session. What matters is the consequence, so that is what this
+// asserts: do what the card says, and the ledger holds nothing against you.
 #[test]
-fn a_coarse_rack_snaps_the_working_load_up_not_into_a_phantom_miss() {
+fn a_coarse_rack_does_not_manufacture_a_miss() {
+    let h = vec![wset(5, days_ago(2), 5.0, 5)];
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
             exercise_loads: HashMap::from([(5, vec![4.0, 5.0])]),
-            ..input(
-                Mode::Balanced,
-                vec![barbell_row()],
-                vec![wset(5, days_ago(2), 5.0, 5)],
-                None,
-                None,
-            )
+            ..input(Mode::Balanced, vec![barbell_row()], h.clone(), None, None)
         },
         now(),
     );
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind != SuggestionKind::Warmup)
-        .expect("a trusted row in deficit is planned");
-    assert_eq!(w.kind, SuggestionKind::Work);
+        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .expect("a trusted row in deficit is prescribed");
     assert_eq!(
         w.load_kg,
-        Some(5.0),
-        "the rung above the working load — a rung the estimate can be met at"
+        Some(4.0),
+        "the nearest rung — the one whose reps land inside the mode's range"
+    );
+    let asked = w.rep_low.expect("a weighted ask carries reps");
+    assert!(
+        (6..=10).contains(&asked),
+        "the ask stays inside the Balanced range, got {asked}"
+    );
+
+    let mut done = h;
+    done.push(wset(5, now(), w.load_kg.unwrap(), asked));
+    let led = coach::pacing::residual::residuals(&done, Mode::Balanced)
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(
+        led.consecutive_misses, 0,
+        "doing exactly what was asked, at a weight he owns, is never a failure"
     );
 }
 
@@ -2594,5 +2606,110 @@ fn a_topped_out_movement_hands_over_even_while_meeting_it() {
     assert!(
         out.plan.iter().any(|s| s.exercise_id == 8),
         "the harder sibling takes the slot"
+    );
+}
+
+// ---- round 5: the ledger judges the ask, not the ceiling --------------------
+//
+// Playing full sessions through `evaluate` and feeding the results back to the
+// ledger caught it marking *its own easing* as the athlete's failure. Both tests
+// below drive the real loop — read the card, do exactly what it says, ask the
+// ledger what it made of that — because the bug only exists in the seam between
+// the two, and neither side looks wrong alone.
+
+/// Do precisely what the card says, and hand the ledger the result.
+fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Residual {
+    let out = evaluate(inp, now());
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .expect("a trusted lift in deficit is prescribed, not assessed");
+    h.push(wset(
+        5,
+        now(),
+        w.load_kg.expect("a weighted lift has a load"),
+        w.rep_low.expect("and a rep target"),
+    ));
+    coach::pacing::residual::residuals(&h, Mode::Strength)
+        .remove(&5)
+        .unwrap_or_default()
+}
+
+fn strength_row(h: Vec<SetRec>) -> PacingInput {
+    PacingInput {
+        groups: back_only(),
+        exercise_loads: HashMap::from([(5, (8..=40).map(|i| i as f64 * 2.5).collect())]),
+        ..input(Mode::Strength, vec![barbell_row()], h, None, Some(vec![3]))
+    }
+}
+
+// R5-1: two real misses ease the ask down a rung to rebuild from. Meeting that
+// eased ask is the athlete doing exactly what was asked — it must *clear* the
+// streak. Judged against the ceiling instead, it read as miss number three and
+// tripped the re-measure, so "back off and rebuild" fed itself: every genuine
+// slump ended in calibration, and the rung it backed off to was never given the
+// chance to prove anything.
+#[test]
+fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
+    let h = vec![
+        wset(5, days_ago(8), 40.0, 5),
+        wset(5, days_ago(6), 40.0, 5),
+        wset(5, days_ago(4), 40.0, 5),
+        wset(5, days_ago(2), 30.0, 5), // a real miss
+        wset(5, days_ago(1), 30.0, 5), // and another — the coach eases off
+    ];
+    let before = coach::pacing::residual::residuals(&h, Mode::Strength)
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(before.consecutive_misses, 2, "two genuine misses");
+    assert!(before.wants_back_off() && !before.wants_remeasure());
+
+    let led = comply(h.clone(), &strength_row(h));
+    assert_eq!(
+        led.outcomes.last().map(|(_, o)| *o),
+        Some(coach::pacing::residual::Outcome::Met),
+        "doing exactly what was asked is not a failure"
+    );
+    assert_eq!(
+        led.consecutive_misses, 0,
+        "the streak clears — this is the rebuild"
+    );
+    assert!(
+        !led.wants_remeasure(),
+        "the coach's own back-off is not evidence against the estimate"
+    );
+}
+
+// R5-2: a genuine shortfall against an eased ask still counts. The fix must not
+// buy its calm by going deaf — falling short of a *reduced* number is the
+// clearest evidence yet that the estimate is wrong.
+#[test]
+fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
+    let mut h = vec![
+        wset(5, days_ago(8), 40.0, 5),
+        wset(5, days_ago(6), 40.0, 5),
+        wset(5, days_ago(4), 40.0, 5),
+        wset(5, days_ago(2), 30.0, 5),
+        wset(5, days_ago(1), 30.0, 5),
+    ];
+    let out = evaluate(&strength_row(h.clone()), now());
+    let w = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .unwrap();
+    // Two reps short of the eased ask.
+    h.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
+    let led = coach::pacing::residual::residuals(&h, Mode::Strength)
+        .remove(&5)
+        .unwrap_or_default();
+    assert_eq!(
+        led.consecutive_misses, 3,
+        "a real shortfall still escalates"
+    );
+    assert!(
+        led.wants_remeasure(),
+        "three real misses running is a wrong estimate — go and measure it"
     );
 }

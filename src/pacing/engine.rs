@@ -27,7 +27,10 @@ use crate::settings::types::Mode;
 
 use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
-use super::dose::{Dose, Inventory, Known, Measure, RepTarget};
+use super::dose::{
+    CARRY_BASE_S, CARRY_TOP_S, Dose, HOLD_STEP_S, Inventory, Known, LOW_READINESS_EXTRA_RIR,
+    Measure, RepTarget, rep_range, reserve,
+};
 use super::residual::{self, Residual};
 use super::types::{
     Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
@@ -37,26 +40,11 @@ use super::types::{
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
 const READINESS_HOLD_BELOW: f64 = 0.40;
 
-/// Reps in reserve the working load targets at the top of the rep range. `0` =
-/// prescribe to demonstrated capacity: a load whose top-of-range reps match your
-/// estimated e1RM. Progression is then *earned* — the load only steps up when
-/// logged sets raise the e1RM enough to cross the next owned weight — never a
-/// blind +2.5 kg the reps don't support.
-const TARGET_RIR: f64 = 0.0;
-/// Extra reps-in-reserve on a low-readiness day → a lighter working load.
-const LOW_READINESS_EXTRA_RIR: f64 = 2.0;
 /// Cold-start hold (seconds) when an isometric has no history yet.
 const COLD_HOLD_S: i32 = 20;
-/// Seconds added to a hold when progressing (bounded properly in a later stage).
-const HOLD_STEP_S: i32 = 5;
 /// A calibration set for a weighted lift: build up to a hard-but-clean set of
 /// this many reps and log load/reps/RPE — the measurement the estimate needs.
 const ASSESS_WEIGHTED_REPS: i32 = 5;
-/// A loaded carry's working duration, and the ceiling it climbs to before the
-/// weight steps instead. Double progression, with seconds where the reps go: a
-/// carry that has reached the ceiling is asking for more weight, not more walking.
-const CARRY_BASE_S: i32 = 30;
-const CARRY_TOP_S: i32 = 60;
 /// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
 const WARMUP_SETS: i32 = 1;
 /// A mobility drill's dose. "Warm up" with no number is a vibe, not an
@@ -229,35 +217,6 @@ fn region_mult(mode: Mode, r: Region) -> f64 {
     }
 }
 
-/// Rep range for a mode + metric (holds are seconds, handled in [`prescribe`]).
-fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
-    let (low, high) = match mode {
-        Mode::Strength => {
-            if weighted {
-                (3, 6)
-            } else {
-                (5, 8)
-            }
-        }
-        Mode::Balanced => {
-            if weighted {
-                (6, 10)
-            } else {
-                (8, 12)
-            }
-        }
-        Mode::Skills => (3, 6),
-        Mode::Conditioning => {
-            if weighted {
-                (12, 20)
-            } else {
-                (15, 25)
-            }
-        }
-    };
-    RepTarget { low, high }
-}
-
 /// How well an exercise fits the mode's style (for ranking within a group).
 fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
     match mode {
@@ -382,34 +341,28 @@ fn prescribe(
     let advance = advance && !feedback.wants_hold();
     let back_off = feedback.wants_back_off();
     let probe = advance && feedback.probe_due();
-    let reserve = if advance {
-        TARGET_RIR
-    } else {
-        TARGET_RIR + LOW_READINESS_EXTRA_RIR
-    };
+    // The same reserve the ledger credits when it judges the resulting session —
+    // one number, one source (`dose::reserve`).
+    let reserve = reserve(advance);
     match loaded {
         Loaded::Weighted(inv) => {
             let range = rep_range(mode, true);
             match ability.e1rm {
                 Some(e) => {
                     // Working load: the weight you own nearest the one that puts
-                    // the top of the range within reach at the target reserve —
-                    // rounding *up* between rungs on a full-effort day. A rung
-                    // below caps what the rep range can demonstrate under the
-                    // estimate itself, so on a coarse rack every session would
-                    // read as a miss no matter how well it went: misses block
-                    // progression, three trigger a re-measure, and the loop
-                    // repeats (the simulation's OHP finding, R4-3). The rung
-                    // above asks fewer reps and leaves success achievable. On an
-                    // eased day (low readiness, or holding after a miss) the
-                    // lighter rung is the point, so the nearest one stands.
-                    let ideal = load_for(e, range.high as f64, reserve);
-                    let nearest = inv.snap(ideal);
-                    let target = if advance && nearest + 1e-9 < ideal {
-                        inv.next_above(nearest)
-                    } else {
-                        nearest
-                    };
+                    // the top of the range within reach at the target reserve.
+                    //
+                    // Round-4 rounded *up* between rungs here, to stop a coarse
+                    // rack reading every session as a miss (R4-3). That was a
+                    // workaround: the misses came from the ledger judging
+                    // sessions against the athlete's ceiling rather than against
+                    // the ask, and it now judges the ask at the load actually
+                    // used (`residual::judge`), so the nearest rung demonstrates
+                    // exactly what was asked of it. With the cause fixed,
+                    // rounding up is worse than useless — it prescribes a rung
+                    // whose reps fall out of the mode's range, and it made the
+                    // load oscillate between two rungs session after session.
+                    let target = inv.snap(load_for(e, range.high as f64, reserve));
                     // Missed it twice running → the estimate is too heavy, not the
                     // day. Take a rung off and rebuild from there.
                     let load = if back_off {
@@ -1120,7 +1073,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // How well those estimates have been describing him lately: for each session, what
     // the engine believed beforehand versus what he actually did. Recomputed from
     // history, so the engine stays stateless.
-    let residuals = residual::residuals(&planning);
+    let residuals = residual::residuals(&planning, input.mode);
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     //

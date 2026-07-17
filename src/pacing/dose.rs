@@ -26,6 +26,72 @@ use std::collections::HashMap;
 
 use super::ability::{Ability, Confidence, confidence_of};
 use super::residual::Residual;
+use crate::settings::types::Mode;
+
+// ---- what a dose looks like ------------------------------------------------
+//
+// These live here, next to `Dose`, because the ledger reads them too: it has to
+// know what the coach *asked* in order to judge whether the athlete did it (see
+// `residual::judge`). Two copies of these numbers would mean the coach asking
+// one thing and the ledger marking another — and the athlete taking the blame
+// for the difference.
+
+/// Reps in reserve the working load targets at the top of the rep range. `0` =
+/// prescribe to demonstrated capacity: a load whose top-of-range reps match your
+/// estimated e1RM. Progression is then *earned* — the load only steps up when
+/// logged sets raise the e1RM enough to cross the next owned weight — never a
+/// blind +2.5 kg the reps don't support.
+pub const TARGET_RIR: f64 = 0.0;
+/// Extra reps-in-reserve when the coach is easing off — a low-readiness day, or
+/// the miss-response holding/backing off. A lighter working load, fewer reps
+/// asked at a given one.
+pub const LOW_READINESS_EXTRA_RIR: f64 = 2.0;
+/// Seconds added to a hold when progressing (bounded properly in a later stage).
+pub const HOLD_STEP_S: i32 = 5;
+/// A loaded carry's working duration, and the ceiling it climbs to before the
+/// weight steps instead. Double progression, with seconds where the reps go: a
+/// carry that has reached the ceiling is asking for more weight, not more walking.
+pub const CARRY_BASE_S: i32 = 30;
+pub const CARRY_TOP_S: i32 = 60;
+
+/// The reserve the ask leaves. `advance` is "today is a full-effort day" — false
+/// on a low-readiness day or while the miss-response is easing off.
+pub fn reserve(advance: bool) -> f64 {
+    if advance {
+        TARGET_RIR
+    } else {
+        TARGET_RIR + LOW_READINESS_EXTRA_RIR
+    }
+}
+
+/// Rep range for a mode + metric (holds are seconds, handled in `engine::prescribe`).
+pub fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
+    let (low, high) = match mode {
+        Mode::Strength => {
+            if weighted {
+                (3, 6)
+            } else {
+                (5, 8)
+            }
+        }
+        Mode::Balanced => {
+            if weighted {
+                (6, 10)
+            } else {
+                (8, 12)
+            }
+        }
+        Mode::Skills => (3, 6),
+        Mode::Conditioning => {
+            if weighted {
+                (12, 20)
+            } else {
+                (15, 25)
+            }
+        }
+    };
+    RepTarget { low, high }
+}
 
 /// The discrete weights available for one exercise's kit at this location —
 /// sorted ascending, deduped, and **never empty** (the only constructor rejects

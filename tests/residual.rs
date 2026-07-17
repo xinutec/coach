@@ -11,6 +11,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use coach::pacing::residual::{Outcome, residuals};
 use coach::pacing::types::SetRec;
+use coach::settings::types::Mode;
 
 fn day(n: i64) -> NaiveDateTime {
     NaiveDate::from_ymd_opt(2026, 1, 1)
@@ -32,7 +33,9 @@ fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
 }
 
 fn ledger_for(sets: Vec<SetRec>) -> coach::pacing::residual::Residual {
-    residuals(&sets).remove(&1).unwrap_or_default()
+    residuals(&sets, Mode::Balanced)
+        .remove(&1)
+        .unwrap_or_default()
 }
 
 #[test]

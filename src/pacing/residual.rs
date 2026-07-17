@@ -30,7 +30,9 @@ use std::collections::HashMap;
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
+use super::dose::{CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, rep_range, reserve};
 use super::types::SetRec;
+use crate::settings::types::Mode;
 
 // ---- tunable heuristics ----------------------------------------------------
 
@@ -134,18 +136,18 @@ impl Residual {
 /// Takes no `now`: every session is judged at *its own* moment, against what was
 /// known *then*. The ledger is a fact about the past and does not change with the
 /// clock — which is also what makes it cheap to recompute on every verdict.
-pub fn residuals(history: &[SetRec]) -> HashMap<i64, Residual> {
+pub fn residuals(history: &[SetRec], mode: Mode) -> HashMap<i64, Residual> {
     let mut by_ex: HashMap<i64, Vec<&SetRec>> = HashMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
     by_ex
         .into_iter()
-        .map(|(id, sets)| (id, ledger(&sets)))
+        .map(|(id, sets)| (id, ledger(&sets, mode)))
         .collect()
 }
 
-fn ledger(sets: &[&SetRec]) -> Residual {
+fn ledger(sets: &[&SetRec], mode: Mode) -> Residual {
     // Sessions, oldest first. A session is a distinct local day — the same unit
     // confidence counts in.
     let mut days: Vec<NaiveDateTime> = sets.iter().map(|s| s.logged_at).collect();
@@ -157,7 +159,11 @@ fn ledger(sets: &[&SetRec]) -> Residual {
         }
     }
 
-    let mut outcomes = Vec::new();
+    // Walked forward, because each session is judged against what the engine
+    // believed *and asked* that morning — and the ask depends on the ledger up to
+    // that point (a hold, a back-off, a probe). `led` therefore is, at every step,
+    // exactly the feedback the engine held when it wrote that day's prescription.
+    let mut led = Residual::default();
     for day in &sessions {
         // What the engine knew that morning: strictly-earlier sets, estimated at the
         // moment the session began. The very first session has nothing to predict
@@ -177,51 +183,155 @@ fn ledger(sets: &[&SetRec]) -> Residual {
             .copied()
             .filter(|s| s.logged_at.date() == day.date())
             .collect();
-        // The day is judged on its best set — the estimate is a claim about what the
-        // athlete *can* do, not about what the third set of a session looks like.
-        let actual = ability::estimate(&today, *day);
 
-        if let Some(o) = compare(&predicted, &actual) {
-            outcomes.push((day.date(), o));
+        if let Some(o) = judge(&predicted, &today, &led, mode) {
+            led.consecutive_misses = if o == Outcome::Missed {
+                led.consecutive_misses + 1
+            } else {
+                0
+            };
+            led.outcomes.push((day.date(), o));
+        }
+    }
+    led
+}
+
+/// How the session compared with **what the engine asked that morning** — not with
+/// the athlete's ceiling.
+///
+/// That distinction is the whole point of this function. The engine does not always
+/// ask for everything the estimate supports: whenever the miss-response is holding
+/// or backing off, it deliberately asks for *less* ([`dose::reserve`]). Judging
+/// those sessions against the ceiling scored full compliance as failure — and the
+/// back-off was the worst case, because it fed itself: two real misses eased the
+/// ask, the eased session then read as miss number three, and a perfectly good
+/// estimate was sent back to calibration. "Back off and rebuild" could never
+/// rebuild. So the ask is reconstructed here from the same numbers `prescribe`
+/// used, and the question the ledger answers is "did you do what I asked?".
+///
+/// The rack never has to be reconstructed: the athlete's set records the load they
+/// actually used, so the ask is recomputed *at that load*. Which also means an
+/// improvised weight is judged honestly rather than as a miss.
+///
+/// `None` when the session says nothing about the ask (no shared metric) — it is
+/// not evidence either way, and must not be recorded as a miss, which would have
+/// the engine back off from silence.
+///
+/// One gap remains, deliberately: a **low-readiness** day also eases the ask, and
+/// readiness is not reconstructible from set history — it lives in health-sync. So
+/// an eased-by-biometrics session can still read as a miss. Closing that needs a
+/// per-day recovery read from health; until then this function assumes the day was
+/// full-effort unless the ledger itself says otherwise.
+fn judge(
+    predicted: &Ability,
+    today: &[&SetRec],
+    feedback: &Residual,
+    mode: Mode,
+) -> Option<Outcome> {
+    // Exactly the reconstruction `prescribe` performs from the same inputs.
+    let advance = !feedback.wants_hold();
+    let probe = advance && feedback.probe_due();
+    let back_off = feedback.wants_back_off();
+    let rir = reserve(advance);
+
+    // A carry is judged first, and as a carry: it carries both a load and a hold,
+    // so a plain hold comparison below would silently claim it and judge a walk
+    // by its clock alone.
+    if let Some(c) = predicted.carry {
+        let best = today
+            .iter()
+            .filter(|s| s.load_kg.is_some() && s.hold_s.is_some())
+            .max_by(|a, b| {
+                (a.load_kg.unwrap(), a.hold_s.unwrap())
+                    .partial_cmp(&(b.load_kg.unwrap(), b.hold_s.unwrap()))
+                    .unwrap()
+            });
+        if let Some(bs) = best {
+            let (load, done) = (bs.load_kg.unwrap(), bs.hold_s.unwrap());
+            // The weight is the coach's choice, so only the clock is the athlete's
+            // to miss. A stepped weight (either way) restarts the clock; otherwise
+            // the clock climbs on a probe and holds between them.
+            let stepped = (load - c.load).abs() > 1e-9;
+            let asked = if stepped {
+                CARRY_BASE_S
+            } else if probe {
+                (c.secs + HOLD_STEP_S).min(CARRY_TOP_S)
+            } else {
+                c.secs
+            };
+            return Some(band(done as f64, asked as f64));
         }
     }
 
-    let consecutive_misses = outcomes
-        .iter()
-        .rev()
-        .take_while(|(_, o)| *o == Outcome::Missed)
-        .count() as i32;
-    Residual {
-        outcomes,
-        consecutive_misses,
+    // Weighted work: how many reps did the estimate support at the load actually
+    // used, leaving the reserve the coach asked for?
+    if let Some(e) = predicted.e1rm {
+        let best = today
+            .iter()
+            .filter(|s| s.load_kg.is_some() && s.reps.is_some())
+            .max_by(|a, b| face(a).total_cmp(&face(b)));
+        if let Some(bs) = best {
+            let (load, done) = (bs.load_kg.unwrap(), bs.reps.unwrap());
+            let raw = 30.0 * (e / load - 1.0) - rir;
+            let aim = if probe { raw.round() } else { raw.floor() };
+            let asked = (aim as i32).clamp(1, rep_range(mode, true).high);
+            return Some(reps_band(done, asked));
+        }
     }
-}
 
-/// Compare a session against the estimate that preceded it, on whichever metric they
-/// share. `None` when they share none — the session says nothing about the estimate,
-/// so it is not evidence either way (and must not be recorded as a miss, which would
-/// have the engine back off from silence).
-fn compare(predicted: &Ability, actual: &Ability) -> Option<Outcome> {
-    // Weighted work: compare the estimated 1RM the session demonstrated.
-    if let (Some(p), Some(a)) = (predicted.e1rm, actual.e1rm) {
-        return Some(band(a, p));
+    // Bodyweight reps: the reserve doesn't apply (there is no load to lighten), so
+    // the ask is the demonstrated best, plus one on a probe and minus one on a
+    // back-off — the same three cases `prescribe` has.
+    if let Some(best) = predicted.best_reps {
+        let done = today
+            .iter()
+            .filter(|s| s.load_kg.is_none())
+            .filter_map(|s| s.reps)
+            .max();
+        if let Some(done) = done {
+            let aim = match (probe, back_off) {
+                (_, true) => best - 1,
+                (true, false) => best + 1,
+                (false, false) => best,
+            };
+            let asked = aim.clamp(1, rep_range(mode, false).high);
+            return Some(reps_band(done, asked));
+        }
     }
-    if let (Some(p), Some(a)) = (predicted.best_reps, actual.best_reps) {
-        return Some(band(a as f64, p as f64));
-    }
-    if let (Some(p), Some(a)) = (predicted.best_hold, actual.best_hold) {
-        return Some(band(a as f64, p as f64));
-    }
-    // A carry is two numbers, so "worse" needs saying: less weight is a miss
-    // whatever the clock says, and at the same weight it comes down to the clock.
-    if let (Some(p), Some(a)) = (predicted.carry, actual.carry) {
-        return Some(if a.load < p.load * (1.0 - MISS_MARGIN) {
-            Outcome::Missed
-        } else {
-            band(a.secs as f64, p.secs as f64)
-        });
+
+    if let Some(base) = predicted.best_hold {
+        let done = today
+            .iter()
+            .filter(|s| s.load_kg.is_none())
+            .filter_map(|s| s.hold_s)
+            .max();
+        if let Some(done) = done {
+            let secs = match (probe, back_off) {
+                (_, true) => base - HOLD_STEP_S,
+                (true, false) => base + HOLD_STEP_S,
+                (false, false) => base,
+            };
+            return Some(band(done as f64, secs.max(HOLD_STEP_S) as f64));
+        }
     }
     None
+}
+
+/// A weighted set's face-value e1RM — for picking the day's best set. The session
+/// is judged on its best: the estimate is a claim about what the athlete *can* do,
+/// not about what the third set of a session looks like.
+fn face(s: &SetRec) -> f64 {
+    s.load_kg.unwrap_or(0.0) * (1.0 + s.reps.unwrap_or(0) as f64 / 30.0)
+}
+
+/// Reps are the unit the ask is written in, and they're integers — so compliance is
+/// exact, with no quantisation margin to forgive.
+fn reps_band(done: i32, asked: i32) -> Outcome {
+    match done.cmp(&asked) {
+        std::cmp::Ordering::Less => Outcome::Missed,
+        std::cmp::Ordering::Equal => Outcome::Met,
+        std::cmp::Ordering::Greater => Outcome::Beat,
+    }
 }
 
 fn band(actual: f64, predicted: f64) -> Outcome {
