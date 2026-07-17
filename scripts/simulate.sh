@@ -11,6 +11,7 @@
 #
 #   ./scripts/simulate.sh                              # 8 weeks, improver
 #   SIM_ATHLETE=plateauer ./scripts/simulate.sh        # temperaments: improver | plateauer | badweek
+#   SIM_RECOVERY=roughweek ./scripts/simulate.sh       # recovery: untracked | rested | roughweek
 #   SIM_WEEKS=12 SIM_LOCATION=Office ./scripts/simulate.sh
 set -euo pipefail
 

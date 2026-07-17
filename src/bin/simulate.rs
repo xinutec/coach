@@ -27,8 +27,17 @@
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin simulate
 //!   SIM_WEEKS     — how many weeks to walk forward (default 8)
 //!   SIM_ATHLETE   — improver | plateauer | badweek (default improver)
+//!   SIM_RECOVERY  — untracked | rested | roughweek (default untracked)
 //!   SIM_USER      — user id (default pippijn)
 //!   SIM_LOCATION  — location by name (default: the user's default)
+//!
+//! `SIM_RECOVERY` drives the biometric readiness the coach reads each morning —
+//! the axis the temperament can't reach. `untracked` (the default) hands the
+//! engine no readiness, so a run reproduces the pre-readiness behaviour exactly.
+//! `roughweek` sleeps the athlete poorly through the third week: the coach eases
+//! the ask on those Low mornings, and — because it now reconstructs the readiness
+//! each session was written under (R5-2) — a compliant eased session must *not*
+//! turn up as a miss in the ledger. That is the loop the unit tests can't run.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -36,11 +45,10 @@ use anyhow::{Context, Result, bail};
 use chrono::{Duration, NaiveDate, NaiveDateTime, TimeZone, Utc};
 
 use coach::exercise::types::Metric;
+use coach::health::Recovery as RawRecovery;
 use coach::location::repo as location_repo;
-use coach::pacing::ability;
-use coach::pacing::residual;
-use coach::pacing::types::{PacingState, SetRec, Suggestion, SuggestionKind};
-use coach::pacing::{engine, service};
+use coach::pacing::types::{PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
+use coach::pacing::{ability, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
 
 /// When the athlete checks the app and (if told to) trains. Inside a default
@@ -120,6 +128,59 @@ impl Temperament {
             _ => 0.0,
         };
         HOLD_S_PER_WEEK * self.banked(w) - dip
+    }
+}
+
+// ---- the athlete's recovery (readiness), the axis temperament can't reach -----
+
+/// How the athlete slept — the biometric readiness the coach reads each morning.
+/// Separate from [`Temperament`] because ability and recovery move independently:
+/// a well-trained athlete still has a bad night, and the coach must ease *that*
+/// morning without recording it against them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sleep {
+    /// Health has nothing — readiness absent. Reproduces the pre-readiness run.
+    Untracked,
+    /// Always well-rested — readiness stays high.
+    Rested,
+    /// A poor-sleep stretch through the third sim week, easing back after.
+    RoughWeek,
+}
+
+impl Sleep {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "untracked" => Some(Self::Untracked),
+            "rested" => Some(Self::Rested),
+            "roughweek" => Some(Self::RoughWeek),
+            _ => None,
+        }
+    }
+
+    /// Hours slept before sim day `d` (0-based), or `None` when the night wasn't
+    /// tracked at all. Feeds the readiness score via the real compose function.
+    fn hours(self, d: i64) -> Option<f64> {
+        match self {
+            Self::Untracked => None,
+            Self::Rested => Some(8.0),
+            Self::RoughWeek => Some(match d {
+                14..=20 => 5.0, // the rough week — Low band, the coach eases
+                21..=24 => 6.5, // climbing back to Normal
+                _ => 8.0,       // rested either side of it
+            }),
+        }
+    }
+
+    /// The readiness the coach would compute that morning — through the *same*
+    /// pure function prod uses (health hands over raw sleep, coach scores it), so
+    /// the sim exercises the real readiness path, not a stand-in for it.
+    fn readiness_on(self, d: i64) -> Option<Readiness> {
+        let hours = self.hours(d)?;
+        readiness::readiness(&RawRecovery {
+            sleep_hours: Some(hours),
+            hrv: None,
+            resting_hr: None,
+        })
     }
 }
 
@@ -322,6 +383,13 @@ async fn main() -> Result<()> {
             None => bail!("SIM_ATHLETE must be improver | plateauer | badweek, got {raw:?}"),
         }
     };
+    let sleep = {
+        let raw = std::env::var("SIM_RECOVERY").unwrap_or_else(|_| "untracked".into());
+        match Sleep::parse(&raw) {
+            Some(s) => s,
+            None => bail!("SIM_RECOVERY must be untracked | rested | roughweek, got {raw:?}"),
+        }
+    };
 
     let pool = coach::db::connect(&url).await?;
     let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
@@ -388,7 +456,8 @@ async fn main() -> Result<()> {
     };
 
     println!(
-        "# coach simulation — user {user}, {temperament:?} athlete, {weeks} weeks from {sim_start}"
+        "# coach simulation — user {user}, {temperament:?} athlete, {sleep:?} recovery, \
+         {weeks} weeks from {sim_start}"
     );
     println!(
         "# at location {:?}; real history: {} sets through {}",
@@ -403,13 +472,30 @@ async fn main() -> Result<()> {
     let mut misses = 0usize;
     let mut assess_cards = 0usize;
     let mut touched: BTreeSet<i64> = BTreeSet::new();
+    // Readiness as it stood each morning, accumulated as the walk grows — exactly
+    // what the ledger reconstructs the ask under, so an eased session isn't judged
+    // as though it had been full-effort.
+    let mut readiness_history: HashMap<NaiveDate, Readiness> = HashMap::new();
 
     for d in 0..weeks * 7 {
         let date = sim_start + Duration::days(d);
         let week = d / 7;
         let now = date.and_hms_opt(SESSION_HOUR, 0, 0).unwrap();
+        let today_readiness = sleep.readiness_on(d);
+        if let Some(r) = today_readiness {
+            readiness_history.insert(date, r);
+        }
+        let ready_tag = today_readiness
+            .map(|r| format!(" [readiness {:?} {:.2}]", r.band, r.score))
+            .unwrap_or_default();
         let last_set_at = hist.last().map(|s| s.logged_at);
-        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None, Default::default());
+        let inp = service::input_from(
+            &ctx,
+            hist.clone(),
+            last_set_at,
+            today_readiness,
+            readiness_history.clone(),
+        );
         let verdict = engine::evaluate(&inp, now);
 
         let train = verdict.state == PacingState::Active
@@ -418,7 +504,7 @@ async fn main() -> Result<()> {
                 .iter()
                 .any(|s| s.kind != SuggestionKind::Warmup);
         if !train {
-            println!("{date}  w{week}  {:?} — rest", verdict.state);
+            println!("{date}  w{week}  {:?} — rest{ready_tag}", verdict.state);
             continue;
         }
 
@@ -429,7 +515,7 @@ async fn main() -> Result<()> {
             .filter(|s| s.kind == SuggestionKind::Warmup)
             .count();
         println!(
-            "{date}  w{week}  Active — training ({} warm-up items, {} work/assess)",
+            "{date}  w{week}  Active — training ({} warm-up items, {} work/assess){ready_tag}",
             warmups,
             verdict.plan.len() - warmups
         );
@@ -486,7 +572,7 @@ async fn main() -> Result<()> {
         if d % 7 == 6 {
             let eow = date.and_hms_opt(23, 0, 0).unwrap();
             let est = ability::abilities(&hist, eow);
-            let res = residual::residuals(&hist, ctx.mode, &Default::default());
+            let res = residual::residuals(&hist, ctx.mode, &readiness_history);
             let mut rows: BTreeMap<String, String> = BTreeMap::new();
             for id in &touched {
                 let name = name_of.get(id).cloned().unwrap_or_else(|| id.to_string());
