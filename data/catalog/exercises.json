@@ -5988,7 +5988,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "scapular_pushup.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "kneeling_lat_reach",
@@ -6050,7 +6053,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "scapular_squeeze.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "cat_cow",
@@ -6233,7 +6239,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "leg_swings_side_to_side.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "glute_bridge",
