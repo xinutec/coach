@@ -6081,7 +6081,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "cat_cow.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "biceps_wall_stretch",
