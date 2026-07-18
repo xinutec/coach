@@ -2329,7 +2329,7 @@
     "metric": "reps",
     "skill": false,
     "warmup": false,
-    "difficulty": 1,
+    "difficulty": 2,
     "position": "hanging",
     "unilateral": false,
     "cue": "Chin-up",
