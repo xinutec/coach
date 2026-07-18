@@ -1,10 +1,53 @@
 {
-  "_comment": "Catalog muscle slug -> Z-Anatomy mesh base names (side/variant suffixes .l/.r/.ol/.or/.el/.er are matched automatically). Authored incrementally; render.py fails loudly on a primary/secondary slug with no entry rather than rendering an uncoloured lie. Exclude any 'bursa' mesh that shares a muscle's name.",
+  "_comment": "Catalog muscle slug -> Z-Anatomy mesh base names (side/variant suffixes .l/.r/.ol/.or/.el/.er matched automatically). render.py colours every mesh whose base name is listed; names that don't exist are harmlessly ignored, but a primary/secondary slug that matches ZERO meshes fails the render loudly. Split muscles map to their parts/heads (the real geometry). Bursae/sheaths/tendons deliberately excluded.",
+
   "gluteus_maximus": ["Gluteus maximus muscle"],
   "gluteus_medius": ["Gluteus medius muscle"],
   "gluteus_minimus": ["Gluteus minimus muscle"],
   "biceps_femoris": ["Long head of biceps femoris", "Short head of biceps femoris"],
   "semitendinosus": ["Semitendinosus muscle"],
   "semimembranosus": ["Semimembranosus muscle"],
-  "erector_spinae": ["Erector spinae"]
+  "erector_spinae": ["Erector spinae"],
+
+  "latissimus_dorsi": ["Latissimus dorsi muscle"],
+  "teres_major": ["Teres major muscle"],
+  "teres_minor": ["Teres minor muscle"],
+  "infraspinatus": ["Infraspinatus muscle"],
+  "supraspinatus": ["Supraspinatus muscle"],
+  "trapezius": ["Descending part of trapezius muscle", "Transverse part of trapezius muscle", "Ascending part of trapezius muscle"],
+  "rhomboids": ["Rhomboid major muscle", "Rhomboid minor muscle"],
+  "serratus_anterior": ["Serratus anterior muscle"],
+
+  "deltoid_anterior": ["Clavicular part of deltoid muscle"],
+  "deltoid_posterior": ["Scapular spinal part of deltoid muscle"],
+  "pectoralis_major": ["Clavicular head of pectoralis major muscle", "Sternocostal head of pectoralis major muscle", "(Abdominal part of pectoralis major muscle)"],
+  "pectoralis_minor": ["Pectoralis minor muscle"],
+
+  "biceps_brachii": ["Long head of biceps brachii", "Short head of biceps brachii"],
+  "brachialis": ["Brachialis muscle"],
+  "brachioradialis": ["Brachioradialis muscle"],
+  "triceps_brachii": ["Long head of triceps brachii", "Lateral head of triceps brachii", "Medial head of triceps brachii"],
+  "wrist_extensors": ["Extensor carpi radialis longus", "Extensor carpi radialis brevis", "Humeral head of extensor carpi ulnaris", "Ulnar head of extensor carpi ulnaris"],
+  "wrist_flexors": ["Flexor carpi radialis", "Humeral head of flexor carpi ulnaris", "Ulnar head of flexor carpi ulnaris"],
+
+  "rectus_abdominis": ["Rectus abdominis muscle"],
+  "external_obliques": ["External abdominal oblique muscle"],
+  "transversus_abdominis": ["Transversus abdominis muscle"],
+  "quadratus_lumborum": ["Quadratus lumborum muscle"],
+
+  "iliopsoas": ["Iliopsoas muscle", "Psoas major", "Iliacus muscle"],
+  "rectus_femoris": ["Rectus femoris muscle"],
+  "vastus_lateralis": ["Vastus lateralis muscle"],
+  "vastus_medialis": ["Vastus medialis muscle"],
+  "vastus_intermedius": ["Vastus intermedius muscle"],
+  "adductor_longus": ["Adductor longus"],
+  "adductor_magnus": ["Adductor magnus"],
+  "gracilis": ["Gracilis muscle"],
+  "pectineus": ["Pectineus muscle"],
+  "tensor_fasciae_latae": ["Tensor fasciae latae"],
+
+  "gastrocnemius": ["Lateral head of gastrocnemius", "Medial head of gastrocnemius"],
+  "soleus": ["Soleus muscle"],
+  "tibialis_anterior": ["Tibialis anterior muscle"],
+  "extensor_digitorum_longus": ["Extensor digitorum longus"]
 }

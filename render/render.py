@@ -115,7 +115,10 @@ _ENVELOPE = ("fascia", "aponeurosis", "retinaculum", "sheath", "membrane")
 
 
 def is_envelope(name: str) -> bool:
-    return any(k in name.lower() for k in _ENVELOPE)
+    low = name.lower()
+    if "tensor fasciae latae" in low:  # a real muscle, not a fascia sheet
+        return False
+    return any(k in low for k in _ENVELOPE)
 
 
 # Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
