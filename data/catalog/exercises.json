@@ -5951,7 +5951,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "arm_swing_crossovers.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "scapular_pushup",
@@ -6106,7 +6109,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "biceps_wall_stretch.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "triceps_stretch_overhead",
