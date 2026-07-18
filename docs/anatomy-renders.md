@@ -90,48 +90,49 @@ mesh). Direction is undecided; options in "Decision fork" below.
 New top-level `render/` directory; the shipped artifact stays
 `data/catalog/images/<slug>.png`, seeded exactly as today.
 
-- `render/fetch-model.sh` — download the pinned Z-Anatomy release into a
-  gitignored `render/model/` (hundreds of MB; the raw asset is not committed).
-- `render/prepare.py` (bpy) — strip the atlas to the muscular system + skeleton,
-  normalize object naming, save a slim working `.blend` (also gitignored,
+Built (2026-07-18):
+
+- `render/fetch-asset.sh` — download + unzip Z-Anatomy into a gitignored
+  `render/asset/` (raw asset not committed; idempotent so the CI cache skips it).
+- `render/prepare.py` (bpy) — strip the atlas to the muscular system + skeleton
+  meshes, purge orphans, save the slim `render/slim.blend` (gitignored,
   reproducible from fetch + prepare).
-- `render/muscle-map.json` — committed. Catalog muscle slug → Z-Anatomy mesh
-  names (both sides). One-time authored table; the render fails loudly on an
-  unmapped slug rather than rendering an uncoloured lie.
-- `render/poses/<exercise-slug>.json` — committed, one per exercise: armature
-  bone rotations plus camera framing and prop placement. The pose file is the
-  authored source of truth for an illustration; diffs show exactly what changed.
-- `render/props.py` — procedural kit meshes (dumbbell, barbell, bench, box,
-  rings), parented to hand/body bones, selected by the exercise's equipment.
-- `render/render.py` (bpy) — load slim blend, apply pose, colour muscles from
-  the catalog (dark red primary, light red secondary, neutral the rest), fixed
-  camera + three-point light, render PNG.
-- `scripts/render-image.sh <slug>` — entry point; headless Blender
-  (`blender -b`), toolchain from nix.
+- `render/muscle_map.json` — committed. Catalog muscle slug → Z-Anatomy mesh
+  base names (side/variant suffixes matched automatically). Authored
+  incrementally; render.py exits non-zero on a primary/secondary slug with no
+  entry rather than rendering an uncoloured lie.
+- `render/render.py` (bpy) — load slim blend, read the exercise's muscle roles
+  from `data/catalog/exercises.json`, colour via the map (dark red primary, light
+  red secondary, neutral the rest), orthographic camera per view, white world +
+  sun, render PNG.
+- `.github/workflows/render.yml` — `workflow_dispatch` entry point (inputs:
+  `exercises`, `view`); installs pinned Blender, runs the three scripts, uploads
+  PNGs as an artifact.
 
-**Render host: isis, not the Mac.** nixpkgs Blender has no aarch64-darwin binary
-cache and fails to compile from source locally (link error, blender 5.1.2). On
-isis (Linux/NixOS) it is a cache hit. The pipeline runs over SSH on isis; the
-slim blend and pose files sync there, PNGs come back into
-`data/catalog/images/`. Confirmed 2026-07-18.
+Not yet built: `render/poses/<slug>.json` (armature pose per exercise) and
+`render/props.py` (procedural dumbbell/barbell/bench). Both are M2+.
 
-**MANDATORY: render only the slim blend, only under a memory cap.** isis is a
-production box (coach, recall, health-sync, Nextcloud, k3s) with 16 GB RAM.
-Rendering the *full* `Startup.blend` (7,184 objects, dependency-cycle warnings,
-huge Cycles BVH) exhausted RAM and hard-wedged the box — ~47 min of downtime and
-an unclean reboot on 2026-07-18. Two rules follow, both non-negotiable:
+**Render host: a GitHub Actions job, never a server we run.** The Mac can't
+build Blender (link error, aarch64-darwin, blender 5.1.2), and isis is
+production — rendering the full atlas there once exhausted its 16 GB, hard-wedged
+the box, and forced an unclean reboot (~47 min downtime, 2026-07-18). The fix is
+not to render on our machines at all: a dedicated **`workflow_dispatch`**
+workflow (`.github/workflows/render.yml`) runs on an ephemeral `ubuntu-latest`
+runner, so a blow-up kills a throwaway VM, not a service. It is manual-only —
+never on push — because renders are slow (Cycles) and rare.
 
-1. **Never render the full atlas.** `prepare.py` must run first and strip to the
-   muscular system (+ skeleton for the écorché), saving a slim blend an order of
-   magnitude smaller. The slim blend is what renders — never `Startup.blend`.
-2. **Cap the render's resources** so a blow-up kills only the render, never the
-   box. Run under a transient cgroup scope:
-   `systemd-run --scope -p MemoryMax=6G -p MemorySwapMax=0 -p CPUQuota=300% --nice=15 blender -b ...`
-   MemorySwapMax=0 turns a runaway into a cgroup OOM-kill of Blender instead of
-   whole-box swap death; CPUQuota leaves cores for the services; nice de-prioritises.
+Blender is a pinned download in the job (blender.org tarball, cached). The
+Z-Anatomy asset is fetched from its GitHub repo and cached. Renders upload as a
+build **artifact for review first**; only approved images are committed into
+`data/catalog/images/`.
 
-Verify prod is healthy (`curl coach.xinutec.org/version`, `kubectl get pods -A`)
-after every render batch.
+**Still strip to a slim blend first.** `prepare.py` reduces the 7,184-object
+atlas to the muscular system (+ skeleton) — that is what keeps even the runner
+from thrashing, and makes each render fast. Never point the render at
+`Startup.blend`.
+
+The isis path (and its `systemd-run` memory cap) is abandoned; it survives only
+in [[reference_isis_render_memory_cap]] as the reason CI is the host.
 
 Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
 versioned pose files — re-rendering an unchanged pose yields the same image, so

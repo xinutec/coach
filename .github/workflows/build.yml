@@ -11,6 +11,11 @@ on:
     branches: [main]
     paths-ignore:
       - "**/flake.lock"
+      # Render pipeline + docs don't change the app image — the render workflow
+      # (render.yml) is manual-only and separate. Skip the rebuild for these.
+      - "render/**"
+      - "docs/**"
+      - ".github/workflows/render.yml"
   workflow_dispatch: {}
 
 jobs:

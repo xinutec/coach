@@ -1,0 +1,10 @@
+{
+  "_comment": "Catalog muscle slug -> Z-Anatomy mesh base names (side/variant suffixes .l/.r/.ol/.or/.el/.er are matched automatically). Authored incrementally; render.py fails loudly on a primary/secondary slug with no entry rather than rendering an uncoloured lie. Exclude any 'bursa' mesh that shares a muscle's name.",
+  "gluteus_maximus": ["Gluteus maximus muscle"],
+  "gluteus_medius": ["Gluteus medius muscle"],
+  "gluteus_minimus": ["Gluteus minimus muscle"],
+  "biceps_femoris": ["Long head of biceps femoris", "Short head of biceps femoris"],
+  "semitendinosus": ["Semitendinosus muscle"],
+  "semimembranosus": ["Semimembranosus muscle"],
+  "erector_spinae": ["Erector spinae"]
+}

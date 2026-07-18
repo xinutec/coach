@@ -1,0 +1,4 @@
+# Downloaded/derived render artefacts — reproducible from fetch-asset.sh + prepare.py
+asset/
+slim.blend
+out/

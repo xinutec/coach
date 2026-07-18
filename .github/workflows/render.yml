@@ -1,0 +1,76 @@
+---
+name: render-images
+
+# Anatomy renders (docs/anatomy-renders.md). Manual-only and rare: renders are
+# slow (Cycles) and only need re-running when a pose, the muscle-map, or the
+# catalog's muscle model changes. Runs on a throwaway runner, never a server we
+# own — a blow-up kills this VM, not production (see the isis incident in the
+# doc). Output is uploaded as an artifact for review; approved PNGs are committed
+# into data/catalog/images/ by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      exercises:
+        description: 'space-separated exercise slugs (e.g. "glute_bridge rdl")'
+        default: glute_bridge
+      view:
+        description: camera view
+        default: back
+        type: choice
+        options: [front, back, left, right]
+
+jobs:
+  render:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Cache Blender
+        id: cache-blender
+        uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-4.2.3-linux-x64
+
+      - name: Install Blender
+        run: |
+          if [ ! -x "$HOME/blender/blender" ]; then
+            mkdir -p "$HOME/blender"
+            curl -fsSL https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz \
+              | tar -xJ --strip-components=1 -C "$HOME/blender"
+          fi
+          "$HOME/blender/blender" -b --version
+
+      - name: Cache Z-Anatomy asset
+        uses: actions/cache@v4
+        with:
+          path: render/asset
+          key: zanatomy-master-v1
+
+      - name: Fetch asset
+        run: bash render/fetch-asset.sh
+
+      - name: Build slim blend
+        run: |
+          "$HOME/blender/blender" -b render/asset/anatomy/Z-Anatomy/Startup.blend \
+            --python render/prepare.py -- render/slim.blend
+
+      - name: Render
+        run: |
+          mkdir -p out
+          for slug in ${{ github.event.inputs.exercises }}; do
+            echo "::group::render $slug"
+            "$HOME/blender/blender" -b render/slim.blend \
+              --python render/render.py -- "$slug" "${{ github.event.inputs.view }}" "out/$slug.png"
+            echo "::endgroup::"
+          done
+          ls -la out
+
+      - name: Upload renders
+        uses: actions/upload-artifact@v4
+        with:
+          name: renders-${{ github.event.inputs.view }}
+          path: out/*.png
+          if-no-files-found: error
