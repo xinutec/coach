@@ -31,27 +31,59 @@ Status: approved 2026-07-18, not yet built. Milestones below track progress.
 - **Renders are judged by Pippijn.** Pose quality is a visual call; the loop is
   render → deliver → critique. Nothing ships to the catalog unreviewed.
 
-## Aesthetic: skinned grey figure, muscles revealed in red
+## M1 findings (2026-07-18) — asset inspected
 
-Match the reference stock art, not a medical atlas. Those references are a
-neutral grey **skinned** male figure *with a face* — the target muscles rendered
-red as if revealed through the skin, everything else left under plain grey skin
-so the figure reads as a person.
+Both archives are Blender application templates; the model is in `Startup.blend`.
+Inspected headless on isis:
 
-Z-Anatomy carries this: the BodyParts3D base includes the integumentary system
-(skin) and the head/face, not only muscles. The render composites two layers:
+- **Z-Anatomy** — 7,184 objects (4,569 meshes) in TA2 anatomical naming.
+  Collections: Skeletal / Muscular insertions / Joints / Muscular system (894
+  objs) / Cardiovascular / Lymphoid / Nervous / Visceral / Regions of human body
+  / Bonus. Muscles are split per head (e.g. "Acromial part of deltoid muscle")
+  with `.l`/`.r` sides and `.ol`/`.or`/`.el`/`.er` variants, so **one catalog
+  slug maps to several meshes** — the muscle-map is one-to-many.
+- **No armature** in the anatomy file.
+- **No skin mesh anywhere.** There is no integumentary layer. "Regions of human
+  body" (343 objs) is `.g`/`.j` label markers (text + leader lines), not a body
+  surface.
+- **Z-Biomechanics** — a bones-only build: a real **237-bone armature** (plus
+  `AnatPoseToTPose` / `TPoseToAnatPose` retarget rigs) aligned to the same
+  skeleton. But it carries only the skeleton, and **muscles have zero vertex
+  groups** — nothing is skinned to it. It is rigid bone-posing, not a
+  muscle-deforming rig.
 
-- **Skin mesh** — neutral grey, opaque, the default surface (with face). This is
-  what makes it look like the references rather than an écorché.
-- **Target muscles** — dark red (primary) / light red (secondary), made visible
-  through the skin over the highlighted regions (skin cut away or turned
-  semi-transparent there; muscle meshes composited on top). Non-target muscles
-  stay hidden under grey skin.
+Consequences: catalog-driven muscle colouring is well-supported (every muscle is
+a named mesh). The **skinned-figure aesthetic is not** — the asset gives an
+écorché (bare muscle/bone), not the grey-skin-with-a-face look of the reference
+stock art. Getting that look needs a separate body-surface mesh registered to
+these proportions, which is a project of its own. This is a decision fork —
+recorded below, awaiting direction. **Supersedes the earlier claim that
+Z-Anatomy includes skin/face; it does not.**
 
-This is more compositing than a bare-muscle render (two reconciled layers), and
-the skin-vs-muscle reveal is a per-material decision the render script drives
-from which muscles the catalog marks primary/secondary. Verified at M1 that the
-skin mesh renders cleanly with the highlighted muscles showing through.
+## Aesthetic — OPEN (was: skinned grey figure)
+
+The reference stock art is a grey **skinned** male figure with a face, target
+muscles shown red. M1 established Z-Anatomy cannot produce that directly (no skin
+mesh). Direction is undecided; options in "Decision fork" below.
+
+## Decision fork (after M1)
+
+- **A — Z-Anatomy écorché.** Bare muscle/skeleton, catalog-driven colouring,
+  pose via the Z-Biomechanics skeleton (bind muscles ourselves). Best muscle
+  accuracy, fully open-source, but a clinical/specimen look — does *not* match
+  the reference art (no skin, no face).
+- **B — Z-Anatomy muscles + a separate skin body.** Register a CC0/MakeHuman
+  body surface to the Z-Anatomy proportions, composite muscles showing through.
+  Matches the references, but adds a two-mesh registration sub-project that must
+  hold through every pose — the largest option.
+- **C — single skinned body, painted muscle regions.** Abandon separable meshes:
+  one rigged male body (e.g. MakeHuman/SMPL), muscle regions painted as
+  vertex-colour/texture, recoloured per exercise from the catalog. Directly gives
+  the reference look and rigs trivially (one standard humanoid mesh), but loses
+  per-muscle geometric precision and the colouring is only as good as the paint
+  map.
+- **D — pause.** 134/136 exercises already have sourced images; the marginal
+  value is consistency, not coverage. Keep the M1 findings and revisit later.
 
 ## Pipeline shape
 
