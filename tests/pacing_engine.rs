@@ -2603,6 +2603,64 @@ fn a_plateaued_movement_hands_over_to_its_harder_sibling() {
     );
 }
 
+// G7 down-ladder: a movement stuck below the range floor is too hard to build
+// reps on — grinding 3s forever banks no volume — so it steps back to its hardest
+// easier sibling, which the athlete can actually progress. The mirror of the
+// hand-off above; without it, coach could only ask best−1 or hold, and never
+// regress the movement the way a coach would.
+#[test]
+fn a_movement_too_hard_to_build_steps_down_to_an_easier_sibling() {
+    // A harder rung (8, difficulty 3) and its easier sibling (7, difficulty 2),
+    // same pattern + shared primary, both bodyweight. A month of sessions pinned at
+    // 3 clean reps — well under the Balanced floor of 8 — is High confidence and a
+    // plateau: stuck below the floor, not a bad week.
+    let mut easy = ex(
+        7,
+        "Push-up",
+        Pattern::Push,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(10, MuscleRole::Primary)],
+    );
+    easy.difficulty = Some(2);
+    let mut hard = ex(
+        8,
+        "Dips",
+        Pattern::Push,
+        Metric::Reps,
+        false,
+        vec![],
+        vec![(10, MuscleRole::Primary)],
+    );
+    hard.difficulty = Some(3);
+    let history: Vec<SetRec> = (0..10).map(|i| bset(8, days_ago(30 - i * 3), 3)).collect();
+    let out = evaluate(
+        &input(Mode::Balanced, vec![easy, hard], history, None, None),
+        now(),
+    );
+    assert!(
+        out.plan.iter().all(|s| s.exercise_id != 8),
+        "the too-hard rung steps aside: {:?}",
+        out.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>()
+    );
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 7)
+        .expect("the easier sibling takes the slot");
+    assert_eq!(
+        item.kind,
+        SuggestionKind::Assess,
+        "the regression is measured, not guessed at"
+    );
+    assert!(
+        out.notices.iter().any(|n| n.contains("too hard")),
+        "the step back is said, not implied: {:?}",
+        out.notices
+    );
+}
+
 // R5-3 (supersedes R4-3): a coarse rack must not manufacture a miss. With bells
 // at 4 and 5 kg and an estimate measured at 5 kg, the computed working load lands
 // between rungs. Round 4 answered that by rounding the *load* up, so the rep range

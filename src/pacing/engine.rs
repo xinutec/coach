@@ -563,10 +563,11 @@ struct Cand<'a> {
 /// weights or enough implements to go round (the service names those in the
 /// verdict's notices — a drop the athlete can act on, not a silent gap).
 ///
-/// Also where the **variation ladder** (G7) turns: a movement the athlete has
-/// topped out or plateaued on steps out of candidacy when a harder doable
-/// variation exists, and the returned notes say so — the step up is coaching,
-/// and coaching gets said.
+/// Also where the **variation ladder** (G7) turns, both ways: a movement the
+/// athlete has topped out or plateaued on steps out of candidacy for a harder
+/// doable variation, and one stuck below the range floor steps out for an easier
+/// one — and the returned notes say so, because a step in either direction is
+/// coaching, and coaching gets said.
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
@@ -589,14 +590,25 @@ fn candidates<'a>(
         }
     };
 
-    // G7 — the variation ladder, decided up front. Two walls end a movement's
-    // usefulness as a prescription: the rep range's ceiling (the ask is clamped
-    // there, so "keep doing 12s" would be forever) and a plateau (a month of
-    // sessions with nothing beaten — see [`Residual::plateaued`]). At High
-    // confidence that's a verdict, not thin data: the rung steps aside, and its
-    // next-harder doable sibling becomes a measurement need. The step is
-    // announced while the sibling is still news; once it has its own estimate
-    // it's simply in the rotation.
+    // G7 — the variation ladder, decided up front, and it runs both ways. At High
+    // confidence (a verdict, not thin data) a rung steps aside for its next doable
+    // sibling, which becomes a measurement need; the step is announced while the
+    // sibling is still news, and once it has its own estimate it's simply in the
+    // rotation.
+    //
+    // Up: two walls end a movement's usefulness as a prescription — the rep range's
+    // ceiling (the ask is clamped there, so "keep doing 12s" would be forever) and a
+    // plateau (a month of sessions with nothing beaten — see [`Residual::plateaued`]).
+    //
+    // Down: the mirror wall. A bodyweight movement stuck *below* the range floor and
+    // not climbing out is too hard to build reps on — grinding 2 dips forever banks no
+    // volume — so it steps back to its hardest easier sibling, where the athlete can
+    // actually accumulate work and progress toward it (the up-ladder returns them once
+    // that sibling tops out). A rep count under the floor is ordinary early on and
+    // normally resolves by climbing, so this fires only when it's *also* confirmed
+    // stuck: plateaued, or the miss-response has bottomed out (two in a row asking
+    // fewer reps than are happening). Checked first, so a plateau below the floor
+    // regresses instead of being handed an even harder variation it also can't do.
     let mut stepped_aside: std::collections::HashSet<i64> = Default::default();
     let mut ladder_targets: std::collections::HashSet<i64> = Default::default();
     let mut ladder_notes = Vec::new();
@@ -613,16 +625,41 @@ fn candidates<'a>(
         let Some(d) = ex.difficulty else {
             continue;
         };
-        let topped = matches!(loaded, Loaded::Reps)
-            && abilities
-                .get(&ex.id)
-                .and_then(|a| a.best_reps)
-                .is_some_and(|b| b >= rep_range(input.mode, false).high);
-        let plateaued = residuals.get(&ex.id).is_some_and(|r| r.plateaued(now));
-        if !(topped || plateaued) {
-            continue;
-        }
-        let Some(next) = harder_sibling(ex, d, input, kit) else {
+        let range = rep_range(input.mode, false);
+        let is_reps = matches!(loaded, Loaded::Reps);
+        let best = abilities.get(&ex.id).and_then(|a| a.best_reps);
+        let feedback = residuals.get(&ex.id);
+        let plateaued = feedback.is_some_and(|r| r.plateaued(now));
+        let topped = is_reps && best.is_some_and(|b| b >= range.high);
+        let stuck_below = is_reps
+            && best.is_some_and(|b| b < range.low)
+            && (plateaued || feedback.is_some_and(Residual::wants_back_off));
+        // The rung the movement hands its slot to — down if it's too hard to build,
+        // else up if it's topped or plateaued. `None` here (no doable sibling that
+        // way) leaves the movement exactly where it is.
+        let (next, note) = if stuck_below {
+            let Some(easier) = easier_sibling(ex, d, input, kit) else {
+                continue;
+            };
+            (
+                easier,
+                format!(
+                    "{} is too hard to build reps on right now — stepping back to {}.",
+                    ex.name, easier.name
+                ),
+            )
+        } else if topped || plateaued {
+            let Some(harder) = harder_sibling(ex, d, input, kit) else {
+                continue;
+            };
+            (
+                harder,
+                format!(
+                    "{} has stopped progressing — stepping up to {}.",
+                    ex.name, harder.name
+                ),
+            )
+        } else {
             continue;
         };
         stepped_aside.insert(ex.id);
@@ -631,10 +668,7 @@ fn candidates<'a>(
             Confidence::None | Confidence::Low
         ) {
             ladder_targets.insert(next.id);
-            ladder_notes.push(format!(
-                "{} has stopped progressing — stepping up to {}.",
-                ex.name, next.name
-            ));
+            ladder_notes.push(note);
         }
     }
 
@@ -777,6 +811,42 @@ fn harder_sibling<'a>(
                 && loadable(y, &input.exercise_loads).is_some()
         })
         .min_by_key(|y| (y.difficulty, y.id))
+}
+
+/// The next rung *down* the variation ladder from `ex` (difficulty `d`): the
+/// hardest *easier* doable variation sharing its pattern and a primary muscle
+/// group. The nearest rung down, not the floor — regressing dips earns push-ups,
+/// not a wall push-up. Ties break to the lower id, so it stays deterministic.
+///
+/// The mirror of [`harder_sibling`]: what a coach drops to when a movement is too
+/// hard to build reps on, so the athlete banks clean volume on something they *can*
+/// do and climbs back — the up-ladder returns them once the easier rung tops out.
+fn easier_sibling<'a>(
+    ex: &ExerciseInfo,
+    d: i32,
+    input: &'a PacingInput,
+    kit: &Kit,
+) -> Option<&'a ExerciseInfo> {
+    input
+        .exercises
+        .iter()
+        .filter(|y| {
+            y.id != ex.id
+                && !y.warmup
+                && y.pattern == ex.pattern
+                && y.difficulty.is_some_and(|yd| yd < d)
+                && y.groups.iter().any(|(g, r)| {
+                    *r == MuscleRole::Primary
+                        && ex
+                            .groups
+                            .iter()
+                            .any(|(xg, xr)| *xr == MuscleRole::Primary && xg == g)
+                })
+                && kit.has_all(&y.equipment)
+                && loadable(y, &input.exercise_loads).is_some()
+        })
+        // Hardest of the easier rungs (nearest down); lower id breaks a difficulty tie.
+        .max_by_key(|y| (y.difficulty, std::cmp::Reverse(y.id)))
 }
 
 /// The exercise the athlete *would* be doing for this group if the kit allowed:
