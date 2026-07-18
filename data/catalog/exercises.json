@@ -6191,7 +6191,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "leg_swings_front_to_back.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "leg_swings_side_to_side",
@@ -6265,7 +6268,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "glute_bridge.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "heel_toe_rocks",
