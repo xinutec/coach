@@ -6346,7 +6346,10 @@
     "equipment": [
       "dumbbell"
     ],
-    "image": null
+    "image": {
+      "file": "rdl_dumbbell.png",
+      "type": "image/png"
+    }
   },
   {
     "slug": "good_morning_dumbbell",
