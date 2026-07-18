@@ -5806,7 +5806,10 @@
     "equipment": [
       "dumbbell"
     ],
-    "image": null
+    "image": {
+      "file": "triceps_extension_overhead_dumbbell.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "squat_front_rack_double_kettlebell",
