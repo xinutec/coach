@@ -115,6 +115,24 @@ isis (Linux/NixOS) it is a cache hit. The pipeline runs over SSH on isis; the
 slim blend and pose files sync there, PNGs come back into
 `data/catalog/images/`. Confirmed 2026-07-18.
 
+**MANDATORY: render only the slim blend, only under a memory cap.** isis is a
+production box (coach, recall, health-sync, Nextcloud, k3s) with 16 GB RAM.
+Rendering the *full* `Startup.blend` (7,184 objects, dependency-cycle warnings,
+huge Cycles BVH) exhausted RAM and hard-wedged the box — ~47 min of downtime and
+an unclean reboot on 2026-07-18. Two rules follow, both non-negotiable:
+
+1. **Never render the full atlas.** `prepare.py` must run first and strip to the
+   muscular system (+ skeleton for the écorché), saving a slim blend an order of
+   magnitude smaller. The slim blend is what renders — never `Startup.blend`.
+2. **Cap the render's resources** so a blow-up kills only the render, never the
+   box. Run under a transient cgroup scope:
+   `systemd-run --scope -p MemoryMax=6G -p MemorySwapMax=0 -p CPUQuota=300% --nice=15 blender -b ...`
+   MemorySwapMax=0 turns a runaway into a cgroup OOM-kill of Blender instead of
+   whole-box swap death; CPUQuota leaves cores for the services; nice de-prioritises.
+
+Verify prod is healthy (`curl coach.xinutec.org/version`, `kubectl get pods -A`)
+after every render batch.
+
 Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
 versioned pose files — re-rendering an unchanged pose yields the same image, so
 image diffs mean something, like the back-test.
@@ -141,10 +159,16 @@ replacement render is approved.
 ## Milestones
 
 - **M1 — asset + toolchain.** Headless Blender runs on isis (Mac build failed —
-  see Render host). Z-Anatomy fetched, stripped, slim blend builds. Static
-  unposed render: grey skin figure with glute-bridge muscles revealed in red via
-  a starter muscle-map. Proves: asset naming, skin/muscle compositing, material
-  scripting, headless pipeline.
+  see Render host). Direction: écorché (decided 2026-07-18). Asset fetched and
+  inspected (see M1 findings). **Still open:** `prepare.py` slim blend, then a
+  capped static render of the muscular system with glute-bridge muscles coloured
+  (gluteus maximus dark red; biceps femoris + semitendinosus light red) via the
+  starter muscle-map below. The first render attempt wedged isis (rendered the
+  full atlas, no cap) — must not retry until prepare + the resource cap are in
+  place. Starter map (verified mesh names): gluteus_maximus → "Gluteus maximus
+  muscle"; biceps_femoris → "Long head of biceps femoris" + "Short head of
+  biceps femoris"; semitendinosus → "Semitendinosus muscle"; erector_spinae →
+  "Erector spinae" (exclude any "bursa" mesh).
 - **M2 — rig.** Armature bound; one simple pose (glute bridge: supine, knees
   bent) rendered and reviewed. Go/no-go on deformation quality; fallback
   decision if needed.
