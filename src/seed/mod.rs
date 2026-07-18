@@ -100,6 +100,11 @@ struct SeedExercise {
     skill: bool,
     #[serde(default)]
     warmup: bool,
+    /// Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo) — the
+    /// engine orders it first, before strength compounds, so it's measured/trained
+    /// fresh. `false` for everything the flag isn't explicitly authored on.
+    #[serde(default)]
+    power: bool,
     /// Relative difficulty 1–5 *within a movement family* (pattern + primary
     /// group) — orders variations so the engine can offer the next-harder one
     /// (G7) and seed a first estimate for a harder sibling. `None` = unrated.
@@ -252,7 +257,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 sqlx::query(
                     "UPDATE exercises SET \
                        name = ?, variation = ?, pattern = ?, metric = ?, position = ?, \
-                       unilateral = ?, skill = ?, warmup = ?, difficulty = ?, implements = ?, \
+                       unilateral = ?, skill = ?, warmup = ?, power = ?, difficulty = ?, implements = ?, \
                        cue = ?, demo_url = ?, summary = ? \
                      WHERE id = ?",
                 )
@@ -264,6 +269,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(ex.unilateral)
                 .bind(ex.skill)
                 .bind(ex.warmup)
+                .bind(ex.power)
                 .bind(ex.difficulty)
                 .bind(ex.implements)
                 .bind(&ex.cue)
@@ -278,8 +284,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             None => {
                 let res = sqlx::query(
                     "INSERT INTO exercises \
-                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, difficulty, implements, cue, demo_url, summary) \
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, power, difficulty, implements, cue, demo_url, summary) \
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 )
                 .bind(&ex.slug)
                 .bind(&ex.name)
@@ -290,6 +296,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(ex.unilateral)
                 .bind(ex.skill)
                 .bind(ex.warmup)
+                .bind(ex.power)
                 .bind(ex.difficulty)
                 .bind(ex.implements)
                 .bind(&ex.cue)

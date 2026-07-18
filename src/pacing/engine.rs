@@ -497,9 +497,18 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
     }
 }
 
-/// Which block of the session an exercise belongs in — the classic order that
-/// puts demanding, technical work while the nervous system is fresh and leaves
-/// finishers for last. Lower runs earlier. Tier 1 is the warm-up block.
+/// Which block of the work an exercise belongs in — the classic order that puts
+/// demanding, technical work while the nervous system is fresh and leaves
+/// finishers for last. Lower runs earlier. (The warm-up block is prepended
+/// separately by [`build_warmup`]; these tiers order the work that follows it.)
+///
+/// Power leads. Maximal-intent ballistic work — jumps, throws, Olympic lifts,
+/// plyo — is the most fatigue-sensitive thing in the session: a broad jump for
+/// distance or a slam for speed is only worth measuring *fresh*, and a calibration
+/// taken after three compounds under-reads true power and feeds that low number
+/// straight into the ability model. So it sorts ahead of even skill work. The
+/// check comes first because a jump or slam is often patterned Core (box jump,
+/// med-ball slam), and the finisher tier below must not claim it.
 ///
 /// Compound vs isolation goes by *breadth* — how many muscle groups the movement
 /// genuinely works (primaries + secondaries) — not by whether it's weighted. The
@@ -513,7 +522,9 @@ fn tier(ex: &ExerciseInfo) -> u8 {
         .iter()
         .filter(|(_, r)| *r != MuscleRole::Stabilizer)
         .count();
-    if ex.is_skill || ex.metric == Metric::Hold {
+    if ex.is_power {
+        1 // ballistic power — fresh CNS, before anything fatiguing
+    } else if ex.is_skill || ex.metric == Metric::Hold {
         2 // skill / hold work — needs a fresh CNS
     } else if ex.pattern == Pattern::Core {
         5 // core / conditioning finisher

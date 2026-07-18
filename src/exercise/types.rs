@@ -115,6 +115,10 @@ pub struct Exercise {
     /// A mobility/activation move: the warm-up block draws from these, and they
     /// credit no training volume.
     pub warmup: bool,
+    /// Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo): the
+    /// engine orders it first, before strength compounds, so quality isn't
+    /// degraded by prior fatigue. Catalog-authoritative.
+    pub power: bool,
     /// How many of the implement this movement uses — one dumbbell (goblet squat,
     /// single-arm row) or two (dumbbell bench press). Decides how a finite disc
     /// budget is shared out, and so which loads are actually buildable.
@@ -138,6 +142,7 @@ pub(crate) struct ExerciseListRow {
     pub unilateral: bool,
     pub skill: bool,
     pub warmup: bool,
+    pub power: bool,
     pub implements: i32,
     pub difficulty: Option<i32>,
     pub is_active: bool,
@@ -160,6 +165,7 @@ impl TryFrom<ExerciseListRow> for Exercise {
             unilateral: r.unilateral,
             skill: r.skill,
             warmup: r.warmup,
+            power: r.power,
             implements: r.implements,
             difficulty: r.difficulty,
             is_active: r.is_active,

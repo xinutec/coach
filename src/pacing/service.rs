@@ -145,6 +145,7 @@ pub async fn context(
                 pattern: e.pattern,
                 metric: e.metric,
                 is_skill,
+                is_power: e.power,
                 warmup: e.warmup,
                 equipment,
                 groups: groups_by_ex.get(&e.id).cloned().unwrap_or_default(),

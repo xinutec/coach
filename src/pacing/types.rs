@@ -33,6 +33,10 @@ pub struct ExerciseInfo {
     pub metric: Metric,
     /// Ring/parallette or hold work — biased in Skills mode.
     pub is_skill: bool,
+    /// Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo) — the
+    /// session leads with it, before strength compounds, so fatigue doesn't rob
+    /// the movement (or its calibration measurement) of quality.
+    pub is_power: bool,
     /// A mobility/activation move: only the warm-up block picks it, and it
     /// credits no training volume.
     pub warmup: bool,

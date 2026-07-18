@@ -79,6 +79,7 @@ fn ex(
         pattern,
         metric,
         is_skill,
+        is_power: false,
         warmup: false,
         equipment,
         groups: grps,
@@ -95,6 +96,7 @@ fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
         pattern: Pattern::Core,
         metric: Metric::Reps,
         is_skill: false,
+        is_power: false,
         warmup: true,
         equipment: vec![],
         groups: vec![(group, MuscleRole::Primary)],
@@ -390,6 +392,70 @@ fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
             sk < co,
             "skill/hold (7) before heavy compound (5): {order:?}"
         );
+    }
+}
+
+#[test]
+fn power_work_leads_even_skill_and_compounds() {
+    // A ballistic jump (tier 1), a ring skill/hold (tier 2), and a barbell
+    // compound (tier 3), three different groups so all three make the plan. Power
+    // leads *both*: a jump for distance is only worth doing on a fresh CNS, and
+    // when it's a never-done calibration (as here) the number it produces feeds the
+    // ability model — fatigue in front of it corrupts that measurement, not just a
+    // rep target. The jump is patterned Core on purpose: box jumps and slams are,
+    // and the finisher tier must not claim them ahead of the power check.
+    let jump = ExerciseInfo {
+        id: 9,
+        name: "Broad jump".into(),
+        family: "Broad jump".into(),
+        difficulty: Some(2),
+        pattern: Pattern::Core,
+        metric: Metric::Reps,
+        is_skill: false,
+        is_power: true,
+        warmup: false,
+        equipment: vec![],
+        groups: vec![(30, MuscleRole::Primary)],
+    };
+    let exs = vec![
+        // A bodyweight compound (breadth 3 → tier 3), doable without registered
+        // loads so the kit can't quietly drop it.
+        ex(
+            5,
+            "Pull-up",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![
+                (20, MuscleRole::Primary),
+                (10, MuscleRole::Secondary),
+                (30, MuscleRole::Secondary),
+            ],
+        ),
+        ex(
+            7,
+            "Front lever",
+            Pattern::Pull,
+            Metric::Hold,
+            true,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        jump,
+    ];
+    let out = evaluate(&input(Mode::Balanced, exs, vec![], None, None), now());
+    let order: Vec<_> = out.plan.iter().map(|s| s.exercise_id).collect();
+    let power = order.iter().position(|&id| id == 9);
+    let skill = order.iter().position(|&id| id == 7);
+    let compound = order.iter().position(|&id| id == 5);
+    if let (Some(p), Some(sk), Some(co)) = (power, skill, compound) {
+        assert!(
+            p < sk && p < co,
+            "power (9) leads skill (7) and compound (5): {order:?}"
+        );
+    } else {
+        panic!("expected power, skill and compound all in the plan: {order:?}");
     }
 }
 
@@ -2063,6 +2129,7 @@ fn warmup_labels_name_distinct_groups() {
             pattern: Pattern::Core,
             metric: Metric::Reps,
             is_skill: false,
+            is_power: false,
             warmup: true,
             equipment: vec![],
             groups: vec![(10, MuscleRole::Primary), (20, MuscleRole::Primary)],

@@ -38,6 +38,7 @@ fn catalog() -> Vec<ExerciseInfo> {
         pattern: pat,
         metric,
         is_skill: skill,
+        is_power: false,
         warmup: false,
         equipment: equip,
         groups: vec![(group, MuscleRole::Primary)],

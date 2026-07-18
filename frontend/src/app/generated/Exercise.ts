@@ -18,6 +18,12 @@ skill: boolean,
  */
 warmup: boolean, 
 /**
+ * Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo): the
+ * engine orders it first, before strength compounds, so quality isn't
+ * degraded by prior fatigue. Catalog-authoritative.
+ */
+power: boolean, 
+/**
  * How many of the implement this movement uses — one dumbbell (goblet squat,
  * single-arm row) or two (dumbbell bench press). Decides how a finite disc
  * budget is shared out, and so which loads are actually buildable.
