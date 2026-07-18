@@ -211,8 +211,17 @@ flat.
   scaffold. **Recommendation: ship the unposed écorché (M1) and greenlight
   posing separately if it's worth the effort.** Dev loop used capped isis
   (systemd-run MemoryMax=6G) for fast iteration; final renders stay in CI.
-- **M3 — pilot end-to-end.** Glute bridge from pose file to
-  `data/catalog/images/`, judged against the current sourced image.
+- **M3 — unposed écorché shipped to the catalog (2026-07-18).** Full 42-slug
+  muscle-map authored (`render/muscle_map.json`) and validated across muscle
+  groups/views (push-up→pecs, squat→quads, curl→biceps, row→upper back,
+  lat-reach→lats, heel-toe→calves — all correct). The two last image-less
+  warmups (kneeling lat reach, heel-toe rocks) now carry écorché images; **all
+  136 exercises have images.** The pipeline can now render any exercise
+  unposed. Remaining choice for a wider rollout: **replace vs supplement** — an
+  unposed écorché is a "muscles worked" view, not a how-to demo, so overwriting
+  the sourced demo photos for the other 134 would trade movement info for muscle
+  info. That is a product decision to make deliberately (a second image field is
+  the supplement option); not done unilaterally.
 - **M4 — props + a loaded lift.** Dumbbell RDL: two dumbbells in hands, hinge
   pose. Proves prop parenting and equipment-driven selection.
 - **M5 — scale.** Batch pose authoring, review loop, progressive replacement of
