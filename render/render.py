@@ -56,14 +56,30 @@ def material(name, rgb):
     return m
 
 
-M_GREY = material("m_grey", (0.78, 0.75, 0.72))
+M_BASE = material("m_base", (0.80, 0.62, 0.55))  # muted flesh — non-target muscle
 M_PRIM = material("m_prim", (0.55, 0.02, 0.02))
 M_SEC = material("m_sec", (0.90, 0.32, 0.28))
 
-n_prim = n_sec = 0
+# Which meshes are skeleton — hidden for the muscle-only écorché. The slim blend
+# keeps the "Skeletal system" collection, so membership is still queryable.
+skel_names = set()
+for c in bpy.data.collections:
+    if "keletal" in c.name:
+        skel_names |= {o.name for o in c.objects}
+
+# Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
+# coloured but never showed because they stayed hide_render — the M1 bug. Reset
+# visibility explicitly, then hide the skeleton so muscle is the subject.
+n_prim = n_sec = n_muscle = 0
 for o in bpy.data.objects:
     if o.type != "MESH":
         continue
+    if o.name in skel_names:
+        o.hide_render = True
+        continue
+    o.hide_render = False
+    o.hide_viewport = False
+    n_muscle += 1
     b = base(o.name)
     o.data.materials.clear()
     if b in prim_bases:
@@ -73,17 +89,19 @@ for o in bpy.data.objects:
         o.data.materials.append(M_SEC)
         n_sec += 1
     else:
-        o.data.materials.append(M_GREY)
-print(f"coloured meshes: primary={n_prim} secondary={n_sec}")
+        o.data.materials.append(M_BASE)
+print(f"visible muscle meshes={n_muscle}  coloured primary={n_prim} secondary={n_sec}")
+if n_muscle == 0:
+    sys.exit("no muscle meshes visible — did prepare.py keep the Muscular system?")
 if prim_bases and n_prim == 0:
-    sys.exit(f"primary muscles mapped but 0 meshes matched — mesh names drifted?")
+    sys.exit("primary muscles mapped but 0 meshes matched — mesh names drifted?")
 
 # Frame the whole figure with an orthographic camera from the requested side.
 mins = mathutils.Vector((1e9,) * 3)
 maxs = mathutils.Vector((-1e9,) * 3)
 for o in bpy.data.objects:
-    if o.type != "MESH":
-        continue
+    if o.type != "MESH" or o.hide_render:
+        continue  # frame the visible muscle figure, not the hidden skeleton
     for c in o.bound_box:
         w = o.matrix_world @ mathutils.Vector(c)
         mins = mathutils.Vector(map(min, mins, w))
@@ -104,14 +122,26 @@ bpy.context.scene.camera = cam
 
 world = bpy.data.worlds.new("w")
 world.use_nodes = True
-world.node_tree.nodes["Background"].inputs[0].default_value = (1, 1, 1, 1)
-world.node_tree.nodes["Background"].inputs[1].default_value = 1.0
+# Soft off-white sky so silhouettes read but flesh tones don't blow out.
+world.node_tree.nodes["Background"].inputs[0].default_value = (0.95, 0.95, 0.95, 1)
+world.node_tree.nodes["Background"].inputs[1].default_value = 0.6
 bpy.context.scene.world = world
-sun_data = bpy.data.lights.new("sun", "SUN")
-sun_data.energy = 3
-sun = bpy.data.objects.new("sun", sun_data)
-bpy.context.scene.collection.objects.link(sun)
-sun.rotation_euler = (math.radians(55), 0, math.radians(30 + (180 if view == "back" else 0)))
+
+
+def add_sun(name, energy, elev_deg, azim_deg):
+    d = bpy.data.lights.new(name, "SUN")
+    d.energy = energy
+    o = bpy.data.objects.new(name, d)
+    bpy.context.scene.collection.objects.link(o)
+    # aim relative to the camera direction so lighting follows the view
+    flip = 180 if view == "back" else 0
+    o.rotation_euler = (math.radians(elev_deg), 0, math.radians(azim_deg + flip))
+    return o
+
+
+# Three-point-ish: a strong key, a soft fill from the other side, low ambient.
+add_sun("key", 4.0, 50, 25)
+add_sun("fill", 1.5, 35, -60)
 
 scene = bpy.context.scene
 scene.render.engine = "CYCLES"
