@@ -159,14 +159,39 @@ replacement render is approved.
 
 ## Milestones
 
-- **M1 — asset + toolchain. DONE (2026-07-18).** Direction: écorché. The
-  render-images workflow ran green on a GitHub runner (4m51s): fetch asset →
-  slim blend (7,184 → 2,033 meshes) → Cycles render. Catalog-driven colouring
-  verified from the log — glute bridge coloured 2 primary meshes (gluteus maximus
-  L/R) dark red and 6 secondary (biceps femoris long+short heads, semitendinosus,
-  both sides) light red. First artifact: `glute_bridge.png`, back view, unposed,
-  awaiting Pippijn's visual verdict on style. Starter muscle-map (verified mesh
-  names) committed in `render/muscle_map.json`.
+- **M1 — asset + toolchain. DONE + visually validated (2026-07-18).** Direction:
+  écorché. The render-images workflow runs green on a GitHub runner (~5 min):
+  fetch asset → slim blend (7,184 → 2,033 meshes) → Cycles render. The glute
+  bridge render shows a shaded 3D back-view muscular figure with gluteus maximus
+  in red (primary) and hamstrings in pink (secondary) — catalog-driven, correct.
+  Getting there took fixing five Z-Anatomy-specific gotchas (below). Unposed;
+  posing is M2. Starter muscle-map in `render/muscle_map.json`.
+
+### Z-Anatomy render gotchas (all fixed in render.py)
+
+The atlas is authored for interactive study, not rendering. In order of
+discovery, each produced a wrong image that *looked* like a different bug:
+
+1. **Muscles ship hidden.** The file opens on the skeleton; muscle layers are
+   `hide_render`. A render coloured them but showed only the skeleton. Fix:
+   reset `hide_render`/`hide_viewport` on the meshes we want.
+2. **Fascia occludes the muscles.** Broad connective sheets (fascia lata,
+   investing abdominal fascia, aponeuroses) wrap the body as a smooth envelope
+   and hide every muscle behind a featureless silhouette. Fix: skip meshes whose
+   name matches fascia/aponeurosis/retinaculum/sheath/membrane.
+3. **Material slots are object-linked.** Clearing `mesh.materials` leaves the
+   original muscle material rendering. Fix: replace every slot, set
+   `slot.link = 'DATA'`, and reset every polygon's `material_index` to 0.
+4. **A compositor node-tree + Freestyle bake a sepia "sketch" filter over every
+   render** — this dominated all material/lighting changes (identical output
+   across edits was the tell). Fix: `scene.use_nodes = False`,
+   `scene.render.use_freestyle = False`, clear `view_layer.material_override`.
+5. **Label/guide meshes** (the "Muscular system" title card, `.g` markers) float
+   in the frame. Fix: skip `.g`, all-caps, and collection-title names.
+
+Lighting: camera-relative suns (not view-relative) so the visible surface is lit
+whatever the view — the first attempt lit the far side on a back view and looked
+flat.
 - **M2 — rig.** Armature bound; one simple pose (glute bridge: supine, knees
   bent) rendered and reviewed. Go/no-go on deformation quality; fallback
   decision if needed.
