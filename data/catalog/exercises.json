@@ -6133,7 +6133,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "triceps_stretch_overhead.jpg",
+      "type": "image/jpeg"
+    }
   },
   {
     "slug": "leg_swings_front_to_back",
@@ -6281,6 +6284,112 @@
       }
     ],
     "equipment": [],
+    "image": null
+  },
+  {
+    "slug": "rdl_dumbbell",
+    "name": "RDL",
+    "variation": "dumbbell",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 3,
+    "position": "standing",
+    "unilateral": false,
+    "cue": "Dumbbells at your sides, soft knees — push the hips back, flat back, load the hamstrings, then stand tall",
+    "demoUrl": null,
+    "summary": "dumbbell, standing",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "secondary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
+    "image": null
+  },
+  {
+    "slug": "good_morning_dumbbell",
+    "name": "Good morning",
+    "variation": "dumbbell",
+    "pattern": "legs",
+    "metric": "weighted_reps",
+    "skill": false,
+    "warmup": false,
+    "difficulty": 2,
+    "position": "standing",
+    "unilateral": false,
+    "cue": "One dumbbell held at your chest, soft knees — hinge at the hips with a flat back, then drive tall",
+    "demoUrl": null,
+    "summary": "dumbbell, standing",
+    "muscles": [
+      {
+        "slug": "gluteus_maximus",
+        "role": "primary"
+      },
+      {
+        "slug": "biceps_femoris",
+        "role": "primary"
+      },
+      {
+        "slug": "semitendinosus",
+        "role": "primary"
+      },
+      {
+        "slug": "semimembranosus",
+        "role": "primary"
+      },
+      {
+        "slug": "erector_spinae",
+        "role": "primary"
+      },
+      {
+        "slug": "gluteus_medius",
+        "role": "secondary"
+      },
+      {
+        "slug": "tensor_fasciae_latae",
+        "role": "secondary"
+      },
+      {
+        "slug": "adductor_magnus",
+        "role": "secondary"
+      }
+    ],
+    "equipment": [
+      "dumbbell"
+    ],
     "image": null
   }
 ]
