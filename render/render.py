@@ -78,6 +78,17 @@ def is_label(name: str) -> bool:
     )
 
 
+# Connective-tissue sheets that wrap the muscles as a smooth outer envelope
+# (fascia lata, investing abdominal fascia, aponeuroses, retinacula). They
+# occlude the muscles beneath — the "featureless body silhouette, no visible
+# muscle" symptom — so they are hidden for the écorché.
+_ENVELOPE = ("fascia", "aponeurosis", "retinaculum", "sheath", "membrane")
+
+
+def is_envelope(name: str) -> bool:
+    return any(k in name.lower() for k in _ENVELOPE)
+
+
 # Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
 # coloured but never showed because they stayed hide_render — the M1 bug. Reset
 # visibility explicitly, then hide the skeleton so muscle is the subject.
@@ -86,7 +97,7 @@ sizes = []  # (diagonal, name) — to spot any body-envelope mesh that would occ
 for o in bpy.data.objects:
     if o.type != "MESH":
         continue
-    if o.name in skel_names or is_label(o.name):
+    if o.name in skel_names or is_label(o.name) or is_envelope(o.name):
         o.hide_render = True
         continue
     o.hide_render = False
