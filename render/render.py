@@ -41,6 +41,22 @@ for m in ex.get("muscles", []):
 
 print(f"{slug}: primary bases={sorted(prim_bases)} secondary bases={sorted(sec_bases)}")
 
+# Neutralise Z-Anatomy's stylised render settings. The atlas ships a compositor
+# node-tree and Freestyle that post-process every render into a sepia "sketch"
+# look — which overrode all our materials and lighting (identical output across
+# material changes was the tell). Strip them so a plain lit render comes through.
+scene = bpy.context.scene
+print("DIAG use_nodes(compositor)=", scene.use_nodes,
+      "use_freestyle=", scene.render.use_freestyle)
+for vl in scene.view_layers:
+    print("DIAG view_layer", vl.name, "material_override=",
+          vl.material_override.name if vl.material_override else None,
+          "freestyle=", vl.use_freestyle)
+    vl.material_override = None
+    vl.use_freestyle = False
+scene.use_nodes = False           # drop the compositor sketch filter
+scene.render.use_freestyle = False
+
 
 def base(name: str) -> str:
     # strip side/variant/label suffixes: .l .r .ol .or .el .er .j .t .i .s .g
