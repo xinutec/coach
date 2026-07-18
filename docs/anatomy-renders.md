@@ -1,12 +1,15 @@
 # Anatomy renders
 
 Generate the exercise illustrations ourselves from a 3D anatomical model instead
-of sourcing them one by one: a posed écorché figure per exercise, primary muscles
-dark red, secondaries lighter red, consistent style, white background — and the
-colouring **derived from the same catalog data the engine uses**, so an image can
-never disagree with the muscle model.
+of sourcing them one by one: an écorché figure per exercise, primary muscles dark
+red, secondaries lighter red, consistent style — and the colouring **derived from
+the same catalog data the engine uses**, so an image can never disagree with the
+muscle model.
 
-Status: approved 2026-07-18, not yet built. Milestones below track progress.
+Status (2026-07-18): **M1 done and working** — the CI pipeline renders a shaded,
+catalog-coloured, *unposed* écorché (see M1). **M2 (posing) attempted and
+blocked** on rig/muscle alignment (see M2). Current recommendation: ship the
+unposed écorché; treat posing as a separate effort.
 
 ## Why
 
@@ -192,9 +195,22 @@ discovery, each produced a wrong image that *looked* like a different bug:
 Lighting: camera-relative suns (not view-relative) so the visible surface is lit
 whatever the view — the first attempt lit the far side on a back view and looked
 flat.
-- **M2 — rig.** Armature bound; one simple pose (glute bridge: supine, knees
-  bent) rendered and reviewed. Go/no-go on deformation quality; fallback
-  decision if needed.
+- **M2 — rig. ATTEMPTED, BLOCKED (2026-07-18).** `render/pose.py` appends the
+  Z-Biomechanics 237-bone armature, strips its constraints/drivers to a clean FK
+  rig, bakes object transforms, and binds all 789 muscles with automatic weights
+  (0 failures). But every render — even the unposed *rest* bind — comes out
+  blank: the muscles deform out of frame the moment they are bound. Root cause
+  (unresolved): the armature's rest skeleton does not line up with the standing
+  muscle geometry, so the bind maps muscles onto a mismatched pose and contorts
+  them. Fixed along the way (all real, none sufficient): constraint/driver rig,
+  rigid-fallback displacement, object-transform bind mismatch, shared `.l`/`.r`
+  mirror-mesh data. What remains is aligning the armature's rest pose to the
+  muscles — reverse-engineering the file's T-pose↔anatomical constraint system,
+  or hand-aligning bones. That is a real rigging project, the risk flagged up
+  front ("the rig is the risk"). `pose.py` + `poses.json` are kept as the
+  scaffold. **Recommendation: ship the unposed écorché (M1) and greenlight
+  posing separately if it's worth the effort.** Dev loop used capped isis
+  (systemd-run MemoryMax=6G) for fast iteration; final renders stay in CI.
 - **M3 — pilot end-to-end.** Glute bridge from pose file to
   `data/catalog/images/`, judged against the current sourced image.
 - **M4 — props + a loaded lift.** Dumbbell RDL: two dumbbells in hands, hinge

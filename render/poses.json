@@ -1,0 +1,6 @@
+{
+  "_comment": "Named poses = per-bone XYZ euler rotations in degrees on the Z-Biomechanics armature (mixamo-style bone names). Authored incrementally and reviewed per exercise. 'rest' is the unposed standing figure.",
+  "rest": {"bones": {}},
+  "kneebend": {"bones": {"RightLeg": [-80, 0, 0], "LeftLeg": [-80, 0, 0]}},
+  "glute_bridge": {"bones": {}}
+}
