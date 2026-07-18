@@ -6399,6 +6399,9 @@
     "equipment": [
       "dumbbell"
     ],
-    "image": null
+    "image": {
+      "file": "good_morning_dumbbell.jpg",
+      "type": "image/jpeg"
+    }
   }
 ]
