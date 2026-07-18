@@ -31,6 +31,28 @@ Status: approved 2026-07-18, not yet built. Milestones below track progress.
 - **Renders are judged by Pippijn.** Pose quality is a visual call; the loop is
   render → deliver → critique. Nothing ships to the catalog unreviewed.
 
+## Aesthetic: skinned grey figure, muscles revealed in red
+
+Match the reference stock art, not a medical atlas. Those references are a
+neutral grey **skinned** male figure *with a face* — the target muscles rendered
+red as if revealed through the skin, everything else left under plain grey skin
+so the figure reads as a person.
+
+Z-Anatomy carries this: the BodyParts3D base includes the integumentary system
+(skin) and the head/face, not only muscles. The render composites two layers:
+
+- **Skin mesh** — neutral grey, opaque, the default surface (with face). This is
+  what makes it look like the references rather than an écorché.
+- **Target muscles** — dark red (primary) / light red (secondary), made visible
+  through the skin over the highlighted regions (skin cut away or turned
+  semi-transparent there; muscle meshes composited on top). Non-target muscles
+  stay hidden under grey skin.
+
+This is more compositing than a bare-muscle render (two reconciled layers), and
+the skin-vs-muscle reveal is a per-material decision the render script drives
+from which muscles the catalog marks primary/secondary. Verified at M1 that the
+skin mesh renders cleanly with the highlighted muscles showing through.
+
 ## Pipeline shape
 
 New top-level `render/` directory; the shipped artifact stays
@@ -54,6 +76,12 @@ New top-level `render/` directory; the shipped artifact stays
   camera + three-point light, render PNG.
 - `scripts/render-image.sh <slug>` — entry point; headless Blender
   (`blender -b`), toolchain from nix.
+
+**Render host: isis, not the Mac.** nixpkgs Blender has no aarch64-darwin binary
+cache and fails to compile from source locally (link error, blender 5.1.2). On
+isis (Linux/NixOS) it is a cache hit. The pipeline runs over SSH on isis; the
+slim blend and pose files sync there, PNGs come back into
+`data/catalog/images/`. Confirmed 2026-07-18.
 
 Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
 versioned pose files — re-rendering an unchanged pose yields the same image, so
@@ -80,10 +108,11 @@ replacement render is approved.
 
 ## Milestones
 
-- **M1 — asset + toolchain.** Headless nix Blender runs on the Mac (fallback:
-  isis, CPU Cycles). Z-Anatomy fetched, stripped, slim blend builds. Static
-  unposed render with glute-bridge muscles coloured via a starter muscle-map.
-  Proves: asset naming, material scripting, headless pipeline.
+- **M1 — asset + toolchain.** Headless Blender runs on isis (Mac build failed —
+  see Render host). Z-Anatomy fetched, stripped, slim blend builds. Static
+  unposed render: grey skin figure with glute-bridge muscles revealed in red via
+  a starter muscle-map. Proves: asset naming, skin/muscle compositing, material
+  scripting, headless pipeline.
 - **M2 — rig.** Armature bound; one simple pose (glute bridge: supine, knees
   bent) rendered and reviewed. Go/no-go on deformation quality; fallback
   decision if needed.
