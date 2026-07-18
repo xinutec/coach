@@ -6022,7 +6022,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "kneeling_lat_reach.png",
+      "type": "image/png"
+    }
   },
   {
     "slug": "scapular_squeeze",
@@ -6311,7 +6314,10 @@
       }
     ],
     "equipment": [],
-    "image": null
+    "image": {
+      "file": "heel_toe_rocks.png",
+      "type": "image/png"
+    }
   },
   {
     "slug": "rdl_dumbbell",
