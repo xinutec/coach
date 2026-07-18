@@ -57,8 +57,21 @@ def material(name, rgb):
 
 
 M_BASE = material("m_base", (0.80, 0.62, 0.55))  # muted flesh — non-target muscle
-M_PRIM = material("m_prim", (0.55, 0.02, 0.02))
-M_SEC = material("m_sec", (0.90, 0.32, 0.28))
+M_PRIM = material("m_prim", (0.62, 0.03, 0.03))
+M_SEC = material("m_sec", (0.90, 0.34, 0.30))
+
+
+def paint(o, mat):
+    # Force our material to win. Z-Anatomy's slots are object-linked, so clearing
+    # mesh.materials alone leaves the original muscle material rendering. Replace
+    # every slot (data + object link) and point every face at slot 0.
+    o.data.materials.clear()
+    o.data.materials.append(mat)
+    for slot in o.material_slots:
+        slot.link = "DATA"
+        slot.material = mat
+    for poly in o.data.polygons:
+        poly.material_index = 0
 
 # Which meshes are skeleton — hidden for the muscle-only écorché. The slim blend
 # keeps the "Skeletal system" collection, so membership is still queryable.
@@ -107,15 +120,14 @@ for o in bpy.data.objects:
     diag = (max(v.z for v in bb) - min(v.z for v in bb)) + (max(v.x for v in bb) - min(v.x for v in bb))
     sizes.append((diag, o.name))
     b = base(o.name)
-    o.data.materials.clear()
     if b in prim_bases:
-        o.data.materials.append(M_PRIM)
+        paint(o, M_PRIM)
         n_prim += 1
     elif b in sec_bases:
-        o.data.materials.append(M_SEC)
+        paint(o, M_SEC)
         n_sec += 1
     else:
-        o.data.materials.append(M_BASE)
+        paint(o, M_BASE)
 print(f"visible muscle meshes={n_muscle}  coloured primary={n_prim} secondary={n_sec}")
 sizes.sort(reverse=True)
 print("largest visible meshes:", [n for _, n in sizes[:6]])
