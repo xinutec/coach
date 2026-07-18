@@ -179,6 +179,20 @@ async fn main() -> Result<()> {
                 hold,
                 conf
             );
+            // What the coach *wanted* here but couldn't give, and why — the same
+            // swap the Today card names, so the trace can audit substitution
+            // behaviour instead of hiding it (mirrors today.ts substitutionNote).
+            if let Some(sub) = &s.substituted_for {
+                let why = match &sub.blocker {
+                    coach::pacing::types::Blocker::Absent(kit) => {
+                        format!("no {} here", kit.join(", "))
+                    }
+                    coach::pacing::types::Blocker::Unweighted(kit) => {
+                        format!("no weights registered for {}", kit.join(", "))
+                    }
+                };
+                println!("            ↳ swapped in for {} — {why}", sub.ideal);
+            }
         }
         // What the coach *couldn't* prescribe here (kit with no registered
         // weights). Part of the verdict: a silent drop reads as a gap in the plan.
