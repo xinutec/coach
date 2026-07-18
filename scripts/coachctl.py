@@ -174,12 +174,14 @@ def cmd_now(args):
             kind = {"warmup": "warm-up", "assess": "CALIBRATE", "work": "work"}[s["kind"]]
             bits = []
             if s["repLow"] is not None:
-                reps = (
-                    f"{s['repLow']}"
+                # Mirror the Today card: the low end is the day's aim, the high
+                # end the ceiling. A bare "3–12" reads as a floor of 3 and
+                # invites the minimum, so name the aim (see today.html).
+                bits.append(
+                    f"{s['repLow']} reps"
                     if s["repLow"] == s["repHigh"]
-                    else f"{s['repLow']}–{s['repHigh']}"
+                    else f"aim {s['repLow']}, up to {s['repHigh']} reps"
                 )
-                bits.append(f"{reps} reps")
             if s["loadKg"] is not None:
                 bits.append(f"{s['loadKg']} kg")
             if s["holdS"] is not None:
