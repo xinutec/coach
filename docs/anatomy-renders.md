@@ -159,17 +159,14 @@ replacement render is approved.
 
 ## Milestones
 
-- **M1 — asset + toolchain.** Headless Blender runs on isis (Mac build failed —
-  see Render host). Direction: écorché (decided 2026-07-18). Asset fetched and
-  inspected (see M1 findings). **Still open:** `prepare.py` slim blend, then a
-  capped static render of the muscular system with glute-bridge muscles coloured
-  (gluteus maximus dark red; biceps femoris + semitendinosus light red) via the
-  starter muscle-map below. The first render attempt wedged isis (rendered the
-  full atlas, no cap) — must not retry until prepare + the resource cap are in
-  place. Starter map (verified mesh names): gluteus_maximus → "Gluteus maximus
-  muscle"; biceps_femoris → "Long head of biceps femoris" + "Short head of
-  biceps femoris"; semitendinosus → "Semitendinosus muscle"; erector_spinae →
-  "Erector spinae" (exclude any "bursa" mesh).
+- **M1 — asset + toolchain. DONE (2026-07-18).** Direction: écorché. The
+  render-images workflow ran green on a GitHub runner (4m51s): fetch asset →
+  slim blend (7,184 → 2,033 meshes) → Cycles render. Catalog-driven colouring
+  verified from the log — glute bridge coloured 2 primary meshes (gluteus maximus
+  L/R) dark red and 6 secondary (biceps femoris long+short heads, semitendinosus,
+  both sides) light red. First artifact: `glute_bridge.png`, back view, unposed,
+  awaiting Pippijn's visual verdict on style. Starter muscle-map (verified mesh
+  names) committed in `render/muscle_map.json`.
 - **M2 — rig.** Armature bound; one simple pose (glute bridge: supine, knees
   bent) rendered and reviewed. Go/no-go on deformation quality; fallback
   decision if needed.
