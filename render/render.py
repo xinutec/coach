@@ -6,6 +6,10 @@ muscle_map.json, and paints primaries dark red, secondaries light red, the rest
 neutral grey. A primary/secondary slug with no mapping is a hard error — the
 picture must never disagree with the muscle model by silently under-colouring.
 
+The skeleton is hidden except for the head: with it fully gone the head is a
+hollow shell of facial muscles showing the empty cranial cavity, so the skull is
+kept (painted neutral flesh) to give the figure a proper solid head.
+
     blender -b <slim.blend> --python render.py -- <slug> <view> <out.png>
       view: front | back | left | right
 """
@@ -123,9 +127,11 @@ def is_envelope(name: str) -> bool:
 
 # Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
 # coloured but never showed because they stayed hide_render — the M1 bug. Reset
-# visibility explicitly, then hide the skeleton so muscle is the subject.
+# visibility explicitly, then hide the skeleton so muscle is the subject. Pass 1
+# also measures the muscle figure's vertical extent, used to locate the head.
 n_prim = n_sec = n_muscle = 0
 sizes = []  # (diagonal, name) — to spot any body-envelope mesh that would occlude
+mus_min_z, mus_max_z = 1e9, -1e9
 for o in bpy.data.objects:
     if o.type != "MESH":
         continue
@@ -136,6 +142,8 @@ for o in bpy.data.objects:
     o.hide_viewport = False
     n_muscle += 1
     bb = [o.matrix_world @ mathutils.Vector(c) for c in o.bound_box]
+    mus_min_z = min(mus_min_z, min(v.z for v in bb))
+    mus_max_z = max(mus_max_z, max(v.z for v in bb))
     diag = (max(v.z for v in bb) - min(v.z for v in bb)) + (max(v.x for v in bb) - min(v.x for v in bb))
     sizes.append((diag, o.name))
     b = base(o.name)
@@ -147,13 +155,39 @@ for o in bpy.data.objects:
         n_sec += 1
     else:
         paint(o, M_BASE)
-print(f"visible muscle meshes={n_muscle}  coloured primary={n_prim} secondary={n_sec}")
+
+# Give the figure a proper (solid) head. With the whole skeleton hidden the head
+# is only a shell of thin facial muscles, so the camera looks straight into the
+# empty cranial cavity — an ugly hollow head. Reveal just the head-region
+# skeleton (cranium, mandible, teeth) as the solid volume that closes it off,
+# painted the same neutral flesh as non-target muscle so it reads as a plain
+# head, not a white skeleton. The rest of the skeleton stays hidden — this is
+# still a muscle écorché. "Head region" = the top 16% of the figure's height,
+# which cleanly separates the skull/jaw from the shoulders below.
+neck_z = mus_max_z - 0.16 * (mus_max_z - mus_min_z)
+n_head = 0
+for o in bpy.data.objects:
+    if o.type != "MESH" or o.name not in skel_names or is_label(o.name):
+        continue
+    bb = [o.matrix_world @ mathutils.Vector(c) for c in o.bound_box]
+    center_z = sum(v.z for v in bb) / len(bb)
+    if center_z <= neck_z:
+        continue  # below the head — keep it hidden
+    o.hide_render = False
+    o.hide_viewport = False
+    paint(o, M_BASE)
+    n_head += 1
+
+print(f"visible muscle meshes={n_muscle}  coloured primary={n_prim} secondary={n_sec}  head-fill bones={n_head}")
 sizes.sort(reverse=True)
 print("largest visible meshes:", [n for _, n in sizes[:6]])
 if n_muscle == 0:
     sys.exit("no muscle meshes visible — did prepare.py keep the Muscular system?")
 if prim_bases and n_prim == 0:
     sys.exit("primary muscles mapped but 0 meshes matched — mesh names drifted?")
+if n_head == 0:
+    print("WARNING: no head-region skeleton found — head may still look hollow. "
+          "Did prepare.py keep the Skeletal system?")
 
 # Frame the whole figure with an orthographic camera from the requested side.
 mins = mathutils.Vector((1e9,) * 3)
