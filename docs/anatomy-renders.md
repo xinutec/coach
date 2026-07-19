@@ -6,10 +6,14 @@ red, secondaries lighter red, consistent style — and the colouring **derived f
 the same catalog data the engine uses**, so an image can never disagree with the
 muscle model.
 
-Status (2026-07-18): **M1 done and working** — the CI pipeline renders a shaded,
-catalog-coloured, *unposed* écorché (see M1). **M2 (posing) attempted and
-blocked** on rig/muscle alignment (see M2). Current recommendation: ship the
-unposed écorché; treat posing as a separate effort.
+Status (2026-07-19): **M1/M3 done and shipped** — the CI pipeline renders a
+shaded, catalog-coloured, *unposed* écorché and all 136 exercises carry images.
+**M2 (posing) is abandoned** — a borrowed rig *can* move the figure, but the
+écorché is dozens of separate muscle shells, not one skinned mesh, so any joint
+bend tears and interpenetrates them into non-human shapes (see M2). Decision
+(Pippijn, 2026-07-19): **use the écorché only for muscle colouring in the neutral
+pose; no posing/animation.** That is exactly what ships today — nothing further
+to build.
 
 ## Why
 
@@ -208,9 +212,20 @@ flat.
   muscles — reverse-engineering the file's T-pose↔anatomical constraint system,
   or hand-aligning bones. That is a real rigging project, the risk flagged up
   front ("the rig is the risk"). `pose.py` + `poses.json` are kept as the
-  scaffold. **Recommendation: ship the unposed écorché (M1) and greenlight
-  posing separately if it's worth the effort.** Dev loop used capped isis
-  (systemd-run MemoryMax=6G) for fast iteration; final renders stay in CI.
+  scaffold. Dev loop used capped isis (systemd-run MemoryMax=6G) for fast
+  iteration; final renders stay in CI.
+
+  **Follow-up (2026-07-19) — a rig was made to work, and posing was still
+  abandoned.** `render/rigging/` got the écorché to pose at all: an MB-Lab free
+  humanoid as a *deformation donor*, KDTree nearest-vertex weight transfer onto
+  the muscle shells, arms baked into the rest pose before binding (Pippijn's
+  donor-rig idea). Torso/legs deformed and the arm gap was closable. But the
+  renders were **not human-possible shapes** — because the écorché is separable
+  muscle shells, not continuous skinned tissue, every bent joint tears and
+  interpenetrates the shells no matter how good the weights are. Structural, not
+  a tuning problem. **Verdict: posing/animation is off the table; the écorché is
+  a neutral-pose "muscles worked" illustration only.** The `render/rigging/`
+  scripts stay as a record of what was tried and why it doesn't generalise.
 - **M3 — unposed écorché shipped to the catalog (2026-07-18).** Full 42-slug
   muscle-map authored (`render/muscle_map.json`) and validated across muscle
   groups/views (push-up→pecs, squat→quads, curl→biceps, row→upper back,

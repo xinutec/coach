@@ -1,9 +1,12 @@
-# Écorché rigging (WIP)
+# Écorché rigging (abandoned — kept as a record)
 
-Experiment to pose the Z-Anatomy écorché by borrowing a rig, instead of building
-one on the loose muscle shells (which failed — see M2 in
-[../../docs/anatomy-renders.md](../../docs/anatomy-renders.md)). This is the
-approach that got the écorché to pose at all.
+**Outcome (2026-07-19): posing the écorché is off the table.** This borrowed-rig
+approach *did* move the figure, but the écorché is dozens of separate muscle
+shells, not one skinned mesh, so every bent joint tears and interpenetrates them
+into non-human shapes — structural, not fixable by tuning. The écorché is used
+only for muscle colouring in the neutral pose (M1/M3, shipped). These scripts are
+kept as a record of what was tried and why it doesn't generalise. See M2 in
+[../../docs/anatomy-renders.md](../../docs/anatomy-renders.md).
 
 ## Idea
 
@@ -33,18 +36,20 @@ BL=./Blender.app/Contents/MacOS/Blender
 Regenerate `slim.blend` and `body.blend` with the **same** Blender version — a
 5.1-saved blend won't open in 4.2.
 
-## Status
+## What was tried (in `transfer-rig.py`)
 
-- **Works:** torso and legs deform coherently; the écorché poses (was impossible
-  before). Pose conventions are pinned (see the header of `transfer-rig.py`).
-  Alignment ~4cm median muscle→skin distance.
-- **Open — the arms.** The écorché's arms hang down but MB-Lab is A-posed, so arm
-  muscles bind across a ~5cm gap and stretch when posed. Pose-matching the arms is
-  the fix; baking arms-down as the armature rest (`pose.armature_apply` *after*
-  attaching the écorché modifiers) regressed — it re-deformed the down arms and
-  swallowed the leg pose. Needs a cleaner arm-match that leaves the rest pose
-  alone. The distance gate is a safety net, not a full fix.
-- **Not yet wired:** catalog highlighting on the posed figure, per-exercise pose
-  files, camera-per-exercise.
+- The mechanism works: 666/666 muscles take weights; torso and legs deform;
+  alignment ~4cm median muscle→skin distance. Pose conventions are pinned in the
+  script header.
+- The arms — initially the écorché's hanging arms bound across a ~5cm gap to the
+  A-posed donor and stretched. Fixed by posing the donor arms down, snapshotting
+  that geometry for the KDTree, and `pose.armature_apply` to bake arms-down as the
+  rest *before* the écorché binds (doing it after → double-deform, transfer5's bug).
 
-See memory `project_coach_anatomy_posing` for the full method and gotchas.
+## Why it was abandoned
+
+Even with the arm fix, bent joints produce **non-human shapes**: the écorché is
+separate muscle shells with no shared skin, so a joint bend tears and
+interpenetrates them regardless of weight quality. Structural, not tunable.
+Posing is off the table — the écorché is used only for neutral-pose muscle
+colouring (M1/M3, shipped). See memory `project_coach_anatomy_posing`.
