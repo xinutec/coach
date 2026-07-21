@@ -24,3 +24,24 @@
   color: var(--mat-sys-error);
   font: var(--mat-sys-body-medium);
 }
+
+// The server queried the load rather than refusing it (409). Styled as a
+// question, not an error: the set is fine if he means it, and the typed
+// numbers stay put behind the prompt.
+.confirm-load {
+  margin: 0 0 0.6rem;
+  padding: 0.6rem;
+  border-radius: 8px;
+  background: var(--mat-sys-surface-container-high);
+
+  p {
+    margin: 0 0 0.4rem;
+    font: var(--mat-sys-body-medium);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}

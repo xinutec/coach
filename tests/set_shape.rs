@@ -14,6 +14,7 @@ fn set(reps: Option<i32>, load_kg: Option<f64>, hold_s: Option<i32>) -> NewSet {
         rpe: None,
         note: None,
         logged_at: None,
+        confirm_load: None,
     }
 }
 

@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use crate::error::AppError;
 use crate::exercise::repo as exercise_repo;
+use crate::location::owned;
 use crate::session::AuthUser;
 use crate::state::AppState;
 use crate::workout::repo;
@@ -29,6 +30,24 @@ pub async fn create(
         .ok_or(AppError::NotFound)?;
     if let Some(msg) = body.shape_error(ex.metric) {
         return Err(AppError::BadRequest(msg.to_string()));
+    }
+    // A load far past anything he owns is the signature of a mistyped field, and
+    // ability is a max over history — one such number becomes a PR the engine
+    // cannot unlearn, and every future session is prescribed off it. So ask
+    // once. A confirm rather than a refusal, because improvised weights are real
+    // and the ledger already judges them honestly.
+    if let Some(load) = body.load_kg
+        && !body.confirm_load.unwrap_or(false)
+    {
+        let heaviest = owned::heaviest_buildable(&app.pool, &user.user_id, &ex).await?;
+        if owned::implausible(load, heaviest) {
+            let owned_kg = heaviest.unwrap_or_default();
+            return Err(AppError::NeedsConfirmation(format!(
+                "{load} kg is well past the heaviest you own for {} ({owned_kg} kg) \
+                 — confirm if that's right",
+                ex.name
+            )));
+        }
     }
     Ok(Json(repo::create(&app.pool, &user.user_id, &body).await?))
 }

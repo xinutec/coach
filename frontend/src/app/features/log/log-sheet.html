@@ -55,6 +55,19 @@
     <p class="error">{{ e }}</p>
   }
 
+  <!-- Not a refusal: the numbers stay typed and he answers in place. -->
+  @if (confirmLoad(); as q) {
+    <div class="confirm-load">
+      <p>{{ q }}</p>
+      <div class="confirm-actions">
+        <button mat-button (click)="confirmLoad.set(null)">Fix it</button>
+        <button mat-flat-button [disabled]="saving()" (click)="save(true)">
+          Yes, that's right
+        </button>
+      </div>
+    </div>
+  }
+
   <div class="actions">
     <!-- The count is the confirmation: each save lands, the sheet stays for the
          next set of the run, and Done hands back to the plan. -->

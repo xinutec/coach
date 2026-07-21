@@ -48,7 +48,9 @@ CDP = Path(
 
 
 class ApiError(RuntimeError):
-    pass
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 def api(method: str, path: str, body=None):
@@ -97,7 +99,7 @@ def api(method: str, path: str, body=None):
             "in the ChromeDebug profile and sign in; the session then persists."
         )
     if status >= 400:
-        raise ApiError(f"{method} {path} → {status}: {text[:400]}")
+        raise ApiError(f"{method} {path} → {status}: {text[:400]}", status)
     if status == 204 or not text:
         return None
     return json.loads(text)
@@ -222,9 +224,27 @@ def cmd_log(args):
     }
     if args.at:
         body["loggedAt"] = args.at
+    if args.confirm_load:
+        body["confirmLoad"] = True
 
     for i in range(args.sets):
-        got = api("POST", "/api/sets", body)
+        try:
+            got = api("POST", "/api/sets", body)
+        except ApiError as e:
+            # 409 is the load-plausibility query the web UI answers with a
+            # button. Mirror it: say what it asked and how to say yes, rather
+            # than dumping a raw HTTP error (feedback: the CLI mirrors the UI).
+            if e.status != 409:
+                raise
+            try:
+                asked = json.loads(str(e).split(": ", 1)[1]).get("error", "")
+            except (ValueError, IndexError):
+                asked = ""
+            sys.exit(
+                f"coachctl: {asked}\n"
+                "  re-run with --confirm-load if that load is right, "
+                "or correct --load."
+            )
         print(f"  logged #{got['id']}  {label(ex)}  {summarise(got, ex)}")
     print(f"\n  {args.sets} set(s) of {ex['slug']}.")
 
@@ -382,6 +402,11 @@ def main():
     p.add_argument("--note")
     p.add_argument("--sets", type=int, default=1, help="log this set N times")
     p.add_argument("--at", metavar="ISO8601", help="when (default: now)")
+    p.add_argument(
+        "--confirm-load",
+        action="store_true",
+        help="yes, that load is right (answers the implausible-load query)",
+    )
     p.set_defaults(fn=cmd_log)
 
     p = sub.add_parser("todo", help="movements still missing a demo video")

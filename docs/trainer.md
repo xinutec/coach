@@ -192,6 +192,20 @@ morning's sleep data is later corrected, that morning's readiness genuinely *was
 different from what the coach believed. Re-deriving from the source of truth is the
 honest answer, not the lossy one.
 
+**A number the athlete never lifted is asked about once.** Ability is a max over
+history, so a mistyped load is not a bad day the model averages away — it becomes
+a PR the engine cannot unlearn. It decays only to the 60 % floor, the block reset
+fires on an 8-week gap that never comes while he keeps training, and the ledger's
+deepest correction ("re-open the measurement") produces a *lower* number that the
+max discards. One slip of the load field therefore prescribes off a fake stronger
+self indefinitely — the exact thing the block reset exists to prevent. So the log
+checks a load against the weights he actually owns, across every location
+([`location/owned.rs`]), and a load half again heavier than anything buildable is
+**queried, not refused**: improvised weights are real and the ledger already
+judges them honestly, so the athlete answers and the set stands. A rack with
+nothing registered answers nothing — an under-configured gym is not evidence of a
+typo.
+
 When confidence is `Low`/`None` the item is a **calibration** instead, with a
 protocol per metric (build up to a hard set of ~5; AMRAP; one max hold; carry it and
 log the weight and the seconds). The calibration *is* the training — it is still a

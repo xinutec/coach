@@ -35,6 +35,10 @@ pub struct NewSet {
     pub rpe: Option<i32>,
     pub note: Option<String>,
     pub logged_at: Option<NaiveDateTime>,
+    /// Set by the client when re-sending a load it was asked to confirm — "yes,
+    /// I really did lift that". Absent/false on a first attempt, so a surprising
+    /// load is queried once and never again for the same set.
+    pub confirm_load: Option<bool>,
 }
 
 /// Value ceilings no honest set exceeds — plausibility, not policy. Generous

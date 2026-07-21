@@ -17,6 +17,14 @@ pub enum AppError {
     #[error("{0}")]
     BadRequest(String),
 
+    /// The request is well-formed but describes something surprising enough to
+    /// be worth one "are you sure?" — a load far beyond any weight the athlete
+    /// owns. Distinct from [`BadRequest`](AppError::BadRequest) because the
+    /// client must be able to tell "this is wrong" from "confirm and resend",
+    /// and only the second one offers the athlete a way through.
+    #[error("{0}")]
+    NeedsConfirmation(String),
+
     /// Anything unexpected → 500, body is generic, detail is logged.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -40,6 +48,7 @@ impl IntoResponse for AppError {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
             AppError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+            AppError::NeedsConfirmation(_) => (StatusCode::CONFLICT, self.to_string()),
             AppError::Other(e) => {
                 tracing::error!("internal error: {e:#}");
                 (

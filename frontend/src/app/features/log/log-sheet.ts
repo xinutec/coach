@@ -80,6 +80,11 @@ export class LogSheet {
    *  range) — shown in the sheet. A silently swallowed rejection looks exactly
    *  like a logged set, which is worse than the bad value it refused. */
   readonly error = signal<string | null>(null);
+  /** The server asking "are you sure?" about a load far past anything he owns
+   *  (409). Not an error — the set is fine if he means it — so it offers a way
+   *  through rather than just refusing, and a typo gets caught before the
+   *  ability model swallows it as a PR it can never unlearn. */
+  readonly confirmLoad = signal<string | null>(null);
   /** Sets logged since the sheet opened — the run this sheet represents. */
   readonly logged = signal(0);
 
@@ -107,12 +112,14 @@ export class LogSheet {
     this.holdS.set(p?.holdS ?? null);
   }
 
-  save(): void {
+  /** `confirmed` re-sends a load the server queried, with the athlete's yes. */
+  save(confirmed = false): void {
     const ex = this.selected();
     if (ex === null) return;
     const m = ex.metric;
     this.saving.set(true);
     this.error.set(null);
+    this.confirmLoad.set(null);
     this.api
       .logSet({
         exerciseId: ex.id,
@@ -127,6 +134,7 @@ export class LogSheet {
         rpe: null,
         note: this.note().trim() || null,
         loggedAt: null,
+        confirmLoad: confirmed,
       })
       .subscribe({
         // Keep the sheet up with the same numbers — the next set of a run is
@@ -139,7 +147,14 @@ export class LogSheet {
         },
         error: (err: unknown) => {
           this.saving.set(false);
-          const msg = (err as { error?: { error?: string } }).error?.error;
+          const e = err as { status?: number; error?: { error?: string } };
+          const msg = e.error?.error;
+          // 409 is the load-plausibility query, not a refusal: keep the typed
+          // numbers exactly as they are and let him answer it.
+          if (e.status === 409 && msg) {
+            this.confirmLoad.set(msg);
+            return;
+          }
           this.error.set(msg ?? "That didn't save — try again");
         },
       });

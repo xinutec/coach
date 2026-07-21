@@ -264,6 +264,7 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
                 rpe: Some(8),
                 note: None,
                 logged_at: None,
+                confirm_load: None,
             },
         )
         .await
