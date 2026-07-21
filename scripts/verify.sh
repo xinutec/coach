@@ -43,7 +43,11 @@ nix develop -c bash -c '
   # which build cleanly. NOT the sandbox.
   export NG_BUILD_MAX_WORKERS=1
   cargo fmt --all --check
-  cargo clippy --all-targets -- -D warnings
+  # Clippy gets its own target dir: clippy-driver and rustc fingerprint the
+  # workspace differently and evict each other in a shared dir, forcing a full
+  # recompile. A dedicated dir keeps both caches warm.
+  CARGO_TARGET_DIR="${CARGO_CLIPPY_TARGET_DIR:-$HOME/.cache/cargo/clippy-target}" \
+    cargo clippy --all-targets -- -D warnings
   cargo test
   # Generated-types drift (formerly the separate pre-push gate): regenerate the
   # ts-rs bindings and fail if the committed frontend generated output moved.
