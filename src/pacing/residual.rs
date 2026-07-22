@@ -249,10 +249,13 @@ fn judge(
         let best = today
             .iter()
             .filter(|s| s.load_kg.is_some() && s.hold_s.is_some())
+            // total_cmp, not partial_cmp: a NaN load would make the tuple
+            // comparison return None and panic the whole pacing pass mid-sort.
             .max_by(|a, b| {
-                (a.load_kg.unwrap(), a.hold_s.unwrap())
-                    .partial_cmp(&(b.load_kg.unwrap(), b.hold_s.unwrap()))
+                a.load_kg
                     .unwrap()
+                    .total_cmp(&b.load_kg.unwrap())
+                    .then(a.hold_s.unwrap().cmp(&b.hold_s.unwrap()))
             });
         if let Some(bs) = best {
             let (load, done) = (bs.load_kg.unwrap(), bs.hold_s.unwrap());
