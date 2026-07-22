@@ -230,9 +230,17 @@ flat.
   muscle-map authored (`render/muscle_map.json`) and validated across muscle
   groups/views (push-up→pecs, squat→quads, curl→biceps, row→upper back,
   lat-reach→lats, heel-toe→calves — all correct). The two last image-less
-  warmups (kneeling lat reach, heel-toe rocks) now carry écorché images; **all
+  warmups (kneeling lat reach, heel-toe rocks) took écorché images; **all
   136 exercises have images.** The pipeline can now render any exercise
-  unposed. Remaining choice for a wider rollout: **replace vs supplement** — an
+  unposed.
+
+  **Kneeling lat reach went back to a sourced illustration (2026-07-22)** — a
+  GymVisual-set drawing that shows the kneeling position *and* colours the lats.
+  The only slug where the two styles competed head to head, and the écorché lost
+  on the same ground as below: it says which muscle, not what to do. Worth
+  weighing when M5 decides replace vs supplement.
+
+  Remaining choice for a wider rollout: **replace vs supplement** — an
   unposed écorché is a "muscles worked" view, not a how-to demo, so overwriting
   the sourced demo photos for the other 134 would trade movement info for muscle
   info. That is a product decision to make deliberately (a second image field is
