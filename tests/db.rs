@@ -515,3 +515,139 @@ async fn a_transparent_diagram_is_rendered_but_a_photograph_is_left_alone() {
         "an ordinary photograph was re-encoded — it needed nothing done to it"
     );
 }
+
+/// The correction loop, end to end through the database: a wrong number becomes
+/// the estimate, the card names *that* set, removing it re-derives the estimate.
+///
+/// The unit tests pin that `source` picks the right set and the back-test proves
+/// prescriptions didn't move, but neither can see this chain — estimate →
+/// explanation → the row id the UI acts on → delete → estimate moves. It is also
+/// the only destructive path here, and deleting the wrong row would be silent.
+#[tokio::test]
+async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
+    let pool = &fresh("correct_estimate").await;
+    let u = "test-correct";
+
+    settings::repo::upsert(
+        pool,
+        u,
+        &SettingsPatch {
+            timezone: Some("Europe/London".into()),
+            window_start_hour: None,
+            window_end_hour: None,
+            min_rest_min: None,
+            mode: None,
+            days_per_week: None,
+            emphasis: None,
+        },
+    )
+    .await
+    .unwrap();
+    let loc = location::repo::create(
+        pool,
+        u,
+        &NewLocation {
+            name: "Test gym".into(),
+            is_default: true,
+            equipment: vec!["dumbbell".into(), "pull_up_bar".into(), "bench".into()],
+            equipment_options: vec![EquipmentOption {
+                slug: "dumbbell".into(),
+                weights: vec![6.0, 8.0, 10.0, 12.0, 16.0, 20.0],
+                ..Default::default()
+            }],
+            plates: vec![],
+            health_place_id: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    // Find a weighted movement the engine will actually plan here.
+    let first = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
+    let ex_id = first
+        .plan
+        .iter()
+        .find(|s| s.kind != SuggestionKind::Warmup && s.load_kg.is_some())
+        .map(|s| s.exercise_id)
+        .expect("expected a loadable movement in the plan");
+
+    // Logged on past days on purpose: `evaluate` excludes the *current session's*
+    // own sets (they are progress against the plan, not grounds to replan), and
+    // the set that poisons an estimate is an old one anyway — which is the whole
+    // reason the card has to be able to reach back to it.
+    let log = |load: f64, reps: i32, days_ago: i64| {
+        let ns = NewSet {
+            exercise_id: ex_id,
+            reps: Some(reps),
+            load_kg: Some(load),
+            hold_s: None,
+            rpe: None,
+            note: None,
+            logged_at: Some(Utc::now().naive_utc() - Duration::days(days_ago)),
+            confirm_load: Some(true), // the athlete confirmed it; that's the bug
+        };
+        async move { workout_repo::create(pool, u, &ns).await.unwrap() }
+    };
+
+    // Honest work across separate days, plus one fat-fingered set weeks back.
+    // Far enough back that the rolling 7-day volume window no longer counts them
+    // (so the group still needs work and the movement stays in the plan), but
+    // well inside the 6-week confidence window, so the estimate is trusted.
+    log(10.0, 8, 21).await;
+    log(10.0, 8, 18).await;
+    log(10.0, 8, 14).await;
+    let bogus = log(100.0, 8, 16).await;
+
+    // The card must name the offending set — by its row id, not a guess.
+    let poisoned = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
+    let src = poisoned
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ex_id && s.kind != SuggestionKind::Warmup)
+        .and_then(|s| s.explanation.as_ref())
+        .and_then(|e| e.estimate_from)
+        .expect("the estimate must name the set it came from");
+    assert_eq!(
+        src.set_id, bogus.id,
+        "the card pointed at the wrong set — removing it would delete honest history"
+    );
+    assert_eq!(src.load_kg, Some(100.0));
+
+    // Removing it is what the button does; the next verdict re-derives.
+    assert!(
+        workout_repo::soft_delete(pool, u, src.set_id)
+            .await
+            .unwrap(),
+        "the set the card offered to remove could not be removed"
+    );
+    let fixed = service::now(pool, u, Some(loc.id), None, Default::default())
+        .await
+        .unwrap();
+    let after = fixed
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ex_id && s.kind != SuggestionKind::Warmup)
+        .and_then(|s| s.explanation.as_ref())
+        .and_then(|e| e.estimate_from);
+    if let Some(a) = after {
+        assert_ne!(
+            a.set_id, bogus.id,
+            "the removed set still defines the estimate"
+        );
+        assert_eq!(
+            a.load_kg,
+            Some(10.0),
+            "the estimate should fall back to honest work"
+        );
+    }
+    // And the honest sets survived — a correction must not take history with it.
+    assert_eq!(
+        workout_repo::list_recent(pool, u, 10).await.unwrap().len(),
+        3,
+        "removing one set must leave the other three"
+    );
+}
