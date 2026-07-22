@@ -33,8 +33,8 @@ use super::dose::{
 };
 use super::residual::{self, Residual};
 use super::types::{
-    Band, Blocker, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput, PacingNow,
-    PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
+    Band, Blocker, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput,
+    PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
 };
 
 /// Cold-start hold (seconds) when an isometric has no history yet.
@@ -1673,6 +1673,13 @@ fn plan_session(
                         confirming: pick.confirming,
                         confidence: ability::confidence_of(abilities, c.ex.id),
                         e1rm: ability.and_then(|a| a.e1rm),
+                        estimate_from: ability.and_then(|a| a.source).map(|s| EstimateSource {
+                            set_id: s.set_id,
+                            logged_at: s.logged_at,
+                            load_kg: s.load_kg,
+                            reps: s.reps,
+                            hold_s: s.hold_s,
+                        }),
                         misses: feedback.consecutive_misses,
                         readiness: input.readiness.map(|r| r.band),
                     }),

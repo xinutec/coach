@@ -7,7 +7,14 @@ import { MatMenuModule } from "@angular/material/menu";
 import { MatProgressBarModule } from "@angular/material/progress-bar";
 import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
-import type { Band, Explanation, PacingNow, Substitution, Suggestion } from "../../models";
+import type {
+	Band,
+	EstimateSource,
+	Explanation,
+	PacingNow,
+	Substitution,
+	Suggestion,
+} from "../../models";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
 import { LogSheet, type LogPrefill, type LogSheetData } from "../log/log-sheet";
@@ -113,6 +120,36 @@ export class Today {
 				}
 			},
 			error: () => {},
+		});
+	}
+
+	/** The set whose removal is awaiting confirmation, if any. Removing a set is
+	 *  destructive, so it takes a second deliberate tap — but it stays inline, so
+	 *  correcting a number is still a two-tap job rather than a hunt through
+	 *  history for a set logged weeks ago. */
+	readonly confirmRemoveSetId = signal<number | null>(null);
+
+	/** The set behind the estimate, in the terms it was logged in. */
+	describeSource(src: EstimateSource): string {
+		const when = new Date(src.loggedAt + "Z").toLocaleDateString(undefined, {
+			day: "numeric",
+			month: "short",
+		});
+		const bits: string[] = [];
+		if (src.loadKg !== null) bits.push(`${src.loadKg} kg`);
+		if (src.reps !== null) bits.push(`× ${src.reps}`);
+		if (src.holdS !== null) bits.push(`${src.holdS}s`);
+		return `${when} · ${bits.join(" ")}`;
+	}
+
+	/** Drop the set the estimate rests on. The next verdict re-derives from what
+	 *  is left — nothing is patched by hand, so the engine stays the only thing
+	 *  that computes a number. */
+	removeSourceSet(setId: number): void {
+		this.confirmRemoveSetId.set(null);
+		this.api.deleteSet(setId).subscribe({
+			next: () => this.reloadPacing(),
+			error: () => this.reloadPacing(),
 		});
 	}
 

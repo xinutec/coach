@@ -30,6 +30,7 @@ fn e1rm(load: f64, reps: i32, rpe: Option<i32>) -> f64 {
 
 fn weighted(id: i64, days_ago: i64, load: f64, reps: i32, rpe: Option<i32>) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id: id,
         logged_at: at(days_ago),
         reps: Some(reps),
@@ -40,6 +41,7 @@ fn weighted(id: i64, days_ago: i64, load: f64, reps: i32, rpe: Option<i32>) -> S
 }
 fn bodyweight(id: i64, days_ago: i64, reps: i32, rpe: Option<i32>) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id: id,
         logged_at: at(days_ago),
         reps: Some(reps),
@@ -50,6 +52,7 @@ fn bodyweight(id: i64, days_ago: i64, reps: i32, rpe: Option<i32>) -> SetRec {
 }
 fn hold(id: i64, days_ago: i64, secs: i32) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id: id,
         logged_at: at(days_ago),
         reps: None,
@@ -238,4 +241,78 @@ fn never_trained_is_absent_and_reads_as_none() {
     let a: HashMap<_, _> = abilities(&[weighted(1, 1, 50.0, 5, None)], base());
     assert_eq!(confidence_of(&a, 1), Confidence::Medium);
     assert_eq!(confidence_of(&a, 999), Confidence::None);
+}
+
+// ---- provenance: which set set the estimate ---------------------------------
+
+/// The estimate must name the set it came from. Ability is a max, so one wrong
+/// number is a ceiling nothing later can lower — and it is only correctable if
+/// the app can say which set produced it.
+#[test]
+fn the_estimate_names_the_set_it_came_from() {
+    let best = SetRec {
+        id: 42,
+        exercise_id: 1,
+        logged_at: at(3),
+        reps: Some(5),
+        load_kg: Some(80.0),
+        hold_s: None,
+        rpe: None,
+    };
+    let lighter = SetRec {
+        id: 43,
+        exercise_id: 1,
+        logged_at: at(1),
+        reps: Some(8),
+        load_kg: Some(40.0),
+        hold_s: None,
+        rpe: None,
+    };
+    let a = abilities(&[best, lighter], base());
+    let src = a[&1].source.expect("an estimate must name its set");
+    assert_eq!(src.set_id, 42, "the heavier set is what set the estimate");
+    assert_eq!(src.load_kg, Some(80.0));
+    assert_eq!(src.reps, Some(5));
+}
+
+/// The failure this exists for: the set that defines the estimate is usually
+/// *old*, so anything that only offers the latest set cannot reach it.
+#[test]
+fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
+    // A 140 kg slip weeks back, honest 40 kg work ever since.
+    let mut h = vec![SetRec {
+        id: 7,
+        exercise_id: 1,
+        logged_at: at(40),
+        reps: Some(8),
+        load_kg: Some(140.0),
+        hold_s: None,
+        rpe: None,
+    }];
+    h.extend((0..6).map(|d| weighted(1, d * 2, 40.0, 8, None)));
+
+    let a = abilities(&h, base());
+    let src = a[&1].source.expect("an estimate must name its set");
+    assert_eq!(
+        src.set_id, 7,
+        "the old outlier is still the max — the card must point at it"
+    );
+    assert_eq!(src.load_kg, Some(140.0));
+}
+
+/// Bodyweight rep work names its set too.
+#[test]
+fn a_rep_estimate_names_its_set() {
+    let h = vec![SetRec {
+        id: 9,
+        exercise_id: 2,
+        logged_at: at(1),
+        reps: Some(12),
+        load_kg: None,
+        hold_s: None,
+        rpe: None,
+    }];
+    let src = abilities(&h, base())[&2].source.unwrap();
+    assert_eq!(src.set_id, 9);
+    assert_eq!(src.reps, Some(12));
 }

@@ -29,6 +29,7 @@ type RawSet = (i64, f64, i32, Option<i32>);
 fn weighted(raw: &[RawSet]) -> Vec<SetRec> {
     raw.iter()
         .map(|&(days_ago, load, reps, rpe)| SetRec {
+            id: 0,
             exercise_id: 1,
             logged_at: base() - Duration::days(days_ago),
             reps: Some(reps),

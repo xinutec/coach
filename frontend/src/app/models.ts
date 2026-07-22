@@ -7,6 +7,7 @@ export * from "./generated/Category";
 export * from "./generated/Confidence";
 export * from "./generated/CurrentLocation";
 export * from "./generated/DetectedPlace";
+export * from "./generated/EstimateSource";
 export * from "./generated/Equipment";
 export * from "./generated/EquipmentOption";
 export * from "./generated/Exercise";

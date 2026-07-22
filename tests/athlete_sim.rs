@@ -188,6 +188,7 @@ fn estimate_converges_to_true_ability_and_holds() {
         let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
+            id: 0,
             exercise_id: 5,
             logged_at: now,
             reps: Some(reps),
@@ -266,6 +267,7 @@ fn estimate_tracks_true_ability_as_it_grows() {
         let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
+            id: 0,
             exercise_id: 5,
             logged_at: now,
             reps: Some(reps),
@@ -425,6 +427,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             }
             let (reps, rpe) = athlete(s.exercise_id).reps(s.rep_high.or(s.rep_low));
             history.push(SetRec {
+                id: 0,
                 exercise_id: s.exercise_id,
                 logged_at: now,
                 reps: Some(reps),

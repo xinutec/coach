@@ -103,6 +103,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
                 _ => (None, Some(reps), None),            // bodyweight reps
             };
             SetRec {
+                id: 0,
                 exercise_id: id,
                 logged_at: base() - Duration::days(days_ago),
                 reps: reps_v,

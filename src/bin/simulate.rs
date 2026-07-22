@@ -423,6 +423,7 @@ async fn main() -> Result<()> {
     let mut hist: Vec<SetRec> = raw
         .iter()
         .map(|w| SetRec {
+            id: w.id,
             exercise_id: w.exercise_id,
             logged_at: to_local(w.logged_at),
             reps: w.reps,
@@ -537,6 +538,9 @@ async fn main() -> Result<()> {
             let p = perform(s, truth, metric, inp.exercise_loads.get(&s.exercise_id));
             for _ in 0..s.sets {
                 hist.push(SetRec {
+                    // Simulated sets are never written back, so a real row id
+                    // would be a fiction; they only need to not collide.
+                    id: -(sets_logged as i64 + 1),
                     exercise_id: s.exercise_id,
                     logged_at: t,
                     reps: p.reps,

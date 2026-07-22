@@ -192,6 +192,16 @@ morning's sleep data is later corrected, that morning's readiness genuinely *was
 different from what the coach believed. Re-deriving from the source of truth is the
 honest answer, not the lossy one.
 
+**The estimate names the set it came from.** Ability is a max, so the number is
+always exactly one real set — and if that set is wrong, nothing later lowers it.
+So the trace carries the set itself (`Explanation::estimate_from`: row id, date,
+load × reps) and "Why this?" shows it with a way to remove it. The set is
+usually *old* — the one measured here was 60 days back and still 2.1× true
+ability a year on — so an affordance that only reached the latest set would
+never reach the one that matters. Removal deletes the logged set and the next
+verdict re-derives; no number is ever edited by hand, so the engine remains the
+only thing that computes one.
+
 **A number the athlete never lifted is asked about once.** Ability is a max over
 history, so a mistyped load is not a bad day the model averages away — it becomes
 a PR the engine cannot unlearn. It decays only to the 60 % floor, the block reset

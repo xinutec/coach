@@ -106,6 +106,7 @@ fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
 /// A bodyweight set (reps only) — for volume/recovery scenarios.
 fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id,
         logged_at: at,
         reps: Some(8),
@@ -119,6 +120,7 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
 /// demonstrated maximum, not the volume, is the point.
 fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id,
         logged_at: at,
         reps: Some(reps),
@@ -132,6 +134,7 @@ fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
 /// derives from.
 fn wset(exercise_id: i64, at: NaiveDateTime, load: f64, reps: i32) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id,
         logged_at: at,
         reps: Some(reps),
@@ -1709,6 +1712,7 @@ fn bells() -> HashMap<i64, Vec<f64>> {
 /// A carry set: a load *and* a duration, no reps.
 fn cset(exercise_id: i64, at: NaiveDateTime, load: f64, secs: i32) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id,
         logged_at: at,
         reps: None,

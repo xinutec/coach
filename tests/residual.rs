@@ -23,6 +23,7 @@ fn day(n: i64) -> NaiveDateTime {
 
 fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
     SetRec {
+        id: 0,
         exercise_id: 1,
         logged_at: day(day_n),
         reps: Some(reps),

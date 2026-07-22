@@ -80,6 +80,7 @@ async fn main() -> Result<()> {
     let mut sets: Vec<SetRec> = raw
         .iter()
         .map(|w| SetRec {
+            id: w.id,
             exercise_id: w.exercise_id,
             logged_at: to_local(w.logged_at),
             reps: w.reps,

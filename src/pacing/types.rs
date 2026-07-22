@@ -52,6 +52,11 @@ pub struct ExerciseInfo {
 /// than a grinding one at the same load.
 #[derive(Clone)]
 pub struct SetRec {
+    /// The `workout_sets` row this came from. Carried so the engine can point at
+    /// the *specific* set behind an estimate — a number the athlete can only
+    /// correct if the app can tell him which set produced it. Identifying it by
+    /// timestamp instead would risk offering to delete the wrong row.
+    pub id: i64,
     pub exercise_id: i64,
     pub logged_at: NaiveDateTime,
     pub reps: Option<i32>,
@@ -206,6 +211,21 @@ pub enum SuggestionKind {
     Assess,
 }
 
+/// The logged set an ability estimate came from, named on the card so it can be
+/// corrected. `setId` is the `workout_sets` row, so the UI can act on exactly
+/// that set rather than guessing from a timestamp.
+#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct EstimateSource {
+    #[ts(type = "number")]
+    pub set_id: i64,
+    pub logged_at: NaiveDateTime,
+    pub load_kg: Option<f64>,
+    pub reps: Option<i32>,
+    pub hold_s: Option<i32>,
+}
+
 /// Why the engine chose this exercise + prescription — a structured trace so the
 /// UI can show its reasoning and tests can assert on it (rather than string-match
 /// prose). Every number here is one the verdict already computed.
@@ -232,6 +252,14 @@ pub struct Explanation {
     pub confidence: Confidence,
     /// Estimated 1-rep-max (kg) the load was derived from, when known.
     pub e1rm: Option<f64>,
+    /// The single logged set that set the estimate above — the max is one real
+    /// set, and this names it.
+    ///
+    /// Shown so a wrong number is correctable. Ability is a max, so one mistyped
+    /// set becomes a ceiling nothing later can lower, and the offending set is
+    /// usually weeks old — "the coach is asking for something absurd" is
+    /// otherwise an archaeology problem with no way in.
+    pub estimate_from: Option<EstimateSource>,
     /// Sessions in a row the athlete has come in under this estimate. Non-zero means
     /// the prescription was held back or stepped down on purpose, and the card can
     /// say so — "eased off" reads as a decision; the same number twice in a row

@@ -92,6 +92,28 @@ pub struct Ability {
     pub confidence: Confidence,
     /// Distinct recent days the exercise was trained (drives confidence).
     pub sessions_recent: i32,
+    /// The set that actually set this estimate — the max is one real set, and
+    /// this is it.
+    ///
+    /// Ability is a max, so a single wrong number becomes a ceiling nothing
+    /// later can lower: it decays only to `DECAY_FLOOR`, `BLOCK_GAP_WEEKS` never
+    /// fires while training continues, and an honest re-measurement is *lower*
+    /// and loses. The estimate is only correctable if the athlete can be shown
+    /// which set produced it — otherwise "the coach is asking for something
+    /// absurd" is an archaeology problem, and the offending set is usually weeks
+    /// back, out of reach of anything that only offers the latest one.
+    pub source: Option<Source>,
+}
+
+/// The set behind an estimate: enough to recognise it, and its row id so it can
+/// be corrected. Which metric it set is implied by the estimate it accompanies.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Source {
+    pub set_id: i64,
+    pub logged_at: NaiveDateTime,
+    pub load_kg: Option<f64>,
+    pub reps: Option<i32>,
+    pub hold_s: Option<i32>,
 }
 
 /// What a loaded carry demonstrated: this weight, for this long.
@@ -190,6 +212,15 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     let mut best_hold = None;
     let mut carry: Option<Carry> = None;
     let mut recent_days: HashSet<_> = HashSet::new();
+    // The set behind each max, updated in lockstep with it.
+    let (mut e1rm_src, mut reps_src, mut hold_src) = (None, None, None);
+    let source_of = |s: &SetRec| Source {
+        set_id: s.id,
+        logged_at: s.logged_at,
+        load_kg: s.load_kg,
+        reps: s.reps,
+        hold_s: s.hold_s,
+    };
 
     for s in &sets {
         // Confidence sees every recent set; the estimate only the block.
@@ -204,17 +235,29 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         match (s.load_kg, s.reps, s.hold_s) {
             // Weighted: load + reps → an e1RM estimate.
             (Some(load), Some(reps), _) => {
-                e1rm = max_opt(e1rm, epley(load, reps, s.rpe) * d);
+                let v = epley(load, reps, s.rpe) * d;
+                if e1rm.is_none_or(|m: f64| v > m) {
+                    e1rm_src = Some(source_of(s));
+                }
+                e1rm = max_opt(e1rm, v);
             }
             // Bodyweight reps: reps, no load → effective-rep estimate.
             (None, Some(reps), _) => {
-                best_reps = max_opt(best_reps, (reps as f64 + rir(s.rpe)) * d);
+                let v = (reps as f64 + rir(s.rpe)) * d;
+                if best_reps.is_none_or(|m: f64| v > m) {
+                    reps_src = Some(source_of(s));
+                }
+                best_reps = max_opt(best_reps, v);
             }
             _ => {}
         }
         // A hold set (isometric) carries hold_s regardless of the above.
         if let Some(h) = s.hold_s {
-            best_hold = max_opt(best_hold, h as f64 * d);
+            let v = h as f64 * d;
+            if best_hold.is_none_or(|m: f64| v > m) {
+                hold_src = Some(source_of(s));
+            }
+            best_hold = max_opt(best_hold, v);
         }
         // A loaded carry: weight *and* time. Both decay, so idleness pulls the
         // estimate down as one — it can't quietly keep the weight while forgetting
@@ -247,6 +290,10 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         carry,
         confidence,
         sessions_recent,
+        // An exercise is measured in one metric, so at most one of these is the
+        // number the athlete is shown; prefer them in the order the prescription
+        // reads them.
+        source: e1rm_src.or(reps_src).or(hold_src),
     }
 }
 

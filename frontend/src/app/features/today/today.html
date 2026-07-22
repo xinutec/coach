@@ -168,6 +168,21 @@
                 @for (line of explanationLines(e); track line) {
                   <li>{{ line }}</li>
                 }
+                <!-- The one set the estimate rests on. Ability is a max, so a
+                     single wrong number is a ceiling nothing later can lower —
+                     and it is usually an old set, out of reach of anything that
+                     only offers the latest one. Name it, and offer the fix. -->
+                @if (e.estimateFrom; as src) {
+                  <li>
+                    From your set on {{ describeSource(src) }}
+                    @if (confirmRemoveSetId() === src.setId) {
+                      <button mat-button (click)="confirmRemoveSetId.set(null)">Keep</button>
+                      <button mat-flat-button (click)="removeSourceSet(src.setId)">Remove set</button>
+                    } @else {
+                      <button mat-button (click)="confirmRemoveSetId.set(src.setId)">Not right?</button>
+                    }
+                  </li>
+                }
               </ul>
             }
           }
