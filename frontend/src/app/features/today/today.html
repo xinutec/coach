@@ -173,13 +173,20 @@
                      and it is usually an old set, out of reach of anything that
                      only offers the latest one. Name it, and offer the fix. -->
                 @if (e.estimateFrom; as src) {
+                  <!-- Plain text buttons (the same `.why-toggle` the reasoning
+                       uses), not Material ones: a mat-button's padding pushed
+                       this line out of the list's rhythm, and a filled one made
+                       the *destructive* choice the loudest thing on the card —
+                       and sat it under the FAB at phone width. Removing a set is
+                       a rare escape hatch, so it should be quiet, and "Keep"
+                       should never be the harder option to pick. -->
                   <li>
-                    From your set on {{ describeSource(src) }}
+                    From your set on {{ describeSource(src) }}&nbsp;
                     @if (confirmRemoveSetId() === src.setId) {
-                      <button mat-button (click)="confirmRemoveSetId.set(null)">Keep</button>
-                      <button mat-flat-button (click)="removeSourceSet(src.setId)">Remove set</button>
+                      <button type="button" class="why-toggle" (click)="confirmRemoveSetId.set(null)">Keep</button
+                      >&nbsp;·&nbsp;<button type="button" class="why-toggle" (click)="removeSourceSet(src.setId)">Remove</button>
                     } @else {
-                      <button mat-button (click)="confirmRemoveSetId.set(src.setId)">Not right?</button>
+                      <button type="button" class="why-toggle" (click)="confirmRemoveSetId.set(src.setId)">Not right?</button>
                     }
                   </li>
                 }
