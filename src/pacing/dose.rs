@@ -114,7 +114,17 @@ pub struct Inventory(Vec<f64>);
 impl Inventory {
     /// The weights you own, or `None` if you own none — in which case the
     /// exercise is not loadable here and must not be prescribed.
+    ///
+    /// Non-positive and non-finite entries are dropped, not just empties
+    /// rejected: a `0.0` (or negative/NaN/inf) weight would make [`reps_at`]
+    /// divide by a non-positive load — `e1rm / 0.0 = +inf`, floored and cast to
+    /// a saturated rep count — so "do max reps at 0 kg" reaches the athlete with
+    /// no panic to flag it. Holding *positive-finite* in the type (not merely
+    /// non-empty) is what keeps the dose math total.
+    ///
+    /// [`reps_at`]: crate::pacing::engine
     pub fn new(mut loads: Vec<f64>) -> Option<Self> {
+        loads.retain(|w| w.is_finite() && *w > 0.0);
         loads.sort_by(f64::total_cmp);
         loads.dedup();
         (!loads.is_empty()).then_some(Inventory(loads))
