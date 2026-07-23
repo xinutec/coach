@@ -284,4 +284,24 @@ proptest! {
             );
         }
     }
+
+    // Permutation-invariance: the verdict must not depend on the order the
+    // exercises and groups happen to arrive in. Selection and cover tie-breaks are
+    // meant to be keyed on ids, not positions — so reversing both input lists is a
+    // no-op. A verdict that changes means a silent order-dependence (e.g. `max_by`
+    // keeping the *last* of equally-ranked candidates), where the plan the athlete
+    // gets would hinge on the incidental order a repo query returned rows in.
+    #[test]
+    fn evaluate_is_order_independent_over_catalog_and_groups((m, d, raw, owned) in scenario()) {
+        let canon = evaluate(&build_input(m, d, &raw, &owned), base());
+        let mut reordered = build_input(m, d, &raw, &owned);
+        reordered.exercises.reverse();
+        reordered.groups.reverse();
+        let flipped = evaluate(&reordered, base());
+        prop_assert_eq!(
+            serde_json::to_string(&canon).unwrap(),
+            serde_json::to_string(&flipped).unwrap(),
+            "the verdict changed when the catalog/groups were reordered"
+        );
+    }
 }

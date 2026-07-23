@@ -1355,8 +1355,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             recovering: live_rec < RECOVERED_FRACTION,
         });
     }
-    // Balance view: most-in-deficit first.
-    balances.sort_by(|a, b| b.deficit.total_cmp(&a.deficit));
+    // Balance view: most-in-deficit first, then by group name so equal deficits
+    // (every group on a cold start) order deterministically instead of echoing the
+    // order `input.groups` happened to arrive in — the verdict must not depend on a
+    // repo query's row order.
+    balances.sort_by(|a, b| {
+        b.deficit
+            .total_cmp(&a.deficit)
+            .then_with(|| a.group.cmp(&b.group))
+    });
 
     // --- session-size target from personal weekly volume (sizes the plan) ---
     //
