@@ -16,6 +16,21 @@
 //! - `improver`   — steady gains, week on week
 //! - `plateauer`  — two weeks of gains, then flat forever
 //! - `badweek`    — an improver whose week 3 goes badly and recovers
+//! - `novice`     — opens well *below* what the history says, and climbs fast
+//! - `strong`     — opens well *above* it (trained elsewhere, only just logging)
+//! - `injured`    — an improver who hurts one muscle group in week 2 and stays hurt
+//!
+//! Temperament moves the hidden *ability*. How the athlete **behaves** towards
+//! the coach is a separate axis (`SIM_BEHAVIOUR`), because the two break
+//! different things: the ledger reads logged sets, and a set that never happened
+//! is a different signal from a set that fell short.
+//!
+//! - `compliant`    — does exactly what each card says, every day it says to
+//! - `skipper`      — trains three days a week whatever the plan says
+//! - `partial`      — leaves after the first 60 % of the work cards
+//! - `overachiever` — doesn't stop at the ask when the reps are there
+//! - `improviser`   — grabs the bell below the one on the card
+//! - `layoff`       — trains a fortnight, vanishes for three weeks, comes back
 //!
 //! Everything is deterministic (no randomness, no wall clock), so a trace diffs
 //! cleanly across engine changes — the same regression signal as the back-test,
@@ -26,7 +41,8 @@
 //! Usage (dev DB seeded from a prod dump — see scripts/simulate.sh):
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin simulate
 //!   SIM_WEEKS     — how many weeks to walk forward (default 8)
-//!   SIM_ATHLETE   — improver | plateauer | badweek (default improver)
+//!   SIM_ATHLETE   — improver | plateauer | badweek | novice | strong | injured
+//!   SIM_BEHAVIOUR — compliant | skipper | partial | overachiever | improviser | layoff
 //!   SIM_RECOVERY  — untracked | rested | roughweek (default untracked)
 //!   SIM_USER      — user id (default pippijn)
 //!   SIM_LOCATION  — location by name (default: the user's default)
@@ -47,6 +63,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use coach::exercise::types::Metric;
 use coach::health::Recovery as RawRecovery;
 use coach::location::repo as location_repo;
+use coach::muscle::types::MuscleRole;
 use coach::pacing::types::{PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
 use coach::pacing::{ability, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
@@ -67,6 +84,11 @@ const DEFAULT_REPS: i32 = 8;
 const DEFAULT_HOLD_S: i32 = 25;
 const DEFAULT_CARRY: (f64, i32) = (16.0, 40);
 
+/// The group the `injured` temperament hurts. A shoulder, because it is the
+/// joint that quietly limits the most of a session — pressing, hanging, carrying
+/// and rowing all route through it.
+const INJURED_GROUP: &str = "Deltoids";
+
 /// Weekly strength gain for an improving athlete (fractional, on e1RM and
 /// carry loads) and the rep/hold analogues. Deliberately modest — real novice
 /// gains on light kit, not a montage.
@@ -74,11 +96,30 @@ const GAIN_PER_WEEK: f64 = 0.015;
 const REPS_PER_WEEK: f64 = 0.75;
 const HOLD_S_PER_WEEK: f64 = 4.0;
 
+/// A novice opens at a little over half what the logged history claims and
+/// climbs at roughly twice the improver's rate — a deconditioned return, or the
+/// app changing hands. The engine starts out believing the *old* numbers, so
+/// this is the athlete the coach is most at risk of hurting.
+const NOVICE_START: f64 = 0.55;
+const NOVICE_GAIN_MULT: f64 = 2.0;
+/// The mirror case: someone who trained elsewhere for a year and only started
+/// logging last week. Nothing in the history says how strong they are, so every
+/// number the coach holds is an underestimate it has to climb out of.
+const STRONG_START: f64 = 2.5;
+/// What an injured group is worth once it goes: a tweaked shoulder doesn't take
+/// a fortnight off, it takes most of your press away and keeps it.
+const INJURY_MULT: f64 = 0.4;
+/// The sim week the injury lands in.
+const INJURY_WEEK: i64 = 2;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Temperament {
     Improver,
     Plateauer,
     BadWeek,
+    Novice,
+    Strong,
+    Injured,
 }
 
 impl Temperament {
@@ -87,16 +128,32 @@ impl Temperament {
             "improver" => Some(Self::Improver),
             "plateauer" => Some(Self::Plateauer),
             "badweek" => Some(Self::BadWeek),
+            "novice" => Some(Self::Novice),
+            "strong" => Some(Self::Strong),
+            "injured" => Some(Self::Injured),
             _ => None,
         }
     }
 
+    /// Where true ability *opens*, as a fraction of what the real history's own
+    /// estimates say. Everyone but the novice and the strong athlete starts
+    /// where the engine believes they are — for those two the opening gap is
+    /// the whole point of the run.
+    fn start_scale(self) -> f64 {
+        match self {
+            Self::Novice => NOVICE_START,
+            Self::Strong => STRONG_START,
+            _ => 1.0,
+        }
+    }
+
     /// Weeks of progress banked by sim week `w` — the plateauer stops banking
-    /// after two.
+    /// after two; the novice banks at double rate.
     fn banked(self, w: i64) -> f64 {
         match self {
             Self::Plateauer => w.min(2) as f64,
-            Self::Improver | Self::BadWeek => w as f64,
+            Self::Novice => w as f64 * NOVICE_GAIN_MULT,
+            Self::Improver | Self::BadWeek | Self::Strong | Self::Injured => w as f64,
         }
     }
 
@@ -128,6 +185,113 @@ impl Temperament {
             _ => 0.0,
         };
         HOLD_S_PER_WEEK * self.banked(w) - dip
+    }
+
+    /// What an exercise on the injured group is worth at sim week `w`. It
+    /// applies to that one group: the point of the case is that the rest of the
+    /// athlete keeps improving, so a coach reading the body as a single number
+    /// cannot see it.
+    fn injury(self, w: i64, on_injured_group: bool) -> f64 {
+        match self {
+            Self::Injured if on_injured_group && w >= INJURY_WEEK => INJURY_MULT,
+            _ => 1.0,
+        }
+    }
+}
+
+// ---- how the athlete behaves towards the coach -------------------------------
+
+/// Compliance, which [`Temperament`] deliberately doesn't model. A missed set and
+/// a set that never happened reach the engine as different signals — one is
+/// evidence, the other is silence — and the coach has to read both.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Behaviour {
+    /// Does exactly what each card says, on every day the coach says train.
+    Compliant,
+    /// Three days a week, whatever the plan says.
+    Skipper,
+    /// Leaves partway through: the last cards never get done.
+    Partial,
+    /// Doesn't stop at the ask when the reps are there.
+    Overachiever,
+    /// Reaches for the bell below the one on the card.
+    Improviser,
+    /// Trains a fortnight, disappears for three weeks, comes back.
+    Layoff,
+}
+
+/// Reps the overachiever adds to an ask they could beat, and the seconds they
+/// add to a hold. Small on purpose — this is "one more because it felt light",
+/// not a different athlete.
+const OVER_REPS: i32 = 2;
+const OVER_HOLD_S: i32 = 5;
+/// How much of the plan the quitter gets through before life intervenes.
+const PARTIAL_FRACTION: f64 = 0.6;
+/// The layoff: away from `LAYOFF_FROM` until `LAYOFF_TO` (sim days, 0-based).
+const LAYOFF_FROM: i64 = 14;
+const LAYOFF_TO: i64 = 35;
+
+impl Behaviour {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "compliant" => Some(Self::Compliant),
+            "skipper" => Some(Self::Skipper),
+            "partial" => Some(Self::Partial),
+            "overachiever" => Some(Self::Overachiever),
+            "improviser" => Some(Self::Improviser),
+            "layoff" => Some(Self::Layoff),
+            _ => None,
+        }
+    }
+
+    /// Does the athlete turn up on sim day `d` at all? The coach still computes
+    /// the day's verdict either way — what changes is whether any sets come back.
+    fn attends(self, d: i64) -> bool {
+        match self {
+            Self::Skipper => matches!(d % 7, 0 | 2 | 4),
+            Self::Layoff => !(LAYOFF_FROM..LAYOFF_TO).contains(&d),
+            _ => true,
+        }
+    }
+
+    /// How many of the day's work cards actually get done.
+    fn cards_done(self, offered: usize) -> usize {
+        match self {
+            Self::Partial => ((offered as f64 * PARTIAL_FRACTION).ceil() as usize).max(1),
+            _ => offered,
+        }
+    }
+
+    /// The reps the athlete *aims* for, given the card's ask. Everyone but the
+    /// overachiever stops where they were told.
+    fn rep_target(self, ask: i32) -> i32 {
+        match self {
+            Self::Overachiever => ask + OVER_REPS,
+            _ => ask,
+        }
+    }
+
+    /// The same, for a hold or a carry.
+    fn hold_target(self, ask: i32) -> i32 {
+        match self {
+            Self::Overachiever => ask + OVER_HOLD_S,
+            _ => ask,
+        }
+    }
+
+    /// The bell actually picked up for an ask of `asked` kg. The ledger judges
+    /// the ask at the load *logged* (R5-1), so an improvised weight must come
+    /// out honest rather than as a shortfall — this is the case that proves it.
+    fn load_used(self, asked: f64, owned: Option<&Vec<f64>>) -> f64 {
+        if self != Self::Improviser {
+            return asked;
+        }
+        let mut ws: Vec<f64> = owned.cloned().unwrap_or_default();
+        ws.sort_by(f64::total_cmp);
+        ws.iter()
+            .copied()
+            .rfind(|w| *w < asked - 1e-9)
+            .unwrap_or(asked)
     }
 }
 
@@ -197,29 +361,39 @@ struct Base {
 struct Athlete {
     temperament: Temperament,
     base: HashMap<i64, Base>,
+    /// Exercises whose primary group is the injured one. Empty unless the
+    /// temperament is [`Temperament::Injured`].
+    injured: BTreeSet<i64>,
 }
 
 impl Athlete {
     /// True ability at sim week `w`, seeding a deterministic default the first
     /// time an exercise is asked about.
     fn truth(&mut self, exercise_id: i64, seed: Option<&ability::Ability>, w: i64) -> Base {
+        let t = self.temperament;
+        let start = t.start_scale();
         let b = self.base.entry(exercise_id).or_insert_with(|| Base {
-            e1rm: seed.and_then(|a| a.e1rm).unwrap_or(DEFAULT_E1RM),
-            reps: seed.and_then(|a| a.best_reps).unwrap_or(DEFAULT_REPS),
-            hold_s: seed.and_then(|a| a.best_hold).unwrap_or(DEFAULT_HOLD_S),
+            e1rm: seed.and_then(|a| a.e1rm).unwrap_or(DEFAULT_E1RM) * start,
+            reps: ((seed.and_then(|a| a.best_reps).unwrap_or(DEFAULT_REPS) as f64 * start).round()
+                as i32)
+                .max(1),
+            hold_s: ((seed.and_then(|a| a.best_hold).unwrap_or(DEFAULT_HOLD_S) as f64 * start)
+                .round() as i32)
+                .max(5),
             carry: seed
                 .and_then(|a| a.carry)
                 .map(|c| (c.load, c.secs))
+                .map(|(l, s)| (l * start, s))
                 .unwrap_or(DEFAULT_CARRY),
         });
-        let t = self.temperament;
+        let hurt = t.injury(w, self.injured.contains(&exercise_id));
         Base {
-            e1rm: b.e1rm * t.strength(w),
-            reps: ((b.reps as f64 + t.reps(w)).round() as i32).max(1),
-            hold_s: ((b.hold_s as f64 + t.hold(w)).round() as i32).max(5),
+            e1rm: b.e1rm * t.strength(w) * hurt,
+            reps: ((b.reps as f64 + t.reps(w)) * hurt).round().max(1.0) as i32,
+            hold_s: ((b.hold_s as f64 + t.hold(w)) * hurt).round().max(5.0) as i32,
             carry: (
-                b.carry.0 * t.strength(w),
-                ((b.carry.1 as f64 + t.hold(w) / 2.0).round() as i32).max(5),
+                b.carry.0 * t.strength(w) * hurt,
+                (((b.carry.1 as f64 + t.hold(w) / 2.0) * hurt).round()).max(5.0) as i32,
             ),
         }
     }
@@ -244,28 +418,45 @@ struct Performed {
     missed: bool,
 }
 
-/// Do what the card asks, as well as true ability allows — the athlete follows
-/// instructions (they stop at the ask even when they could do more) and never
-/// reports an RPE.
-fn perform(s: &Suggestion, truth: Base, metric: Metric, loads: Option<&Vec<f64>>) -> Performed {
+/// Do what the card asks, as well as true ability allows, in the manner of the
+/// given [`Behaviour`] — and never report an RPE.
+fn perform(
+    s: &Suggestion,
+    truth: Base,
+    metric: Metric,
+    loads: Option<&Vec<f64>>,
+    behaviour: Behaviour,
+) -> Performed {
+    /// "…and the card said 5 kg" — only when the athlete used something else.
+    fn swapped(asked: f64, used: f64) -> String {
+        if (asked - used).abs() > 1e-9 {
+            format!("  (card said {asked} kg)")
+        } else {
+            String::new()
+        }
+    }
     match s.kind {
         SuggestionKind::Warmup => unreachable!("warm-ups are skipped by the caller"),
         SuggestionKind::Work => match (s.load_kg, s.rep_low, s.hold_s) {
             // Weighted reps: attempt the asked reps at the given load.
-            (Some(load), Some(ask), _) => {
+            (Some(asked_load), Some(ask), _) => {
+                let load = behaviour.load_used(asked_load, loads);
                 let can = reps_at(truth.e1rm, load).max(1);
-                let did = ask.min(can);
+                let did = behaviour.rep_target(ask).min(can).max(1);
                 Performed {
                     reps: Some(did),
                     load_kg: Some(load),
                     hold_s: None,
-                    note: format!("asked {ask} @ {load} kg, did {did}"),
+                    note: format!(
+                        "asked {ask} @ {load} kg, did {did}{}",
+                        swapped(asked_load, load)
+                    ),
                     missed: did < ask,
                 }
             }
             // Bodyweight reps.
             (None, Some(ask), _) => {
-                let did = ask.min(truth.reps).max(1);
+                let did = behaviour.rep_target(ask).min(truth.reps).max(1);
                 Performed {
                     reps: Some(did),
                     load_kg: None,
@@ -276,20 +467,24 @@ fn perform(s: &Suggestion, truth: Base, metric: Metric, loads: Option<&Vec<f64>>
             }
             // Loaded carry: the asked seconds at the given weight, capacity
             // scaling with how far the weight is from the true one.
-            (Some(load), None, Some(ask)) => {
+            (Some(asked_load), None, Some(ask)) => {
+                let load = behaviour.load_used(asked_load, loads);
                 let cap = ((truth.carry.1 as f64 * truth.carry.0 / load).floor() as i32).max(5);
-                let did = ask.min(cap);
+                let did = behaviour.hold_target(ask).min(cap);
                 Performed {
                     reps: None,
                     load_kg: Some(load),
                     hold_s: Some(did),
-                    note: format!("asked {ask}s @ {load} kg, did {did}s"),
+                    note: format!(
+                        "asked {ask}s @ {load} kg, did {did}s{}",
+                        swapped(asked_load, load)
+                    ),
                     missed: did < ask,
                 }
             }
             // Unloaded hold.
             (None, None, Some(ask)) => {
-                let did = ask.min(truth.hold_s).max(5);
+                let did = behaviour.hold_target(ask).min(truth.hold_s).max(5);
                 Performed {
                     reps: None,
                     load_kg: None,
@@ -390,6 +585,16 @@ async fn main() -> Result<()> {
             None => bail!("SIM_RECOVERY must be untracked | rested | roughweek, got {raw:?}"),
         }
     };
+    let behaviour = {
+        let raw = std::env::var("SIM_BEHAVIOUR").unwrap_or_else(|_| "compliant".into());
+        match Behaviour::parse(&raw) {
+            Some(b) => b,
+            None => bail!(
+                "SIM_BEHAVIOUR must be compliant | skipper | partial | overachiever | \
+                 improviser | layoff, got {raw:?}"
+            ),
+        }
+    };
 
     let pool = coach::db::connect(&url).await?;
     let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
@@ -451,15 +656,47 @@ async fn main() -> Result<()> {
     // today — the engine and the athlete agree at t0, then the temperament
     // takes over.
     let opening = ability::abilities(&hist, sim_start_dt);
+
+    // The injury lands on one muscle group, and hits every movement that group
+    // is the prime mover for. Shoulders by preference — a tweaked shoulder is
+    // the injury that quietly poisons the most of a session — falling back to
+    // whichever group the catalog leads with so the case still runs elsewhere.
+    let injured_group = ctx
+        .groups
+        .iter()
+        .find(|g| g.name.eq_ignore_ascii_case(INJURED_GROUP))
+        .or_else(|| ctx.groups.first());
+    let injured: BTreeSet<i64> = match (temperament, injured_group) {
+        (Temperament::Injured, Some(g)) => ctx
+            .exercises
+            .iter()
+            .filter(|e| {
+                e.groups
+                    .iter()
+                    .any(|(gid, role)| *gid == g.id && *role == MuscleRole::Primary)
+            })
+            .map(|e| e.id)
+            .collect(),
+        _ => BTreeSet::new(),
+    };
     let mut athlete = Athlete {
         temperament,
         base: HashMap::new(),
+        injured,
     };
 
     println!(
-        "# coach simulation — user {user}, {temperament:?} athlete, {sleep:?} recovery, \
-         {weeks} weeks from {sim_start}"
+        "# coach simulation — user {user}, {temperament:?} athlete, {behaviour:?} behaviour, \
+         {sleep:?} recovery, {weeks} weeks from {sim_start}"
     );
+    if temperament == Temperament::Injured {
+        println!(
+            "# injury: {} goes at week {INJURY_WEEK} ({} movements at {:.0}% for good)",
+            injured_group.map(|g| g.name.as_str()).unwrap_or("?"),
+            athlete.injured.len(),
+            INJURY_MULT * 100.0
+        );
+    }
     println!(
         "# at location {:?}; real history: {} sets through {}",
         location.name,
@@ -472,6 +709,10 @@ async fn main() -> Result<()> {
     let mut sets_logged = 0usize;
     let mut misses = 0usize;
     let mut assess_cards = 0usize;
+    // Days the coach planned a session and the athlete didn't turn up, and cards
+    // offered but never performed because the athlete left early.
+    let mut away = 0usize;
+    let mut abandoned = 0usize;
     let mut touched: BTreeSet<i64> = BTreeSet::new();
     // Readiness as it stood each morning, accumulated as the walk grows — exactly
     // what the ledger reconstructs the ask under, so an eased session isn't judged
@@ -508,24 +749,32 @@ async fn main() -> Result<()> {
             println!("{date}  w{week}  {:?} — rest{ready_tag}", verdict.state);
             continue;
         }
+        if !behaviour.attends(d) {
+            away += 1;
+            println!("{date}  w{week}  Active — but the athlete didn't come in{ready_tag}");
+            continue;
+        }
 
         sessions += 1;
-        let warmups = verdict
+        let work: Vec<&Suggestion> = verdict
             .plan
             .iter()
-            .filter(|s| s.kind == SuggestionKind::Warmup)
-            .count();
+            .filter(|s| s.kind != SuggestionKind::Warmup)
+            .collect();
+        let doing = behaviour.cards_done(work.len());
         println!(
-            "{date}  w{week}  Active — training ({} warm-up items, {} work/assess){ready_tag}",
-            warmups,
-            verdict.plan.len() - warmups
+            "{date}  w{week}  Active — training ({} warm-up items, {} work/assess{}){ready_tag}",
+            verdict.plan.len() - work.len(),
+            work.len(),
+            if doing < work.len() {
+                format!(", leaving after {doing}")
+            } else {
+                String::new()
+            }
         );
 
         let mut t = date.and_hms_opt(SESSION_HOUR, 10, 0).unwrap();
-        for s in &verdict.plan {
-            if s.kind == SuggestionKind::Warmup {
-                continue;
-            }
+        for s in work.iter().take(doing) {
             if s.kind == SuggestionKind::Assess {
                 assess_cards += 1;
             }
@@ -535,7 +784,13 @@ async fn main() -> Result<()> {
                 .copied()
                 .unwrap_or(Metric::Reps);
             let truth = athlete.truth(s.exercise_id, opening.get(&s.exercise_id), week);
-            let p = perform(s, truth, metric, inp.exercise_loads.get(&s.exercise_id));
+            let p = perform(
+                s,
+                truth,
+                metric,
+                inp.exercise_loads.get(&s.exercise_id),
+                behaviour,
+            );
             for _ in 0..s.sets {
                 hist.push(SetRec {
                     // Simulated sets are never written back, so a real row id
@@ -566,6 +821,19 @@ async fn main() -> Result<()> {
                 s.sets,
                 p.note,
                 if p.missed { "  MISS" } else { "" }
+            );
+        }
+        for s in work.iter().skip(doing) {
+            abandoned += 1;
+            println!(
+                "    {:<7} {} ({})  {} set(s): not done — athlete left",
+                format!("{:?}", s.kind),
+                name_of
+                    .get(&s.exercise_id)
+                    .cloned()
+                    .unwrap_or_else(|| s.exercise_name.clone()),
+                s.group,
+                s.sets
             );
         }
         for n in &verdict.notices {
@@ -624,7 +892,8 @@ async fn main() -> Result<()> {
 
     println!(
         "# summary: {sessions} sessions, {sets_logged} sets, {misses} missed cards, \
-         {assess_cards} assess cards; {} distinct exercises trained",
+         {assess_cards} assess cards, {away} days away, {abandoned} cards abandoned; \
+         {} distinct exercises trained",
         touched.len()
     );
     Ok(())
