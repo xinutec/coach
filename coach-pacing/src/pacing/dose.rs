@@ -106,11 +106,17 @@ pub fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
 }
 
 /// The discrete weights available for one exercise's kit at this location —
-/// sorted ascending, deduped, and **never empty** (the only constructor rejects
-/// that). Holding the invariant in the type is what makes [`Inventory::snap`]
-/// total: no empty-inventory fallback, so no invented weight.
+/// sorted ascending, deduped, and **never empty**. Non-emptiness is the shape of
+/// the struct rather than a rule the constructor promises to have checked: the
+/// first rung is held separately, so every query has a weight to return and none
+/// of them can panic on an empty ladder.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Inventory(Vec<f64>);
+pub struct Inventory {
+    /// The lightest weight owned — the ladder always has this one.
+    lightest: f64,
+    /// The rungs above it, ascending. Empty when only one weight is owned.
+    heavier: Vec<f64>,
+}
 
 impl Inventory {
     /// The weights you own, or `None` if you own none — in which case the
@@ -128,47 +134,68 @@ impl Inventory {
         loads.retain(|w| w.is_finite() && *w > 0.0);
         loads.sort_by(f64::total_cmp);
         loads.dedup();
-        (!loads.is_empty()).then_some(Inventory(loads))
+        let mut rungs = loads.into_iter();
+        // No weight at all is the one honest failure: the exercise isn't loadable
+        // here. Splitting the first rung off is what puts "non-empty" in the
+        // shape of the type — every query below then has an answer to return,
+        // with no `unwrap` standing in for a comment about the constructor.
+        let lightest = rungs.next()?;
+        Some(Inventory {
+            lightest,
+            heavier: rungs.collect(),
+        })
+    }
+
+    /// Every weight owned here, ascending. Double-ended so a step *down* can walk
+    /// back from the top without collecting.
+    fn rungs(&self) -> impl DoubleEndedIterator<Item = f64> + '_ {
+        core::iter::once(self.lightest).chain(self.heavier.iter().copied())
     }
 
     /// Snap a target load to the nearest weight owned here (ties → lighter).
-    /// Total — an `Inventory` always has at least one weight.
     pub fn snap(&self, target: f64) -> f64 {
-        self.0
-            .iter()
-            .copied()
-            .min_by(|a, b| (a - target).abs().total_cmp(&(b - target).abs()))
-            .expect("Inventory is non-empty by construction")
+        // Folding from the lightest rung (rather than `min_by` over the whole
+        // ladder) keeps the result a plain `f64`: the starting value *is* an
+        // answer, so there is no empty case to unwrap. A strict `<` keeps the
+        // earlier — lighter — rung when two are equidistant.
+        self.rungs().fold(self.lightest, |best, w| {
+            if (w - target).abs() < (best - target).abs() {
+                w
+            } else {
+                best
+            }
+        })
     }
 
     /// The lightest weight owned here — where a build-up starts when there's no
     /// estimate to start it from.
     pub fn lightest(&self) -> f64 {
-        self.0[0]
+        self.lightest
+    }
+
+    /// The heaviest weight owned here. With no rung above the first, the lightest
+    /// *is* the heaviest — not a fallback, the answer.
+    pub fn heaviest(&self) -> f64 {
+        self.heavier.last().copied().unwrap_or(self.lightest)
     }
 
     /// The next weight up from `load`, or the heaviest owned when there is none —
-    /// the rung a carry steps to once it has topped out its time. Total, like
-    /// [`snap`](Self::snap): at the top of the rack there is nowhere further to go,
-    /// and saying so is better than inventing a weight.
+    /// the rung a carry steps to once it has topped out its time. At the top of
+    /// the rack there is nowhere further to go, and saying so is better than
+    /// inventing a weight.
     pub fn next_above(&self, load: f64) -> f64 {
-        self.0
-            .iter()
-            .copied()
+        self.rungs()
             .find(|w| *w > load + 1e-9)
-            .unwrap_or_else(|| *self.0.last().expect("Inventory is non-empty"))
+            .unwrap_or_else(|| self.heaviest())
     }
 
     /// The next weight *down* from `load` — the rung a lift backs off to after
     /// repeated misses. At the lightest weight owned there is nowhere further down,
     /// and the answer is that weight rather than a lighter one you don't have.
     pub fn next_below(&self, load: f64) -> f64 {
-        self.0
-            .iter()
-            .copied()
-            .rev()
-            .find(|w| *w < load - 1e-9)
-            .unwrap_or_else(|| self.lightest())
+        self.rungs()
+            .rfind(|w| *w < load - 1e-9)
+            .unwrap_or(self.lightest)
     }
 }
 

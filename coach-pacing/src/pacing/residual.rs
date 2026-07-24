@@ -247,19 +247,18 @@ fn judge(
     // so a plain hold comparison below would silently claim it and judge a walk
     // by its clock alone.
     if let Some(c) = predicted.carry {
+        // Take the two fields a carry is judged on up front, so the comparison
+        // works on values instead of re-asserting the filter's promise at every
+        // use. A set missing either simply isn't a carry.
         let best = today
             .iter()
-            .filter(|s| s.load_kg.is_some() && s.hold_s.is_some())
+            .filter_map(|s| Some((s.load_kg?, s.hold_s?)))
             // total_cmp, not partial_cmp: a NaN load would make the tuple
             // comparison return None and panic the whole pacing pass mid-sort.
-            .max_by(|a, b| {
-                a.load_kg
-                    .unwrap()
-                    .total_cmp(&b.load_kg.unwrap())
-                    .then(a.hold_s.unwrap().cmp(&b.hold_s.unwrap()))
+            .max_by(|(a_load, a_secs), (b_load, b_secs)| {
+                a_load.total_cmp(b_load).then(a_secs.cmp(b_secs))
             });
-        if let Some(bs) = best {
-            let (load, done) = (bs.load_kg.unwrap(), bs.hold_s.unwrap());
+        if let Some((load, done)) = best {
             // The weight is the coach's choice, so only the clock is the athlete's
             // to miss. A stepped weight (either way) restarts the clock; otherwise
             // the clock climbs on a probe and holds between them.
@@ -280,10 +279,11 @@ fn judge(
     if let Some(e) = predicted.e1rm {
         let best = today
             .iter()
-            .filter(|s| s.load_kg.is_some() && s.reps.is_some())
-            .max_by(|a, b| face(a).total_cmp(&face(b)));
-        if let Some(bs) = best {
-            let (load, done) = (bs.load_kg.unwrap(), bs.reps.unwrap());
+            .filter_map(|s| Some((s.load_kg?, s.reps?)))
+            .max_by(|(a_load, a_reps), (b_load, b_reps)| {
+                face(*a_load, *a_reps).total_cmp(&face(*b_load, *b_reps))
+            });
+        if let Some((load, done)) = best {
             let raw = 30.0 * (e / load - 1.0) - rir;
             let aim = if probe {
                 libm::round(raw)
@@ -336,8 +336,8 @@ fn judge(
 /// A weighted set's face-value e1RM — for picking the day's best set. The session
 /// is judged on its best: the estimate is a claim about what the athlete *can* do,
 /// not about what the third set of a session looks like.
-fn face(s: &SetRec) -> f64 {
-    s.load_kg.unwrap_or(0.0) * (1.0 + s.reps.unwrap_or(0) as f64 / 30.0)
+fn face(load: f64, reps: i32) -> f64 {
+    load * (1.0 + reps as f64 / 30.0)
 }
 
 /// Reps are the unit the ask is written in, and they're integers — so compliance is

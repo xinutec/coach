@@ -46,8 +46,12 @@ nix develop -c bash -c '
   # Clippy gets its own target dir: clippy-driver and rustc fingerprint the
   # workspace differently and evict each other in a shared dir, forcing a full
   # recompile. A dedicated dir keeps both caches warm.
+  # --workspace so the pacing core is linted as a crate, not skipped as a
+  # dependency: its totality rules (no unwrap/index/panic — see coach-pacing/
+  # src/lib.rs) are crate-level `deny`s, and clippy does not lint dependencies.
+  # Without this they would be decorative.
   CARGO_TARGET_DIR="${CARGO_CLIPPY_TARGET_DIR:-$HOME/.cache/cargo/clippy-target}" \
-    cargo clippy --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
   # The pacing core must compile #![no_std]. This is the purity guarantee made
   # legible: with std out of scope, a std::fs / SystemTime::now() / thread::spawn
   # / global mutable state in coach-pacing is not a lint to be waived — it fails

@@ -40,15 +40,24 @@ pub struct GroupIx(pub usize);
 #[derive(Clone, Debug, PartialEq)]
 pub struct ByGroup<T>(Box<[T]>);
 
-impl<T: Copy> ByGroup<T> {
-    pub fn filled(len: usize, v: T) -> Self {
-        ByGroup(vec![v; len].into_boxed_slice())
+impl<T> ByGroup<T> {
+    /// One value per group, in group order — for values that aren't `Copy`
+    /// (names, ids) so they can be indexed by [`GroupIx`] like everything else
+    /// rather than by a bare `usize`.
+    pub fn from_vec(values: Vec<T>) -> Self {
+        ByGroup(values.into_boxed_slice())
     }
     pub fn len(&self) -> usize {
         self.0.len()
     }
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+impl<T: Copy> ByGroup<T> {
+    pub fn filled(len: usize, v: T) -> Self {
+        ByGroup(vec![v; len].into_boxed_slice())
     }
     /// Every index paired with its value — the only way to enumerate, so the
     /// index type is never lost.
@@ -57,14 +66,25 @@ impl<T: Copy> ByGroup<T> {
     }
 }
 
+// The two impls below are the *only* places this crate indexes a slice, and the
+// only places it can panic on a bad index. `Index` has to return `&T`, so there
+// is no total version of it to write — the alternative is not a safer operator
+// but no operator, pushing an `unwrap` on to every one of the ~30 call sites.
+//
+// So the bound is discharged here instead: a `GroupIx` is only ever minted by
+// `ByGroup::iter` or from `enumerate()` over the very group list these vectors
+// are sized from, so `i.0 < len` holds for every value that can reach this code.
+// That is a fact about provenance, which the lint cannot see and a reviewer can.
 impl<T> core::ops::Index<GroupIx> for ByGroup<T> {
     type Output = T;
+    #[allow(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
     fn index(&self, i: GroupIx) -> &T {
         &self.0[i.0]
     }
 }
 
 impl<T> core::ops::IndexMut<GroupIx> for ByGroup<T> {
+    #[allow(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
     fn index_mut(&mut self, i: GroupIx) -> &mut T {
         &mut self.0[i.0]
     }
@@ -181,31 +201,44 @@ pub fn select(
     novelty_cap: i32,
 ) -> Vec<Chosen> {
     let mut need = need.clone();
-    let mut sets = vec![0i32; cands.len()];
-    let mut first_cover = vec![0.0f64; cands.len()];
-    let mut confirming = vec![false; cands.len()];
-    let mut order: Vec<usize> = Vec::new();
+    // The picks so far, in the order they were first taken — both the working
+    // state and the result. One structure keyed by nothing but its own order,
+    // rather than parallel arrays indexed by candidate, so there is no set of
+    // vectors to keep in step (and no index to get wrong).
+    let mut picked: Vec<Chosen> = Vec::new();
     let mut left = budget.max(0);
     // Never-done movements introduced so far — bounded by `novelty_cap`.
     let mut novel_taken = 0i32;
     // Movement families already in the session — each admits one entry (R3-3).
     let mut families: alloc::collections::BTreeSet<&str> = alloc::collections::BTreeSet::new();
 
-    while left > 0 {
-        let mut best: Option<(usize, f64, f64, f64)> = None; // (index, cover, pay, rank)
-        for (i, c) in cands.iter().enumerate() {
-            if sets[i] >= c.cap {
+    // Every round commits at least one set, so the budget bounds the rounds.
+    // Saying that as the loop's own range makes termination structural — bounded
+    // by a number fixed before the first iteration. The equivalent `while left >
+    // 0` terminated only because `Candidate::min` happens to be >= 1: a candidate
+    // offering a zero-set dose would have left `left` unchanged and spun forever,
+    // and nothing in the types said otherwise.
+    for _ in 0..budget.max(0) {
+        if left == 0 {
+            break;
+        }
+
+        // The greedy step: whichever next set pays down the most remaining need.
+        let mut best: Option<Pick> = None;
+        for (index, cand) in cands.iter().enumerate() {
+            let taken = sets_taken(&picked, index);
+            if taken >= cand.cap {
                 continue;
             }
-            let entering = sets[i] == 0;
+            let entering = taken == 0;
             // A fresh novel movement past the cap doesn't get to start — but one
             // already in the session may still earn further sets on coverage.
-            if entering && c.novel && novel_taken >= novelty_cap {
+            if entering && cand.novel && novel_taken >= novelty_cap {
                 continue;
             }
             // A cousin of a movement already picked is redundant stimulus, not
             // variety — one entry per family per session.
-            if entering && families.contains(c.family.as_str()) {
+            if entering && families.contains(cand.family.as_str()) {
                 continue;
             }
             // Entering a movement means committing to its full minimum dose; a
@@ -213,65 +246,95 @@ pub fn select(
             // 1 set", the round-3 orphan). The spare set instead tops up a
             // movement already in the session — re-ranked below like any other —
             // or goes honestly unspent.
-            if entering && left < c.min.min(c.cap) {
+            if entering && left < cand.min.min(cand.cap) {
                 continue;
             }
             // Coverage is what this set pays into remaining group need. Confirmation
             // is a one-time entry need — it qualifies a first set, nothing after.
-            let cover = need.dot(&c.credit);
-            let pay = cover + if entering { c.confirm } else { 0.0 };
+            let cover = need.dot(&cand.credit);
+            let pay = cover + if entering { cand.confirm } else { 0.0 };
             if pay < MIN_PAY {
                 continue;
             }
             // Style breaks the tie between things that all genuinely need doing.
-            let rank = pay * c.weight;
-            let wins = match best {
+            let rank = pay * cand.weight;
+            let wins = match &best {
                 None => true,
-                Some((bi, _, _, br)) => {
-                    rank > br + EPS || ((rank - br).abs() <= EPS && c.id < cands[bi].id)
+                Some(b) => {
+                    rank > b.rank + EPS || ((rank - b.rank).abs() <= EPS && cand.id < b.cand.id)
                 }
             };
             if wins {
-                best = Some((i, cover, pay, rank));
+                best = Some(Pick {
+                    index,
+                    cand,
+                    cover,
+                    pay,
+                    rank,
+                });
             }
         }
-        let Some((i, cover, pay, _)) = best else {
+
+        let Some(pick) = best else {
             break;
         };
-        let c = &cands[i];
-        // Committing to a movement takes its minimum dose; adding to one already in
-        // the session takes a single set (its marginal gain was just re-checked).
-        let take = if sets[i] == 0 {
-            order.push(i);
-            families.insert(c.family.as_str());
-            first_cover[i] = cover;
-            // It earned its place on confirmation, not volume, when coverage alone
-            // couldn't have cleared the bar. That's the reason the coach will give.
-            confirming[i] = cover < MIN_PAY && pay >= MIN_PAY;
-            if c.novel {
-                novel_taken += 1;
+        let cand = pick.cand;
+        let take = match picked.iter_mut().find(|p| p.index == pick.index) {
+            // Already in the session: one more set, its marginal gain having just
+            // been re-checked against everything else.
+            Some(entry) => {
+                let take = 1.min(cand.cap - entry.sets).min(left);
+                entry.sets += take;
+                take
             }
-            c.min.min(c.cap)
-        } else {
-            1
-        }
-        .min(c.cap - sets[i])
-        .min(left);
+            // Entering: commit to the minimum effective dose rather than spreading
+            // the day thin across movements at a single set each.
+            None => {
+                let take = cand.min.min(cand.cap).min(left);
+                families.insert(cand.family.as_str());
+                if cand.novel {
+                    novel_taken += 1;
+                }
+                picked.push(Chosen {
+                    index: pick.index,
+                    sets: take,
+                    pays: pick.cover,
+                    // It earned its place on confirmation, not volume, when coverage
+                    // alone couldn't have cleared the bar. That's the reason the
+                    // coach will give.
+                    confirming: pick.cover < MIN_PAY && pick.pay >= MIN_PAY,
+                });
+                take
+            }
+        };
 
         for _ in 0..take {
-            need.saturating_sub(&c.credit);
+            need.saturating_sub(&cand.credit);
         }
-        sets[i] += take;
         left -= take;
     }
 
-    order
-        .into_iter()
-        .map(|i| Chosen {
-            index: i,
-            sets: sets[i],
-            pays: first_cover[i],
-            confirming: confirming[i],
-        })
-        .collect()
+    picked
+}
+
+/// The winning candidate of one greedy round.
+struct Pick<'a> {
+    /// Position in the caller's candidate slice — carried through to [`Chosen`].
+    index: usize,
+    cand: &'a Candidate,
+    /// What this set pays into the remaining group need.
+    cover: f64,
+    /// `cover`, plus the confirmation need on a set that enters the exercise.
+    pay: f64,
+    /// `pay` scaled by style preference — what the round maximises.
+    rank: f64,
+}
+
+/// Sets already committed to the candidate at `index`, or 0 if it isn't in the
+/// session yet. Linear in the picks, of which there are at most `budget`.
+fn sets_taken(picked: &[Chosen], index: usize) -> i32 {
+    picked
+        .iter()
+        .find(|p| p.index == index)
+        .map_or(0, |p| p.sets)
 }

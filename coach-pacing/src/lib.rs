@@ -10,6 +10,37 @@
 //! The sole exception is the `ts` feature, which pulls in std + ts-rs to emit the
 //! frontend TypeScript types (scripts/gen-types.sh). Production never enables it.
 #![cfg_attr(not(feature = "std"), no_std)]
+// --- totality ---------------------------------------------------------------
+// `no_std` above makes the engine *pure* — it cannot reach the world. These deny
+// the other half: a **total** function is defined for every input, so it may not
+// bail out at runtime. Together they are what a Lean translation needs, and what
+// lets the engine be trusted without one.
+//
+// Every finding these produced was a real representation weakness, and fixing
+// them made the code shorter: an `Inventory` whose non-emptiness was a comment
+// rather than its shape, a `filter(is_some)` re-asserted six lines later by
+// `unwrap`, three parallel arrays that only needed to be one. Where a rule
+// cannot be satisfied without contorting the code instead — `Index` has no total
+// form to write — the exemption is local and says why (see `cover::ByGroup`).
+//
+// Deliberately NOT denied, since here they would cost clarity and buy nothing:
+//   * `arithmetic_side_effects` — 43 sites, nearly all `chrono` durations and
+//     small bounded `i32`s. Denying it means `checked_*` on ordinary arithmetic,
+//     which buries the formulas this file exists to make legible.
+//   * `integer_division` — the two sites are deliberate: a `(n + d - 1) / d`
+//     ceiling and a `/ 7` days-to-weeks, both with constant non-zero divisors.
+//     The lint is about accidental truncation, not division by zero.
+#![deny(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::panic,
+    clippy::unreachable,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::exit,
+    clippy::infinite_loop
+)]
 
 extern crate alloc;
 

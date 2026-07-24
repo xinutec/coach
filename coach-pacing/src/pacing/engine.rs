@@ -544,8 +544,8 @@ fn tier(ex: &ExerciseInfo) -> u8 {
 struct Groups {
     /// Dense index per muscle-group id.
     ix: BTreeMap<i64, GroupIx>,
-    name: Vec<String>,
-    id: Vec<i64>,
+    name: ByGroup<String>,
+    id: ByGroup<i64>,
     /// Remaining weekly deficit as a fraction (0 = at target, 1 = untrained).
     deficit: ByGroup<f64>,
     /// Graded recovery, 0 (just hammered) .. 1 (fully recovered).
@@ -709,7 +709,7 @@ fn candidates<'a>(
         // Ties → lower group id, so it stays deterministic.
         let rank = |a: &GroupIx, b: &GroupIx| {
             let (pa, pb) = (groups.need[*a] * credit[*a], groups.need[*b] * credit[*b]);
-            pa.total_cmp(&pb).then(groups.id[b.0].cmp(&groups.id[a.0]))
+            pa.total_cmp(&pb).then(groups.id[*b].cmp(&groups.id[*a]))
         };
         let label = ex
             .groups
@@ -1314,8 +1314,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             .enumerate()
             .map(|(i, g)| (g.id, GroupIx(i)))
             .collect(),
-        name: input.groups.iter().map(|g| g.name.clone()).collect(),
-        id: input.groups.iter().map(|g| g.id).collect(),
+        name: ByGroup::from_vec(input.groups.iter().map(|g| g.name.clone()).collect()),
+        id: ByGroup::from_vec(input.groups.iter().map(|g| g.id).collect()),
         deficit: ByGroup::filled(n, 0.0),
         recovery: ByGroup::filled(n, 0.0),
         need: ByGroup::filled(n, 0.0),
@@ -1628,6 +1628,16 @@ fn plan_session(
 
     let mut work: Vec<(Suggestion, u8)> = Vec::new();
     for pick in chosen {
+        // `Chosen::index` is a position in the candidate slice `cover::select` was
+        // given, and `scored`/`cands` are built in one pass, so it indexes this
+        // vector too. That pairing is the weak part — not the index itself: two
+        // vectors that must stay the same length is an invariant no type carries.
+        // Merging them into one `Vec<(Candidate, Cand)>` is the real fix and would
+        // retire this exemption; `select` would then hand back the pair directly.
+        #[allow(
+            clippy::indexing_slicing,
+            reason = "index comes from select() over this slice"
+        )]
         let c = &cands[pick.index];
         let sets = pick.sets;
         let ability = abilities.get(&c.ex.id);
@@ -1676,9 +1686,9 @@ fn plan_session(
                 let label_is_primary =
                     c.ex.groups
                         .iter()
-                        .any(|(g, r)| *r == MuscleRole::Primary && *g == groups.id[ix.0]);
+                        .any(|(g, r)| *r == MuscleRole::Primary && *g == groups.id[ix]);
                 (
-                    groups.name[ix.0].clone(),
+                    groups.name[ix].clone(),
                     Some(Explanation {
                         deficit: groups.deficit[ix],
                         recovery: groups.recovery[ix],
@@ -1697,7 +1707,7 @@ fn plan_session(
                         readiness: input.readiness.map(|r| r.band),
                     }),
                     (label_is_primary && stood_in.insert(ix))
-                        .then(|| blocked_ideal(input, kit, &weight, groups.id[ix.0], c.ex.id))
+                        .then(|| blocked_ideal(input, kit, &weight, groups.id[ix], c.ex.id))
                         .flatten(),
                 )
             }
