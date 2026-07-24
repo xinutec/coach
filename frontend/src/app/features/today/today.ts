@@ -79,13 +79,22 @@ export class Today {
 		});
 	}
 
-	/** Today's manual location pick, if one was made (per-day, localStorage). */
+	/** Today's manual location pick, if one was made (per-day, localStorage).
+	 *
+	 *  The stored blob is checked, not asserted: it is written by whichever
+	 *  version of this app the device last ran, and an `id` that isn't a number
+	 *  would be handed on as a location id and silently select nothing. A blob
+	 *  that doesn't hold up reads as "no pick made", which is the same answer a
+	 *  missing key gives. */
 	private pickedToday(): number | null {
 		try {
 			const raw = localStorage.getItem("coach.pickedLocation");
 			if (!raw) return null;
-			const { id, day } = JSON.parse(raw) as { id: number; day: string };
-			return day === new Date().toDateString() ? id : null;
+			const parsed: unknown = JSON.parse(raw);
+			if (typeof parsed !== "object" || parsed === null) return null;
+			const pick = parsed as Record<string, unknown>;
+			if (typeof pick["id"] !== "number" || typeof pick["day"] !== "string") return null;
+			return pick["day"] === new Date().toDateString() ? pick["id"] : null;
 		} catch {
 			return null;
 		}

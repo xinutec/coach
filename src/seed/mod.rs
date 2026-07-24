@@ -36,7 +36,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use sqlx::MySqlPool;
+use sqlx::{Connection, MySqlConnection, MySqlPool};
 
 mod render;
 
@@ -160,8 +160,14 @@ fn bundle_hash(dir: &Path) -> Result<String> {
 ///
 /// Run for a new row too (where the deletes match nothing): one path for both
 /// cases beats two that can drift.
-async fn relink(pool: &MySqlPool, ex: &SeedExercise, id: i64) -> Result<()> {
-    let mut tx = pool.begin().await?;
+///
+/// Takes a CONNECTION, not the pool: the catalog is hundreds of exercises, and
+/// checking one back out per exercise made the seed a burst of short-lived
+/// transactions that starved the pool when several seeds ran at once (the test
+/// suite does exactly that). One connection for the whole pass, one transaction
+/// per exercise on it.
+async fn relink(conn: &mut MySqlConnection, ex: &SeedExercise, id: i64) -> Result<()> {
+    let mut tx = conn.begin().await?;
     sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
         .bind(id)
         .execute(&mut *tx)
@@ -283,6 +289,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let mut inserted = 0usize;
     let mut reconciled = 0usize;
     let mut images = 0usize;
+    // One connection held for the whole catalog pass — see `relink`.
+    let mut link_conn = pool.acquire().await?;
     for ex in &exercises {
         let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
         let id = match existing.get(&ex.slug) {
@@ -345,7 +353,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             }
         };
 
-        relink(pool, ex, id).await?;
+        relink(&mut link_conn, ex, id).await?;
         // A picture can arrive *after* the movement does — an exercise is catalogued
         // the moment it's real, and the photo turns up when someone takes one. Gating
         // this on `is_new` meant the picture then had nowhere to land: the row already
