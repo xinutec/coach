@@ -151,6 +151,50 @@ fn bundle_hash(dir: &Path) -> Result<String> {
     Ok(hex::encode(h.finalize()))
 }
 
+/// Re-point one exercise's M:N links at the catalog's: clear what's there, then
+/// insert what the catalog says. One transaction, and that is the point — a
+/// failure between the two would leave the exercise carrying a SUBSET of its
+/// equipment and muscles, which is not a broken row but a plausible one. The
+/// trainer picks exercises by exactly those links, so a silently narrower barbell
+/// press just stops being offered, and nothing anywhere reads as wrong.
+///
+/// Run for a new row too (where the deletes match nothing): one path for both
+/// cases beats two that can drift.
+async fn relink(pool: &MySqlPool, ex: &SeedExercise, id: i64) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("DELETE FROM exercise_muscle WHERE exercise_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    for slug in &ex.equipment {
+        sqlx::query(
+            "INSERT IGNORE INTO exercise_equipment (exercise_id, equipment_id) \
+             SELECT ?, id FROM equipment WHERE slug = ?",
+        )
+        .bind(id)
+        .bind(slug)
+        .execute(&mut *tx)
+        .await?;
+    }
+    for l in &ex.muscles {
+        sqlx::query(
+            "INSERT IGNORE INTO exercise_muscle (exercise_id, muscle_id, role) \
+             SELECT ?, id, ? FROM muscles WHERE slug = ?",
+        )
+        .bind(id)
+        .bind(&l.role)
+        .bind(&l.slug)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
 pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let dir = Path::new(catalog_dir);
     let exercises_path = dir.join("exercises.json");
@@ -243,15 +287,6 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
         let id = match existing.get(&ex.slug) {
             Some(&id) => {
-                // Clear the M:N links so the catalog's are authoritative.
-                sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
-                    .bind(id)
-                    .execute(pool)
-                    .await?;
-                sqlx::query("DELETE FROM exercise_muscle WHERE exercise_id = ?")
-                    .bind(id)
-                    .execute(pool)
-                    .await?;
                 // Write back every scalar the catalog owns. Same column list as the
                 // insert below, so a field added to one can't quietly skip the other.
                 sqlx::query(
@@ -310,27 +345,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             }
         };
 
-        for slug in &ex.equipment {
-            sqlx::query(
-                "INSERT IGNORE INTO exercise_equipment (exercise_id, equipment_id) \
-                 SELECT ?, id FROM equipment WHERE slug = ?",
-            )
-            .bind(id)
-            .bind(slug)
-            .execute(pool)
-            .await?;
-        }
-        for l in &ex.muscles {
-            sqlx::query(
-                "INSERT IGNORE INTO exercise_muscle (exercise_id, muscle_id, role) \
-                 SELECT ?, id, ? FROM muscles WHERE slug = ?",
-            )
-            .bind(id)
-            .bind(&l.role)
-            .bind(&l.slug)
-            .execute(pool)
-            .await?;
-        }
+        relink(pool, ex, id).await?;
         // A picture can arrive *after* the movement does — an exercise is catalogued
         // the moment it's real, and the photo turns up when someone takes one. Gating
         // this on `is_new` meant the picture then had nowhere to land: the row already
