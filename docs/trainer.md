@@ -70,6 +70,12 @@ order:
   for two weeks, then the detraining slope to a 60 % floor — and ability is the max
   of the decayed estimates. Decaying per set *then* maxing makes ability monotone
   under idleness while still trusting a genuine old PR down to the floor.
+  **The max cannot represent a decline.** An athlete who genuinely gets weaker —
+  injury, illness, a bad year — is floored at 60 % of a peak they no longer have,
+  the honest low measurement is discarded by the same `max` that protects a real
+  old PR, and the block reset never fires because they keep turning up. The result
+  is an unbreakable miss → re-measure → discard loop; see
+  [R6-3](field-test.md#r6-3-getting-weaker-is-unrepresentable-and-the-loop-never-closes--open).
 - **Training-block reset.** A gap longer than `BLOCK_GAP_WEEKS` (8) splits an
   exercise's history into blocks, and only the most-recent block estimates ability.
   After a layoff or a health setback your level is read from your *return*, never
@@ -150,6 +156,12 @@ weighted lift *has* a load and a carry *has* both a weight and a time.
   Epley), snapped to the nearest weight you own. Double progression follows: reps
   climb to the top of the range, and the load steps only when logged sets raise the
   estimate past the next owned weight — never a blind +2.5 kg the reps don't support.
+  **This last step does not currently happen.** Top-of-range reps at load *L* produce
+  exactly the estimate that prescribes *L*, so the load is a fixed point of its own
+  prescription and a compliant athlete never crosses the next rung; the branch has a
+  `next_below` for backing off and no `next_above` at all. Measured over eight
+  simulated weeks against an athlete 2.5× stronger than the estimate: zero load
+  steps. See [R6-1](field-test.md#r6-1-a-weighted-lift-cannot-progress-at-all--open).
 - **Reps:** climb the range off the decayed best.
 - **Hold:** off the best hold.
 - **Loaded carry:** the same double progression with seconds where the reps go —

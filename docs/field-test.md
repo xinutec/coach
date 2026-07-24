@@ -474,3 +474,221 @@ honest answer.
   three simulated futures. What exposed it was fixing the actual cause and watching
   the workaround start fighting it (the convergence property test caught the load
   oscillating between rungs).
+
+# Round 6 — one athlete was never the test
+
+Rounds 4 and 5 ran three athletes: `improver`, `plateauer`, `badweek`. All three
+are the *same person* — Pippijn's own logged history — on three ability curves,
+and all three do exactly what the card says, on every day it says to. That is one
+cell of a two-axis space, and it is the cell least likely to break anything.
+
+So round 6 opened both axes. **Temperament** (how strong they are, and where that
+goes) gained `novice` — opens at 55 % of what the history claims and climbs fast,
+the deconditioned return or the app changing hands; `strong` — opens at 250 %,
+someone who trained elsewhere all year and only started logging last week; and
+`injured` — an improver whose shoulder goes in week 2 and stays gone, 40 % on
+every movement the deltoids lead. **Behaviour** (whether they do what they are
+told) is new, because a set that fell short and a set that never happened reach
+the ledger as different signals: `skipper` trains three days a week whatever the
+plan says, `partial` leaves after 60 % of the cards, `overachiever` doesn't stop
+at the ask, `improviser` grabs the bell below the one on the card, and `layoff`
+trains a fortnight then vanishes for three weeks.
+
+Fifteen cells (`scripts/simulate-matrix.sh`), eight weeks each, same soil. The
+compliant baselines reproduced round 5 (improver 29 missed cards against its 28),
+so the engine has not drifted. Everything below is what the other fourteen cells
+found. **All of it is open.**
+
+## R6-1. A weighted lift cannot progress at all — OPEN
+
+The `strong` athlete is two and a half times stronger than the coach believes and
+does exactly what it asks. Over eight weeks the coach asked for **9 reps at 9 kg,
+six times**, and never once asked for ten:
+
+```
+Biceps curl (one arm):   10@9  9@9  9@9  9@9  9@9  9@9     true e1RM 30.0 → 33.1 kg
+Triceps extension:       10@4 10@4 10@4 10@4 10@4          estimate frozen at 11.7
+Row (both sides):         9@9  9@9  8@9  7@9  7@9          the ask *fell* while complying
+```
+
+Across all fifteen traces, a weighted load stepped **up** 0–1 times per eight-week
+run for every athlete who did what they were told, and stepped **down** at least
+as often as up in every one of those cells. The
+`strong` athlete's loads moved neither up nor down: 0 and 0, frozen solid. The
+only cells where loads climbed are the two `overachiever` runs (5 up / 1 down,
+4 up / 0 down) — because exceeding the ask is the sole way new information ever
+enters the system.
+
+The cause is a fixed point, and it is exact. `prescribe` picks the load whose
+*top-of-range* reps the estimate supports: `load = e1rm / (1 + high/30)`. An
+athlete who does `high` reps at load `L` produces `e1rm = L × (1 + high/30)` — which
+prescribes `L` again, forever. Double progression's ceiling reproduces its own
+floor. The documented rule ("the load steps only when logged sets raise the
+estimate past the next owned weight") describes a state the loop cannot reach.
+
+What makes it a fault rather than a trade-off is the asymmetry with every other
+metric. `Loaded::Reps` probes with `best + 1`. `Loaded::Hold` probes with
+`base + HOLD_STEP_S`. `Loaded::WeightedHold` tops out its clock and then takes
+`inv.next_above(c.load)` — the exact shape that is missing. `Loaded::Weighted`
+alone has no `next_above` anywhere in its branch; its "probe" only swaps
+`floor(raw)` for `round(raw)`, so it can never ask for more than the estimate
+already supports. The one downward path (`back_off` → `next_below`) works fine.
+The rack has a way down and no way up.
+
+**Why five rounds and a convergence test missed it.** `tests/athlete_sim.rs`
+asserts exactly this property — "the estimated e1RM climbs to within a few percent
+of true and stays there" — and it passes. It passes because its athlete logs
+`rpe: Some(rpe)` on every set, and the estimator is RPE-aware:
+`e1rm = load × (1 + (reps + rir)/30)`. A compliant athlete stopping short of
+failure has `rir > 0`, which lifts the estimate *above* the load that produced it
+and breaks the fixed point. Without RPE, `rir = 0` and the estimate lands exactly
+on it.
+
+But the product never collects RPE — deliberately, and it is a stated principle:
+"the athlete reports what happened, not how it felt… he is never asked to rate his
+own exertion". `simulate.rs` logs `rpe: None` for that reason, which is why the
+matrix sees the freeze and the unit test does not. **The one test that certifies
+"converges on a good trainer over time" is certifying a mode the app does not
+run in.** Whatever fixes R6-1, that test needs a no-RPE case alongside its
+current one, or it will keep passing while the shipped engine stands still.
+
+Two second-order effects fall out of the same place. The `floor(raw)` on a
+consolidation session drops any fractional rep every time, so the ask erodes —
+`9 → 8 → 7` on the strong athlete's row, a coach concluding you are getting weaker
+*because* you did what it asked. And the erosion then hides the problem from the
+plateau detector, which fires on the rep range's ceiling: an ask that has drifted
+to 9 out of 10 never looks topped out, so the variation ladder never gets its turn
+either. For `Biceps curl` both variants are `difficulty: 1`, so there is no harder
+rung to step to even in principle — that movement is terminally stuck.
+
+## R6-2. The miss response can't tell a near-miss from a rout — OPEN
+
+The `novice` opens at 55 % of what the history says, which is what a new user with
+someone else's data, or a return from three months off, actually looks like. The
+bodyweight side handled it well (see below). The weighted side did this:
+
+| session | the card | did | the coach's answer |
+| --- | --- | --- | --- |
+| 1 | 10 @ 9 kg | **1** | hold — same ask, 8.5 kg |
+| 2 | 10 @ 8.5 kg | **1** | step down — 7.5 kg |
+| 3 | 10 @ 7.5 kg | **1** | re-open the measurement |
+| 4 | build up to a hard 5 | 5 @ 6 kg | correct, at last |
+
+Three sessions and six sets of a weight the athlete can lift *once*, and the
+first response to a 90 % shortfall was to take 0.5 kg off and ask again. The
+ledger counts misses — one holds, two step down, three re-measure — and a miss is
+a boolean. Missing ten by one rep and missing ten by nine are the same event.
+Triceps extension ran the identical sequence at 4 → 4 → 3.5 kg.
+
+The count-based escalation is right in shape; it just has no magnitude term. A
+session that comes in at a fraction of the ask is not a bad day, it is a wrong
+number, and the athlete has already supplied the correction.
+
+## R6-3. Getting weaker is unrepresentable, and the loop never closes — OPEN
+
+The worst result in the round. The `injured` athlete loses 60 % of the deltoids in
+week 2 and never gets it back. At the end of week 7:
+
+```
+Face pull:      belief 7 reps (true 5)   [High]   miss-streak 15
+Reverse fly:    belief 7 reps (true 5)   [High]   miss-streak 13
+Lateral raise:  belief e1rm 2.7 (true 1.7) [High] miss-streak  9
+```
+
+**Fifteen consecutive missed sessions**, and the estimate has not moved — while
+the confidence label still reads `High`. Face pull was sent back to calibration
+**13 times** in eight weeks; in the healthy improver run no movement is assessed
+more than once. The coach spent the second half of the run measuring the same
+three movements over and over and learning nothing from any of it.
+
+It is a closed loop, and every step of it is working as designed. Ability is a
+**max** over decayed estimates, so a genuine decline cannot lower it — the honest
+low measurement is discarded by the same `max` that protects a real old PR. Decay
+floors at 60 % of the peak; the injury is at 40 %, so *time cannot fix it either*.
+The block reset needs an 8-week gap that never comes, because the athlete keeps
+turning up. Three misses re-open the measurement, the measurement returns 4, the
+max keeps 8, the next prescription asks 7, and around it goes.
+
+The control is in the same trace: **Overhead press**, the movement the ladder
+stepped up to *after* the injury, sits at belief 1.7 against true 2.5 with a
+miss-streak of **0**. Same athlete, same joint, same fortnight. The movement with
+no pre-injury history is fine; only the ones with history are broken. That isolates
+the cause to the estimator, not to anything about the injury.
+
+`trainer.md` already names this shape — it is the argument for the load
+plausibility check, "a mistyped load becomes a PR the engine cannot unlearn". The
+round-6 finding is that a mistyped load is the *benign* version. An injury, an
+illness, a bad year, or simply getting older produces the same unlearnable ceiling,
+and none of them are input errors anyone can validate at the log sheet.
+
+## R6-4. The plan never learns that you always leave early — OPEN
+
+`partial` leaves after 60 % of the cards, every session, for eight weeks. Session
+order is by movement breadth, and it is deterministic, so the tail is the same
+movements every time. **Pallof press and Body saw were offered 20 times each and
+performed zero times.** Nine movements were offered and never once done.
+
+The abandoned cards correctly do *not* count as misses (27, against the compliant
+run's 29) — silence is not failure, and the ledger holds that line. The fault is
+upstream: nothing notices that the last two cards have a 0 % completion rate over
+eight weeks. Worse, it self-reinforces — a group that never gets trained keeps its
+deficit at maximum, so the cover keeps selecting it, and its low breadth keeps
+putting it last, where it keeps not happening. A human coach who watched you walk
+out before the core work twenty times would move the core work to the front.
+
+## R6-5. Readiness bottoms out and still books a full session — OPEN
+
+R4 surfaced "no rest day in 56 days" across three temperaments and left it, on the
+grounds that biometric readiness was absent from the simulation and would scale
+down-days in production. Round 6 supplied the readiness and swept fifteen cells:
+**every one of them trained on every available day. 15/15, zero rest days.**
+
+Readiness does work as far as it goes — through the poor-sleep week the plan
+shrinks from 5–8 movements to 3–4. But the score sits at **0.00**, the absolute
+floor, for seven consecutive days, and the coach still programmes a session on
+every one of them — including an 8-movement day on 2026-08-01, bigger than several
+of that fortnight's fully-rested days. The one input designed to say *not today*
+is pinned at zero and still says yes.
+
+## R6-6. The coach follows an improvising athlete down the rack — OPEN
+
+`improviser` takes the bell below the one on the card and completes every ask.
+No misses, an improving athlete — and the coach walks the weight down:
+
+```
+card 9 kg → used 8.5 → card 8.5 → used 7.5 → card 7.5 → used 6.5
+card 15 kg → used 14 → card 14 → used 13.5 → card 13.5 → used 12.5
+```
+
+R5-1 made the ledger judge the ask *at the load actually logged*, so these sessions
+are correctly not marked as failures. But the **ability estimate** still reads the
+lighter set at face value, the heavier bell is never touched again, and the max
+decays out from under it. This is R6-1 seen from the other side: the estimate can
+only ever be as good as the hardest thing the coach asked for, and the coach only
+ever asks for what the estimate says. The strong athlete shows the loop as a
+freeze; the improviser shows it as a descent. Nothing anywhere applies upward
+pressure, and nothing ever says "the card said 15".
+
+(This behaviour is deliberately adversarial — a real athlete would not do it every
+session for eight weeks. It is here because it makes the direction of the loop
+visible, not because the athlete is the problem.)
+
+## What round 6 confirmed is right
+
+- **The bodyweight side coaches the novice well.** Misses were answered within a
+  session or two, and the *downward* ladder fired unprompted and correctly:
+  "Pull-up (bar) is too hard to build reps on right now — stepping back to Row
+  (both sides)". Rep, hold and carry work all have real probes and all of them
+  climbed; R6-1 is specifically a weighted-lift fault, not a general one.
+- **Silence is not read as failure.** The skipper (32 days away), the layoff
+  (21 days away) and the partial athlete (121 abandoned cards) all logged miss
+  counts in line with the compliant run. The engine does not back off from an
+  athlete who simply wasn't there — the R5 rule held under three new kinds of
+  absence.
+- **The return from three weeks off is calm and correct.** Every card in the first
+  session back was met; staleness decay had the ask exactly where it should be.
+  (The simulated athlete does not detrain over the layoff, so this tests the coach's
+  re-entry after silence, not its handling of lost fitness.)
+- **The injury's step-up was the right call.** Faced with a shoulder that stopped
+  responding, the ladder moved to Overhead press and estimated it correctly from
+  scratch. The response was right; only the estimator behind it was stuck.
