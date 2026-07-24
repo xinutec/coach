@@ -20,13 +20,21 @@ RUN npx ng build --configuration production
 # --- backend: build the Rust binary (deps cached in their own layer) ---
 FROM rust:1-bookworm AS backend
 WORKDIR /app
+# Both manifests: the root is a workspace, so cargo won't even *load* it without
+# every member's Cargo.toml present — the priming build below fails on a missing
+# coach-pacing/Cargo.toml long before it compiles anything.
 COPY Cargo.toml Cargo.lock ./
-# Prime the dependency cache with a stub crate, then build for real.
-RUN mkdir src && echo 'fn main() {}' > src/main.rs && echo '' > src/lib.rs \
-    && cargo build --release && rm -rf src
+COPY coach-pacing/Cargo.toml coach-pacing/
+# Prime the dependency cache with stub crates (one per workspace member), then
+# build for real.
+RUN mkdir -p src coach-pacing/src \
+    && echo 'fn main() {}' > src/main.rs && echo '' > src/lib.rs \
+    && echo '' > coach-pacing/src/lib.rs \
+    && cargo build --release && rm -rf src coach-pacing/src
 COPY src/ src/
+COPY coach-pacing/src/ coach-pacing/src/
 COPY migrations/ migrations/
-RUN touch src/main.rs src/lib.rs && cargo build --release
+RUN touch src/main.rs src/lib.rs coach-pacing/src/lib.rs && cargo build --release
 
 # --- runtime ---
 FROM debian:bookworm-slim
