@@ -12,7 +12,6 @@ use anyhow::Result;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::MySqlPool;
-use ts_rs::TS;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,9 +37,10 @@ fn one() -> i32 {
 }
 
 /// What the importer did — reported back so the one-time run is auditable.
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct ImportSummary {
     pub history_sets_inserted: i64,
     pub history_skipped_existing: bool,

@@ -2,17 +2,17 @@
 
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::exercise::types::Metric;
 
-#[derive(Clone, Debug, Serialize, TS, sqlx::FromRow)]
+#[derive(Clone, Debug, Serialize, sqlx::FromRow)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct WorkoutSet {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub exercise_id: i64,
     pub logged_at: NaiveDateTime,
     pub reps: Option<i32>,
@@ -23,11 +23,12 @@ pub struct WorkoutSet {
 }
 
 /// Body for POST /api/sets. `loggedAt` defaults to now.
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct NewSet {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub exercise_id: i64,
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,

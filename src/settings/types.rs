@@ -4,49 +4,18 @@
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::muscle::types::Region;
 
-macro_rules! db_str {
-    ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
-        impl $name {
-            pub fn as_db(self) -> &'static str {
-                match self { $(Self::$variant => $s),+ }
-            }
-            pub fn from_db(s: &str) -> Option<Self> {
-                match s { $($s => Some(Self::$variant),)+ _ => None }
-            }
-        }
-    };
-}
+// `Mode` lives in the pure `coach-pacing` core (the engine optimises for it);
+// re-exported here so `crate::settings::types::Mode` and its `as_db`/`from_db`
+// conversions keep resolving.
+pub use coach_pacing::domain::Mode;
 
-/// The high-level training intent the engine optimises for — "what am I aiming
-/// for right now", switchable per session.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum Mode {
-    /// Even coverage — keep every muscle group progressing (default).
-    #[default]
-    Balanced,
-    /// Bias the big compound-lift groups, heavier + lower-rep.
-    Strength,
-    /// Bias the ring/hold/calisthenic work; progress by harder variation.
-    Skills,
-    /// Higher-rep, larger groups, shorter rest.
-    Conditioning,
-}
-db_str!(Mode {
-    Balanced => "balanced",
-    Strength => "strength",
-    Skills => "skills",
-    Conditioning => "conditioning",
-});
-
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Settings {
     pub timezone: String,
     pub window_start_hour: i32,
@@ -110,9 +79,10 @@ impl TryFrom<SettingsRow> for Settings {
 
 /// Body for PATCH /api/settings. Only present fields are written; `emphasis`
 /// uses double-option so an explicit `null` clears it.
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct SettingsPatch {
     pub timezone: Option<String>,
     pub window_start_hour: Option<i32>,
@@ -121,7 +91,7 @@ pub struct SettingsPatch {
     pub mode: Option<Mode>,
     pub days_per_week: Option<i32>,
     #[serde(default, deserialize_with = "double_option")]
-    #[ts(type = "string | null")]
+    #[cfg_attr(feature = "ts", ts(type = "string | null"))]
     pub emphasis: Option<Option<Region>>,
 }
 

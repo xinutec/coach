@@ -476,7 +476,7 @@ async fn main() -> Result<()> {
     // Readiness as it stood each morning, accumulated as the walk grows — exactly
     // what the ledger reconstructs the ask under, so an eased session isn't judged
     // as though it had been full-effort.
-    let mut readiness_history: HashMap<NaiveDate, Readiness> = HashMap::new();
+    let mut readiness_history: BTreeMap<NaiveDate, Readiness> = BTreeMap::new();
 
     for d in 0..weeks * 7 {
         let date = sim_start + Duration::days(d);

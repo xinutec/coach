@@ -3,7 +3,7 @@
 //! surface `service::now` uses.
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use coach::exercise::types::{Metric, Pattern};
 use coach::muscle::types::{MuscleRole, Region};
@@ -169,8 +169,8 @@ fn input(
         settings: settings(),
         groups: groups(),
         kit: Some(kit),
-        exercise_loads: HashMap::new(),
-        equipment_names: HashMap::new(),
+        exercise_loads: BTreeMap::new(),
+        equipment_names: BTreeMap::new(),
         notices: Vec::new(),
         readiness: None,
         readiness_history: Default::default(),
@@ -235,14 +235,14 @@ fn back_only() -> Vec<GroupMeta> {
 /// Keyed by *exercise*, not equipment — what you can build depends on how many
 /// implements the movement uses, so the service resolves it per exercise. Without
 /// an inventory there's no honest load, so the engine leaves the lift out.
-fn owned() -> HashMap<i64, Vec<f64>> {
+fn owned() -> BTreeMap<i64, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
     while w <= 80.0 + 1e-9 {
         loads.push(w);
         w += 2.5;
     }
-    HashMap::from([(5, loads)])
+    BTreeMap::from([(5, loads)])
 }
 
 #[test]
@@ -565,7 +565,7 @@ fn a_group_with_no_mobility_move_is_named_not_silently_left_bare() {
 fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
     // A weighted work item → the warm-up block adds a light ramp-in set (~half the
     // working load) of that same lift.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![20.0, 30.0, 40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![20.0, 30.0, 40.0, 50.0, 60.0])]);
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
@@ -706,7 +706,7 @@ fn location_substitutes_the_ideal() {
     ];
     let inp = PacingInput {
         groups: back_only(),
-        equipment_names: HashMap::from([(101, "Barbell".to_string())]),
+        equipment_names: BTreeMap::from([(101, "Barbell".to_string())]),
         ..input(Mode::Strength, exs, vec![], None, Some(vec![]))
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
@@ -1135,7 +1135,7 @@ fn a_stronger_history_earns_a_heavier_owned_weight() {
     // Same exercise, owned 15/17.5/20 kg. A weaker recent history prescribes a
     // lighter owned weight than a stronger one — the load step is *earned* by the
     // logged sets raising the e1RM past the next weight, never a blind bump.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![15.0, 17.5, 20.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![15.0, 17.5, 20.0])]);
     let sug = |hist: Vec<SetRec>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1173,7 +1173,7 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
     // A 6 × 60 kg top set from 200 days ago and nothing since: the old engine
     // would prescribe ~60 kg + a rep. Staleness decays the estimate, so the
     // prescription is conservatively lighter — a returning athlete rebuilds.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
     let inp = PacingInput {
         groups: back_only(),
         exercise_loads: owned,
@@ -1197,7 +1197,7 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
 fn a_work_item_carries_its_reasoning() {
     // A trained group in deficit → the suggestion explains itself: the group's
     // deficit + recovery, the ability confidence, and (here) an e1RM estimate.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
@@ -1239,7 +1239,7 @@ fn a_work_item_carries_its_reasoning() {
 fn a_never_done_lift_is_an_assessment_at_the_lightest_owned_weight() {
     // No history for a weighted lift → the engine can't prescribe honestly, so it
     // asks you to calibrate: one build-up set at the lightest weight you own.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![10.0, 15.0, 20.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![10.0, 15.0, 20.0])]);
     let inp = PacingInput {
         groups: back_only(),
         exercise_loads: owned,
@@ -1262,7 +1262,7 @@ fn trusted_ability_prescribes_untrusted_ability_assesses() {
     // Same lift + owned inventory. Three recent sessions → High confidence → a
     // real prescription (Work). Only a 200-day-old set → Low confidence → the
     // engine re-measures (Assess) rather than trust the stale number.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
     let mk = |hist: Vec<SetRec>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1291,7 +1291,7 @@ fn trusted_ability_prescribes_untrusted_ability_assesses() {
 fn low_readiness_prescribes_lighter_than_a_good_day() {
     // Identical history + inventory; a low-readiness day leaves more in reserve,
     // so the working load is lighter (never heavier) than a normal day.
-    let owned: HashMap<i64, Vec<f64>> = HashMap::from([(5, vec![40.0, 45.0, 50.0, 55.0, 60.0])]);
+    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 45.0, 50.0, 55.0, 60.0])]);
     let mk = |r: Option<Readiness>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1632,8 +1632,8 @@ fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
         // The kit is here; nothing it can be loaded with is. The service works out
         // why (no weights registered / not enough handles for a pair) and says so;
         // the engine's job is simply never to prescribe what can't be built.
-        exercise_loads: HashMap::new(),
-        equipment_names: HashMap::new(),
+        exercise_loads: BTreeMap::new(),
+        equipment_names: BTreeMap::new(),
         notices: vec!["No weights registered here for Barbell.".to_string()],
         ..input(Mode::Strength, exs, vec![], None, Some(vec![3]))
     };
@@ -1657,7 +1657,7 @@ fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
 #[test]
 fn without_a_location_it_asks_rather_than_guesses() {
     // No location → the engine doesn't know what's doable. The old spelling
-    // (`Option<HashSet>` consulted with `is_none_or`) made that mean "everything
+    // (`Option<BTreeSet>` consulted with `is_none_or`) made that mean "everything
     // is doable", so a missing location silently switched the safety filter off.
     // Absent kit now means absent kit: the verdict narrows to a question.
     let inp = PacingInput {
@@ -1700,8 +1700,8 @@ fn waiter_walk() -> ExerciseInfo {
 }
 
 /// The bells at the office: 6…36 kg.
-fn bells() -> HashMap<i64, Vec<f64>> {
-    HashMap::from([(
+fn bells() -> BTreeMap<i64, Vec<f64>> {
+    BTreeMap::from([(
         7,
         vec![
             6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 20.0, 24.0, 28.0, 32.0, 36.0,
@@ -1825,7 +1825,7 @@ fn a_carry_with_no_registered_weights_is_not_prescribed() {
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
-            exercise_loads: HashMap::new(), // the bells aren't registered
+            exercise_loads: BTreeMap::new(), // the bells aren't registered
             ..input(
                 Mode::Balanced,
                 vec![waiter_walk()],
@@ -2319,7 +2319,7 @@ fn compounds_run_before_isolations() {
     let out = evaluate(
         &PacingInput {
             groups: r2_groups(),
-            exercise_loads: HashMap::from([(9, vec![6.0, 8.0, 10.0])]),
+            exercise_loads: BTreeMap::from([(9, vec![6.0, 8.0, 10.0])]),
             // Steady readiness: the 9-day fixture otherwise trips the
             // volume-spike deload proxy and shrinks the budget below two
             // full doses.
@@ -2385,7 +2385,7 @@ fn a_rest_prompt_says_how_long() {
     }
     let base = |h: Vec<SetRec>| PacingInput {
         groups: r2_groups(),
-        exercise_loads: HashMap::from([(9, vec![6.0, 8.0, 10.0])]),
+        exercise_loads: BTreeMap::from([(9, vec![6.0, 8.0, 10.0])]),
         ..input(
             Mode::Balanced,
             vec![r2_pullup(), r2_curl()],
@@ -2681,7 +2681,7 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
-            exercise_loads: HashMap::from([(5, vec![4.0, 5.0])]),
+            exercise_loads: BTreeMap::from([(5, vec![4.0, 5.0])]),
             ..input(Mode::Balanced, vec![barbell_row()], h.clone(), None, None)
         },
         now(),
@@ -2769,7 +2769,7 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
 fn strength_row(h: Vec<SetRec>) -> PacingInput {
     PacingInput {
         groups: back_only(),
-        exercise_loads: HashMap::from([(5, (8..=40).map(|i| i as f64 * 2.5).collect())]),
+        exercise_loads: BTreeMap::from([(5, (8..=40).map(|i| i as f64 * 2.5).collect())]),
         ..input(Mode::Strength, vec![barbell_row()], h, None, Some(vec![3]))
     }
 }
@@ -2887,7 +2887,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     );
 
     // ...but told what the coach knew that morning, it reads as what it was.
-    let known = HashMap::from([(now().date(), spent)]);
+    let known = BTreeMap::from([(now().date(), spent)]);
     let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known)
         .remove(&5)
         .unwrap_or_default();

@@ -2,7 +2,6 @@
 //! the location (the frontend has the full catalog from /api/equipment).
 
 use serde::{Deserialize, Deserializer, Serialize};
-use ts_rs::TS;
 
 /// Distinguish an absent field from an explicit `null` in a PATCH body: absent →
 /// `None` (leave unchanged), `null` → `Some(None)` (clear), value → `Some(Some)`.
@@ -17,9 +16,10 @@ where
 /// Per-equipment specifics at a location: which discrete weights (fixed free
 /// weights), named variants (bands), or bar/handle you own. Plates live on
 /// `Location` (they may be shared across bars). All-empty = no specifics given.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct EquipmentOption {
     pub slug: String,
     /// Discrete weights owned (kg) — coach snaps load suggestions to these.
@@ -34,16 +34,16 @@ pub struct EquipmentOption {
     pub labels: Vec<String>,
     /// A loadable bar or dumbbell handle's own weight (kg) — the load floor.
     #[serde(default)]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub bar_kg: Option<f64>,
     /// How many of that bar/handle you own. A both-arms dumbbell press needs two.
     /// `None` = plenty.
     #[serde(default)]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub bar_qty: Option<u32>,
     /// How many discs fit on one sleeve. `None` = as many as you own.
     #[serde(default)]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub plate_slots: Option<u32>,
 }
 
@@ -53,23 +53,25 @@ pub struct EquipmentOption {
 /// dumbbell handle's small discs will not go on a barbell). `qty` is how many
 /// discs you have: `None` = plenty (a gym rack), otherwise only pairs
 /// (`qty / 2`) can be loaded, since plates go on both ends or not at all.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Plate {
     #[serde(default)]
     pub equipment: Option<String>,
     pub load_kg: f64,
     #[serde(default)]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub qty: Option<u32>,
 }
 
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Location {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub name: String,
     pub is_default: bool,
@@ -82,7 +84,7 @@ pub struct Location {
     /// you own.
     pub plates: Vec<Plate>,
     /// health-sync focus_place this location is linked to (for auto-select), if any.
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub health_place_id: Option<i64>,
 }
 
@@ -115,17 +117,19 @@ impl From<LocationRow> for Location {
 
 /// Which of the user's locations they're currently at (resolved from health's
 /// detected current place), or none.
-#[derive(Debug, Serialize, TS)]
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct CurrentLocation {
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub location_id: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct NewLocation {
     pub name: String,
     #[serde(default)]
@@ -137,13 +141,14 @@ pub struct NewLocation {
     #[serde(default)]
     pub plates: Vec<Plate>,
     #[serde(default)]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub health_place_id: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct LocationPatch {
     pub name: Option<String>,
     pub is_default: Option<bool>,
@@ -155,6 +160,6 @@ pub struct LocationPatch {
     pub plates: Option<Vec<Plate>>,
     /// Link to a health focus_place: absent → unchanged, `null` → unlink, id → link.
     #[serde(default, deserialize_with = "double_option")]
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub health_place_id: Option<Option<i64>>,
 }

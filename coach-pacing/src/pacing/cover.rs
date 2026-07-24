@@ -29,6 +29,8 @@
 //! a muscle-group *id* — so a group index and an exercise id cannot be confused,
 //! and a dot product is a flat array walk.
 
+use crate::prelude::*;
+
 /// A dense index into the group space (`0..groups.len()`), assigned from the
 /// group list's order. Distinct from a muscle-group *id* by type.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -55,14 +57,14 @@ impl<T: Copy> ByGroup<T> {
     }
 }
 
-impl<T> std::ops::Index<GroupIx> for ByGroup<T> {
+impl<T> core::ops::Index<GroupIx> for ByGroup<T> {
     type Output = T;
     fn index(&self, i: GroupIx) -> &T {
         &self.0[i.0]
     }
 }
 
-impl<T> std::ops::IndexMut<GroupIx> for ByGroup<T> {
+impl<T> core::ops::IndexMut<GroupIx> for ByGroup<T> {
     fn index_mut(&mut self, i: GroupIx) -> &mut T {
         &mut self.0[i.0]
     }
@@ -187,7 +189,7 @@ pub fn select(
     // Never-done movements introduced so far — bounded by `novelty_cap`.
     let mut novel_taken = 0i32;
     // Movement families already in the session — each admits one entry (R3-3).
-    let mut families: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut families: alloc::collections::BTreeSet<&str> = alloc::collections::BTreeSet::new();
 
     while left > 0 {
         let mut best: Option<(usize, f64, f64, f64)> = None; // (index, cover, pay, rank)

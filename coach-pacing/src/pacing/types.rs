@@ -3,15 +3,15 @@
 //! these: it computes what to do now from **history + the active mode**, with no
 //! program. Rolling muscle-group volume + recovery + progression, location-aware.
 
-use std::collections::HashMap;
+use crate::prelude::*;
+use alloc::collections::BTreeMap;
 
 use chrono::{NaiveDate, NaiveDateTime};
 use serde::Serialize;
-use ts_rs::TS;
 
-use crate::exercise::types::{Metric, Pattern};
-use crate::muscle::types::{MuscleRole, Region};
-use crate::settings::types::Mode;
+use crate::domain::Mode;
+use crate::domain::{Metric, Pattern};
+use crate::domain::{MuscleRole, Region};
 
 use super::ability::Confidence;
 
@@ -82,7 +82,7 @@ pub struct PacingSettings {
 
 /// The equipment present where the athlete is training.
 ///
-/// Deliberately *not* an `Option<HashSet>` consulted with `is_none_or`: that
+/// Deliberately *not* an `Option<BTreeSet>` consulted with `is_none_or`: that
 /// spelling made "we don't know the location" mean "everything is doable", so a
 /// missing location silently switched the safety filter off and the coach
 /// cheerfully suggested trap-bar deadlifts in a living room. Absent kit now means
@@ -90,7 +90,7 @@ pub struct PacingSettings {
 /// ([`PacingInput::kit`] = `None`), and it yields a narrower verdict — no
 /// suggestions at all — rather than a wider one.
 #[derive(Clone, Debug, Default)]
-pub struct Kit(pub std::collections::HashSet<i64>);
+pub struct Kit(pub alloc::collections::BTreeSet<i64>);
 
 impl Kit {
     /// Is every piece of `required` equipment present here? (Empty = bodyweight,
@@ -123,11 +123,11 @@ pub struct PacingInput {
     /// Absent or empty = not loadable here, so the lift isn't selectable (see
     /// [`super::dose::Inventory`]) and the verdict says why rather than inventing
     /// a number.
-    pub exercise_loads: HashMap<i64, Vec<f64>>,
+    pub exercise_loads: BTreeMap<i64, Vec<f64>>,
     /// Equipment id → its display name, so a blocked substitution can name the kit
     /// it's missing instead of saying "its kit isn't here" and leaving the athlete
     /// to guess which piece.
-    pub equipment_names: HashMap<i64, String>,
+    pub equipment_names: BTreeMap<i64, String>,
     /// Kit the coach had to leave out, and why — surfaced on the verdict so a drop
     /// reads as something to fix rather than a hole in the plan.
     pub notices: Vec<String>,
@@ -143,13 +143,14 @@ pub struct PacingInput {
     /// has no data, or is down) is judged full-effort: exactly what the ledger did
     /// before it could ask the question, so a missing signal never invents an easing
     /// that didn't happen.
-    pub readiness_history: HashMap<NaiveDate, Readiness>,
+    pub readiness_history: BTreeMap<NaiveDate, Readiness>,
 }
 
 /// How recovered the user is right now, from biometrics (health-derived).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum Band {
     Low,
     Normal,
@@ -157,9 +158,10 @@ pub enum Band {
 }
 
 /// The readiness verdict coach computes from health's raw recovery data.
-#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[derive(Clone, Copy, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Readiness {
     /// 0 (unrecovered) .. 1 (fully recovered).
     pub score: f64,
@@ -168,9 +170,10 @@ pub struct Readiness {
 
 // ---- output (wire types) ---------------------------------------------------
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum PacingState {
     /// A concrete thing to do now.
     Active,
@@ -181,9 +184,10 @@ pub enum PacingState {
 }
 
 /// Rolling volume vs target for one muscle group — drives the balance view.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct GroupBalance {
     pub group: String,
     pub region: Region,
@@ -199,9 +203,10 @@ pub struct GroupBalance {
 /// engine's ability estimate for the chosen exercise is untrusted (never done,
 /// or only stale data), it can't prescribe honestly — so it asks you to measure:
 /// the logged set *is* the assessment, and the next verdict prescribes from it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum SuggestionKind {
     /// A mobility/activation move or a light ramp-in set — prep, not training.
     Warmup,
@@ -214,11 +219,12 @@ pub enum SuggestionKind {
 /// The logged set an ability estimate came from, named on the card so it can be
 /// corrected. `setId` is the `workout_sets` row, so the UI can act on exactly
 /// that set rather than guessing from a timestamp.
-#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[derive(Clone, Copy, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct EstimateSource {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub set_id: i64,
     pub logged_at: NaiveDateTime,
     pub load_kg: Option<f64>,
@@ -229,9 +235,10 @@ pub struct EstimateSource {
 /// Why the engine chose this exercise + prescription — a structured trace so the
 /// UI can show its reasoning and tests can assert on it (rather than string-match
 /// prose). Every number here is one the verdict already computed.
-#[derive(Clone, Copy, Debug, Serialize, TS)]
+#[derive(Clone, Copy, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Explanation {
     /// How far below target this muscle group is (0 = at target, 1 = untrained).
     pub deficit: f64,
@@ -272,9 +279,10 @@ pub struct Explanation {
 /// Why the coach couldn't give you the movement it wanted to, in the athlete's
 /// terms. The two cases are different problems with different fixes, so they're
 /// different variants rather than one vague "kit isn't here".
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "kind", content = "kit")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum Blocker {
     /// The location doesn't have this equipment at all (named).
     Absent(Vec<String>),
@@ -284,19 +292,21 @@ pub enum Blocker {
 }
 
 /// The movement the coach would have prescribed, and what stopped it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Substitution {
     pub ideal: String,
     pub blocker: Blocker,
 }
 
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Suggestion {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub exercise_id: i64,
     pub exercise_name: String,
     pub pattern: Pattern,
@@ -329,9 +339,10 @@ pub struct Suggestion {
 
 /// The full coach verdict for an instant. Drives the Today UI and the Android
 /// nudge (fired only when `nudge` AND the phone's geofence says you're home).
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct PacingNow {
     pub state: PacingState,
     /// Auto-deload active — volume's been high (only the no-biometric fallback;
@@ -345,7 +356,7 @@ pub struct PacingNow {
     /// Past the training window's end — coach defers to tomorrow.
     pub after_window: bool,
     pub spacing_ok: bool,
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub minutes_since_last_set: Option<i64>,
     /// The computed session-size target + what's been done today (drive the nudge).
     pub day_target_sets: i32,

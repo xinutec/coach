@@ -3,7 +3,7 @@
 //! the user's local tz. No program is loaded — the engine works off history +
 //! the active mode.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::{Result, anyhow};
 use chrono::{Duration, NaiveDate, NaiveDateTime, TimeZone, Utc};
@@ -51,11 +51,11 @@ pub struct PacingContext {
     pub kit: Option<Kit>,
     /// Buildable loads per *exercise* (not per equipment — a two-dumbbell movement
     /// gets half the discs). Empty = not loadable here.
-    pub exercise_loads: HashMap<i64, Vec<f64>>,
+    pub exercise_loads: BTreeMap<i64, Vec<f64>>,
     /// Kit the coach had to leave out, and why.
     pub notices: Vec<String>,
     /// Equipment id → display name, so a blocked substitution can name the kit.
-    pub equipment_names: HashMap<i64, String>,
+    pub equipment_names: BTreeMap<i64, String>,
 }
 
 /// Load the history-independent context: settings + tz, the active mode, the
@@ -90,7 +90,7 @@ pub async fn context(
     let kit = match location {
         Some(id) => location_repo::equipment_ids(pool, user_id, id)
             .await?
-            .map(|ids| Kit(ids.into_iter().collect::<HashSet<i64>>())),
+            .map(|ids| Kit(ids.into_iter().collect::<BTreeSet<i64>>())),
         None => None,
     };
     // The loadable kit here: fixed weights, bars/handles, and the plates that fit
@@ -101,7 +101,7 @@ pub async fn context(
         None => HashMap::new(),
     };
     let equipment = equipment_repo::list(pool).await?;
-    let equipment_names: HashMap<i64, String> =
+    let equipment_names: BTreeMap<i64, String> =
         equipment.iter().map(|e| (e.id, e.name.clone())).collect();
     // Which kit actually *carries* the weight. A bench and a pull-up bar are needed
     // for a dumbbell bench press and a weighted chin-up, but you don't load them —
@@ -112,7 +112,7 @@ pub async fn context(
     // it as `category == FreeWeight` was right about the bench and wrong about the
     // pulley: a cable stack is a `machine`, so the coach could put no weight on the
     // one machine in the gym whose whole purpose is the weight on it.
-    let bears_load: HashSet<i64> = equipment
+    let bears_load: BTreeSet<i64> = equipment
         .iter()
         .filter(|e| e.weighted)
         .map(|e| e.id)
@@ -162,7 +162,7 @@ pub async fn context(
         .into_iter()
         .map(|e| (e.id, e.implements))
         .collect();
-    let mut exercise_loads: HashMap<i64, Vec<f64>> = HashMap::new();
+    let mut exercise_loads: BTreeMap<i64, Vec<f64>> = BTreeMap::new();
     let mut short_kit: Vec<(i64, i32)> = Vec::new(); // (equipment, implements needed)
     let mut unweighted: Vec<i64> = Vec::new();
     for ex in &exercises {
@@ -249,7 +249,7 @@ pub async fn context(
 /// Say what the coach had to leave out and why. A silent drop reads as a hole in
 /// the plan; naming the kit turns it into something the athlete can fix.
 fn kit_notices(
-    names: &HashMap<i64, String>,
+    names: &BTreeMap<i64, String>,
     unweighted: &mut [i64],
     short_kit: &mut [(i64, i32)],
 ) -> Vec<String> {
@@ -283,7 +283,7 @@ pub fn input_from(
     history: Vec<SetRec>,
     last_set_at: Option<NaiveDateTime>,
     readiness: Option<Readiness>,
-    readiness_history: HashMap<NaiveDate, Readiness>,
+    readiness_history: BTreeMap<NaiveDate, Readiness>,
 ) -> PacingInput {
     PacingInput {
         mode: ctx.mode,
@@ -313,7 +313,7 @@ pub async fn now(
     user_id: &str,
     location_id: Option<i64>,
     readiness: Option<Readiness>,
-    readiness_history: HashMap<NaiveDate, Readiness>,
+    readiness_history: BTreeMap<NaiveDate, Readiness>,
 ) -> Result<PacingNow> {
     let ctx = context(pool, user_id, location_id).await?;
     let now_local = Utc::now().with_timezone(&ctx.tz).naive_local();

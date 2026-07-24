@@ -5,7 +5,7 @@
 //! loads you actually own, sane rep ranges, a budgeted plan, and never a panic.
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
@@ -117,9 +117,9 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
     // Buildable loads for the one weighted lift (exercise id 5). Empty inventory =
     // not loadable, so the lift simply isn't selectable.
     let exercise_loads = if owned.is_empty() {
-        HashMap::new()
+        BTreeMap::new()
     } else {
-        HashMap::from([(5i64, owned.to_vec())])
+        BTreeMap::from([(5i64, owned.to_vec())])
     };
     PacingInput {
         mode: mode_of(mode_i),
@@ -139,7 +139,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
             .flat_map(|e| e.equipment.clone())
             .collect())),
         exercise_loads,
-        equipment_names: HashMap::new(),
+        equipment_names: BTreeMap::new(),
         notices: Vec::new(),
         readiness: None,
         readiness_history: Default::default(),
@@ -166,7 +166,7 @@ fn scenario() -> impl Strategy<Value = (usize, i32, Vec<RawSet>, Vec<f64>)> {
 }
 
 proptest! {
-    // Same input → byte-identical verdict. Guards against HashMap iteration order
+    // Same input → byte-identical verdict. Guards against BTreeMap iteration order
     // (or any hidden nondeterminism) leaking into the plan/balance ordering.
     #[test]
     fn evaluate_is_deterministic((m, d, raw, owned) in scenario()) {
@@ -237,7 +237,7 @@ proptest! {
     #[test]
     fn an_exercise_is_never_planned_twice((m, d, raw, owned) in scenario()) {
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = std::collections::BTreeSet::new();
         for item in out.plan.iter().filter(|s| s.kind != SuggestionKind::Warmup) {
             prop_assert!(
                 seen.insert(item.exercise_id),

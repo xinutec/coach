@@ -1,12 +1,9 @@
-//! The pacing engine and its HTTP surface. `engine::evaluate` is a pure
-//! function (unit-tested); `service::now` assembles its input from the DB and
+//! The pacing engine's HTTP/DB surface. The engine itself and its types live in
+//! the pure `coach-pacing` core (compiled no_std) and are re-exported here so the
+//! rest of coach still says `crate::pacing::engine` / `crate::pacing::types`.
+//! `service` is the std shell: it assembles the engine input from the DB and
 //! applies the user's timezone.
 
-pub mod ability;
-pub mod cover;
-pub mod dose;
-pub mod engine;
-pub mod readiness;
-pub mod residual;
 pub mod service;
-pub mod types;
+
+pub use coach_pacing::pacing::{ability, cover, dose, engine, readiness, residual, types};

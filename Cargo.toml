@@ -3,7 +3,21 @@ name = "coach"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["coach-pacing"]
+
+[features]
+# Turns on ts-rs everywhere — coach's own wire types *and* the pacing core's — so
+# `cargo test --features ts export_bindings` emits the frontend TypeScript (see
+# scripts/gen-types.sh). Off by default: normal builds carry no ts-rs at all, and
+# the core stays no_std.
+ts = ["dep:ts-rs", "coach-pacing/ts"]
+
 [dependencies]
+# The pure pacing engine + the domain enums it reasons over. Compiled #![no_std]
+# in normal builds — it physically cannot do IO, read the clock, or hold global
+# state (see coach-pacing/src/lib.rs). The shell below threads the clock + DB in.
+coach-pacing = { path = "coach-pacing" }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 tower-http = { version = "0.7", features = ["fs", "trace"] }
@@ -48,7 +62,7 @@ anyhow = "1"
 thiserror = "2"
 # Generates the frontend TS interfaces from these Rust types (see scripts/
 # gen-types.sh + frontend/src/app/generated/) so the wire shapes can't drift.
-ts-rs = { version = "12", features = ["serde-compat", "chrono-impl", "serde-json-impl"] }
+ts-rs = { version = "12", optional = true, features = ["serde-compat", "chrono-impl", "serde-json-impl"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

@@ -21,7 +21,7 @@
 //!     group can take light work; nothing below the effective-recovery gate
 //!     (deficit × recovery) is ever prescribed.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
@@ -96,14 +96,14 @@ fn start() -> NaiveDateTime {
 /// The barbell row's buildable loads: 20…80 kg in 2.5 kg steps. Keyed by *exercise*
 /// (id 5) — what's buildable depends on how many implements the movement needs, so
 /// the service resolves it per exercise and the engine just consumes the set.
-fn owned() -> HashMap<i64, Vec<f64>> {
+fn owned() -> BTreeMap<i64, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
     while w <= 80.0 + 1e-9 {
         loads.push(w);
         w += 2.5;
     }
-    HashMap::from([(5, loads)])
+    BTreeMap::from([(5, loads)])
 }
 
 fn barbell_row() -> ExerciseInfo {
@@ -144,7 +144,7 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         groups: back_group(),
         kit: Some(Kit([3].into_iter().collect())),
         exercise_loads: owned(),
-        equipment_names: HashMap::new(),
+        equipment_names: BTreeMap::new(),
         notices: Vec::new(),
         readiness: None,
         readiness_history: Default::default(),
@@ -349,7 +349,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
         },
     ];
     // Distinct clean-rep ceilings so the moves aren't interchangeable.
-    let ability = HashMap::from([(1, 25), (2, 15), (3, 30)]);
+    let ability = BTreeMap::from([(1, 25), (2, 15), (3, 30)]);
 
     let mut history: Vec<SetRec> = Vec::new();
 
@@ -369,8 +369,8 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
                 .iter()
                 .flat_map(|e| e.equipment.clone())
                 .collect())),
-            exercise_loads: HashMap::new(),
-            equipment_names: HashMap::new(),
+            exercise_loads: BTreeMap::new(),
+            equipment_names: BTreeMap::new(),
             notices: Vec::new(),
             readiness: None,
             readiness_history: Default::default(),

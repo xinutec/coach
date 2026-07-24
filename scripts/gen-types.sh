@@ -26,7 +26,12 @@ trap 'rm -rf "$TMP"' EXIT
 # export_bindings_*, so this filter runs only generation (no DB needed). The
 # output dir is pinned in .cargo/config.toml (TS_RS_EXPORT_DIR) — overridden
 # here so a failed run can't touch the committed types.
-if ! TS_RS_EXPORT_DIR="$TMP" cargo test export_bindings >"$TMP/cargo.log" 2>&1; then
+#
+# --features ts turns on ts-rs (off by default: normal builds carry none and the
+# pacing core stays no_std). --workspace so the pacing core's own #[ts(export)]
+# types (PacingInput, the domain enums, …) — which live in the coach-pacing crate
+# — export alongside coach's.
+if ! TS_RS_EXPORT_DIR="$TMP" cargo test --workspace --features ts export_bindings >"$TMP/cargo.log" 2>&1; then
   echo "gen-types: generation failed — committed types left untouched." >&2
   # The compile errors are the whole point of running this; show them.
   grep -E '^(error|warning: unused)|^ *-->' "$TMP/cargo.log" >&2 || tail -30 "$TMP/cargo.log" >&2

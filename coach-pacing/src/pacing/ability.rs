@@ -21,11 +21,11 @@
 //! (in later stages) decides whether the engine prescribes from the estimate or
 //! asks for a fresh assessment.
 
-use std::collections::{HashMap, HashSet};
+use crate::prelude::*;
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use chrono::{Duration, NaiveDateTime};
 use serde::Serialize;
-use ts_rs::TS;
 
 use super::types::SetRec;
 
@@ -60,9 +60,10 @@ const MEDIUM_SESSIONS: i32 = 1;
 /// How much the engine trusts an exercise's estimate — the gate between
 /// prescribing (from the estimate) and assessing (measuring afresh, G3). Also
 /// surfaced in the explanation trace, so it's a wire type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum Confidence {
     /// ≥ `HIGH_SESSIONS` recent sessions — prescribe with a full progression.
     High,
@@ -165,8 +166,8 @@ fn max_opt(cur: Option<f64>, v: f64) -> Option<f64> {
 
 /// Estimate ability for every exercise present in `history`. Exercises absent
 /// from the returned map have never been trained → treat as `Confidence::None`.
-pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> HashMap<i64, Ability> {
-    let mut by_ex: HashMap<i64, Vec<&SetRec>> = HashMap::new();
+pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> BTreeMap<i64, Ability> {
+    let mut by_ex: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
@@ -191,7 +192,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     // same day never split (they're one session, so the chimera guard still holds).
     // Confidence still counts recent days across *all* sets.
     let mut sets: Vec<&SetRec> = sets.to_vec();
-    sets.sort_by_key(|s| std::cmp::Reverse(s.logged_at)); // newest first
+    sets.sort_by_key(|s| core::cmp::Reverse(s.logged_at)); // newest first
     let block_cut = {
         let mut cut = sets.first().map(|s| s.logged_at);
         let mut prev: Option<NaiveDateTime> = None;
@@ -211,7 +212,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     let mut best_reps = None;
     let mut best_hold = None;
     let mut carry: Option<Carry> = None;
-    let mut recent_days: HashSet<_> = HashSet::new();
+    let mut recent_days: BTreeSet<_> = BTreeSet::new();
     // The set behind each max, updated in lockstep with it.
     let (mut e1rm_src, mut reps_src, mut hold_src) = (None, None, None);
     let source_of = |s: &SetRec| Source {
@@ -267,7 +268,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
                 carry,
                 Carry {
                     load: load * d,
-                    secs: (h as f64 * d).floor() as i32,
+                    secs: libm::floor(h as f64 * d) as i32,
                 },
             );
         }
@@ -285,8 +286,8 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     Ability {
         e1rm,
         // Floor reps (conservative — never claim a rep you can't show).
-        best_reps: best_reps.map(|r| r.floor() as i32),
-        best_hold: best_hold.map(|h| h.round() as i32),
+        best_reps: best_reps.map(|r| libm::floor(r) as i32),
+        best_hold: best_hold.map(|h| libm::round(h) as i32),
         carry,
         confidence,
         sessions_recent,
@@ -299,7 +300,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
 
 /// Confidence for an exercise given the ability map — `None` when it's absent
 /// (never trained).
-pub fn confidence_of(abilities: &HashMap<i64, Ability>, exercise_id: i64) -> Confidence {
+pub fn confidence_of(abilities: &BTreeMap<i64, Ability>, exercise_id: i64) -> Confidence {
     abilities
         .get(&exercise_id)
         .map(|a| a.confidence)

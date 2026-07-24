@@ -10,7 +10,6 @@
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::equipment::types::Equipment;
 use crate::muscle::types::{MuscleRole, Region};
@@ -28,52 +27,16 @@ macro_rules! db_str {
     };
 }
 
-/// Movement pattern. Classification + display; recovery is gated per muscle
-/// group, not per pattern (see `pacing::engine`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum Pattern {
-    Push,
-    Pull,
-    Legs,
-    Core,
-}
-db_str!(Pattern {
-    Push => "push",
-    Pull => "pull",
-    Legs => "legs",
-    Core => "core",
-});
-
-/// How a set is measured. Determines which of reps/load/hold a logged set carries.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum Metric {
-    Reps,
-    WeightedReps,
-    Hold,
-    /// A loaded carry or hold: **weight and time together** (a farmer's walk, a
-    /// waiter walk, an overhead carry). Neither of the other two can say it —
-    /// `Hold` has no load, `WeightedReps` has no clock — so the four carries in
-    /// the catalog were modelled as weighted *reps* and the coach prescribed
-    /// "Farmers walk, 5 reps at 6 kg", which is not a thing anyone does. The
-    /// progression is the same double-progression shape as a weighted lift, with
-    /// seconds where the reps go: climb the time, then step the weight.
-    WeightedHold,
-}
-db_str!(Metric {
-    Reps => "reps",
-    WeightedReps => "weighted_reps",
-    Hold => "hold",
-    WeightedHold => "weighted_hold",
-});
+// `Pattern` and `Metric` live in the pure `coach-pacing` core (the engine reasons
+// over them); re-exported here so `crate::exercise::types::Pattern` and their
+// `as_db`/`from_db` conversions keep resolving.
+pub use coach_pacing::domain::{Metric, Pattern};
 
 /// Body position the movement is performed in (optional).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum Position {
     Standing,
     Seated,
@@ -97,11 +60,12 @@ db_str!(Position {
 
 /// Lightweight catalog list item. Equipment as slugs; `has_image` gates the
 /// thumbnail without shipping the blob.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Exercise {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub slug: String,
     pub name: String,
@@ -180,9 +144,10 @@ impl TryFrom<ExerciseListRow> for Exercise {
 }
 
 /// A muscle worked by an exercise, with its group/region and role denormalized.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct ExerciseMuscle {
     pub slug: String,
     pub name: String,
@@ -216,11 +181,12 @@ impl TryFrom<ExerciseMuscleRow> for ExerciseMuscle {
 }
 
 /// Full exercise view: scalar fields + equipment + muscles.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct ExerciseDetail {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub slug: String,
     pub name: String,
@@ -258,18 +224,20 @@ pub(crate) struct ExerciseDetailRow {
 }
 
 /// A muscle link on create/patch: which muscle, in what role.
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct MuscleLink {
     pub slug: String,
     pub role: MuscleRole,
 }
 
 /// Body for POST /api/exercises (a user-added custom movement).
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct NewExercise {
     pub name: String,
     #[serde(default)]
@@ -295,9 +263,10 @@ pub struct NewExercise {
 
 /// Body for PATCH /api/exercises/{id}. Scalar fields COALESCE (only present ones
 /// change); `equipment`/`muscles`, when present, replace the whole link set.
-#[derive(Debug, Deserialize, TS)]
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct ExercisePatch {
     pub name: Option<String>,
     pub variation: Option<String>,

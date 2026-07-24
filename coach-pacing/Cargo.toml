@@ -1,0 +1,27 @@
+[package]
+name = "coach-pacing"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+# `ts` pulls in ts-rs (which needs std) to emit the frontend TypeScript types —
+# see scripts/gen-types.sh. Without it the crate is `#![no_std]`: the pure pacing
+# core, unable to open a file, read the clock, spawn a thread, or hold global
+# mutable state. That impurity isn't linted out — it's unrepresentable, because
+# `std` is not in scope. Production builds never enable `ts`.
+ts = ["std", "dep:ts-rs"]
+std = []
+
+[dependencies]
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+chrono = { version = "0.4", default-features = false, features = ["alloc", "serde"] }
+# f64 methods beyond core's inherent min/max/abs/clamp — round, floor, exp — live
+# in std, not core; libm supplies them under no_std as free functions. (A trait
+# like num_traits::Float would read as an unused import once feature unification
+# pulls num-traits/std into a std build of the workspace — libm has no such wart.)
+libm = "0.2"
+ts-rs = { version = "12", optional = true, features = [
+    "serde-compat",
+    "chrono-impl",
+    "serde-json-impl",
+] }

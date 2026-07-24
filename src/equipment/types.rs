@@ -3,7 +3,6 @@
 
 use anyhow::{Result, anyhow};
 use serde::Serialize;
-use ts_rs::TS;
 
 macro_rules! db_str {
     ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
@@ -19,9 +18,10 @@ macro_rules! db_str {
 }
 
 /// Broad kit family, for grouping equipment in the UI.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub enum Category {
     FreeWeight,
     Band,
@@ -40,11 +40,12 @@ db_str!(Category {
 });
 
 /// A piece of equipment.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Equipment {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub slug: String,
     pub name: String,

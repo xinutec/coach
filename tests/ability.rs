@@ -3,7 +3,7 @@
 //! numbers are computed inline from the documented formula (RPE-aware Epley +
 //! per-set staleness decay), so the model's internals stay private.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
@@ -238,7 +238,7 @@ fn bodyweight_and_hold_estimates_track_their_metric() {
 
 #[test]
 fn never_trained_is_absent_and_reads_as_none() {
-    let a: HashMap<_, _> = abilities(&[weighted(1, 1, 50.0, 5, None)], base());
+    let a: BTreeMap<_, _> = abilities(&[weighted(1, 1, 50.0, 5, None)], base());
     assert_eq!(confidence_of(&a, 1), Confidence::Medium);
     assert_eq!(confidence_of(&a, 999), Confidence::None);
 }

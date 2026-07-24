@@ -25,7 +25,7 @@ const BAND_LOW: f64 = 0.40;
 const BAND_HIGH: f64 = 0.65;
 
 fn sigmoid(z: f64) -> f64 {
-    1.0 / (1.0 + (-z).exp())
+    1.0 / (1.0 + libm::exp(-z))
 }
 
 /// Is this baseline usable for a z-score?

@@ -25,14 +25,15 @@
 //! worse than the first — that's fatigue, not a miss — so a day is judged on its best
 //! set, which is what the estimate is a claim about.
 
-use std::collections::HashMap;
+use crate::prelude::*;
+use alloc::collections::BTreeMap;
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
 use super::dose::{CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, readiness_advances, rep_range, reserve};
 use super::types::{Readiness, SetRec};
-use crate::settings::types::Mode;
+use crate::domain::Mode;
 
 // ---- tunable heuristics ----------------------------------------------------
 
@@ -139,9 +140,9 @@ impl Residual {
 pub fn residuals(
     history: &[SetRec],
     mode: Mode,
-    readiness: &HashMap<NaiveDate, Readiness>,
-) -> HashMap<i64, Residual> {
-    let mut by_ex: HashMap<i64, Vec<&SetRec>> = HashMap::new();
+    readiness: &BTreeMap<NaiveDate, Readiness>,
+) -> BTreeMap<i64, Residual> {
+    let mut by_ex: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
@@ -151,7 +152,7 @@ pub fn residuals(
         .collect()
 }
 
-fn ledger(sets: &[&SetRec], mode: Mode, readiness: &HashMap<NaiveDate, Readiness>) -> Residual {
+fn ledger(sets: &[&SetRec], mode: Mode, readiness: &BTreeMap<NaiveDate, Readiness>) -> Residual {
     // Sessions, oldest first. A session is a distinct local day — the same unit
     // confidence counts in.
     let mut days: Vec<NaiveDateTime> = sets.iter().map(|s| s.logged_at).collect();
@@ -284,7 +285,11 @@ fn judge(
         if let Some(bs) = best {
             let (load, done) = (bs.load_kg.unwrap(), bs.reps.unwrap());
             let raw = 30.0 * (e / load - 1.0) - rir;
-            let aim = if probe { raw.round() } else { raw.floor() };
+            let aim = if probe {
+                libm::round(raw)
+            } else {
+                libm::floor(raw)
+            };
             let asked = (aim as i32).clamp(1, rep_range(mode, true).high);
             return Some(reps_band(done, asked));
         }
@@ -339,9 +344,9 @@ fn face(s: &SetRec) -> f64 {
 /// exact, with no quantisation margin to forgive.
 fn reps_band(done: i32, asked: i32) -> Outcome {
     match done.cmp(&asked) {
-        std::cmp::Ordering::Less => Outcome::Missed,
-        std::cmp::Ordering::Equal => Outcome::Met,
-        std::cmp::Ordering::Greater => Outcome::Beat,
+        core::cmp::Ordering::Less => Outcome::Missed,
+        core::cmp::Ordering::Equal => Outcome::Met,
+        core::cmp::Ordering::Greater => Outcome::Beat,
     }
 }
 

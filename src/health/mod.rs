@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 /// Venue categories (health's coarse OSM class) that aren't training places, so
 /// coach hides them from the link picker. Everything else — leisure (parks,
@@ -19,11 +18,12 @@ use ts_rs::TS;
 const NON_TRAINING_CATEGORIES: &[&str] = &["food", "errand", "transport"];
 
 /// A place health has detected for the user, surfaced to the link picker.
-#[derive(Clone, Debug, Deserialize, Serialize, TS)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct DetectedPlace {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub label: String,
     pub amenity_label: Option<String>,
@@ -36,7 +36,7 @@ pub struct DetectedPlace {
     /// when unmined. Coach uses it to drop clearly non-training venues.
     #[serde(default)]
     pub category: Option<String>,
-    #[ts(type = "number | null")]
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub last_seen_ts: Option<i64>,
 }
 
@@ -63,25 +63,9 @@ pub struct CurrentPlace {
     pub id: i64,
 }
 
-/// Latest value + trailing baseline for one biometric (health's raw stats).
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Stat {
-    pub latest: f64,
-    pub mean: f64,
-    pub sd: f64,
-    pub n: i64,
-}
-
-/// Raw recovery data from health (`/internal/recovery`) — coach turns this into a
-/// readiness score itself (health stays unopinionated).
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Recovery {
-    pub sleep_hours: Option<f64>,
-    pub hrv: Option<Stat>,
-    pub resting_hr: Option<Stat>,
-}
+// `Stat` and `Recovery` are pure data the readiness model consumes; they live in
+// the `coach-pacing` core and are re-exported here for the fetchers below.
+pub use coach_pacing::health::{Recovery, Stat};
 
 /// The same raw recovery, but *as of* a named past day
 /// (`/internal/recovery/history`). The prediction-error ledger needs it: the coach

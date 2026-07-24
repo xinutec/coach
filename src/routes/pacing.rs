@@ -1,6 +1,6 @@
 //! Pacing endpoint. The Android nudge and the Today view both read this.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use axum::Json;
 use axum::extract::{Query, State};
@@ -67,9 +67,9 @@ async fn fetch_readiness(app: &AppState, user_id: &str) -> Option<Readiness> {
 ///
 /// Best-effort throughout: an empty map means every day is judged full-effort,
 /// which is what the ledger did before it could ask.
-async fn fetch_readiness_history(app: &AppState, user_id: &str) -> HashMap<NaiveDate, Readiness> {
+async fn fetch_readiness_history(app: &AppState, user_id: &str) -> BTreeMap<NaiveDate, Readiness> {
     let Some((base, token)) = app.cfg.health() else {
-        return HashMap::new();
+        return BTreeMap::new();
     };
     let to: NaiveDate = Utc::now().date_naive();
     let from = to - Duration::days(READINESS_HISTORY_DAYS);

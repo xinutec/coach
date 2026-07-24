@@ -22,11 +22,12 @@
 //!   keeps a returning athlete off their pre-illness numbers; it is now enforced
 //!   by the compiler rather than by a code path that a later edit could bypass.
 
-use std::collections::HashMap;
+use crate::prelude::*;
+use alloc::collections::BTreeMap;
 
 use super::ability::{Ability, Confidence, confidence_of};
 use super::residual::Residual;
-use crate::settings::types::Mode;
+use crate::domain::Mode;
 
 // ---- what a dose looks like ------------------------------------------------
 //
@@ -247,8 +248,8 @@ impl<'a> Known<'a> {
     /// The trusted estimate for `exercise_id`, or `None` — in which case the caller
     /// must assess instead.
     pub fn of(
-        abilities: &'a HashMap<i64, Ability>,
-        residuals: &HashMap<i64, Residual>,
+        abilities: &'a BTreeMap<i64, Ability>,
+        residuals: &BTreeMap<i64, Residual>,
         exercise_id: i64,
     ) -> Option<Self> {
         if residuals
@@ -264,7 +265,7 @@ impl<'a> Known<'a> {
     }
 }
 
-impl std::ops::Deref for Known<'_> {
+impl core::ops::Deref for Known<'_> {
     type Target = Ability;
     fn deref(&self) -> &Ability {
         self.0

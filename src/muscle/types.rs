@@ -1,66 +1,20 @@
 //! Muscle wire types + the region and role enums.
 
 use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use serde::Serialize;
 
-macro_rules! db_str {
-    ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
-        impl $name {
-            pub fn as_db(self) -> &'static str {
-                match self { $(Self::$variant => $s),+ }
-            }
-            pub fn from_db(s: &str) -> Option<Self> {
-                match s { $($s => Some(Self::$variant),)+ _ => None }
-            }
-        }
-    };
-}
-
-/// Coarse body area a muscle group belongs to.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum Region {
-    Chest,
-    Back,
-    Shoulders,
-    Arms,
-    Forearms,
-    Core,
-    Legs,
-}
-db_str!(Region {
-    Chest => "chest",
-    Back => "back",
-    Shoulders => "shoulders",
-    Arms => "arms",
-    Forearms => "forearms",
-    Core => "core",
-    Legs => "legs",
-});
-
-/// How a muscle participates in an exercise.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(export)]
-pub enum MuscleRole {
-    Primary,
-    Secondary,
-    Stabilizer,
-}
-db_str!(MuscleRole {
-    Primary => "primary",
-    Secondary => "secondary",
-    Stabilizer => "stabilizer",
-});
+// `Region` and `MuscleRole` live in the pure `coach-pacing` core (the engine
+// reasons over them); re-exported here so `crate::muscle::types::Region` and the
+// `as_db`/`from_db` conversions the DB rows below rely on keep resolving.
+pub use coach_pacing::domain::{MuscleRole, Region};
 
 /// A muscle, with its group + region denormalized for display.
-#[derive(Clone, Debug, Serialize, TS)]
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Muscle {
-    #[ts(type = "number")]
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
     pub id: i64,
     pub slug: String,
     pub name: String,

@@ -4,7 +4,6 @@
 use axum::Json;
 use axum::extract::State;
 use serde::Serialize;
-use ts_rs::TS;
 
 use crate::error::AppError;
 use crate::session::AuthUser;
@@ -12,9 +11,10 @@ use crate::state::AppState;
 
 /// Identity echo for /api/me. A typed struct (not a hand-built json!) so the
 /// TS shape is generated, not transcribed.
-#[derive(Serialize, TS)]
+#[derive(Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[ts(export)]
+#[cfg_attr(feature = "ts", ts(export))]
 pub struct Me {
     pub user_id: String,
     pub display_name: String,
