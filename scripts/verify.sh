@@ -48,6 +48,13 @@ nix develop -c bash -c '
   # recompile. A dedicated dir keeps both caches warm.
   CARGO_TARGET_DIR="${CARGO_CLIPPY_TARGET_DIR:-$HOME/.cache/cargo/clippy-target}" \
     cargo clippy --all-targets -- -D warnings
+  # The pacing core must compile #![no_std]. This is the purity guarantee made
+  # legible: with std out of scope, a std::fs / SystemTime::now() / thread::spawn
+  # / global mutable state in coach-pacing is not a lint to be waived — it fails
+  # to compile. (A normal coach build already links the core no_std, so this can
+  # only fail if that guarantee broke; the named step says *why* it matters.) The
+  # `ts` feature, which pulls std for the ts-rs type-gen, is off here on purpose.
+  cargo build -p coach-pacing
   cargo test
   # Generated-types drift (formerly the separate pre-push gate): regenerate the
   # ts-rs bindings and fail if the committed frontend generated output moved.
