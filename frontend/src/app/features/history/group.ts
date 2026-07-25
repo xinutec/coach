@@ -1,4 +1,5 @@
 import { WorkoutSet } from "../../models";
+import { NonEmpty } from "../../shared/non-empty";
 
 /** One movement within a day: every set of it, and the one line that says what it
  *  was. Three identical rows reading "Triceps extension" is the log describing
@@ -7,7 +8,7 @@ export interface MovementGroup {
   key: string;
   exerciseId: number;
   summary: string;
-  sets: WorkoutSet[];
+  sets: NonEmpty<WorkoutSet>;
 }
 
 /**
@@ -22,7 +23,7 @@ export function byMovement(
   unilateral: (exerciseId: number) => boolean,
   at: (s: WorkoutSet) => number,
 ): MovementGroup[] {
-  const byEx = new Map<number, WorkoutSet[]>();
+  const byEx = new Map<number, NonEmpty<WorkoutSet>>();
   for (const s of sets) {
     const list = byEx.get(s.exerciseId);
     if (list) list.push(s);
@@ -30,12 +31,15 @@ export function byMovement(
   }
   return [...byEx.entries()]
     .map(([exerciseId, list]) => {
-      const chronological = [...list].sort((a, b) => at(a) - at(b));
+      // Sorted in place: the lists are built here and belong to nobody else, and
+      // sorting a `NonEmpty` in place keeps it one — a copy comes back as a plain
+      // array, losing the very thing the head reads below depend on.
+      list.sort((a, b) => at(a) - at(b));
       return {
         key: `${dayKey}:${exerciseId}`,
         exerciseId,
-        summary: summarise(chronological, unilateral(exerciseId)),
-        sets: chronological,
+        summary: summarise(list, unilateral(exerciseId)),
+        sets: list,
       };
     })
     .sort((a, b) => at(a.sets[0]) - at(b.sets[0]));

@@ -9,6 +9,7 @@ import { RouterLink } from "@angular/router";
 import { CoachApi } from "../../coach-api";
 import type {
 	Band,
+	Confidence,
 	EstimateSource,
 	Explanation,
 	PacingNow,
@@ -212,7 +213,10 @@ export class Today {
 			// as "why is this even here?".
 			lines.push("Locking in your baseline — a couple more clean sessions and I'll trust this number");
 		} else {
-			const conf: Record<string, string> = {
+			// Keyed by `Confidence`, not `string`: the lookup below is then total by
+			// construction, and adding a variant on the Rust side fails to compile
+			// here rather than silently pushing an `undefined` line into the UI.
+			const conf: Record<Confidence, string> = {
 				high: "You've trained this recently — confident estimate",
 				medium: "A little recent data — estimate firming up",
 				low: "Rusty here — working off older data",

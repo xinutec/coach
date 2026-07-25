@@ -4,6 +4,7 @@ import { MatIconModule } from "@angular/material/icon";
 
 import { CoachApi } from "../../coach-api";
 import { WorkoutSet, displayName } from "../../models";
+import { NonEmpty } from "../../shared/non-empty";
 import { AllExercisesStore, SetsStore } from "../../stores/catalog";
 import { MovementGroup, byMovement } from "./group";
 
@@ -52,7 +53,7 @@ export class HistoryPage {
   }
 
   readonly groups = computed<DayGroup[]>(() => {
-    const byDay = new Map<string, WorkoutSet[]>();
+    const byDay = new Map<string, NonEmpty<WorkoutSet>>();
     for (const s of this.sets()) {
       const d = this.local(s.loggedAt);
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -78,10 +79,10 @@ export class HistoryPage {
     // Open the most recent day once its data arrives (per visit — a fresh
     // component starts collapsed, then this opens the newest group one time).
     effect(() => {
-      const g = this.groups();
-      if (!this.didInitExpanded && g.length > 0) {
+      const [newest] = this.groups();
+      if (!this.didInitExpanded && newest) {
         this.didInitExpanded = true;
-        this.expanded.set(new Set([g[0].key]));
+        this.expanded.set(new Set([newest.key]));
       }
     });
   }

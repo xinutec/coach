@@ -69,9 +69,10 @@ describe("byMovement", () => {
       set(1, "2026-07-14T16:09:00", { reps: 3 }),
     ];
     const groups = byMovement("d", sets, () => false, time);
+    const [first] = groups;
     expect(groups.map((g) => g.exerciseId)).toEqual([1, 2]);
-    expect(groups[0].sets).toHaveLength(3);
-    expect(groups[0].summary).toBe("3 sets · 3 reps");
+    expect(first?.sets).toHaveLength(3);
+    expect(first?.summary).toBe("3 sets · 3 reps");
   });
 
   it("orders movements by when they were first trained, and their sets in order", () => {
@@ -83,8 +84,9 @@ describe("byMovement", () => {
       set(1, "2026-07-14T16:00:00"),
     ];
     const groups = byMovement("d", sets, () => false, time);
+    const [first] = groups;
     expect(groups.map((g) => g.exerciseId)).toEqual([1, 2]);
-    expect(groups[0].sets.map((s) => s.loggedAt)).toEqual([
+    expect(first?.sets.map((s) => s.loggedAt)).toEqual([
       "2026-07-14T16:00:00",
       "2026-07-14T16:30:00",
     ]);
