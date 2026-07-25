@@ -33,8 +33,21 @@ fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
     }
 }
 
+/// The weights these sets could have been built from — 20…80 kg in 2.5 kg steps,
+/// keyed by the exercise under test. The ledger reconstructs the ask as a weight
+/// off the rack, so it needs the same rack the coach planned against.
+fn owned() -> std::collections::BTreeMap<i64, Vec<f64>> {
+    let mut loads = Vec::new();
+    let mut w = 20.0;
+    while w <= 80.0 + 1e-9 {
+        loads.push(w);
+        w += 2.5;
+    }
+    std::collections::BTreeMap::from([(1, loads)])
+}
+
 fn ledger_for(sets: Vec<SetRec>) -> coach::pacing::residual::Residual {
-    residuals(&sets, Mode::Balanced, &Default::default())
+    residuals(&sets, Mode::Balanced, &Default::default(), &owned())
         .remove(&1)
         .unwrap_or_default()
 }

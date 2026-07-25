@@ -241,6 +241,73 @@ fn estimate_converges_to_true_ability_and_holds() {
     assert!(hi - lo <= 2.5, "converged load oscillates: {tail:?}");
 }
 
+// ---- progression without an RPE to help it ---------------------------------
+
+/// R6-1: the prescribed **load** has to climb for an athlete who logs no RPE.
+///
+/// The test above hands the engine an RPE on every set. That is not a detail: an
+/// RPE reports reserve, which lifts the estimate *above* the load that produced
+/// it, and it is the only reason the estimate there can climb at all. The product
+/// deliberately never collects one — "the athlete reports what happened, not how
+/// it felt" — so the shipped engine always runs the case below, and it used to
+/// stand still forever: top-of-range reps at load `L` produce exactly the e1RM
+/// that prescribes `L`, a fixed point with no exit.
+///
+/// This athlete is far stronger than the cold start, does **precisely** what the
+/// card asks and not one rep more, and reports nothing. The weight must still go
+/// up — that is what double progression means.
+#[test]
+fn the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe() {
+    let athlete = Athlete {
+        true_e1rm: 63.7,
+        true_reps: 0,
+    };
+
+    let mut history: Vec<SetRec> = Vec::new();
+    let mut loads: Vec<f64> = Vec::new();
+
+    for i in 0..40 {
+        let now = start() + Duration::days(3 * i);
+        let sug = row_suggestion(&history, now);
+        let load = sug.load_kg.expect("a weighted prescription carries a load");
+        // The aim on the card, not the top of the range: this athlete stops where
+        // told, which is exactly what makes the fixed point bite.
+        let target = sug.rep_low.expect("a prescription names a rep target");
+        let (reps, _rpe) = athlete.lift(load, target);
+        history.push(SetRec {
+            id: 0,
+            exercise_id: 5,
+            logged_at: now,
+            reps: Some(reps),
+            load_kg: Some(load),
+            hold_s: None,
+            rpe: None, // the whole point
+        });
+        loads.push(load);
+    }
+
+    let opening = loads[1];
+    let closing = *loads.last().expect("forty cycles logged a load");
+    assert!(
+        closing > opening,
+        "the load never moved off {opening} kg in forty sessions: {loads:?}"
+    );
+    // Not merely a wobble between two adjacent rungs — real ground covered.
+    assert!(
+        closing >= opening + 5.0,
+        "the load crept rather than climbed: {opening} → {closing} kg"
+    );
+    // And it climbed by *stepping*, never skipping rungs: every change is one
+    // rung of the 2.5 kg ladder.
+    for pair in loads.windows(2) {
+        let [a, b] = pair else { continue };
+        assert!(
+            (b - a).abs() <= 2.5 + 1e-9,
+            "the load jumped more than one rung: {a} → {b}"
+        );
+    }
+}
+
 // ---- tracking a strengthening athlete --------------------------------------
 
 #[test]

@@ -31,7 +31,10 @@ use alloc::collections::BTreeMap;
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
-use super::dose::{CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, readiness_advances, rep_range, reserve};
+use super::dose::{
+    self, CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, Inventory, Rung, readiness_advances, rep_range,
+    reserve,
+};
 use super::types::{Readiness, SetRec};
 use crate::domain::Mode;
 
@@ -85,6 +88,11 @@ pub struct Residual {
     /// Misses at the end of the ledger. This is what the engine acts on: a miss
     /// answered by the next session's success is history, not a trend.
     pub consecutive_misses: i32,
+    /// The weight the coach is currently working this lift at, and the reps shown
+    /// there — carried forward across the walk, because it is a fact about what
+    /// the coach *asked*, not about what the athlete can do. `None` for a movement
+    /// that carries no load, or one with no loaded session yet. See [`Rung`].
+    pub rung: Option<Rung>,
 }
 
 impl Residual {
@@ -137,10 +145,16 @@ impl Residual {
 /// Takes no `now`: every session is judged at *its own* moment, against what was
 /// known *then*. The ledger is a fact about the past and does not change with the
 /// clock — which is also what makes it cheap to recompute on every verdict.
+/// `loads` is the weights each exercise can be built with here — the same map the
+/// engine plans against. The ledger needs it because the ask it reconstructs is a
+/// weight off the rack ([`dose::weighted_ask`]), and a rung it cannot name is a
+/// rung it cannot judge against. An exercise absent from the map simply never
+/// grows a [`Rung`].
 pub fn residuals(
     history: &[SetRec],
     mode: Mode,
     readiness: &BTreeMap<NaiveDate, Readiness>,
+    loads: &BTreeMap<i64, Vec<f64>>,
 ) -> BTreeMap<i64, Residual> {
     let mut by_ex: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
     for s in history {
@@ -148,11 +162,19 @@ pub fn residuals(
     }
     by_ex
         .into_iter()
-        .map(|(id, sets)| (id, ledger(&sets, mode, readiness)))
+        .map(|(id, sets)| {
+            let inv = loads.get(&id).cloned().and_then(Inventory::new);
+            (id, ledger(&sets, mode, readiness, inv.as_ref()))
+        })
         .collect()
 }
 
-fn ledger(sets: &[&SetRec], mode: Mode, readiness: &BTreeMap<NaiveDate, Readiness>) -> Residual {
+fn ledger(
+    sets: &[&SetRec],
+    mode: Mode,
+    readiness: &BTreeMap<NaiveDate, Readiness>,
+    inv: Option<&Inventory>,
+) -> Residual {
     // Sessions, oldest first. A session is a distinct local day — the same unit
     // confidence counts in.
     let mut days: Vec<NaiveDateTime> = sets.iter().map(|s| s.logged_at).collect();
@@ -192,7 +214,15 @@ fn ledger(sets: &[&SetRec], mode: Mode, readiness: &BTreeMap<NaiveDate, Readines
         // What health knew about that morning — absent means no reason to think the
         // day was anything but full-effort.
         let recovered = readiness_advances(readiness.get(&day.date()).map(|r| r.score));
-        if let Some(o) = judge(&predicted, &today, &led, mode, recovered) {
+
+        // The weighted ask that morning, from the *same* function that wrote the
+        // card. Computed before judging, because it is what the session is judged
+        // against; and kept afterwards, because it is what the next morning's ask
+        // climbs from.
+        let asked =
+            inv.map(|i| dose::weighted_ask(i, predicted.e1rm, led.rung, mode, &led, recovered));
+
+        if let Some(o) = judge(&predicted, &today, &led, mode, recovered, asked) {
             led.consecutive_misses = if o == Outcome::Missed {
                 led.consecutive_misses + 1
             } else {
@@ -200,8 +230,43 @@ fn ledger(sets: &[&SetRec], mode: Mode, readiness: &BTreeMap<NaiveDate, Readines
             };
             led.outcomes.push((day.date(), o));
         }
+
+        if let Some(ask) = asked {
+            led.rung = advance_rung(ask, &today, mode);
+        }
     }
     led
+}
+
+/// Where the coach stands on this lift after the session it just judged.
+///
+/// The rung *moved* (or didn't) inside [`dose::weighted_ask`] when the ask was
+/// written; this only records where that left things. The standing position is
+/// the **ask itself** — that is what "the weight the coach sent you to" means —
+/// and the athlete can push it further only by doing more at that weight.
+///
+/// The baseline deliberately does not fall when a session comes in short. Letting
+/// it follow the athlete down is what sank the first attempt at R6-1: every
+/// shortfall silently became the next target, so a decline registered one miss and
+/// read as compliance ever after, and `two misses → back off` /
+/// `three → re-measure` became unreachable. Holding it means a short session is
+/// re-asked once (the hold), and a second one steps the rung down — the ladder,
+/// working as designed.
+fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode) -> Option<Rung> {
+    let range = rep_range(mode, true);
+    // What the athlete did *at the weight they were sent to*. Work at some other
+    // weight says nothing about this rung — a bell picked off the rack because the
+    // right one was in use must not drag the coach off it.
+    let done = today
+        .iter()
+        .filter(|s| s.load_kg.is_some_and(|l| (l - ask_load).abs() < 1e-9))
+        .filter_map(|s| s.reps)
+        .max();
+    let reps = done.unwrap_or(ask_reps).max(ask_reps).clamp(1, range.high);
+    Some(Rung {
+        load: ask_load,
+        reps,
+    })
 }
 
 /// How the session compared with **what the engine asked that morning** — not with
@@ -236,6 +301,7 @@ fn judge(
     feedback: &Residual,
     mode: Mode,
     recovered: bool,
+    asked_weighted: Option<(f64, i32)>,
 ) -> Option<Outcome> {
     // Exactly the reconstruction `prescribe` performs from the same inputs.
     let advance = recovered && !feedback.wants_hold();
@@ -274,9 +340,26 @@ fn judge(
         }
     }
 
-    // Weighted work: how many reps did the estimate support at the load actually
-    // used, leaving the reserve the coach asked for?
-    if let Some(e) = predicted.e1rm {
+    // Weighted work, judged against the ask the coach actually wrote — reps at a
+    // rung, handed in from the same `dose::weighted_ask` that wrote it.
+    if let Some((ask_load, ask_reps)) = asked_weighted {
+        let best = today
+            .iter()
+            .filter_map(|s| Some((s.load_kg?, s.reps?)))
+            .max_by(|(a_load, a_reps), (b_load, b_reps)| {
+                face(*a_load, *a_reps).total_cmp(&face(*b_load, *b_reps))
+            });
+        if let Some((load, done)) = best {
+            // Compared as work, not as a rep count. The ask names a weight, so
+            // "same reps, lighter bell" is not compliance — counting reps alone
+            // would let the athlete walk the coach down the rack — and "fewer reps,
+            // heavier bell" is not a failure. Epley is the one unit both are
+            // expressible in, and `band`'s margin absorbs the rounding.
+            return Some(band(face(load, done), face(ask_load, ask_reps)));
+        }
+    } else if let Some(e) = predicted.e1rm {
+        // No rack registered here, so no rung to have been sent to: fall back to
+        // what the estimate supported at the load actually used.
         let best = today
             .iter()
             .filter_map(|s| Some((s.load_kg?, s.reps?)))

@@ -76,6 +76,123 @@ pub fn reserve(advance: bool) -> f64 {
     }
 }
 
+/// Reps taken off the ask when the coach is easing — the rep-side twin of
+/// [`reserve`], for an ask that climbs reps at a held rung rather than inverting
+/// an e1RM at a target reserve. The same number said in the other unit: a rep left
+/// in reserve is a rep not asked for.
+pub fn eased_reps(advance: bool) -> i32 {
+    (reserve(advance) - TARGET_RIR) as i32
+}
+
+/// The load whose top set of `reps` reps (leaving `rir` in reserve) matches an
+/// estimated 1-rep-max of `e1rm` — inverse Epley.
+pub fn load_for(e1rm: f64, reps: f64, rir: f64) -> f64 {
+    e1rm / (1.0 + (reps + rir) / 30.0)
+}
+
+/// Reps within reach at `load` (leaving `rir` in reserve) given `e1rm` — Epley,
+/// solved for reps. The dual of [`load_for`].
+pub fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
+    30.0 * (e1rm / load - 1.0) - rir
+}
+
+/// The weight the coach last sent the athlete to on a lift, and the reps
+/// demonstrated there.
+///
+/// This is a fact about the **coach's** history, not the athlete's, which is why
+/// it lives with the ledger that replays it rather than with the ability estimate.
+/// Deriving the working weight from `e1rm` each session cannot progress at all:
+/// top-of-range reps at load `L` produce exactly the e1RM that prescribes `L`, so
+/// the load is a fixed point of its own prescription (R6-1 — confirmed in the real
+/// back-test, where six consecutive sessions were all asked for `10 × 9 kg`).
+/// Deriving it from the athlete's *latest* session escapes the fixed point but
+/// hands the rung to the athlete: the coach then follows a bad patch — or a
+/// lighter bell picked off the rack — straight down, and the miss ladder stops
+/// escalating because every shortfall becomes next session's target.
+///
+/// So the rung moves only when the coach moves it: up when the reps top the range
+/// and a probe is due, down when the ledger backs off. Everything else holds it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rung {
+    pub load: f64,
+    /// Best reps demonstrated *at this weight* since the coach moved to it.
+    pub reps: i32,
+}
+
+/// The weighted ask: which weight, and how many reps of it.
+///
+/// One function, because both sides of the loop need the identical answer — the
+/// coach to write the card, the ledger to judge what came back. Two copies would
+/// have the coach asking one number and the ledger marking another, with the
+/// athlete taking the blame for the difference; the constants above already live
+/// here for exactly that reason, and the rule that reads them belongs with them.
+pub fn weighted_ask(
+    inv: &Inventory,
+    e1rm: Option<f64>,
+    rung: Option<Rung>,
+    mode: Mode,
+    feedback: &Residual,
+    recovered: bool,
+) -> (f64, i32) {
+    let range = rep_range(mode, true);
+    // A miss is not a day to add load on; low readiness says the same for its own
+    // reason. `recovered` alone (without the miss-response) is what decides how
+    // many reps come *off* the ask — easing twice for one event would double-count.
+    let advance = recovered && !feedback.wants_hold();
+    let probe = advance && feedback.probe_due();
+    let back_off = feedback.wants_back_off();
+
+    let Some(r) = rung else {
+        // No rung yet — a fresh movement, or one whose only loaded set was the
+        // calibration's hard single. Enter where the estimate says: the weight
+        // owned nearest the one that puts the top of the range in reach.
+        let Some(e) = e1rm else {
+            return (inv.lightest(), range.low);
+        };
+        let reserve = reserve(advance);
+        let load = inv.snap(load_for(e, range.high as f64, reserve));
+        let low = (libm::floor(reps_at(e, load, reserve)) as i32).clamp(1, range.high);
+        return (load, low);
+    };
+
+    if back_off {
+        // Two misses running: the rung is too heavy, not the day. One off, and the
+        // reps carry over — dropping the weight *is* the easing.
+        let lower = inv.next_below(inv.snap(r.load));
+        if lower < r.load - 1e-9 {
+            return (lower, r.reps.clamp(1, range.high));
+        }
+        // Already on the lightest weight owned: there is nothing lighter to send
+        // them to, so the reps have to come down instead. The range *floor* is a
+        // style preference and does not apply here — a set the athlete has no way
+        // to finish is not a style, and pinning the ask at the floor on the
+        // lightest bell is how a genuine regression ends up re-asked forever.
+        return (lower, (r.reps - 1).clamp(1, range.high));
+    }
+    if r.reps >= range.high && probe {
+        // Topped the range here, and a probe is due — that is what "earned" means.
+        // The next rung is a floor on the step, not the whole of it: it guarantees
+        // movement (strictly heavier, so there is no fixed point to sit in), while
+        // an estimate that can see further is still believed. A set logged with
+        // reps in reserve demonstrates strength the rung ladder cannot read, and
+        // stepping 2.5 kg at a time would take months to reach a weight the sets
+        // already justify. Both candidates are weights the athlete owns.
+        let stepped = inv.next_above(inv.snap(r.load));
+        let load = match e1rm {
+            Some(e) => stepped.max(inv.snap(load_for(e, range.high as f64, reserve(advance)))),
+            None => stepped,
+        };
+        return (load, range.low);
+    }
+    // Holding the rung: climb the reps on a probe, consolidate at what has been
+    // shown between them, and ask fewer when the morning says to.
+    let aim = if probe { r.reps + 1 } else { r.reps };
+    (
+        inv.snap(r.load),
+        (aim - eased_reps(recovered)).clamp(1, range.high),
+    )
+}
+
 /// Rep range for a mode + metric (holds are seconds, handled in `engine::prescribe`).
 pub fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
     let (low, high) = match mode {

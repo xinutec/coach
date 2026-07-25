@@ -30,7 +30,7 @@ use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{
     CARRY_BASE_S, CARRY_TOP_S, Dose, HOLD_STEP_S, Inventory, Known, LOW_READINESS_EXTRA_RIR,
-    Measure, RepTarget, readiness_advances, rep_range, reserve,
+    Measure, RepTarget, load_for, readiness_advances, rep_range, weighted_ask,
 };
 use super::residual::{self, Residual};
 use super::types::{
@@ -260,18 +260,6 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
     }
 }
 
-/// The load whose top-set of `reps` reps (leaving `rir` in reserve) matches an
-/// estimated 1-rep-max of `e1rm` — inverse Epley.
-fn load_for(e1rm: f64, reps: f64, rir: f64) -> f64 {
-    e1rm / (1.0 + (reps + rir) / 30.0)
-}
-
-/// Reps within reach at `load` (leaving `rir` in reserve) given `e1rm` — Epley,
-/// solved for reps. The dual of [`load_for`].
-fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
-    30.0 * (e1rm / load - 1.0) - rir
-}
-
 /// An exercise's metric **together with the weights it can actually be loaded
 /// with here** — resolved once, when candidates are built.
 ///
@@ -335,66 +323,28 @@ fn prescribe(
     feedback: &Residual,
 ) -> Dose {
     // A miss is not a day to add load on. (Low readiness already said as much for a
-    // different reason; either is enough.)
+    // different reason; either is enough.) `rested` keeps the readiness-only half:
+    // `weighted_ask` narrows it the same way internally, and must be handed the
+    // unnarrowed value or the two disagree about what a miss already accounted for.
+    let rested = advance;
     let advance = advance && !feedback.wants_hold();
     let back_off = feedback.wants_back_off();
     let probe = advance && feedback.probe_due();
-    // The same reserve the ledger credits when it judges the resulting session —
-    // one number, one source (`dose::reserve`).
-    let reserve = reserve(advance);
     match loaded {
         Loaded::Weighted(inv) => {
+            // Double progression along the rung the ledger has been carrying: reps
+            // climb where the athlete is working, and the weight steps only when
+            // they top the range there. The rule itself lives in `dose`, next to
+            // the constants it reads and shared verbatim with the ledger that
+            // judges the result — the coach and the ledger asking two different
+            // numbers is the failure mode this whole area keeps rediscovering
+            // (R4-1, R5-1, R6-1).
             let range = rep_range(mode, true);
-            match ability.e1rm {
-                Some(e) => {
-                    // Working load: the weight you own nearest the one that puts
-                    // the top of the range within reach at the target reserve.
-                    //
-                    // Round-4 rounded *up* between rungs here, to stop a coarse
-                    // rack reading every session as a miss (R4-3). That was a
-                    // workaround: the misses came from the ledger judging
-                    // sessions against the athlete's ceiling rather than against
-                    // the ask, and it now judges the ask at the load actually
-                    // used (`residual::judge`), so the nearest rung demonstrates
-                    // exactly what was asked of it. With the cause fixed,
-                    // rounding up is worse than useless — it prescribes a rung
-                    // whose reps fall out of the mode's range, and it made the
-                    // load oscillate between two rungs session after session.
-                    let target = inv.snap(load_for(e, range.high as f64, reserve));
-                    // Missed it twice running → the estimate is too heavy, not the
-                    // day. Take a rung off and rebuild from there.
-                    let load = if back_off {
-                        inv.next_below(target)
-                    } else {
-                        target
-                    };
-                    // At that (discrete) weight, how many reps are actually in
-                    // reach? Capped at the range top — this is the rep target that
-                    // climbs there before the weight is allowed to step. The range
-                    // *floor* deliberately doesn't apply: it's a style preference,
-                    // and when the lightest owned rung is heavy for the estimate,
-                    // raising the ask to the floor prescribes a set the athlete
-                    // has no way to finish. A probe may round the ask up; a
-                    // consolidation session never asks past what the sets have
-                    // shown.
-                    let raw = reps_at(e, load, reserve);
-                    let aim = if probe {
-                        libm::round(raw)
-                    } else {
-                        libm::floor(raw)
-                    };
-                    let low = (aim as i32).clamp(1, range.high);
-                    Dose::Weighted {
-                        load,
-                        reps: RepTarget { low, ..range },
-                    }
-                }
-                // Trusted for reps/holds but no e1RM (all its sets were logged
-                // without a load): open the full range at the lightest weight.
-                None => Dose::Weighted {
-                    load: inv.lightest(),
-                    reps: range,
-                },
+            let (load, low) =
+                weighted_ask(inv, ability.e1rm, feedback.rung, mode, feedback, rested);
+            Dose::Weighted {
+                load,
+                reps: RepTarget { low, ..range },
             }
         }
         Loaded::Reps => {
@@ -1157,7 +1107,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // How well those estimates have been describing him lately: for each session, what
     // the engine believed beforehand versus what he actually did. Recomputed from
     // history, so the engine stays stateless.
-    let residuals = residual::residuals(&planning, input.mode, &input.readiness_history);
+    let residuals = residual::residuals(
+        &planning,
+        input.mode,
+        &input.readiness_history,
+        &input.exercise_loads,
+    );
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     //

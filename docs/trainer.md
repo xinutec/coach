@@ -152,16 +152,28 @@ coach can now say.
 [`pacing/dose.rs`] carries this in types. `Dose` is a sum type per metric, so a
 weighted lift *has* a load and a carry *has* both a weight and a time.
 
-- **Weighted:** the load whose top-of-range reps the estimate supports (inverse
-  Epley), snapped to the nearest weight you own. Double progression follows: reps
-  climb to the top of the range, and the load steps only when logged sets raise the
-  estimate past the next owned weight — never a blind +2.5 kg the reps don't support.
-  **This last step does not currently happen.** Top-of-range reps at load *L* produce
-  exactly the estimate that prescribes *L*, so the load is a fixed point of its own
-  prescription and a compliant athlete never crosses the next rung; the branch has a
-  `next_below` for backing off and no `next_above` at all. Measured over eight
-  simulated weeks against an athlete 2.5× stronger than the estimate: zero load
-  steps. See [R6-1](field-test.md#r6-1-a-weighted-lift-cannot-progress-at-all--open).
+- **Weighted:** double progression along a **rung** — the weight the coach last sent
+  you to. Reps climb there, and the weight steps only once they reach the top of the
+  range and a probe is due; then the reps start again at the floor. Never a blind
+  +2.5 kg the reps don't support.
+
+  The rung is a fact about what the *coach* asked, not about what you can lift, so it
+  lives on the prediction-error ledger (which already replays the coach forward) and
+  not on the ability estimate. That placement is the whole fix. Deriving the working
+  weight from `e1rm` each session cannot progress at all — top-of-range reps at load
+  *L* produce exactly the estimate that prescribes *L*, a fixed point with no exit,
+  and eight simulated weeks against an athlete 2.5× stronger produced **zero** load
+  steps. Deriving it from your *latest* session escapes the fixed point but hands the
+  weight to the athlete: the coach then follows a bad patch, or a lighter bell picked
+  up because the right one was in use, straight down — and the miss ladder stops
+  escalating, because every shortfall becomes the next target. Owned by the coach, the
+  rung moves up when earned, down when the ledger backs off, and not otherwise. See
+  [R6-1](field-test.md#r6-1-a-weighted-lift-cannot-progress-at-all--fixed).
+
+  One consequence worth naming: on the **lightest weight you own** there is no rung to
+  drop to, so a back-off takes reps off the ask instead — below the mode's range floor
+  if that is what it takes. The floor is a style preference; a set you cannot finish
+  is not.
 - **Reps:** climb the range off the decayed best.
 - **Hold:** off the best hold.
 - **Loaded carry:** the same double progression with seconds where the reps go —

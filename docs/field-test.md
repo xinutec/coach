@@ -499,7 +499,7 @@ compliant baselines reproduced round 5 (improver 29 missed cards against its 28)
 so the engine has not drifted. Everything below is what the other fourteen cells
 found. **All of it is open.**
 
-## R6-1. A weighted lift cannot progress at all — OPEN
+## R6-1. A weighted lift cannot progress at all — FIXED
 
 The `strong` athlete is two and a half times stronger than the coach believes and
 does exactly what it asks. Over eight weeks the coach asked for **9 reps at 9 kg,
@@ -552,30 +552,53 @@ matrix sees the freeze and the unit test does not. **The one test that certifies
 run in.** Whatever fixes R6-1, that test needs a no-RPE case alongside its
 current one, or it will keep passing while the shipped engine stands still.
 
-**An attempted fix, and what it cost** (branch `r6-1-weighted-progression`, not
-merged). Give `Ability` the `(load, reps)` pair the set was performed as — the
-same shape `Carry` already has, and for the same reason — and run real double
-progression along it: reps climb at the rung, the rung steps when they top out.
-That works. On the matrix the strong athlete's good morning walks
-`15 → 16 → 16.5 → 17.5 kg` with **zero misses**, where the merged engine sits at
-15 kg for six sessions and then drifts down; the new no-RPE test passes and the
-old RPE convergence test still does.
+**The fix: the rung belongs to the ledger.** A weighted lift now progresses along
+a `Rung` — the weight the coach last sent the athlete to, and the reps shown there.
+Reps climb at the rung; the weight steps only once they top the range and a probe
+is due, and then the reps restart at the floor. The rule itself is a single
+function (`dose::weighted_ask`) called by both the coach and the ledger, because
+the two asking different numbers is the failure this area keeps rediscovering
+(R4-1, R5-1, and this).
 
-It is not mergeable, because of *where* the rung comes from. Reading it off the
-most recent session — the only reading that makes a step forward visible, since
-any max-based rule either anchors on an old heavy single or discards the step as
-"less work than before" — makes the coach's belief follow the athlete down inside
-one session. A sustained shortfall then registers **one** miss and reads as `Met`
-ever after, so `two misses → back off` and `three misses → re-measure` become
-unreachable for weighted work. Six `pacing_engine` tests pin exactly that and go
-red. It buys R6-1 at the price of a structural R6-6, and R6-2's protection for the
-novice with it.
+*Where* the rung is derived from is the entire difficulty, and two obvious answers
+are both wrong. Deriving it from `e1rm`, as before, is the fixed point. Deriving it
+from the athlete's **latest session** escapes the fixed point — and was tried first
+(branch `r6-1-weighted-progression`) — but hands the weight to the athlete: the
+coach follows a bad patch, or a lighter bell picked up because the right one was in
+use, straight down, and the miss ladder stops escalating because every shortfall
+becomes the next target. Six `pacing_engine` tests pinned exactly that and went red.
+Any *max*-based rule fails differently: it either anchors on an old heavy single or
+discards a genuine step up as "less work than before".
 
-The rung wants to be **replayed forward**, not read off the latest session:
-`residual::ledger` already walks sessions in order holding the feedback state, so
-it is the natural place to carry "the weight the coach last sent you to". That
-needs the inventory in the ledger, which it currently has no access to — a real
-design decision rather than a patch.
+The rung is a fact about what the **coach** asked, so it is derived by replaying the
+coach forward — which `residual::ledger` was already doing for outcomes. It now
+carries the rung alongside them, and takes the location's weights so it can name the
+rack it is judging against. The athlete moves it only by doing more *at that weight*;
+work at some other weight leaves it where it is.
+
+Two smaller rules fell out and are load-bearing:
+
+- **The baseline never follows a short session down.** A shortfall is re-asked once
+  (the hold) and a second one steps the rung down — the ladder, working as designed.
+  Letting it track the athlete is precisely what broke the first attempt.
+- **On the lightest weight owned there is no rung to drop to**, so a back-off takes
+  reps off the ask instead, below the range floor if needed. Without this an injured
+  athlete sat at `6 @ 1.5 kg` doing 3, with nowhere for the coach to go.
+
+Measured on the matrix: the `strong` athlete goes from **0** weighted lifts with a
+growing ask to **7**, with the ledger's own miss streak unchanged (worst 1, sum 2).
+Good mornings walk `15 → 16 kg` and triceps extensions `4 → 5 kg` on the improver
+too. Elsewhere the worst ledger streak rises from 1 to 2 — the back-off firing once
+and recovering, which is the response working rather than a grind.
+
+**A correction to the round-6 write-up above.** The real back-test showing
+`Row (both sides): 10@9` on six consecutive days was cited here as the fixed point
+appearing in Pippijn's own logged data. That was overstated: the back-test replays
+history that never responded to the coach, so six identical *suggestions* are equally
+consistent with the movement simply not having been taken. The trace is unchanged by
+this fix, exactly as `trainer.md` predicts it must be — "replayed history never
+responds to the coach" is why E3 exists. The simulation is the evidence for R6-1; the
+back-test cannot be.
 
 Two second-order effects fall out of the same place. The `floor(raw)` on a
 consolidation session drops any fractional rep every time, so the ask erodes —
@@ -675,7 +698,7 @@ every one of them — including an 8-movement day on 2026-08-01, bigger than sev
 of that fortnight's fully-rested days. The one input designed to say *not today*
 is pinned at zero and still says yes.
 
-## R6-6. The coach follows an improvising athlete down the rack — OPEN
+## R6-6. The coach follows an improvising athlete down the rack — FIXED
 
 `improviser` takes the bell below the one on the card and completes every ask.
 No misses, an improving athlete — and the coach walks the weight down:
@@ -693,6 +716,14 @@ only ever be as good as the hardest thing the coach asked for, and the coach onl
 ever asks for what the estimate says. The strong athlete shows the loop as a
 freeze; the improviser shows it as a descent. Nothing anywhere applies upward
 pressure, and nothing ever says "the card said 15".
+
+**Fixed by R6-1's rung.** The weight is now the coach's, not the athlete's: work at
+a weight other than the one on the card leaves the rung exactly where it was, so
+there is nothing to walk down. What an improvised session *does* do is fail to pay
+down the work asked — judged as work rather than as a rep count, since "same reps,
+lighter bell" is not compliance — which feeds the ordinary miss ladder. So a run of
+lighter sessions still eases the rung, but by the visible route ("eased off" reads as
+a decision), not by silent tracking.
 
 (This behaviour is deliberately adversarial — a real athlete would not do it every
 session for eight weeks. It is here because it makes the direction of the loop

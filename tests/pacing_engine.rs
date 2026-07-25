@@ -2704,7 +2704,11 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
 
     let mut done = h;
     done.push(wset(5, now(), w.load_kg.unwrap(), asked));
-    let led = coach::pacing::residual::residuals(&done, Mode::Balanced, &Default::default())
+    // The same rack the engine planned against — the ledger reconstructs the ask as
+    // a weight off it, so handing it a different one would judge against a card that
+    // was never written.
+    let rack = BTreeMap::from([(5, vec![4.0, 5.0])]);
+    let led = coach::pacing::residual::residuals(&done, Mode::Balanced, &Default::default(), &rack)
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(
@@ -2761,7 +2765,7 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
         w.load_kg.expect("a weighted lift has a load"),
         w.rep_low.expect("and a rep target"),
     ));
-    coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
+    coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
         .remove(&5)
         .unwrap_or_default()
 }
@@ -2789,9 +2793,10 @@ fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
         wset(5, days_ago(2), 30.0, 5), // a real miss
         wset(5, days_ago(1), 30.0, 5), // and another — the coach eases off
     ];
-    let before = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
-        .remove(&5)
-        .unwrap_or_default();
+    let before =
+        coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
+            .remove(&5)
+            .unwrap_or_default();
     assert_eq!(before.consecutive_misses, 2, "two genuine misses");
     assert!(before.wants_back_off() && !before.wants_remeasure());
 
@@ -2831,7 +2836,7 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
         .unwrap();
     // Two reps short of the eased ask.
     h.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
-    let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default())
+    let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(
@@ -2878,9 +2883,10 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap()));
 
     // Judged as though it were a full-effort day, this reads as a failure...
-    let blind = coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default())
-        .remove(&5)
-        .unwrap_or_default();
+    let blind =
+        coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
+            .remove(&5)
+            .unwrap_or_default();
     assert_eq!(
         blind.consecutive_misses, 1,
         "precondition: without knowing the day was eased, compliance looks like a miss"
@@ -2888,7 +2894,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
 
     // ...but told what the coach knew that morning, it reads as what it was.
     let known = BTreeMap::from([(now().date(), spent)]);
-    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known)
+    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known, &owned())
         .remove(&5)
         .unwrap_or_default();
     assert_eq!(
@@ -2918,9 +2924,10 @@ fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
     // Two reps short of a full-effort ask, on a day health knows nothing about.
     let mut done = h;
     done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
-    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default())
-        .remove(&5)
-        .unwrap_or_default();
+    let led =
+        coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
+            .remove(&5)
+            .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 1,
         "no biometrics is not an excuse the coach invents on his behalf"
