@@ -32,6 +32,12 @@ use coach::workout::types::NewSet;
 use coach::{db, equipment, location, muscle, seed, settings};
 
 const DEV_DB: &str = "mysql://coach:coach@127.0.0.1:3308/coach";
+/// How many times to try creating the scratch database, and how long to wait
+/// between attempts — see the note in [`fresh`]. Generous enough to ride out an
+/// InnoDB teardown on a loaded machine, short enough that a genuine failure still
+/// reports in well under a second.
+const CREATE_ATTEMPTS: u32 = 5;
+const CREATE_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(150);
 
 fn catalog_dir() -> String {
     format!("{}/data/catalog", env!("CARGO_MANIFEST_DIR"))
@@ -65,16 +71,42 @@ async fn fresh(name: &str) -> MySqlPool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_'),
         "scratch db name must be a bare identifier: {db_name}"
     );
-    for stmt in [
-        format!("DROP DATABASE IF EXISTS `{db_name}`"),
-        format!("CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4"),
-    ] {
-        // A database name can't be a bind parameter, so this is the one query that
-        // has to be built by hand. The assert above is the audit sqlx is asking for.
+    // A database name can't be a bind parameter, so these are the one query that has
+    // to be built by hand. The assert above is the audit sqlx is asking for.
+    let run = async |stmt: String| {
         sqlx::query(AssertSqlSafe(stmt.clone()))
             .execute(&admin)
             .await
-            .unwrap_or_else(|e| panic!("{stmt}: {e}"));
+            .map_err(|e| format!("{stmt}: {e}"))
+    };
+    run(format!("DROP DATABASE IF EXISTS `{db_name}`"))
+        .await
+        .unwrap_or_else(|e| panic!("{e}"));
+
+    // The CREATE is retried, and only the CREATE. `DROP DATABASE` returns before
+    // InnoDB has finished removing the directory, so under load — nine of these run
+    // concurrently, next to an Angular build — the CREATE can arrive while the old
+    // directory is still on disk and fail with 1007 "database exists". Re-running
+    // the whole suite immediately then passes, which is the signature of a race and
+    // not of a leftover. (It was misread as an orphaned datadir once; the tell is
+    // that the server's dictionary and the disk agree, so there is nothing stale to
+    // clean.)
+    //
+    // Deliberately *not* `CREATE DATABASE IF NOT EXISTS`: that would silently adopt
+    // a half-dropped database and run the tests against whatever survived. The DROP
+    // above asserts it must be gone; this only waits for the filesystem to agree.
+    let create = format!("CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4");
+    for attempt in 1..=CREATE_ATTEMPTS {
+        match run(create.clone()).await {
+            Ok(_) => break,
+            Err(e) => {
+                assert!(
+                    attempt < CREATE_ATTEMPTS,
+                    "{e} (after {CREATE_ATTEMPTS} attempts)"
+                );
+                tokio::time::sleep(CREATE_RETRY_DELAY).await;
+            }
+        }
     }
     admin.close().await;
 

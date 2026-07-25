@@ -183,7 +183,19 @@ weighted lift *has* a load and a carry *has* both a weight and a time.
 prediction, and the prediction-error ledger ([`pacing/residual.rs`]) recomputes from
 history alone how each session turned out. One miss **holds** the numbers; two in a
 row **step down** a rung; three **re-open the measurement** — a repeatedly wrong
-estimate is a wrong number, not a run of bad luck. And the +1 rep, the +5 s, the next
+estimate is a wrong number, not a run of bad luck.
+
+**A rout counts once.** The escalation above counts sessions and would otherwise
+ignore how badly each one went, so being asked for ten reps and managing one was the
+same event as falling a rep short — three sessions and six sets of a weight you can
+lift once before anything re-opened the question. A session delivering less than a
+third of the work asked is therefore a *rout* rather than an ordinary miss, and one
+is enough to send the exercise back to being measured. It is judged on **volume**
+(load × reps, seconds), not on the Epley figure the miss bands use: one rep of a
+weight against ten of it is a 22 % difference in implied 1RM and a 90 % difference in
+what the athlete managed, and only the second is something a coach reacts to.
+
+And the +1 rep, the +5 s, the next
 bell is **earned**: by a session that beat the ask, or periodically after every third
 quiet session — the sessions in between consolidate at the demonstrated best.
 Matching your best while failing the ask moves nothing (ability is a max), so without

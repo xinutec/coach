@@ -687,6 +687,35 @@ round-6 finding is that a mistyped load is the *benign* version. An injury, an
 illness, a bad year, or simply getting older produces the same unlearnable ceiling,
 and none of them are input errors anyone can validate at the log sheet.
 
+**R6-2 left a residue that belongs to this.** A rout now re-opens the measurement
+after one bad session instead of three, but the honest low number that comes back is
+still discarded by the max, so the next prescription is nearly as heavy again and the
+novice takes a second rout before it settles. Whatever fixes R6-3 closes that too.
+
+### The approach to try
+
+**Cap ability at a multiple of recent demonstrated best** — roughly 1.5× the best set
+of the last three or four sessions. Ability stays a max over decayed estimates; the
+cap only ever lowers it.
+
+- It is a **pure function of set history**, which the obvious alternative is not. The
+  tempting move is to let a sustained miss run split the training block, reusing the
+  layoff machinery — but the block split lives in `ability::estimate` and the miss run
+  lives in the ledger, and the ledger *calls* the estimator. That is circular; this
+  isn't.
+- **One bad day still cannot drop you**, because the cap reads the best of several
+  sessions rather than the latest. That is the property the max exists to provide, and
+  it survives.
+- **A layoff is unaffected** — the recent window is all pre-layoff, so nothing moves —
+  while a genuine decline pulls the ceiling down within a few sessions.
+- Both pinned invariants hold by construction: the estimate still never exceeds the
+  best real set, and still never rises with more idle time, since a cap is monotone
+  downward.
+
+Not yet built. The number (1.5×, three or four sessions) wants choosing against the
+matrix rather than guessing — too tight and it will chase noise, too loose and the
+injured athlete stays stuck.
+
 ## R6-4. The plan never learns that you always leave early — OPEN
 
 `partial` leaves after 60 % of the cards, every session, for eight weeks. Session
