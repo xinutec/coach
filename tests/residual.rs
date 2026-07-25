@@ -61,6 +61,50 @@ fn a_steady_history_records_no_misses() {
     assert!(!r.wants_hold() && !r.wants_back_off() && !r.wants_remeasure());
 }
 
+// R6-2: the miss response was blind to magnitude — being asked for ten reps and
+// managing one was the same event as falling a rep short, so it took three
+// sessions (six sets, at a weight the athlete could lift once) before anything
+// re-opened the question. A rout is its own evidence.
+#[test]
+fn a_rout_re_opens_the_measurement_without_waiting_for_three() {
+    // Settled at 40 kg × 8, then a session that manages a single rep of it.
+    let r = ledger_for(vec![
+        wset(0, 40.0, 8),
+        wset(7, 40.0, 8),
+        wset(14, 40.0, 8),
+        wset(21, 40.0, 1),
+    ]);
+    assert_eq!(
+        r.outcomes.last().map(|(_, o)| *o),
+        Some(Outcome::Rout),
+        "an eighth of the work asked for is not an ordinary miss"
+    );
+    assert!(
+        r.wants_remeasure(),
+        "one rout is enough — the athlete has already supplied the correction"
+    );
+}
+
+#[test]
+fn an_ordinary_shortfall_is_still_just_a_miss() {
+    // The mirror case, and the one that matters more: a couple of reps short is a
+    // bad day. It must hold, not tip the exercise back into calibration.
+    let r = ledger_for(vec![
+        wset(0, 40.0, 8),
+        wset(7, 40.0, 8),
+        wset(14, 40.0, 8),
+        wset(21, 40.0, 6),
+    ]);
+    assert!(
+        r.outcomes.last().is_none_or(|(_, o)| *o != Outcome::Rout),
+        "six of eight is not a rout"
+    );
+    assert!(
+        !r.wants_remeasure(),
+        "one ordinary miss holds the numbers; it does not re-measure"
+    );
+}
+
 #[test]
 fn improving_sessions_are_beats_not_misses() {
     let r = ledger_for(vec![wset(0, 40.0, 5), wset(7, 45.0, 5), wset(14, 50.0, 5)]);

@@ -66,6 +66,20 @@ const PLATEAU_MIN_SESSIONS: usize = 4;
 /// wrong estimate is not a run of bad luck, and grinding an athlete against it is
 /// how you dig a hole.
 pub const REMEASURE_AFTER: i32 = 3;
+/// How little of the asked work makes a session a [`Outcome::Rout`] rather than an
+/// ordinary miss — measured as *volume* (load × reps, seconds, reps), which is
+/// linear and so actually discriminates. An Epley ratio does not: one rep at a
+/// weight versus ten of it is a 22 % difference in implied 1RM but a 90 % one in
+/// what the athlete managed, and it is the second number a coach reacts to.
+///
+/// A third, and the number has two real constraints either side of it. Below: the
+/// case this exists for is a novice handed someone else's history — asked for ten
+/// reps of a weight and managing one, about a tenth of the work. Above: dropping
+/// from 40 kg × 5 to 30 kg × 5 against a ten-rep ask is a little over *four* tenths,
+/// and that has to stay an ordinary miss, because it is exactly the shape the
+/// hold → back-off → re-measure ladder was built to walk. A third sits between them
+/// with room on both sides, which is as precise as this wants to be.
+const ROUT_FRACTION: f64 = 0.3;
 
 /// How the athlete's session compared with what the engine believed beforehand.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,6 +90,12 @@ pub enum Outcome {
     Met,
     /// Came in under the estimate.
     Missed,
+    /// Came in *far* under it — less than [`ROUT_FRACTION`] of the work asked for.
+    /// A miss with a magnitude, and a different kind of evidence: missing ten reps
+    /// by one is a bad day, managing one of them is a wrong number, and the athlete
+    /// has already supplied the correction. Escalates on its own rather than
+    /// waiting for [`REMEASURE_AFTER`] sessions of it.
+    Rout,
 }
 
 /// The recent prediction error for one exercise.
@@ -96,10 +116,17 @@ pub struct Residual {
 }
 
 impl Residual {
-    /// The estimate has been wrong often enough that it should be re-measured rather
-    /// than prescribed from.
+    /// The estimate has been wrong often enough — or wrong *badly* enough once —
+    /// that it should be re-measured rather than prescribed from.
+    ///
+    /// The count alone was blind to magnitude: a session at a tenth of the ask and
+    /// a session one rep short were the same event, so a new user carrying someone
+    /// else's history (or an athlete who has genuinely lost strength) was asked for
+    /// a weight they could lift *once*, three sessions running, before anything
+    /// re-opened the question. A rout is its own evidence.
     pub fn wants_remeasure(&self) -> bool {
         self.consecutive_misses >= REMEASURE_AFTER
+            || matches!(self.outcomes.last(), Some((_, Outcome::Rout)))
     }
     /// Back off a rung: two misses in a row is the estimate being too heavy, not a
     /// bad night's sleep.
@@ -223,7 +250,7 @@ fn ledger(
             inv.map(|i| dose::weighted_ask(i, predicted.e1rm, led.rung, mode, &led, recovered));
 
         if let Some(o) = judge(&predicted, &today, &led, mode, recovered, asked) {
-            led.consecutive_misses = if o == Outcome::Missed {
+            led.consecutive_misses = if matches!(o, Outcome::Missed | Outcome::Rout) {
                 led.consecutive_misses + 1
             } else {
                 0
@@ -336,7 +363,13 @@ fn judge(
             } else {
                 c.secs
             };
-            return Some(band(done as f64, asked as f64));
+            // Volume for a carry is weight × time; the weight is the coach's
+            // choice, so a shortfall lives entirely in the clock.
+            return Some(sized(
+                band(done as f64, asked as f64),
+                load * done as f64,
+                load * asked as f64,
+            ));
         }
     }
 
@@ -355,7 +388,11 @@ fn judge(
             // would let the athlete walk the coach down the rack — and "fewer reps,
             // heavier bell" is not a failure. Epley is the one unit both are
             // expressible in, and `band`'s margin absorbs the rounding.
-            return Some(band(face(load, done), face(ask_load, ask_reps)));
+            return Some(sized(
+                band(face(load, done), face(ask_load, ask_reps)),
+                load * done as f64,
+                ask_load * ask_reps as f64,
+            ));
         }
     } else if let Some(e) = predicted.e1rm {
         // No rack registered here, so no rung to have been sent to: fall back to
@@ -374,7 +411,11 @@ fn judge(
                 libm::floor(raw)
             };
             let asked = (aim as i32).clamp(1, rep_range(mode, true).high);
-            return Some(reps_band(done, asked));
+            return Some(sized(
+                reps_band(done, asked),
+                load * done as f64,
+                load * asked as f64,
+            ));
         }
     }
 
@@ -394,7 +435,8 @@ fn judge(
                 (false, false) => best,
             };
             let asked = aim.clamp(1, rep_range(mode, false).high);
-            return Some(reps_band(done, asked));
+            // Reps *are* the volume here — there is no load to weight them by.
+            return Some(sized(reps_band(done, asked), done as f64, asked as f64));
         }
     }
 
@@ -410,7 +452,12 @@ fn judge(
                 (true, false) => base + HOLD_STEP_S,
                 (false, false) => base,
             };
-            return Some(band(done as f64, secs.max(HOLD_STEP_S) as f64));
+            let secs = secs.max(HOLD_STEP_S);
+            return Some(sized(
+                band(done as f64, secs as f64),
+                done as f64,
+                secs as f64,
+            ));
         }
     }
     None
@@ -430,6 +477,20 @@ fn reps_band(done: i32, asked: i32) -> Outcome {
         core::cmp::Ordering::Less => Outcome::Missed,
         core::cmp::Ordering::Equal => Outcome::Met,
         core::cmp::Ordering::Greater => Outcome::Beat,
+    }
+}
+
+/// An outcome, with the size of the shortfall taken into account.
+///
+/// `done` and `asked` are **volumes** in the metric's own units — load × reps for a
+/// lift, seconds for a hold, load × seconds for a carry — not the Epley figures the
+/// bands are computed from. That difference is the point: Epley compresses a rout
+/// into something that looks survivable (one rep of ten reads as a 22 % shortfall),
+/// and volume doesn't (it reads as 90 %).
+fn sized(outcome: Outcome, done: f64, asked: f64) -> Outcome {
+    match outcome {
+        Outcome::Missed if asked > 0.0 && done < asked * ROUT_FRACTION => Outcome::Rout,
+        o => o,
     }
 }
 

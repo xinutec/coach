@@ -609,7 +609,7 @@ to 9 out of 10 never looks topped out, so the variation ladder never gets its tu
 either. For `Biceps curl` both variants are `difficulty: 1`, so there is no harder
 rung to step to even in principle — that movement is terminally stuck.
 
-## R6-2. The miss response can't tell a near-miss from a rout — OPEN
+## R6-2. The miss response can't tell a near-miss from a rout — FIXED
 
 The `novice` opens at 55 % of what the history says, which is what a new user with
 someone else's data, or a return from three months off, actually looks like. The
@@ -631,6 +631,24 @@ Triceps extension ran the identical sequence at 4 → 4 → 3.5 kg.
 The count-based escalation is right in shape; it just has no magnitude term. A
 session that comes in at a fraction of the ask is not a bad day, it is a wrong
 number, and the athlete has already supplied the correction.
+
+**Fixed** by giving the ledger a fourth outcome. A session delivering less than
+`ROUT_FRACTION` of the work asked is a `Rout` rather than an ordinary `Missed`, and
+one of those re-opens the measurement on its own instead of waiting for three.
+
+Two details carry the weight. It is measured as **volume** — load × reps, seconds,
+reps — not as the Epley figure the miss bands are computed from: one rep of a weight
+against ten of it is a 22 % difference in implied 1RM and a 90 % difference in what
+the athlete managed, and only the second number is something a coach reacts to. And
+the threshold is a **third**, pinned between two real cases: the novice managing one
+rep of ten is about a tenth, while dropping from 40 kg × 5 to 30 kg × 5 against a
+ten-rep ask is a little over four tenths and has to stay an ordinary miss — that is
+precisely the shape the hold → back-off → re-measure ladder exists to walk.
+
+The novice's curl now reads `asked 9 @ 9 kg, did 1` → **measure**, where it used to
+grind three sessions and six sets first. One repeat survives, and it is R6-3's
+doing rather than this one's: the honest low measurement that comes back is
+discarded by the max, so the next prescription is nearly as heavy again.
 
 ## R6-3. Getting weaker is unrepresentable, and the loop never closes — OPEN
 
