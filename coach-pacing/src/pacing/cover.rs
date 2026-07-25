@@ -163,11 +163,31 @@ pub const MIN_PAY: f64 = 0.5;
 /// accumulated rounding) decides — the verdict must be byte-identical run to run.
 const EPS: f64 = 1e-9;
 
-/// One chosen exercise: its index in `cands`, the sets it earned, and the need
+/// What the cover needs to know about something it can pick.
+///
+/// Selection is pure scoring over [`Candidate`], but a caller nearly always knows
+/// more about each option than the scorer cares about — which exercise it came
+/// from, how it will be dosed. Ranking the caller's *own* type and handing it back
+/// means there is no second vector to keep in step with this one, and no index
+/// travelling between them.
+pub trait Ranked {
+    fn candidate(&self) -> &Candidate;
+}
+
+/// A bare candidate ranks as itself, so a caller with nothing extra to carry —
+/// and every test — needs no wrapper.
+impl Ranked for Candidate {
+    fn candidate(&self) -> &Candidate {
+        self
+    }
+}
+
+/// One chosen exercise: the item that won, the sets it earned, and the need
 /// (in effective sets) its *first* set paid down — the number it was judged on,
 /// carried through to the athlete-facing explanation.
-pub struct Chosen {
-    pub index: usize,
+pub struct Chosen<'a, T> {
+    /// The picked item, handed straight back to whoever supplied it.
+    pub item: &'a T,
     pub sets: i32,
     /// Coverage need its first set paid down (effective sets) — the *volume* it
     /// contributes. Excludes the confirmation bonus, so the explanation stays
@@ -177,6 +197,9 @@ pub struct Chosen {
     /// volume — its coverage `pays` was below the bar and [`Candidate::confirm`]
     /// carried it in. The reason the coach gives for it differs accordingly.
     pub confirming: bool,
+    /// Which slice position this pick came from. Private, and deliberately so: it
+    /// is identity while the loop runs, not part of what a pick *means*.
+    index: usize,
 }
 
 /// Greedily fill `budget` sets from `cands`, each time taking the set that pays
@@ -194,18 +217,18 @@ pub struct Chosen {
 /// not a scattershot of one-off sets.
 ///
 /// Deterministic: ties break to the lower exercise id.
-pub fn select(
-    cands: &[Candidate],
+pub fn select<'a, T: Ranked>(
+    cands: &'a [T],
     need: &ByGroup<f64>,
     budget: i32,
     novelty_cap: i32,
-) -> Vec<Chosen> {
+) -> Vec<Chosen<'a, T>> {
     let mut need = need.clone();
     // The picks so far, in the order they were first taken — both the working
     // state and the result. One structure keyed by nothing but its own order,
     // rather than parallel arrays indexed by candidate, so there is no set of
     // vectors to keep in step (and no index to get wrong).
-    let mut picked: Vec<Chosen> = Vec::new();
+    let mut picked: Vec<Chosen<'a, T>> = Vec::new();
     let mut left = budget.max(0);
     // Never-done movements introduced so far — bounded by `novelty_cap`.
     let mut novel_taken = 0i32;
@@ -224,8 +247,9 @@ pub fn select(
         }
 
         // The greedy step: whichever next set pays down the most remaining need.
-        let mut best: Option<Pick> = None;
-        for (index, cand) in cands.iter().enumerate() {
+        let mut best: Option<Pick<T>> = None;
+        for (index, item) in cands.iter().enumerate() {
+            let cand = item.candidate();
             let taken = sets_taken(&picked, index);
             if taken >= cand.cap {
                 continue;
@@ -267,6 +291,7 @@ pub fn select(
             if wins {
                 best = Some(Pick {
                     index,
+                    item,
                     cand,
                     cover,
                     pay,
@@ -296,6 +321,7 @@ pub fn select(
                     novel_taken += 1;
                 }
                 picked.push(Chosen {
+                    item: pick.item,
                     index: pick.index,
                     sets: take,
                     pays: pick.cover,
@@ -318,9 +344,13 @@ pub fn select(
 }
 
 /// The winning candidate of one greedy round.
-struct Pick<'a> {
-    /// Position in the caller's candidate slice — carried through to [`Chosen`].
+struct Pick<'a, T> {
+    /// Position in the caller's slice — identity for the round-to-round
+    /// bookkeeping, and nothing more.
     index: usize,
+    /// The caller's item, carried through to [`Chosen`].
+    item: &'a T,
+    /// `item`'s scoring facts, read once per round rather than at every use.
     cand: &'a Candidate,
     /// What this set pays into the remaining group need.
     cover: f64,
@@ -332,7 +362,7 @@ struct Pick<'a> {
 
 /// Sets already committed to the candidate at `index`, or 0 if it isn't in the
 /// session yet. Linear in the picks, of which there are at most `budget`.
-fn sets_taken(picked: &[Chosen], index: usize) -> i32 {
+fn sets_taken<T>(picked: &[Chosen<'_, T>], index: usize) -> i32 {
     picked
         .iter()
         .find(|p| p.index == index)

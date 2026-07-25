@@ -511,6 +511,16 @@ struct Cand<'a> {
     loaded: Loaded,
     /// The group this set pays into most — the label the plan item carries.
     label: Option<GroupIx>,
+    /// How the cover scores this one. Held here rather than in a second vector
+    /// the caller has to keep in step: `cover::select` ranks these and hands the
+    /// winners straight back, so the exercise and its score can't come apart.
+    scored: Candidate,
+}
+
+impl cover::Ranked for Cand<'_> {
+    fn candidate(&self) -> &Candidate {
+        &self.scored
+    }
 }
 
 /// Build the selectable candidates for this location: catalog minus warm-up moves,
@@ -531,7 +541,7 @@ fn candidates<'a>(
     groups: &Groups,
     history: &[SetRec],
     now: NaiveDateTime,
-) -> (Vec<Cand<'a>>, Vec<Candidate>, Vec<String>) {
+) -> (Vec<Cand<'a>>, Vec<String>) {
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
     let recency = |id: i64| -> f64 {
         match history
@@ -628,7 +638,6 @@ fn candidates<'a>(
     }
 
     let mut cands = Vec::new();
-    let mut scored = Vec::new();
 
     for ex in &input.exercises {
         // Warm-up moves are the warm-up block's alone (and credit no volume).
@@ -721,20 +730,24 @@ fn candidates<'a>(
         // baseline is still firming up, treat the movement as wanted (like a new
         // one), not as "already done recently".
         let novelty = if confirm > 0.0 { 1.0 } else { recency(ex.id) };
-        scored.push(Candidate {
-            id: ex.id,
-            family: ex.family.clone(),
-            credit,
-            weight: mode_fit(input.mode, ex) * 2.0 + novelty,
-            confirm,
-            novel,
-            min,
-            cap,
+        cands.push(Cand {
+            ex,
+            loaded,
+            label,
+            scored: Candidate {
+                id: ex.id,
+                family: ex.family.clone(),
+                credit,
+                weight: mode_fit(input.mode, ex) * 2.0 + novelty,
+                confirm,
+                novel,
+                min,
+                cap,
+            },
         });
-        cands.push(Cand { ex, loaded, label });
     }
 
-    (cands, scored, ladder_notes)
+    (cands, ladder_notes)
 }
 
 /// The next rung up the variation ladder from `ex` (difficulty `d`): the
@@ -1568,9 +1581,8 @@ fn plan_session(
     history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
-    let (cands, scored, ladder_notes) =
-        candidates(input, kit, abilities, residuals, groups, history, now);
-    let chosen = cover::select(&scored, &groups.need, budget, novelty_cap);
+    let (cands, ladder_notes) = candidates(input, kit, abilities, residuals, groups, history, now);
+    let chosen = cover::select(&cands, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
     let advance = readiness_advances(input.readiness.map(|r| r.score));
@@ -1583,17 +1595,7 @@ fn plan_session(
 
     let mut work: Vec<(Suggestion, u8)> = Vec::new();
     for pick in chosen {
-        // `Chosen::index` is a position in the candidate slice `cover::select` was
-        // given, and `scored`/`cands` are built in one pass, so it indexes this
-        // vector too. That pairing is the weak part — not the index itself: two
-        // vectors that must stay the same length is an invariant no type carries.
-        // Merging them into one `Vec<(Candidate, Cand)>` is the real fix and would
-        // retire this exemption; `select` would then hand back the pair directly.
-        #[allow(
-            clippy::indexing_slicing,
-            reason = "index comes from select() over this slice"
-        )]
-        let c = &cands[pick.index];
+        let c = pick.item;
         let sets = pick.sets;
         let ability = abilities.get(&c.ex.id);
         let feedback = residuals.get(&c.ex.id).cloned().unwrap_or_default();

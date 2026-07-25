@@ -50,7 +50,8 @@ fn one_pick_per_movement_family() {
     b.family = "Farmers walk".into();
     // Need deep enough that, without the family gate, the second cousin would
     // enter once the first hits its per-exercise cap.
-    let chosen = select(&[a, b], &vec_of(vec![10.0]), 8, 5);
+    let cands = vec![a, b];
+    let chosen = select(&cands, &vec_of(vec![10.0]), 8, 5);
     assert_eq!(chosen.len(), 1, "one movement per family per session");
     assert_eq!(
         chosen[0].sets, 4,
@@ -73,7 +74,7 @@ fn confirmation_carries_a_movement_whose_group_is_already_covered() {
         1,
         "only the confirmable movement is selectable"
     );
-    assert_eq!(cands[chosen[0].index].id, 2);
+    assert_eq!(chosen[0].item.id, 2);
     assert_eq!(
         chosen[0].sets, 2,
         "confirmation takes the minimum effective dose"
@@ -132,7 +133,7 @@ fn a_non_novel_movement_is_never_held_back_by_the_novelty_cap() {
     ];
     let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 10, 0);
     // Novelty cap 0 blocks the novel one entirely, but the known one is picked.
-    let ids: Vec<i64> = chosen.iter().map(|c| cands[c.index].id).collect();
+    let ids: Vec<i64> = chosen.iter().map(|c| c.item.id).collect();
     assert_eq!(
         ids,
         vec![2],
@@ -154,9 +155,9 @@ fn the_budget_remainder_never_starts_a_movement_below_its_minimum_dose() {
     let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 3, 5);
     for c in &chosen {
         assert!(
-            c.sets >= cands[c.index].min,
+            c.sets >= c.item.min,
             "movement {} entered with {} sets — below its minimum dose",
-            cands[c.index].id,
+            c.item.id,
             c.sets
         );
     }
@@ -173,13 +174,13 @@ fn a_one_set_calibration_still_fits_a_one_set_remainder() {
         cand(2, vec![0.0, 1.0], 2.0, 0.0, true, 1, 1),
     ];
     let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 3, 5);
-    let calib = chosen.iter().find(|c| cands[c.index].id == 2);
+    let calib = chosen.iter().find(|c| c.item.id == 2);
     assert!(
         calib.is_some_and(|c| c.sets == 1),
         "the calibration takes the last set: {:?}",
         chosen
             .iter()
-            .map(|c| (cands[c.index].id, c.sets))
+            .map(|c| (c.item.id, c.sets))
             .collect::<Vec<_>>()
     );
 }
