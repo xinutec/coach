@@ -552,6 +552,31 @@ matrix sees the freeze and the unit test does not. **The one test that certifies
 run in.** Whatever fixes R6-1, that test needs a no-RPE case alongside its
 current one, or it will keep passing while the shipped engine stands still.
 
+**An attempted fix, and what it cost** (branch `r6-1-weighted-progression`, not
+merged). Give `Ability` the `(load, reps)` pair the set was performed as — the
+same shape `Carry` already has, and for the same reason — and run real double
+progression along it: reps climb at the rung, the rung steps when they top out.
+That works. On the matrix the strong athlete's good morning walks
+`15 → 16 → 16.5 → 17.5 kg` with **zero misses**, where the merged engine sits at
+15 kg for six sessions and then drifts down; the new no-RPE test passes and the
+old RPE convergence test still does.
+
+It is not mergeable, because of *where* the rung comes from. Reading it off the
+most recent session — the only reading that makes a step forward visible, since
+any max-based rule either anchors on an old heavy single or discards the step as
+"less work than before" — makes the coach's belief follow the athlete down inside
+one session. A sustained shortfall then registers **one** miss and reads as `Met`
+ever after, so `two misses → back off` and `three misses → re-measure` become
+unreachable for weighted work. Six `pacing_engine` tests pin exactly that and go
+red. It buys R6-1 at the price of a structural R6-6, and R6-2's protection for the
+novice with it.
+
+The rung wants to be **replayed forward**, not read off the latest session:
+`residual::ledger` already walks sessions in order holding the feedback state, so
+it is the natural place to carry "the weight the coach last sent you to". That
+needs the inventory in the ledger, which it currently has no access to — a real
+design decision rather than a patch.
+
 Two second-order effects fall out of the same place. The `floor(raw)` on a
 consolidation session drops any fractional rep every time, so the ask erodes —
 `9 → 8 → 7` on the strong athlete's row, a coach concluding you are getting weaker
