@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, SetRec, SuggestionKind,
+    Band, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, Readiness, SetRec,
+    SuggestionKind,
 };
 use coach::settings::types::Mode;
 use proptest::prelude::*;
@@ -154,6 +155,20 @@ fn owned_strategy() -> impl Strategy<Value = Vec<f64>> {
         w.dedup();
         w
     })
+}
+
+/// The same scenario judged at a given readiness. `band` follows `score` on the
+/// engine's own thresholds, so the pair can't describe a day that couldn't happen.
+fn with_readiness(mut input: PacingInput, score: f64) -> PacingInput {
+    let band = if score < 0.40 {
+        Band::Low
+    } else if score > 0.65 {
+        Band::High
+    } else {
+        Band::Normal
+    };
+    input.readiness = Some(Readiness { score, band });
+    input
 }
 
 fn scenario() -> impl Strategy<Value = (usize, i32, Vec<RawSet>, Vec<f64>)> {
@@ -302,6 +317,88 @@ proptest! {
             serde_json::to_string(&canon).unwrap(),
             serde_json::to_string(&flipped).unwrap(),
             "the verdict changed when the catalog/groups were reordered"
+        );
+    }
+
+    // A wiped-out day never asks for a heavier load than a fresh one. Readiness
+    // gates progression on a threshold (`readiness_advances`, 0.40), and holding
+    // progression leaves a larger rep reserve — which can only make the ask
+    // lighter. Same history, same kit, so the load is the only thing that moved.
+    //
+    // Only exercises BOTH days planned are compared: a low-readiness day is
+    // entitled to pick a different session entirely, and that is not a regression.
+    // Volume is deliberately not asserted — the day target scales with readiness
+    // but is clamped at both ends, and the cover may stop early, so the two plans'
+    // set counts are not ordered by anything the engine promises.
+    #[test]
+    fn a_tired_day_never_asks_for_more_load_than_a_fresh_one((m, d, raw, owned) in scenario()) {
+        let tired = evaluate(&with_readiness(build_input(m, d, &raw, &owned), 0.10), base());
+        let fresh = evaluate(&with_readiness(build_input(m, d, &raw, &owned), 0.95), base());
+
+        for t in &tired.plan {
+            if t.kind != SuggestionKind::Work {
+                continue;
+            }
+            let Some(f) = fresh.plan.iter().find(|f| {
+                f.exercise_id == t.exercise_id && f.kind == SuggestionKind::Work
+            }) else {
+                continue;
+            };
+            if let (Some(tired_load), Some(fresh_load)) = (t.load_kg, f.load_kg) {
+                prop_assert!(
+                    tired_load <= fresh_load + 1e-9,
+                    "exercise {}: tired day asked {tired_load} kg, fresh day {fresh_load} kg",
+                    t.exercise_id
+                );
+            }
+        }
+    }
+
+    // Doing the session doesn't rewrite it. Logging exactly what the plan's first
+    // work item asked for changes the verdict — the day's done count, the balance
+    // view, the coach's line — but it must not change *which* movements the
+    // session is made of, or their order. A plan that reshuffles itself as you
+    // execute it isn't a plan: you'd finish the first movement and be handed a
+    // different session for the rest of the hour.
+    //
+    // Measured before it was written: over ~290 generated scenarios the verdict
+    // moved every time and the work sequence never did, so this pins observed
+    // behaviour rather than a hoped-for one.
+    #[test]
+    fn committing_the_first_item_does_not_rewrite_the_session((m, d, raw, owned) in scenario()) {
+        let before = evaluate(&build_input(m, d, &raw, &owned), base());
+        let Some(first) = before.plan.iter().find(|i| i.kind == SuggestionKind::Work) else {
+            return Ok(());
+        };
+
+        // Log the prescribed sets, as prescribed, right now.
+        let mut committed = build_input(m, d, &raw, &owned);
+        for _ in 0..first.sets.max(1) {
+            committed.history.push(SetRec {
+                id: 0,
+                exercise_id: first.exercise_id,
+                logged_at: base(),
+                reps: first.rep_low,
+                load_kg: first.load_kg,
+                hold_s: first.hold_s,
+                rpe: None,
+            });
+        }
+        committed.last_set_at = Some(base());
+        let after = evaluate(&committed, base());
+
+        let work_ids = |out: &coach::pacing::types::PacingNow| -> Vec<i64> {
+            out.plan
+                .iter()
+                .filter(|i| i.kind == SuggestionKind::Work)
+                .map(|i| i.exercise_id)
+                .collect()
+        };
+        prop_assert_eq!(
+            work_ids(&before),
+            work_ids(&after),
+            "committing exercise {} rewrote the rest of the session",
+            first.exercise_id
         );
     }
 }
