@@ -125,6 +125,18 @@ const LADDER_CONFIRM: f64 = 1.0;
 const ROLLING_DAYS: i64 = 7; // rolling-volume window (a training week)
 const HISTORY_WEEKS: i64 = 8; // personal-average window
 const RECOVERY_SETS: f64 = 3.0; // unrecovered load (age-weighted sets) that fully gates a group
+
+/// How far below its weekly target a group is: 0 at or past target, 1 untrained.
+/// `target` is floored well above zero where it's built, so the division is safe.
+fn deficit_of(target: f64, current: f64) -> f64 {
+    ((target - current) / target).clamp(0.0, 1.0)
+}
+
+/// Graded recovery from the load a group still owes: 0 just hammered, 1 fully
+/// recovered.
+fn recovery_of(unrecovered: f64) -> f64 {
+    (1.0 - unrecovered / RECOVERY_SETS).clamp(0.0, 1.0)
+}
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
@@ -471,23 +483,45 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
 /// extension before push-ups: the isolation pre-fatigues the small muscle the
 /// compound needs as a link, so the compound reads artificially weak — and its
 /// reps are exactly what the ability model measures.
-fn tier(ex: &ExerciseInfo) -> u8 {
+fn tier(ex: &ExerciseInfo) -> Tier {
     let breadth = ex
         .groups
         .iter()
         .filter(|(_, r)| *r != MuscleRole::Stabilizer)
         .count();
     if ex.is_power {
-        1 // ballistic power — fresh CNS, before anything fatiguing
+        Tier::Power
     } else if ex.is_skill || ex.metric == Metric::Hold {
-        2 // skill / hold work — needs a fresh CNS
+        Tier::Skill
     } else if ex.pattern == Pattern::Core {
-        5 // core / conditioning finisher
+        Tier::Finisher
     } else if breadth >= COMPOUND_BREADTH {
-        3 // compound — leads, whatever it's loaded with
+        Tier::Compound
     } else {
-        4 // isolation / accessory — after the compounds it would pre-fatigue
+        Tier::Isolation
     }
+}
+
+/// Where a movement sits in the session's running order.
+///
+/// **Declaration order is training order** — `Ord` is derived from it, so the
+/// sort reads the sequence off these variants rather than off numbers that have
+/// to be kept in step with the reasoning in [`tier`]. Worth stating separately
+/// because the two orders genuinely differ: [`tier`] tests `Core` third so a
+/// patterned-Core movement can't be claimed as a compound, but a finisher still
+/// *trains* last.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Tier {
+    /// Ballistic power — fresh CNS, before anything fatiguing.
+    Power,
+    /// Skill and hold work — also wants a fresh CNS.
+    Skill,
+    /// Compound — leads, whatever it's loaded with.
+    Compound,
+    /// Isolation and accessory work — after the compounds it would pre-fatigue.
+    Isolation,
+    /// Core and conditioning finisher.
+    Finisher,
 }
 
 /// Per-group state the cover and the explanations both read.
@@ -1273,6 +1307,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let deload = input.readiness.is_none() && volume_deload;
     let days_scale = (input.days_per_week as f64 / 4.0).clamp(0.5, 2.0);
 
+    // Both numbers below are computed twice per group — once for the plan, once
+    // for the live balance view, differing only in which sets they count. Naming
+    // each formula once is what keeps the two views the *same* measurement, and
+    // puts the 0..1 clamp in one place rather than at every producer.
+    //
     // --- per-group balance + the need vector the session covers ---
     let n = input.groups.len();
     let mut groups = Groups {
@@ -1302,11 +1341,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         let target =
             (base * region_mult(input.mode, gm.region) * emph * days_scale * recovery_scale)
                 .max(3.0);
-        // Graded recovery: 0 (just hammered) → 1 (fully recovered).
-        let recovery =
-            (1.0 - unrecovered.get(&gm.id).copied().unwrap_or(0.0) / RECOVERY_SETS).clamp(0.0, 1.0);
+        let recovery = recovery_of(unrecovered.get(&gm.id).copied().unwrap_or(0.0));
 
-        groups.deficit[ix] = ((target - cur) / target).clamp(0.0, 1.0);
+        groups.deficit[ix] = deficit_of(target, cur);
         groups.recovery[ix] = recovery;
         // What today chases: the sets still owed this week, capped at what one
         // session can usefully give the group, and discounted by its recovery.
@@ -1318,14 +1355,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         // sets the moment they land (outside a session it equals the frozen
         // numbers exactly).
         let live_cur = *live_current.get(&gm.id).unwrap_or(&0.0);
-        let live_rec = (1.0 - live_unrecovered.get(&gm.id).copied().unwrap_or(0.0) / RECOVERY_SETS)
-            .clamp(0.0, 1.0);
+        let live_rec = recovery_of(live_unrecovered.get(&gm.id).copied().unwrap_or(0.0));
         balances.push(GroupBalance {
             group: gm.name.clone(),
             region: gm.region,
             current: live_cur,
             target,
-            deficit: ((target - live_cur) / target).clamp(0.0, 1.0),
+            deficit: deficit_of(target, live_cur),
             recovering: live_rec < RECOVERED_FRACTION,
         });
     }
@@ -1593,7 +1629,7 @@ fn plan_session(
     // a second substitute for the same thing.
     let mut stood_in: alloc::collections::BTreeSet<GroupIx> = alloc::collections::BTreeSet::new();
 
-    let mut work: Vec<(Suggestion, u8)> = Vec::new();
+    let mut work: Vec<(Suggestion, Tier)> = Vec::new();
     for pick in chosen {
         let c = pick.item;
         let sets = pick.sets;
