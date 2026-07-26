@@ -4241,7 +4241,7 @@
   },
   {
     "slug": "wrist_flexor_stretch",
-    "name": "Wrist flexor rocks",
+    "name": "Wrist flexor stretch",
     "variation": null,
     "pattern": "pull",
     "metric": "reps",
@@ -4267,7 +4267,7 @@
   },
   {
     "slug": "wrist_extensor_stretch",
-    "name": "Wrist extensor rocks",
+    "name": "Wrist extensor stretch",
     "variation": null,
     "pattern": "push",
     "metric": "reps",
@@ -6097,7 +6097,7 @@
   },
   {
     "slug": "biceps_wall_stretch",
-    "name": "Biceps wall opener",
+    "name": "Biceps wall stretch",
     "variation": null,
     "pattern": "pull",
     "metric": "reps",
@@ -6131,7 +6131,7 @@
   },
   {
     "slug": "triceps_stretch_overhead",
-    "name": "Overhead triceps opener",
+    "name": "Overhead triceps stretch",
     "variation": null,
     "pattern": "push",
     "metric": "reps",
