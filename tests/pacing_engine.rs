@@ -824,6 +824,73 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
 // vanished as their muscles read "recovering".
 
 #[test]
+fn the_plan_remembers_what_you_did_earlier_today() {
+    // A session ends after the session gap. A *day* doesn't. Progress used to be
+    // scoped to the session window, so once the gap elapsed the plan forgot
+    // everything: on 2026-07-25 three warm-ups logged at 16:21 read back at
+    // 22:05 as `0 / 10`, with all three re-offered as still to do. No coach
+    // forgets your warm-up because you broke for lunch.
+    let exs = vec![
+        ex(
+            1,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        warmup_ex(9, "Arm circles", 10),
+    ];
+    // Five hours back: same day, well past the session gap, so nothing is "in
+    // progress" — the plan is re-solved from scratch and must still credit it.
+    let h = vec![set(9, hours_ago(5))];
+    let out = evaluate(&input(Mode::Balanced, exs.clone(), h, None, None), now());
+    let wu = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 9)
+        .expect("the drill is still planned");
+    assert_eq!(
+        wu.done, 1,
+        "this morning's warm-up still counts this evening"
+    );
+    assert!(
+        out.plan
+            .iter()
+            .find(|s| s.done < s.sets)
+            .is_some_and(|s| s.exercise_id != 9),
+        "and it is no longer what to do next"
+    );
+}
+
+#[test]
+fn yesterdays_sets_are_not_todays_progress() {
+    // The other half of the same rule: the day is the unit, so a set logged at
+    // this hour *yesterday* pays nothing toward today's card.
+    let exs = vec![
+        ex(
+            1,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        warmup_ex(9, "Arm circles", 10),
+    ];
+    let h = vec![set(9, days_ago(1))];
+    let out = evaluate(&input(Mode::Balanced, exs, h, None, None), now());
+    let wu = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 9)
+        .expect("the drill is planned");
+    assert_eq!(wu.done, 0, "yesterday is not today");
+}
+
+#[test]
 fn a_calibration_is_complete_after_its_measurement() {
     // A never-done movement is measured (one honest AMRAP, logged mid-session).
     // The plan keeps the card — done, one set of one — and does not turn around
@@ -1375,19 +1442,43 @@ fn low_readiness_reduces_the_day_target() {
     assert!(low < normal, "low readiness {low} < normal {normal}");
 }
 
-#[test]
-fn rest_when_everything_recovered() {
-    // Every group trained hard in the last day → nothing due → Rest.
+/// Every group trained hard and recently → nothing due → Rest. `at` places the
+/// work, which is what decides whether today has any training in it.
+fn rested_after_training_at(at: NaiveDateTime) -> PacingNow {
     let mut h = vec![];
     for _ in 0..5 {
-        h.push(set(1, hours_ago(10)));
-        h.push(set(2, hours_ago(10)));
-        h.push(set(3, hours_ago(10)));
+        h.push(set(1, at));
+        h.push(set(2, at));
+        h.push(set(3, at));
     }
-    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    evaluate(&input(Mode::Balanced, catalog(), h, None, None), now())
+}
+
+#[test]
+fn rest_when_everything_recovered() {
+    // Trained yesterday evening, nothing due today: a rest day, and the coach
+    // says so.
+    let out = rested_after_training_at(hours_ago(20));
     assert_eq!(out.state, PacingState::Rest);
     assert!(out.suggestion.is_none());
-    assert!(out.reason.contains("rest"));
+    assert!(out.reason.contains("rest"), "got {:?}", out.reason);
+}
+
+#[test]
+fn a_day_you_trained_closes_as_a_session_not_a_rest_day() {
+    // Same Rest state, but the work happened *today*. "You're balanced and
+    // recovered — rest up" is the wrong sentence to read at bedtime on a day you
+    // trained: nothing is due precisely *because* you did it. The session-closing
+    // line used to be gated on still being inside the session window, which
+    // elapses hours before the day does.
+    let out = rested_after_training_at(hours_ago(10));
+    assert_eq!(out.state, PacingState::Rest);
+    assert!(out.suggestion.is_none());
+    assert!(
+        out.reason.contains("That's the session"),
+        "got {:?}",
+        out.reason
+    );
 }
 
 /// Steady weeks behind you, then a heavy one. `spike_from` starts the recent week

@@ -20,7 +20,7 @@
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
-use chrono::{Duration, NaiveDateTime, Timelike};
+use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike};
 
 use crate::domain::Mode;
 use crate::domain::{Metric, Pattern};
@@ -1134,7 +1134,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             _ => None,
         }
     };
-    let in_session = session_start.is_some();
     // The instant the plan is evaluated as of, and the history it may see: the
     // session's own sets are progress against the plan, not evidence to replan on.
     let plan_at = session_start.unwrap_or(now);
@@ -1428,21 +1427,32 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         None => (Vec::new(), Vec::new(), Vec::new()),
     };
 
-    // Progress against the committed plan: the session's sets pay its items in
-    // plan order (a ramp-in warm-up shares its exercise with the work item that
-    // follows, so order is what attributes them).
-    if let Some(start) = session_start {
-        let mut session_sets: BTreeMap<i64, i32> = BTreeMap::new();
-        for s in &input.history {
-            if s.logged_at >= start {
-                *session_sets.entry(s.exercise_id).or_default() += 1;
-            }
+    // Progress against the plan: the day's sets pay its items in plan order (a
+    // ramp-in warm-up shares its exercise with the work item that follows, so
+    // order is what attributes them).
+    //
+    // The **day**, not the session. A session ends after SESSION_GAP_MIN — that
+    // boundary is what freezes the plan, and it should, or every logged set would
+    // re-litigate the prescription it was answering. But it has no business
+    // deciding what you *did*: scoped to the session, the plan forgot the whole
+    // day the moment the gap elapsed, so three warm-ups logged at 16:21 read back
+    // at 22:05 as none done, with all three offered again (field-test, 2026-07-25).
+    // Since the plan is for today, "already done" means done today.
+    //
+    // A session that ran past midnight is still one session, so take whichever
+    // boundary is earlier — the day's start, or the session's.
+    let day_start = now.date().and_time(NaiveTime::MIN);
+    let from = session_start.map_or(day_start, |s| s.min(day_start));
+    let mut logged: BTreeMap<i64, i32> = BTreeMap::new();
+    for s in &input.history {
+        if s.logged_at >= from {
+            *logged.entry(s.exercise_id).or_default() += 1;
         }
-        for item in &mut plan {
-            let rem = session_sets.entry(item.exercise_id).or_default();
-            item.done = (*rem).min(item.sets);
-            *rem -= item.done;
-        }
+    }
+    for item in &mut plan {
+        let rem = logged.entry(item.exercise_id).or_default();
+        item.done = (*rem).min(item.sets);
+        *rem -= item.done;
     }
     // Kit the coach had to leave out — worked out by the service, which knows why.
     // Only worth saying when there's a session for it to be a hole in.
@@ -1530,9 +1540,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let reason = if input.kit.is_none() {
         "Tell me where you're training and I'll plan the session.".to_string()
     } else if suggestion.is_none() {
-        if in_session && done_today > 0 {
+        if done_today > 0 {
             // Every committed item is done — close the session, don't gloss it
-            // as a rest day.
+            // as a rest day. Not gated on being *in* the session: the gap
+            // elapses long before the day does, and "you're balanced and
+            // recovered — rest up" is a poor thing to read at bedtime on a day
+            // you trained. `done_today` already counts the day, warm-ups
+            // excluded, so a day of only prep is not a session closed.
             "That's the session — nice work.".to_string()
         } else if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
