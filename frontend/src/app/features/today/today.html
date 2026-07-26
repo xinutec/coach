@@ -82,7 +82,8 @@
                 @if (s.done >= s.sets) {
                   <mat-icon class="tick" aria-label="Done">check</mat-icon>
                 }
-                {{ compactDose(s) }}
+                <!-- What happened beats what was asked, once there's a what. -->
+                {{ s.logged.length ? loggedSummary(s) : compactDose(s) }}
               </div>
             </div>
             <button
@@ -171,6 +172,16 @@
                 <span class="per-side">each side</span>
               }
             </p>
+            <!-- Part-done: what the sets you've already put in actually were.
+                 The line above is the ask and stays the ask — this is the
+                 answer to "what did I do last set?", which was otherwise a trip
+                 to History mid-movement. -->
+            @if (s.logged.length) {
+              <p class="s-logged">
+                <mat-icon class="tick">check</mat-icon>
+                {{ loggedSummary(s) }}
+              </p>
+            }
           }
           <div class="s-actions">
             <button mat-flat-button (click)="openLog(s)">

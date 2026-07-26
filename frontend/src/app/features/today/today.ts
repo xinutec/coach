@@ -271,9 +271,32 @@ export class Today {
 		return s.done >= s.sets || s.kind === "warmup";
 	}
 
+	/**
+	 * What you actually did, in the order you did it.
+	 *
+	 * The count ("1 / 2 sets") was standing in for this, and answered the wrong
+	 * question: on set two you want to know what set one was, and that lived only
+	 * in History. Reps alone read better with the unit said once at the end
+	 * ("9 · 6 reps"); anything carrying a load or a clock names its own
+	 * ("22.5 kg × 7 · 24 kg × 6").
+	 */
+	loggedSummary(s: Suggestion): string {
+		if (!s.logged.length) return "";
+		const bits = s.logged.map((d) => {
+			const parts: string[] = [];
+			if (d.loadKg !== null) parts.push(`${d.loadKg} kg`);
+			if (d.reps !== null) parts.push(d.loadKg !== null ? `× ${d.reps}` : `${d.reps}`);
+			if (d.holdS !== null) parts.push(`${d.holdS}s`);
+			return parts.join(" ");
+		});
+		const repsOnly = s.logged.every((d) => d.loadKg === null && d.holdS === null);
+		const per = this.perSide(s.exerciseId) ? " each side" : "";
+		return `${bits.join(" · ")}${repsOnly ? " reps" : ""}${per}`;
+	}
+
 	/** The dose on a compact row: short enough for one line beside the name.
-	 *  A finished row states what was asked and that it's done; the numbers he
-	 *  actually logged aren't on the wire yet. */
+	 *  Only ever the *ask* — once there's something logged, `loggedSummary` says
+	 *  what happened instead, which is the more useful of the two. */
 	compactDose(s: Suggestion): string {
 		const bits: string[] = [];
 		if (s.repLow !== null) {

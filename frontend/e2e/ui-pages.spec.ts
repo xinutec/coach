@@ -176,6 +176,7 @@ const PACING = {
 		kind: "work",
 		sets: 2,
 		done: 0,
+		logged: [],
 		repLow: 5,
 		repHigh: 8,
 		loadKg: null,
@@ -192,6 +193,7 @@ const PACING = {
 			kind: "warmup",
 			sets: 1,
 			done: 0,
+			logged: [],
 			repLow: null,
 			repHigh: null,
 			loadKg: null,
@@ -206,6 +208,7 @@ const PACING = {
 			kind: "work",
 			sets: 2,
 			done: 0,
+			logged: [],
 			repLow: 5,
 			repHigh: 8,
 			loadKg: null,
@@ -228,6 +231,7 @@ const PACING = {
 			kind: "assess",
 			sets: 1,
 			done: 0,
+			logged: [],
 			repLow: 5,
 			repHigh: 5,
 			loadKg: 20,
@@ -404,7 +408,11 @@ test("today — mid-session, the next thing to do is on screen @ phone", async (
 				// Warm-up done, and the first work item half done — the state the
 				// page spends most of a session in.
 				plan: PACING.plan.map((s, i) =>
-					i === 0 ? { ...s, done: 1 } : i === 1 ? { ...s, done: 1 } : s,
+					i === 0
+						? { ...s, done: 1, logged: [{ reps: 10, loadKg: null, holdS: null }] }
+						: i === 1
+							? { ...s, done: 1, logged: [{ reps: 7, loadKg: null, holdS: null }] }
+							: s,
 				),
 			},
 		}),
@@ -430,6 +438,10 @@ test("today — mid-session, the next thing to do is on screen @ phone", async (
 	// Warm-ups credit no volume, so they are not the session's measure: two work
 	// sets of Ring dip and one calibration, one of them done.
 	await expect(page.locator(".plan-count")).toHaveText(/1 \/ 3 sets/);
+
+	// The half-done card says what set one actually was, not just that there was
+	// one — otherwise "what did I do last set?" is a trip to History mid-movement.
+	await expect(page.locator(".s-logged")).toHaveText(/7 reps/);
 
 	await expectNoTextOverlaps(page, testInfo);
 	await expectNoHorizontalOverflow(page, testInfo);

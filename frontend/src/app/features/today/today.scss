@@ -125,13 +125,6 @@ mat-card {
     gap: 0.2rem;
     color: var(--mat-sys-on-surface-variant);
     font: var(--mat-sys-label-small);
-
-    .tick {
-      font-size: 15px;
-      width: 15px;
-      height: 15px;
-      color: var(--mat-sys-primary);
-    }
   }
   .s-row-act {
     flex: none;
@@ -228,6 +221,22 @@ mat-card {
   .s-assess {
     margin: 0.5rem 0 0.35rem;
     font: var(--mat-sys-body-medium);
+  }
+  // The sets already in — sits under the ask, in the same key as the row's dose.
+  .s-logged {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin: -0.4rem 0 0.75rem;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-large);
+  }
+  .tick {
+    flex: none;
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    color: var(--mat-sys-primary);
   }
 
   // Log + "why this?" share a row, so the reasoning toggle adds no height until

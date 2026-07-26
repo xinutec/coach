@@ -865,6 +865,39 @@ fn the_plan_remembers_what_you_did_earlier_today() {
 }
 
 #[test]
+fn the_card_reports_what_you_lifted_not_only_how_many_sets() {
+    // "1 / 2 sets" answers how many, not what. Standing over the bar on set two
+    // the question is what set one was, and the only place that lived was the
+    // History tab — so the item carries its logged sets, oldest first.
+    let mut h = vec![
+        set(1, days_ago(2)),
+        set(1, days_ago(4)),
+        set(1, days_ago(6)),
+    ];
+    // Today's two, handed in newest-first — the card must still read them in the
+    // order they happened.
+    h.push(bset(1, minutes_ago(9), 6));
+    h.push(bset(1, minutes_ago(21), 9));
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == 1)
+        .expect("push-up planned");
+    assert_eq!(
+        item.done as usize,
+        item.logged.len(),
+        "one entry per done set"
+    );
+    assert_eq!(item.done, 2, "both of today's sets counted");
+    assert_eq!(
+        item.logged.iter().map(|d| d.reps).collect::<Vec<_>>(),
+        vec![Some(9), Some(6)],
+        "oldest first, in the terms they were logged in"
+    );
+}
+
+#[test]
 fn yesterdays_sets_are_not_todays_progress() {
     // The other half of the same rule: the day is the unit, so a set logged at
     // this hour *yesterday* pays nothing toward today's card.

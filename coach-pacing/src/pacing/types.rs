@@ -301,6 +301,23 @@ pub struct Substitution {
     pub blocker: Blocker,
 }
 
+/// One set already logged against a plan item, in the terms it was logged in.
+///
+/// The card used to report progress as a bare count — "1 / 2 sets" — which
+/// answers "how many" and not "what". Standing over the bar on set two, the
+/// question is what you did on set one, and the only place that lived was the
+/// History tab. The metric decides which fields are populated, the same way the
+/// prescription does.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct DoneSet {
+    pub reps: Option<i32>,
+    pub load_kg: Option<f64>,
+    pub hold_s: Option<i32>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -313,10 +330,15 @@ pub struct Suggestion {
     /// Work (prescribe) or Assess (measure). Drives the Today card's framing.
     pub kind: SuggestionKind,
     pub sets: i32,
-    /// Sets of this item already logged in the session in progress (0 outside
-    /// one). The plan is committed at the session's first set; this is the
-    /// athlete's progress against that commitment, shown on the card.
+    /// Sets of this item already logged **today**. The plan is committed at the
+    /// session's first set; this is the athlete's progress against that
+    /// commitment, shown on the card. Day-scoped, not session-scoped: the
+    /// session gap elapses hours before the day does, and the plan forgetting
+    /// your morning is not something you should have to work around.
     pub done: i32,
+    /// Those sets' actual numbers, oldest first — `done` in long form. Always
+    /// `done` entries long.
+    pub logged: Vec<DoneSet>,
     pub rep_low: Option<i32>,
     pub rep_high: Option<i32>,
     pub load_kg: Option<f64>,

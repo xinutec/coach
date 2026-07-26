@@ -34,8 +34,8 @@ use super::dose::{
 };
 use super::residual::{self, Residual};
 use super::types::{
-    Band, Blocker, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit, PacingInput,
-    PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
+    Band, Blocker, DoneSet, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit,
+    PacingInput, PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
 };
 
 /// Cold-start hold (seconds) when an isometric has no history yet.
@@ -1026,6 +1026,7 @@ fn build_warmup(
             kind: SuggestionKind::Warmup,
             sets: WARMUP_SETS,
             done: 0,
+            logged: Vec::new(),
             rep_low,
             rep_high,
             load_kg: None,
@@ -1052,6 +1053,7 @@ fn build_warmup(
             kind: SuggestionKind::Warmup,
             sets: WARMUP_SETS,
             done: 0,
+            logged: Vec::new(),
             rep_low: w.rep_high, // an easy set of the top of the range
             rep_high: w.rep_high,
             load_kg: Some(inv.snap(load * RAMP_FRACTION)),
@@ -1443,16 +1445,30 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // boundary is earlier — the day's start, or the session's.
     let day_start = now.date().and_time(NaiveTime::MIN);
     let from = session_start.map_or(day_start, |s| s.min(day_start));
-    let mut logged: BTreeMap<i64, i32> = BTreeMap::new();
+    let mut logged: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
     for s in &input.history {
         if s.logged_at >= from {
-            *logged.entry(s.exercise_id).or_default() += 1;
+            logged.entry(s.exercise_id).or_default().push(s);
         }
     }
+    // Oldest first, so an item's `logged` reads in the order the sets happened
+    // and the ramp-in takes the earliest rather than whichever the caller
+    // happened to hand us first.
+    for sets in logged.values_mut() {
+        sets.sort_by_key(|s| s.logged_at);
+    }
     for item in &mut plan {
-        let rem = logged.entry(item.exercise_id).or_default();
-        item.done = (*rem).min(item.sets);
-        *rem -= item.done;
+        let queue = logged.entry(item.exercise_id).or_default();
+        let take = queue.len().min(item.sets.max(0) as usize);
+        item.done = take as i32;
+        item.logged = queue
+            .drain(..take)
+            .map(|s| DoneSet {
+                reps: s.reps,
+                load_kg: s.load_kg,
+                hold_s: s.hold_s,
+            })
+            .collect();
     }
     // Kit the coach had to leave out — worked out by the service, which knows why.
     // Only worth saying when there's a session for it to be a hole in.
@@ -1729,6 +1745,7 @@ fn plan_session(
                 kind,
                 sets,
                 done: 0,
+                logged: Vec::new(),
                 rep_low,
                 rep_high,
                 load_kg,
