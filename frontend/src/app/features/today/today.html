@@ -51,7 +51,52 @@
         [class.warmup]="s.kind === 'warmup'"
         [class.next]="isNextUp(i)"
         [class.done]="s.done >= s.sets"
+        [class.compact]="isCompact(s)"
       >
+        @if (isCompact(s)) {
+          <!-- Nothing left to decide here (finished, or a warm-up) — one row, so
+               the work the page exists for stays on screen. Same three parts as
+               the card, at row scale: picture, what it is, the one action. -->
+          <mat-card-content class="s-row">
+            <button
+              type="button"
+              class="s-thumb"
+              [attr.aria-label]="'Show ' + s.exerciseName"
+              (click)="openDetail(s)"
+            >
+              @if (hasImage(s.exerciseId)) {
+                <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+              } @else {
+                <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
+              }
+            </button>
+            <div class="s-row-text">
+              <div class="s-row-name">
+                <button type="button" class="s-name" (click)="openDetail(s)">
+                  {{ s.exerciseName }}
+                </button>
+              </div>
+              <div class="s-row-dose">
+                <!-- The tick is the "Done" pill's job at row scale: state, not a
+                     control, so it carries the label a screen reader needs. -->
+                @if (s.done >= s.sets) {
+                  <mat-icon class="tick" aria-label="Done">check</mat-icon>
+                }
+                {{ compactDose(s) }}
+              </div>
+            </div>
+            <button
+              mat-icon-button
+              class="s-row-act"
+              [attr.aria-label]="
+                (s.done >= s.sets ? 'Log another set of ' : 'Mark done: ') + s.exerciseName
+              "
+              (click)="openLog(s)"
+            >
+              <mat-icon>{{ s.done >= s.sets ? "add" : "check" }}</mat-icon>
+            </button>
+          </mat-card-content>
+        } @else {
         <mat-card-content>
           <div class="s-head">
             <!-- The picture is the fastest answer to "what is this movement?" — tap
@@ -75,12 +120,9 @@
                 @if (isNextUp(i)) {
                   <span class="pill next-pill">Next up</span>
                 }
-                @if (s.done >= s.sets) {
-                  <span class="pill done-pill"><mat-icon>check</mat-icon> Done</span>
-                }
-                @if (s.kind === "warmup") {
-                  <span class="pill warmup-pill"><mat-icon>waves</mat-icon> Warm-up</span>
-                }
+                <!-- No "Done" or "Warm-up" pill here: both of those states render
+                     as a compact row instead, so a full card is always unfinished
+                     work or a calibration. -->
                 @if (s.kind === "assess") {
                   <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
                 }
@@ -94,16 +136,10 @@
               {{ substitutionNote(sub) }}
             </p>
           }
-          @if (s.kind === "warmup") {
-            <p class="s-detail">{{ warmupNote(s) }}</p>
-          } @else if (s.kind === "assess") {
-            @if (s.done >= s.sets) {
-              <p class="s-assess">Measured — that number's locked in for next time.</p>
-            } @else {
-              <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
-              @if (s.loadKg !== null) {
-                <p class="s-detail">Start around {{ s.loadKg }} kg</p>
-              }
+          @if (s.kind === "assess") {
+            <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
+            @if (s.loadKg !== null) {
+              <p class="s-detail">Start around {{ s.loadKg }} kg</p>
             }
           } @else {
             <!-- A single-arm movement counts per side: one set is both arms, and the
@@ -137,24 +173,10 @@
             </p>
           }
           <div class="s-actions">
-            @if (s.done >= s.sets) {
-              <!-- Finished — the quiet stroked button still allows an extra set,
-                   but nothing shouts for one. -->
-              <button mat-stroked-button (click)="openLog(s)">
-                <mat-icon>add</mat-icon>
-                Log another
-              </button>
-            } @else if (s.kind === "warmup") {
-              <button mat-stroked-button (click)="openLog(s)">
-                <mat-icon>check</mat-icon>
-                Mark done
-              </button>
-            } @else {
-              <button mat-flat-button (click)="openLog(s)">
-                <mat-icon>{{ s.kind === "assess" ? "science" : "add" }}</mat-icon>
-                {{ s.kind === "assess" ? "Log the calibration set" : "Log this set" }}
-              </button>
-            }
+            <button mat-flat-button (click)="openLog(s)">
+              <mat-icon>{{ s.kind === "assess" ? "science" : "add" }}</mat-icon>
+              {{ s.kind === "assess" ? "Log the calibration set" : "Log this set" }}
+            </button>
             @if (s.explanation) {
               <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
                 {{ isWhyOpen(s.exerciseId) ? "Hide" : "Why this?" }}
@@ -194,6 +216,7 @@
             }
           }
         </mat-card-content>
+        }
       </mat-card>
     }
   }

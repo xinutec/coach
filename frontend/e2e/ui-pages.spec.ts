@@ -388,6 +388,54 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
 	await expectNoHorizontalOverflow(page, testInfo);
 });
 
+// Regression: mid-session the screen must show the work, not the receipts.
+// Every plan card used to be 166px whatever its state, so three finished warm-ups
+// filled 498px of a ~780px viewport and the first unfinished card sat below the
+// fold for the whole session — the page answered "what have I done?" when the
+// question is "what now?". Finished items and warm-ups now render as rows.
+test("today — mid-session, the next thing to do is on screen @ phone", async ({
+	page,
+}, testInfo) => {
+	await mockApi(page);
+	await page.route("**/api/pacing/now*", (r) =>
+		r.fulfill({
+			json: {
+				...PACING,
+				// Warm-up done, and the first work item half done — the state the
+				// page spends most of a session in.
+				plan: PACING.plan.map((s, i) =>
+					i === 0 ? { ...s, done: 1 } : i === 1 ? { ...s, done: 1 } : s,
+				),
+			},
+		}),
+	);
+	await page.goto("/today");
+	await page.getByRole("heading", { name: "Today's session" }).waitFor();
+
+	// The finished warm-up is a row, not a card.
+	await expect(page.locator(".suggestion.compact.done")).toHaveCount(1);
+
+	// The first card with sets still to do must be fully visible without
+	// scrolling — measured against the scroll container, which is what the
+	// athlete actually sees (the shell is 100dvh with `.content` scrolling).
+	const gap = await page.evaluate(() => {
+		const next = document.querySelector(".suggestion.next");
+		const view = document.querySelector("main.content");
+		if (!next || !view) return null;
+		return view.getBoundingClientRect().bottom - next.getBoundingClientRect().bottom;
+	});
+	expect(gap, "the next-up card is cut off by the fold").not.toBeNull();
+	expect(gap ?? -1).toBeGreaterThan(0);
+
+	// Warm-ups credit no volume, so they are not the session's measure: two work
+	// sets of Ring dip and one calibration, one of them done.
+	await expect(page.locator(".plan-count")).toHaveText(/1 \/ 3 sets/);
+
+	await expectNoTextOverlaps(page, testInfo);
+	await expectNoHorizontalOverflow(page, testInfo);
+	await expectNoOccludedControls(page, testInfo);
+});
+
 // When health reports a current location, the status line shows it was detected.
 test("today — auto-detected location shows the 'detected' hint @ phone", async ({
 	page,

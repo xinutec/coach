@@ -166,11 +166,14 @@ def cmd_now(args):
 
     print(f"\n  {p['reason']}\n")
     if p["plan"]:
-        # Mirror the web header: the counter is the plan's own arithmetic
-        # (summed card sets/done, warm-ups included), not the engine's
-        # day-size estimate (see docs/field-test.md R2-2).
-        done = sum(s["done"] for s in p["plan"])
-        target = sum(s["sets"] for s in p["plan"])
+        # Mirror the web header: the plan's own arithmetic (summed card
+        # sets/done), not the engine's day-size estimate (docs/field-test.md
+        # R2-2) — and work sets only, since warm-ups credit no volume and
+        # counting them reported a third of a session done on a day the coach
+        # scored as untrained (see today.ts planSets).
+        work = [s for s in p["plan"] if s["kind"] != "warmup"]
+        done = sum(s["done"] for s in work)
+        target = sum(s["sets"] for s in work)
         print(f"  Session — {done}/{target} sets")
         for s in p["plan"]:
             kind = {"warmup": "warm-up", "assess": "CALIBRATE", "work": "work"}[s["kind"]]

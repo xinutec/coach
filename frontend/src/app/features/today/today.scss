@@ -89,13 +89,52 @@ mat-card {
     color: var(--mat-sys-on-primary-container);
   }
 
-  // Finished this session: stays on the plan (it's the commitment's receipt),
-  // visibly settled.
-  &.done {
-    opacity: 0.62;
+  // Finished items and warm-ups collapse to `.compact` instead of being dimmed.
+  // The old treatment was two opacity rules that fought — `.suggestion.done`
+  // (0.62) against `.suggestion.warmup:not(.next)` (0.8) — and `:not()` takes its
+  // argument's specificity, so the warm-up rule won at (0,3,0) and a *finished*
+  // warm-up never dimmed at all. Measured in the browser, not read off the file.
+  // Dimming was the wrong instrument regardless: it costs contrast on text that
+  // is already `on-surface-variant`, and it never bought back the height, which
+  // was the actual problem.
+  &.compact {
+    margin-bottom: 0.4rem;
   }
-  .done-pill {
-    background: var(--mat-sys-surface-container-high);
+  .s-row {
+    --thumb: 36px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  }
+  // Long movement names ("Overhead triceps stretch") must ellipsize rather than
+  // push the action button off the row.
+  .s-row-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .s-row-name {
+    font: var(--mat-sys-body-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .s-row-dose {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-label-small);
+
+    .tick {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+      color: var(--mat-sys-primary);
+    }
+  }
+  .s-row-act {
+    flex: none;
     color: var(--mat-sys-on-surface-variant);
   }
 
@@ -110,10 +149,12 @@ mat-card {
   // Tap target for the movement's picture. A button, not a bare <img>, so it's
   // reachable by keyboard and announces itself; the image is decorative (the name
   // beside it is the label).
+  // Sized by the row/card it sits in, so the compact row restates one number
+  // rather than a whole override block.
   .s-thumb {
     flex: 0 0 auto;
-    width: 56px;
-    height: 56px;
+    width: var(--thumb, 56px);
+    height: var(--thumb, 56px);
     padding: 0;
     border: 0;
     border-radius: 8px;
@@ -219,30 +260,19 @@ mat-card {
   &.assess {
     border-left: 3px solid var(--mat-sys-tertiary);
   }
-  // A warm-up card is muted — prep, not the main event.
-  &.warmup:not(.next) {
-    opacity: 0.8;
-  }
-  // One icon-in-pill shape, three colourways.
-  .warmup-pill,
-  .assess-pill,
-  .done-pill {
+  // Icon-in-pill. (Warm-up and Done no longer need one: both render as a compact
+  // row, which says it by shape.)
+  .assess-pill {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
     mat-icon {
       font-size: 16px;
       width: 16px;
       height: 16px;
     }
-  }
-  .warmup-pill {
-    background: var(--mat-sys-secondary-container);
-    color: var(--mat-sys-on-secondary-container);
-  }
-  .assess-pill {
-    background: var(--mat-sys-tertiary-container);
-    color: var(--mat-sys-on-tertiary-container);
   }
 }
 

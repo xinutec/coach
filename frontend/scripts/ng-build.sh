@@ -16,6 +16,7 @@
 set -euo pipefail
 
 COMPLETE="Application bundle generation complete"
+OUT="$(dirname "$0")/../dist/coach-web/browser"
 log="$(mktemp)"
 trap 'rm -f "$log"' EXIT
 
@@ -26,7 +27,13 @@ for attempt in 1 2; do
     exit 0
   fi
   rc=${PIPESTATUS[0]}
-  if grep -qF "$COMPLETE" "$log"; then
+  # "Complete" is necessary but NOT sufficient: Angular flushes some of the
+  # output AFTER that line, so the abort can land mid-write. Observed on
+  # 2026-07-26 — the log said complete, the script called it success, and dist/
+  # held the assets and the stylesheet but no index.html and no main-*.js, which
+  # the static server then served as a 404. Check the entry points are actually
+  # there before believing the message, and retry if they aren't.
+  if grep -qF "$COMPLETE" "$log" && [ -f "$OUT/index.html" ] && compgen -G "$OUT/main-*.js" >/dev/null; then
     echo "" >&2
     echo "[ng-build] bundle completed and is on disk; the process aborted in Piscina worker teardown (rc=$rc) — treating as success." >&2
     exit 0

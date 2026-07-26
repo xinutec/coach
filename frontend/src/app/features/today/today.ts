@@ -253,17 +253,49 @@ export class Today {
 		return lines;
 	}
 
-	/** One-line description for a warm-up item: a ramp-in set vs a mobility
-	 *  drill — with its dose, so "warm up" is an instruction, not a vibe. */
-	warmupNote(s: Suggestion): string {
-		if (s.loadKg !== null) {
-			const reps = s.repLow !== null ? `${s.repLow} × ` : "";
-			return `Ramp-in set · ${reps}${s.loadKg} kg — groove the movement`;
+	/**
+	 * Whether a plan item renders as a one-line row rather than a full card.
+	 *
+	 * A card earns its height by holding something still to decide: the dose, the
+	 * reasoning, the picture to check your form against. Two kinds hold none of
+	 * that. A **finished** item is a receipt — it stays on the plan (it's the
+	 * commitment's record) but the decision is spent. A **warm-up** is one line of
+	 * prep, not a prescription; its whole content is "10 arm circles".
+	 *
+	 * Rendered full, they crowded the work off the screen: measured at Pixel 7
+	 * width, every card was 166px regardless of state, so three finished warm-ups
+	 * filled 498px of a ~780px viewport and the first work card — the reason the
+	 * page exists — sat below the fold for the whole session.
+	 */
+	isCompact(s: Suggestion): boolean {
+		return s.done >= s.sets || s.kind === "warmup";
+	}
+
+	/** The dose on a compact row: short enough for one line beside the name.
+	 *  A finished row states what was asked and that it's done; the numbers he
+	 *  actually logged aren't on the wire yet. */
+	compactDose(s: Suggestion): string {
+		const bits: string[] = [];
+		if (s.repLow !== null) {
+			// A warm-up's range is a single number; only a work item aims.
+			bits.push(
+				s.kind === "warmup" || s.repLow === s.repHigh
+					? `${s.repLow} reps`
+					: `aim ${s.repLow}`,
+			);
 		}
-		if (s.holdS !== null) return `${s.holdS}s ${this.perSide(s.exerciseId) ? "each side " : ""}— easy, controlled`;
-		if (s.repLow !== null)
-			return `${s.repLow} slow reps${this.perSide(s.exerciseId) ? " each side" : ""} — loosen up ${s.group}`;
-		return "Mobility — loosen up the muscles you're about to train";
+		if (s.loadKg !== null) bits.push(`${s.loadKg} kg`);
+		if (s.holdS !== null) bits.push(`${s.holdS}s`);
+		if (bits.length && this.perSide(s.exerciseId)) bits.push("each side");
+		// A loaded warm-up is a ramp-in on the movement itself, not a mobility
+		// drill — that changes what you do with it, so it survives the shortening.
+		if (s.kind === "warmup" && s.loadKg !== null) bits.unshift("Ramp-in");
+		const dose = bits.join(" · ");
+		if (s.done >= s.sets) {
+			const sets = `${s.done} set${s.done === 1 ? "" : "s"}`;
+			return dose ? `${sets} · ${dose}` : sets;
+		}
+		return dose || "Mobility";
 	}
 
 	/**
@@ -369,15 +401,23 @@ export class Today {
 		this.sheet.open(LogSheet, { data });
 	}
 
-	/** The header's arithmetic is the plan's own: summed card sets, warm-ups
-	 *  included. It must be impossible for the header and the cards to disagree
-	 *  — the engine's day-size estimate once said 13 while the cards held 16
-	 *  sets, and finishing them all read "14 / 13" (field-test R2-2). */
+	/** The header's arithmetic is the plan's own — summed from the cards, never
+	 *  the engine's day-size estimate, which once said 13 while the cards held 16
+	 *  sets so finishing them all read "14 / 13" (field-test R2-2).
+	 *
+	 *  Work sets only. Warm-ups credit no volume and count toward nothing the
+	 *  coach scores, so including them let the page report "3 / 10 done" on a day
+	 *  the engine read as untrained — the counter said a third of a session had
+	 *  happened when none of it had. They still show as their own checked-off
+	 *  rows; they just aren't the session's measure. */
+	private work(p: PacingNow): Suggestion[] {
+		return p.plan.filter((s) => s.kind !== "warmup");
+	}
 	planSets(p: PacingNow): number {
-		return p.plan.reduce((a, s) => a + s.sets, 0);
+		return this.work(p).reduce((a, s) => a + s.sets, 0);
 	}
 	planDone(p: PacingNow): number {
-		return p.plan.reduce((a, s) => a + s.done, 0);
+		return this.work(p).reduce((a, s) => a + s.done, 0);
 	}
 
 	/** The first plan item with sets still to do — what "Next up" points at and
