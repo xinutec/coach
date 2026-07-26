@@ -731,6 +731,50 @@ deficit at maximum, so the cover keeps selecting it, and its low breadth keeps
 putting it last, where it keeps not happening. A human coach who watched you walk
 out before the core work twenty times would move the core work to the front.
 
+### Attempted 2026-07-27: a group-level signal, and why it can't work
+
+The appeal of the paragraph above is that it names the correction — *move the
+work to the front* — without needing the offered plan stored. If a group is
+chronically starved, promote its movements out of the tail; whether they were
+never offered or offered-and-never-reached, the fix is the same. No schema, no
+write path.
+
+Built it, measured it, **reverted it**. Three cuts, each measured against the
+matrix, each a no-op:
+
+1. **Starved = zero volume across the trailing history.** No real athlete meets
+   this. On the prod dump the thinnest groups still had 1–6 sets in eight weeks
+   (Lower back 1, Abdominals 2, Adductors 2). Traces byte-identical.
+2. **Starved = weekly rate under 15 % of target.** The flag fired, and still
+   nothing moved: on a real athlete the *whole tail* is thin, so it all promoted
+   together and the stable sort preserved its order relative to the non-starved
+   isolation work it was joining. Traces byte-identical again.
+3. **Sort key `(tier, !starved)`** so a promoted movement overtakes within its
+   new tier rather than merely joining it. Byte-identical a third time.
+
+The instrumented run says why. Mid-simulation the thinnest groups sit at
+**55–65 % of target** — `Deep core 3.00/5.4`, `Obliques 3.50/5.7`. Nothing is
+starved at any threshold worth having; a 50 % threshold fires on nothing.
+
+**The groups are not neglected. The movements are.** Abdominals gets its volume;
+*Body saw* is what never happens. The clearest case is `Pistol squat
+(Quadriceps)` — offered 8 times, performed 0 — while Quadriceps is the
+best-served group in the whole dump at 24 sets. No group-level statistic can see
+that, because at group level there is nothing wrong.
+
+So R6-4 needs the offered plan persisted after all. "Offered 20 times, performed
+0 times" is a fact about *cards*, and a card is not derivable from the set
+history — the set history is, by construction, the record of what did happen.
+The write path also has to record only plans the athlete actually saw, or the
+Android geofence poller will manufacture skips on days he never opened the app;
+the rule that avoids this is to count non-completion only on days with sets,
+which is exactly the population this finding is about.
+
+`scripts/sim-neglect.py` came out of the investigation and stays: it turns a
+trace into offered-vs-performed per movement, which is the number the run
+summary can't give ("128 cards abandoned" doesn't say whether that was 128
+movements once each or the same seven every session).
+
 ## R6-5. Readiness bottoms out and still books a full session — OPEN
 
 R4 surfaced "no rest day in 56 days" across three temperaments and left it, on the
