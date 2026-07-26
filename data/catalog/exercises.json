@@ -3960,7 +3960,7 @@
     "difficulty": 1,
     "position": null,
     "unilateral": false,
-    "cue": "Mobility and warmup",
+    "cue": "Sink into a deep squat, then reach one arm to the sky and follow the hand with your eyes — alternate sides, chest staying open",
     "demoUrl": "https://youtu.be/R1DCivEWsxc",
     "summary": "on floor",
     "muscles": [
@@ -4010,7 +4010,7 @@
     "difficulty": 1,
     "position": "standing",
     "unilateral": false,
-    "cue": "In both directions",
+    "cue": "Big circles from the shoulder, arms long — start small and let them grow. Half the reps forward, half back",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=12",
     "summary": "standing, on floor",
     "muscles": [
@@ -4052,7 +4052,7 @@
     "difficulty": 1,
     "position": null,
     "unilateral": false,
-    "cue": null,
+    "cue": "Squat down with the heels flat, then straighten the legs and fold over the knees — hands stay on the floor throughout",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=76",
     "summary": "on floor",
     "muscles": [
@@ -4098,7 +4098,7 @@
     "difficulty": 2,
     "position": null,
     "unilateral": false,
-    "cue": null,
+    "cue": "Hands on the low back, ribs lifted — arch from the upper spine and open the chest to the ceiling. Range grows over the set; never force it",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=195",
     "summary": "standing, on floor",
     "muscles": [
@@ -4132,7 +4132,7 @@
     "difficulty": 1,
     "position": "standing",
     "unilateral": false,
-    "cue": null,
+    "cue": "Wide overhand grip on a band or stick — arms straight, take it from the thighs up and over to behind you, then back. Go wider if the shoulders complain, never narrower to force it",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=257",
     "summary": "pronated, standing, on floor",
     "muscles": [
@@ -4174,7 +4174,7 @@
     "difficulty": 1,
     "position": "standing",
     "unilateral": false,
-    "cue": null,
+    "cue": "Same path with the palms up. The underhand grip has less room, so start wider than feels necessary and keep the arms straight",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=294",
     "summary": "supinated, standing, on floor",
     "muscles": [
@@ -4216,7 +4216,7 @@
     "difficulty": 1,
     "position": "standing",
     "unilateral": false,
-    "cue": null,
+    "cue": "One arm overhead, lean away from it — hips square and still, ribs long. Straight sideways, no twisting. Alternate sides",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=319",
     "summary": "standing, on floor",
     "muscles": [
@@ -4241,7 +4241,7 @@
   },
   {
     "slug": "wrist_flexor_stretch",
-    "name": "Wrist flexor stretch",
+    "name": "Wrist flexor rocks",
     "variation": null,
     "pattern": "pull",
     "metric": "reps",
@@ -4250,7 +4250,7 @@
     "difficulty": 1,
     "position": "kneeling",
     "unilateral": false,
-    "cue": "Also add pushes for strengthening within the end range of motion",
+    "cue": "Kneel with the palms down and the fingers pointing back at you — rock the weight forward until the forearms pull, then ease off. Push into the end range on the last few",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=414",
     "summary": "kneeling, on floor",
     "muscles": [
@@ -4267,7 +4267,7 @@
   },
   {
     "slug": "wrist_extensor_stretch",
-    "name": "Wrist extensor stretch",
+    "name": "Wrist extensor rocks",
     "variation": null,
     "pattern": "push",
     "metric": "reps",
@@ -4276,7 +4276,7 @@
     "difficulty": 1,
     "position": "kneeling",
     "unilateral": false,
-    "cue": "Also add pushes for strengthening within the end range of motion",
+    "cue": "Kneel with the backs of the hands down, fingers pointing back — rock forward until the top of the forearm pulls, then ease off. Push into the end range on the last few",
     "demoUrl": "https://youtu.be/cM6in832kqA?t=465",
     "summary": "kneeling, on floor",
     "muscles": [
@@ -4962,7 +4962,7 @@
     "difficulty": 1,
     "position": "standing",
     "unilateral": false,
-    "cue": null,
+    "cue": "Band at chest height, arms straight — pull apart, up overhead, down behind the head, and back the same way. One continuous loop per rep",
     "demoUrl": "https://youtu.be/Vwn5hSf3WEg",
     "summary": "standing, band, on floor",
     "muscles": [
@@ -6097,7 +6097,7 @@
   },
   {
     "slug": "biceps_wall_stretch",
-    "name": "Biceps wall stretch",
+    "name": "Biceps wall opener",
     "variation": null,
     "pattern": "pull",
     "metric": "reps",
@@ -6131,7 +6131,7 @@
   },
   {
     "slug": "triceps_stretch_overhead",
-    "name": "Overhead triceps stretch",
+    "name": "Overhead triceps opener",
     "variation": null,
     "pattern": "push",
     "metric": "reps",
