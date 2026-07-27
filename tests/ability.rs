@@ -11,6 +11,7 @@ use coach::pacing::ability::{Confidence, abilities, confidence_of};
 use coach::pacing::types::SetRec;
 
 const DECAY_FLOOR: f64 = 0.60; // must track ability.rs (checked via the floor test)
+const CAP_MULTIPLE: f64 = 1.15; // must track ability.rs (checked via the decline tests)
 
 fn base() -> NaiveDateTime {
     NaiveDate::from_ymd_opt(2026, 7, 6)
@@ -279,7 +280,8 @@ fn the_estimate_names_the_set_it_came_from() {
 /// *old*, so anything that only offers the latest set cannot reach it.
 #[test]
 fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
-    // A 140 kg slip weeks back, honest 40 kg work ever since.
+    // A 140 kg slip weeks back, and a couple of sessions of honest 40 kg work
+    // since — not yet the run of sessions it takes to form a ceiling over it.
     let mut h = vec![SetRec {
         id: 7,
         exercise_id: 1,
@@ -289,7 +291,7 @@ fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
         hold_s: None,
         rpe: None,
     }];
-    h.extend((0..6).map(|d| weighted(1, d * 2, 40.0, 8, None)));
+    h.extend((0..2).map(|d| weighted(1, d * 2, 40.0, 8, None)));
 
     let a = abilities(&h, base());
     let src = a[&1].source.expect("an estimate must name its set");
@@ -298,6 +300,109 @@ fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
         "the old outlier is still the max — the card must point at it"
     );
     assert_eq!(src.load_kg, Some(140.0));
+}
+
+/// The other half of the same story: once enough recent sessions disagree with the
+/// outlier, they overrule it — and the number the athlete is shown then comes from
+/// *them*, so that is the set `source` must name. The old slip is no longer worth
+/// pointing at; it has already lost.
+#[test]
+fn a_capped_estimate_names_the_recent_set_that_caps_it() {
+    let mut h = vec![SetRec {
+        id: 7,
+        exercise_id: 1,
+        logged_at: at(40),
+        reps: Some(8),
+        load_kg: Some(140.0),
+        hold_s: None,
+        rpe: None,
+    }];
+    h.extend((0..3).map(|d| weighted(1, d * 2, 40.0, 8, None)));
+
+    let a = abilities(&h, base());
+    let est = a[&1].e1rm.expect("an estimate");
+    assert!(
+        (est - CAP_MULTIPLE * e1rm(40.0, 8, None)).abs() < 1e-9,
+        "three sessions of 40 kg put a ceiling over the 140 kg slip, got {est}"
+    );
+    let src = a[&1].source.expect("an estimate must name its set");
+    assert_ne!(src.set_id, 7, "the outlier no longer sets the number");
+    assert_eq!(src.load_kg, Some(40.0));
+}
+
+/// R6-3, the finding this cap exists for: getting weaker has to be representable.
+/// Ability is a max, so the honest low measurement loses to the very number it is
+/// trying to correct — and the coach then spends months prescribing a strength the
+/// athlete has already disproved, re-measuring it, and discarding the answer.
+#[test]
+fn a_sustained_decline_lowers_the_estimate() {
+    // A real 100 kg × 5 a fortnight ago, then three sessions that all say 40 kg is
+    // the truth now. Nothing here is a bad day — it is every session since.
+    let mut h = vec![weighted(1, 14, 100.0, 5, None)];
+    h.extend([3, 2, 1].map(|d| weighted(1, d, 40.0, 5, None)));
+
+    let est = abilities(&h, base())[&1].e1rm.expect("an estimate");
+    let shown = e1rm(40.0, 5, None);
+    assert!(
+        est < e1rm(100.0, 5, None),
+        "the old PR cannot still be the estimate, got {est}"
+    );
+    assert!(
+        (est - CAP_MULTIPLE * shown).abs() < 1e-9,
+        "the estimate settles a little above what recent work shows, got {est}"
+    );
+}
+
+/// The shape R6-3 actually took in the field test: a bodyweight movement believed
+/// at 7 reps against a true 5, held for fifteen straight sessions.
+#[test]
+fn a_decline_in_bodyweight_reps_is_representable_too() {
+    let mut h = vec![bodyweight(2, 14, 12, None)];
+    h.extend([3, 2, 1].map(|d| bodyweight(2, d, 5, None)));
+
+    let est = abilities(&h, base())[&2].best_reps.expect("an estimate");
+    // 1.15 × 5 = 5.75, floored — reps are only ever claimed whole, and downwards.
+    assert_eq!(
+        est, 5,
+        "the estimate lands on what recent work shows, not the old 12"
+    );
+}
+
+/// The ceiling reads the *best* of the recent sessions, never the latest. A single
+/// light day — or the coach's own low-readiness easing, which asks for less and
+/// then sees less — must not ratchet the athlete downwards and pin them there.
+#[test]
+fn one_light_session_does_not_lower_the_estimate() {
+    let h = vec![
+        weighted(1, 14, 100.0, 5, None),
+        weighted(1, 3, 40.0, 5, None),
+        weighted(1, 2, 100.0, 5, None), // the strength is still there
+        weighted(1, 1, 40.0, 5, None),
+    ];
+
+    let est = abilities(&h, base())[&1].e1rm.expect("an estimate");
+    assert!(
+        (est - e1rm(100.0, 5, None)).abs() < 1e-9,
+        "one good day inside the window is enough to hold the estimate up, got {est}"
+    );
+}
+
+/// The boundary: a ceiling forms only once the decline has a *run* of sessions
+/// behind it. With the PR still among the last few sessions there is no run
+/// disagreeing with it — one or two lighter days are ordinary training variation.
+#[test]
+fn the_ceiling_forms_only_once_the_decline_has_a_run_of_sessions() {
+    let h = vec![
+        weighted(1, 14, 100.0, 5, None),
+        weighted(1, 2, 40.0, 5, None),
+        weighted(1, 1, 40.0, 5, None),
+    ];
+
+    let est = abilities(&h, base())[&1].e1rm.expect("an estimate");
+    assert!(
+        (est - e1rm(100.0, 5, None)).abs() < 1e-9,
+        "two lighter days do not yet overrule the PR, got {est}"
+    );
 }
 
 /// Bodyweight rep work names its set too.

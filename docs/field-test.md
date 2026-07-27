@@ -646,11 +646,12 @@ ten-rep ask is a little over four tenths and has to stay an ordinary miss — th
 precisely the shape the hold → back-off → re-measure ladder exists to walk.
 
 The novice's curl now reads `asked 9 @ 9 kg, did 1` → **measure**, where it used to
-grind three sessions and six sets first. One repeat survives, and it is R6-3's
-doing rather than this one's: the honest low measurement that comes back is
-discarded by the max, so the next prescription is nearly as heavy again.
+grind three sessions and six sets first. One repeat survived this fix, and it was
+R6-3's doing rather than this one's — the honest low measurement that came back was
+discarded by the max, so the next prescription was nearly as heavy again. R6-3's
+recent-work ceiling closed it.
 
-## R6-3. Getting weaker is unrepresentable, and the loop never closes — OPEN
+## R6-3. Getting weaker is unrepresentable, and the loop never closes — FIXED
 
 The worst result in the round. The `injured` athlete loses 60 % of the deltoids in
 week 2 and never gets it back. At the end of week 7:
@@ -687,34 +688,109 @@ round-6 finding is that a mistyped load is the *benign* version. An injury, an
 illness, a bad year, or simply getting older produces the same unlearnable ceiling,
 and none of them are input errors anyone can validate at the log sheet.
 
-**R6-2 left a residue that belongs to this.** A rout now re-opens the measurement
-after one bad session instead of three, but the honest low number that comes back is
-still discarded by the max, so the next prescription is nearly as heavy again and the
-novice takes a second rout before it settles. Whatever fixes R6-3 closes that too.
+**R6-2 left a residue that belonged to this.** A rout now re-opens the measurement
+after one bad session instead of three, but the honest low number that came back was
+still discarded by the max, so the next prescription was nearly as heavy again and the
+novice took a second rout before it settled. The ceiling below closes that too: the
+`novice` cell's overclaim falls from +2.4 % to +0.4 %.
 
-### The approach to try
+### The fix
 
-**Cap ability at a multiple of recent demonstrated best** — roughly 1.5× the best set
-of the last three or four sessions. Ability stays a max over decayed estimates; the
-cap only ever lowers it.
+**Ability is held under `CAP_MULTIPLE` (1.15) × the best of the last `CAP_SESSIONS`
+(3) sessions.** It stays a max over decayed estimates; the ceiling only ever lowers
+it.
 
 - It is a **pure function of set history**, which the obvious alternative is not. The
   tempting move is to let a sustained miss run split the training block, reusing the
   layoff machinery — but the block split lives in `ability::estimate` and the miss run
   lives in the ledger, and the ledger *calls* the estimator. That is circular; this
   isn't.
-- **One bad day still cannot drop you**, because the cap reads the best of several
+- **One bad day still cannot drop you**, because the ceiling reads the best of several
   sessions rather than the latest. That is the property the max exists to provide, and
-  it survives.
+  it survives. It matters more than it looks: the coach's *own* low-readiness easing
+  asks two reps fewer, and a complying athlete then logs a set that understates them.
+  Easing is intermittent and a decline is not, which is the whole reason the window is
+  a run of sessions.
+- **Sessions, not sets** — five sets in one session are one piece of evidence about
+  today's ceiling, not five.
 - **A layoff is unaffected** — the recent window is all pre-layoff, so nothing moves —
-  while a genuine decline pulls the ceiling down within a few sessions.
+  while a genuine decline pulls the ceiling down within three sessions.
+- Three sessions is deliberately the same bar as `High` confidence, so the ceiling
+  bites exactly when the estimate is trusted enough to prescribe from, and not before.
 - Both pinned invariants hold by construction: the estimate still never exceeds the
-  best real set, and still never rises with more idle time, since a cap is monotone
-  downward.
+  best real set, and still never rises with more idle time, since the ceiling is built
+  from the same decayed values and a `min` of two non-increasing numbers is
+  non-increasing. `tests/ability_props.rs` still passes unchanged.
 
-Not yet built. The number (1.5×, three or four sessions) wants choosing against the
-matrix rather than guessing — too tight and it will chase noise, too loose and the
-injured athlete stays stuck.
+The three movements the finding named, at the end of the same eight weeks:
+
+| movement | before | after |
+| --- | --- | --- |
+| Face pull | 7 reps (true 5), miss-streak **13** | **5 reps (true 5)**, streak **0** |
+| Reverse fly | 7 reps (true 5), miss-streak **12** | **5 reps (true 5)**, streak **0** |
+| Lateral raise | e1rm 3.9 (true 1.7) — **2.29×** | e1rm 2.0 (true 1.7) — **1.18×** |
+
+And the loop itself closes: the `injured` cell's calibration churn falls from **77
+assess cards to 55**, with missed cards flat (46 → 47). The coach stops sending the
+same three movements back to be re-measured and then discarding the answer.
+
+### Choosing the numbers against the matrix
+
+Measured with `scripts/sim-accuracy.py`, which scores the belief-against-truth rows
+`simulate.rs` has always printed and nothing ever read. It reports overclaim and
+underclaim **separately and never averaged**: believing less than the truth costs some
+progress, believing more grinds the athlete against a claim they have already
+disproved, and a single "error" number would let a change trade one for the other and
+call it a wash.
+
+Over the full 15-cell matrix, overclaim is concentrated in four cells and everything
+else sits at 0.0 %, so twelve of them could only price the *cost*:
+
+| cell | overclaim | worst miss-streak |
+| --- | --- | --- |
+| `injured:compliant:untracked` | +5.6 % → **+1.5 %** | 13 → **3** |
+| `injured:compliant:roughweek` | +4.3 % → **+0.7 %** | 19 → **3** |
+| `novice:skipper:untracked` | +2.8 % → **+0.7 %** | 6 → 6 |
+| `novice:compliant:untracked` | +2.4 % → **+0.4 %** | 6 → 6 |
+
+No cell overclaims more than before. The price is underclaim, and it is small
+everywhere except one place: nine cells move by ≤ 0.2 pp, and **`strong:compliant`
+goes 32.9 % → 37.5 %**. That athlete trained elsewhere for a year and only just
+started logging, so every number the coach holds is already an underestimate, and a
+ceiling pinned to what they have been *asked* to show slows the climb out. It is the
+honest cost of the fix and it is in the safe direction.
+
+1.5× (the original guess) was never run, because 1.25 already left the injured
+athlete's belief sitting exactly on the ceiling — 6 reps against a true 5 — and 1.5×
+is looser still. Between the two that *were* run:
+
+| | 1.25 | 1.15 |
+| --- | --- | --- |
+| `injured` overclaim | +2.6 % | **+1.5 %** |
+| `injured` missed cards | 52 | **47** |
+| `strong` underclaim | **35.8 %** | 37.5 % |
+| `badweek` underclaim | **34.5 %** | 34.7 % |
+
+1.15 wins on everything but `strong`. The failure mode a tighter cap should have —
+ratcheting a temporary dip into a permanent one — was checked directly on `badweek`,
+the athlete whose ability genuinely dips and recovers, and costs 0.2 pp with identical
+misses and assess counts. So it was taken.
+
+**The simulator has no performance noise** — the athlete performs exactly as well as
+true ability allows, every day — so it *understates* the cost of a tight ceiling,
+which is precisely the thing day-to-day variation would push against. Best-of-three
+absorbs most of that by construction, but if real use shows the coach lagging behind a
+good day, 1.25 is the measured fallback and costs about a point of accuracy on the
+injured athlete.
+
+### A measurement blind spot, found on the way
+
+Both `skipper` cells produced **no accuracy rows at all**, in every round of this field
+test. The end-of-week belief report sat at the bottom of the day loop, behind the same
+`continue` that skips a rest day or a no-show — so an athlete whose skip pattern landed
+on the reporting day was never measured. `novice:skipper` turns out to be a fourth
+overclaiming cell (+2.8 %), invisible until the report moved out of the skip path.
+What the engine believes is true of the week whether or not the athlete turned up.
 
 ## R6-4. The plan never learns that you always leave early — OPEN
 

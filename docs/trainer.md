@@ -70,12 +70,20 @@ order:
   for two weeks, then the detraining slope to a 60 % floor — and ability is the max
   of the decayed estimates. Decaying per set *then* maxing makes ability monotone
   under idleness while still trusting a genuine old PR down to the floor.
-  **The max cannot represent a decline.** An athlete who genuinely gets weaker —
-  injury, illness, a bad year — is floored at 60 % of a peak they no longer have,
-  the honest low measurement is discarded by the same `max` that protects a real
-  old PR, and the block reset never fires because they keep turning up. The result
-  is an unbreakable miss → re-measure → discard loop; see
-  [R6-3](field-test.md#r6-3-getting-weaker-is-unrepresentable-and-the-loop-never-closes--open).
+- **A ceiling from recent work.** The max is then held under `CAP_MULTIPLE` (1.15)
+  times the best of the last three sessions. A max can only ever be argued
+  *upwards*, so without this an athlete who genuinely gets weaker — injury,
+  illness, a bad year — is stuck: floored at 60 % of a peak they no longer have,
+  the honest low measurement discarded by the same `max` that protects a real old
+  PR, and the block reset never firing because they keep turning up. That was an
+  unbreakable miss → re-measure → discard loop
+  ([R6-3](field-test.md#r6-3-getting-weaker-is-unrepresentable-and-the-loop-never-closes--fixed)).
+  It reads **sessions, not sets**, and the **best** of them rather than the latest,
+  which is what separates a decline from a bad day: the coach's own low-readiness
+  easing is intermittent, so a full-effort session survives inside the window,
+  while a real decline is in every one of them. Three sessions is the same bar as
+  `High` confidence — the ceiling bites exactly when the estimate is trusted enough
+  to be dangerous, and not before, so a layoff or a first return is untouched.
 - **Training-block reset.** A gap longer than `BLOCK_GAP_WEEKS` (8) splits an
   exercise's history into blocks, and only the most-recent block estimates ability.
   After a layoff or a health setback your level is read from your *return*, never
@@ -229,7 +237,9 @@ different from what the coach believed. Re-deriving from the source of truth is 
 honest answer, not the lossy one.
 
 **The estimate names the set it came from.** Ability is a max, so the number is
-always exactly one real set — and if that set is wrong, nothing later lowers it.
+always exactly one real set — and until three later sessions accumulate to put a
+ceiling over it, nothing lowers it. When the ceiling does bind, the trace names the
+*recent* set that set the ceiling, because that is where the number now comes from.
 So the trace carries the set itself (`Explanation::estimate_from`: row id, date,
 load × reps) and "Why this?" shows it with a way to remove it. The set is
 usually *old* — the one measured here was 60 days back and still 2.1× true
@@ -243,8 +253,10 @@ history, so a mistyped load is not a bad day the model averages away — it beco
 a PR the engine cannot unlearn. It decays only to the 60 % floor, the block reset
 fires on an 8-week gap that never comes while he keeps training, and the ledger's
 deepest correction ("re-open the measurement") produces a *lower* number that the
-max discards. One slip of the load field therefore prescribes off a fake stronger
-self indefinitely — the exact thing the block reset exists to prevent. So the log
+max discards. The recent-work ceiling bounds how long that lasts — three sessions,
+and the fake self is capped at 1.15× what he has actually shown since — but three
+sessions is still three sessions of prescribing off it, and inside the headroom it
+never fully goes away. So the log
 checks a load against the weights he actually owns, across every location
 ([`location/owned.rs`]), and a load half again heavier than anything buildable is
 **queried, not refused**: improvised weights are real and the ledger already

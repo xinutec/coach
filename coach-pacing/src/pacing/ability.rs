@@ -16,6 +16,12 @@
 //!     estimates**. Decaying per set, then maxing, makes ability provably
 //!     monotone under idleness (more time off never *raises* it) while still
 //!     trusting a genuine old PR down to the floor rather than forgetting it.
+//!   * **A ceiling from recent work** — the max is then held under a multiple of
+//!     the best of the last few sessions (`CAP_MULTIPLE`, `CAP_SESSIONS`). A max
+//!     can only ever be argued *upwards*, so without this a decline — injury,
+//!     illness, a worse year — is unrepresentable: the honest low measurement
+//!     comes back and is discarded by the same max that protects the old PR. The
+//!     cap only ever lowers, so both guarantees above survive it.
 //!
 //! Confidence is separate from the estimate: it counts *recent* sessions, and
 //! (in later stages) decides whether the engine prescribes from the estimate or
@@ -24,7 +30,7 @@
 use crate::prelude::*;
 use alloc::collections::{BTreeMap, BTreeSet};
 
-use chrono::{Duration, NaiveDateTime};
+use chrono::{Duration, NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
 use super::types::SetRec;
@@ -56,6 +62,41 @@ const BLOCK_GAP_WEEKS: i64 = 8;
 /// drift.
 pub const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
+/// Ability may not exceed this multiple of what the athlete has actually shown
+/// across their last `CAP_SESSIONS` sessions.
+///
+/// Ability is a **max**, which is what lets a real PR survive a quiet fortnight —
+/// and is also why a genuine decline was otherwise unrepresentable. An injury, an
+/// illness, or simply a worse year produces an honest low measurement, and the max
+/// discards it in favour of a number that no longer describes the athlete. Decay
+/// can't rescue that (it floors at `DECAY_FLOOR`, well above a real setback) and
+/// neither can the block reset (it needs a gap the athlete never takes, because
+/// they keep turning up). What's left is a closed loop: the coach prescribes what
+/// it wrongly believes, the athlete misses, the miss re-opens the measurement, the
+/// measurement comes back low, the max throws it away, and the next prescription
+/// is nearly as heavy again.
+///
+/// A ceiling drawn from recent work is the cheapest cut in that loop that is still
+/// a **pure function of set history** — it reads no clock beyond `now` and nothing
+/// about what the coach *asked*, so the residual ledger can go on replaying this
+/// estimator without the two ending up calling each other.
+///
+/// The multiple is headroom for the easing the coach itself prescribes: a
+/// low-readiness day asks two reps fewer (`dose::LOW_READINESS_EXTRA_RIR`), and a
+/// complying athlete then logs a set that understates them. Too tight and the
+/// coach follows its own easing downwards; too loose and a real decline never gets
+/// caught.
+const CAP_MULTIPLE: f64 = 1.15;
+/// Sessions the ceiling reads. Deliberately the same bar as [`HIGH_SESSIONS`]: the
+/// cap should bite exactly when the engine trusts the estimate enough to prescribe
+/// from it, and not before. Below that bar there isn't enough recent evidence to
+/// overrule a max, and the engine is measuring rather than prescribing anyway.
+///
+/// Reading several sessions rather than the latest one is what separates a decline
+/// from a bad day. Easing and off-days are intermittent, so a full-effort session
+/// usually survives somewhere in the window; a real decline is present in every
+/// one of them.
+const CAP_SESSIONS: usize = HIGH_SESSIONS as usize;
 
 /// How much the engine trusts an exercise's estimate — the gate between
 /// prescribing (from the estimate) and assessing (measuring afresh, G3). Also
@@ -96,13 +137,19 @@ pub struct Ability {
     /// The set that actually set this estimate — the max is one real set, and
     /// this is it.
     ///
-    /// Ability is a max, so a single wrong number becomes a ceiling nothing
-    /// later can lower: it decays only to `DECAY_FLOOR`, `BLOCK_GAP_WEEKS` never
-    /// fires while training continues, and an honest re-measurement is *lower*
-    /// and loses. The estimate is only correctable if the athlete can be shown
-    /// which set produced it — otherwise "the coach is asking for something
-    /// absurd" is an archaeology problem, and the offending set is usually weeks
-    /// back, out of reach of anything that only offers the latest one.
+    /// Ability is a max, so a single wrong number lingers: it decays only to
+    /// `DECAY_FLOOR`, `BLOCK_GAP_WEEKS` never fires while training continues, and
+    /// an honest re-measurement is *lower* and loses. `CAP_MULTIPLE` now bounds
+    /// how far it can hold out — but only once `CAP_SESSIONS` sessions have
+    /// accumulated to bound it with, and only to within that multiple. The
+    /// estimate is properly correctable only if the athlete can be shown which set
+    /// produced it — otherwise "the coach is asking for something absurd" is an
+    /// archaeology problem, and the offending set is usually weeks back, out of
+    /// reach of anything that only offers the latest one.
+    ///
+    /// When the ceiling binds, this names the *recent* set that set the ceiling:
+    /// that is the set the number now comes from, and the old high one has already
+    /// been overruled.
     pub source: Option<Source>,
 }
 
@@ -164,6 +211,112 @@ fn max_opt(cur: Option<f64>, v: f64) -> Option<f64> {
     Some(cur.map_or(v, |m| m.max(v)))
 }
 
+fn source_of(s: &SetRec) -> Source {
+    Source {
+        set_id: s.id,
+        logged_at: s.logged_at,
+        load_kg: s.load_kg,
+        reps: s.reps,
+        hold_s: s.hold_s,
+    }
+}
+
+/// The best decayed estimate in each metric over some window of an exercise's
+/// sets, and the set behind each one.
+///
+/// It is a type so that the recent **ceiling** is computed by the same code as the
+/// estimate it caps, differing only in which sets are fed to it. Two hand-written
+/// copies of "the best set in here" would be two chances to disagree about what
+/// *best* means, and a ceiling that measures something slightly different from the
+/// estimate it bounds is a permanent quiet bias rather than a visible bug.
+#[derive(Default)]
+struct Bests {
+    e1rm: Option<f64>,
+    reps: Option<f64>,
+    hold: Option<f64>,
+    carry: Option<Carry>,
+    e1rm_src: Option<Source>,
+    reps_src: Option<Source>,
+    hold_src: Option<Source>,
+}
+
+impl Bests {
+    /// Fold in one set, already scaled by `d` — its own staleness.
+    fn feed(&mut self, s: &SetRec, d: f64) {
+        match (s.load_kg, s.reps) {
+            // Weighted: load + reps → an e1RM estimate.
+            (Some(load), Some(reps)) => {
+                let v = epley(load, reps, s.rpe) * d;
+                if self.e1rm.is_none_or(|m: f64| v > m) {
+                    self.e1rm_src = Some(source_of(s));
+                }
+                self.e1rm = max_opt(self.e1rm, v);
+            }
+            // Bodyweight reps: reps, no load → effective-rep estimate.
+            (None, Some(reps)) => {
+                let v = (reps as f64 + rir(s.rpe)) * d;
+                if self.reps.is_none_or(|m: f64| v > m) {
+                    self.reps_src = Some(source_of(s));
+                }
+                self.reps = max_opt(self.reps, v);
+            }
+            _ => {}
+        }
+        // A hold set (isometric) carries hold_s regardless of the above.
+        if let Some(h) = s.hold_s {
+            let v = h as f64 * d;
+            if self.hold.is_none_or(|m: f64| v > m) {
+                self.hold_src = Some(source_of(s));
+            }
+            self.hold = max_opt(self.hold, v);
+        }
+        // A loaded carry: weight *and* time. Both decay, so idleness pulls the
+        // estimate down as one — it can't quietly keep the weight while forgetting
+        // the duration, or the reverse.
+        if let (Some(load), Some(h)) = (s.load_kg, s.hold_s) {
+            self.carry = better_carry(
+                self.carry,
+                Carry {
+                    load: load * d,
+                    secs: libm::floor(h as f64 * d) as i32,
+                },
+            );
+        }
+    }
+}
+
+/// Hold an estimate under the recent ceiling, and hand back the set that explains
+/// whichever number survives.
+///
+/// The source moves with the number deliberately. `source` answers "which set
+/// produced this?", and once the ceiling binds, the old high set is no longer the
+/// answer — nor is it still worth correcting, since it has already been overruled
+/// by more recent work.
+fn under_ceiling(
+    est: Option<f64>,
+    src: Option<Source>,
+    ceiling: Option<f64>,
+    ceiling_src: Option<Source>,
+) -> (Option<f64>, Option<Source>) {
+    match (est, ceiling) {
+        (Some(e), Some(c)) if e > CAP_MULTIPLE * c => (Some(CAP_MULTIPLE * c), ceiling_src),
+        _ => (est, src),
+    }
+}
+
+/// The same ceiling for a carry, applied to each half. Both are capped because
+/// both are prescribed from: a carry held to its recent weight but not its recent
+/// duration would still ask for a walk nobody has taken.
+fn carry_under_ceiling(carry: Option<Carry>, ceiling: Option<Carry>) -> Option<Carry> {
+    match (carry, ceiling) {
+        (Some(c), Some(k)) => Some(Carry {
+            load: c.load.min(CAP_MULTIPLE * k.load),
+            secs: c.secs.min(libm::floor(CAP_MULTIPLE * k.secs as f64) as i32),
+        }),
+        _ => carry,
+    }
+}
+
 /// Estimate ability for every exercise present in `history`. Exercises absent
 /// from the returned map have never been trained → treat as `Confidence::None`.
 pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> BTreeMap<i64, Ability> {
@@ -208,20 +361,34 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         cut
     };
 
-    let mut e1rm = None;
-    let mut best_reps = None;
-    let mut best_hold = None;
-    let mut carry: Option<Carry> = None;
-    let mut recent_days: BTreeSet<_> = BTreeSet::new();
-    // The set behind each max, updated in lockstep with it.
-    let (mut e1rm_src, mut reps_src, mut hold_src) = (None, None, None);
-    let source_of = |s: &SetRec| Source {
-        set_id: s.id,
-        logged_at: s.logged_at,
-        load_kg: s.load_kg,
-        reps: s.reps,
-        hold_s: s.hold_s,
+    // The newest `CAP_SESSIONS` training days inside the block — the window the
+    // ceiling reads. Days rather than sets: five sets in one session are one piece
+    // of evidence about today's ceiling, not five, and counting sets would let a
+    // single high-volume day stand in for the run of sessions this is meant to see.
+    let cap_cut: Option<NaiveDate> = {
+        let mut days: Vec<NaiveDate> = Vec::new();
+        for s in &sets {
+            if block_cut.is_some_and(|c| s.logged_at < c) {
+                break; // the block edge — older sets describe a different athlete
+            }
+            let day = s.logged_at.date();
+            if days.last() != Some(&day) {
+                days.push(day); // sets run newest-first, so days do too
+            }
+            if days.len() == CAP_SESSIONS {
+                break;
+            }
+        }
+        if days.len() == CAP_SESSIONS {
+            days.last().copied() // the oldest of them — the window's far edge
+        } else {
+            None // fewer sessions is not enough recent evidence to overrule a max
+        }
     };
+
+    let mut all = Bests::default();
+    let mut recent = Bests::default();
+    let mut recent_days: BTreeSet<_> = BTreeSet::new();
 
     for s in &sets {
         // Confidence sees every recent set; the estimate only the block.
@@ -233,46 +400,20 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         }
         let age = (now - s.logged_at).num_seconds().max(0) as f64 / 86_400.0;
         let d = decay(age);
-        match (s.load_kg, s.reps, s.hold_s) {
-            // Weighted: load + reps → an e1RM estimate.
-            (Some(load), Some(reps), _) => {
-                let v = epley(load, reps, s.rpe) * d;
-                if e1rm.is_none_or(|m: f64| v > m) {
-                    e1rm_src = Some(source_of(s));
-                }
-                e1rm = max_opt(e1rm, v);
-            }
-            // Bodyweight reps: reps, no load → effective-rep estimate.
-            (None, Some(reps), _) => {
-                let v = (reps as f64 + rir(s.rpe)) * d;
-                if best_reps.is_none_or(|m: f64| v > m) {
-                    reps_src = Some(source_of(s));
-                }
-                best_reps = max_opt(best_reps, v);
-            }
-            _ => {}
-        }
-        // A hold set (isometric) carries hold_s regardless of the above.
-        if let Some(h) = s.hold_s {
-            let v = h as f64 * d;
-            if best_hold.is_none_or(|m: f64| v > m) {
-                hold_src = Some(source_of(s));
-            }
-            best_hold = max_opt(best_hold, v);
-        }
-        // A loaded carry: weight *and* time. Both decay, so idleness pulls the
-        // estimate down as one — it can't quietly keep the weight while forgetting
-        // the duration, or the reverse.
-        if let (Some(load), Some(h)) = (s.load_kg, s.hold_s) {
-            carry = better_carry(
-                carry,
-                Carry {
-                    load: load * d,
-                    secs: libm::floor(h as f64 * d) as i32,
-                },
-            );
+        all.feed(s, d);
+        if cap_cut.is_some_and(|c| s.logged_at.date() >= c) {
+            recent.feed(s, d);
         }
     }
+
+    // The ceiling is built from the *decayed* estimates, same as the max it caps.
+    // That is what keeps ability monotone under idleness: as an exercise sits, every
+    // term on both sides falls, so neither the estimate nor its ceiling can rise,
+    // and a `min` of two non-increasing numbers is non-increasing.
+    let (e1rm, e1rm_src) = under_ceiling(all.e1rm, all.e1rm_src, recent.e1rm, recent.e1rm_src);
+    let (best_reps, reps_src) = under_ceiling(all.reps, all.reps_src, recent.reps, recent.reps_src);
+    let (best_hold, hold_src) = under_ceiling(all.hold, all.hold_src, recent.hold, recent.hold_src);
+    let carry = carry_under_ceiling(all.carry, recent.carry);
 
     let sessions_recent = recent_days.len() as i32;
     let confidence = if sessions_recent >= HIGH_SESSIONS {
