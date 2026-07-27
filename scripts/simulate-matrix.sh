@@ -36,6 +36,14 @@ URL="mysql://coach:coach@127.0.0.1:${PORT}/coach"
 # one at a time against a fixed other isolates which axis a finding belongs to,
 # and the handful of crosses at the end are the combinations that plausibly
 # interact (a novice who also skips; an injury you sleep badly through).
+#
+# A probe can name its own: once a finding is localised to two or three cells,
+# re-running the other twelve to see them not move is minutes spent confirming
+# what the last run already said.
+#
+#   CELLS="injured:compliant:untracked novice:compliant:untracked" \
+#     OUT=.dev/probe ./scripts/simulate-matrix.sh
+override="${CELLS:-}"
 CELLS=(
   # the ability axis, with a compliant athlete
   improver:compliant:untracked
@@ -56,6 +64,12 @@ CELLS=(
   injured:compliant:roughweek
   strong:overachiever:untracked
 )
+if [ -n "$override" ]; then
+  # Word-split on purpose: the override is a space-separated list of the same
+  # "athlete:behaviour:recovery" triples.
+  # shellcheck disable=SC2206
+  CELLS=($override)
+fi
 
 mkdir -p "$OUT"
 

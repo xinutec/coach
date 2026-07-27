@@ -740,104 +740,112 @@ async fn main() -> Result<()> {
         );
         let verdict = engine::evaluate(&inp, now);
 
-        let train = verdict.state == PacingState::Active
-            && verdict
+        // A labelled block rather than `continue`, so that a rest day or a no-show
+        // skips the *session* without also skipping the end-of-week report below.
+        // What the engine believes is true of the week whether or not the athlete
+        // turned up — and with `continue` here, an athlete whose skip pattern
+        // happened to land on the reporting day produced a trace with no accuracy
+        // rows at all, which is how both `skipper` cells went unmeasured.
+        'session: {
+            let train = verdict.state == PacingState::Active
+                && verdict
+                    .plan
+                    .iter()
+                    .any(|s| s.kind != SuggestionKind::Warmup);
+            if !train {
+                println!("{date}  w{week}  {:?} — rest{ready_tag}", verdict.state);
+                break 'session;
+            }
+            if !behaviour.attends(d) {
+                away += 1;
+                println!("{date}  w{week}  Active — but the athlete didn't come in{ready_tag}");
+                break 'session;
+            }
+
+            sessions += 1;
+            let work: Vec<&Suggestion> = verdict
                 .plan
                 .iter()
-                .any(|s| s.kind != SuggestionKind::Warmup);
-        if !train {
-            println!("{date}  w{week}  {:?} — rest{ready_tag}", verdict.state);
-            continue;
-        }
-        if !behaviour.attends(d) {
-            away += 1;
-            println!("{date}  w{week}  Active — but the athlete didn't come in{ready_tag}");
-            continue;
-        }
-
-        sessions += 1;
-        let work: Vec<&Suggestion> = verdict
-            .plan
-            .iter()
-            .filter(|s| s.kind != SuggestionKind::Warmup)
-            .collect();
-        let doing = behaviour.cards_done(work.len());
-        println!(
-            "{date}  w{week}  Active — training ({} warm-up items, {} work/assess{}){ready_tag}",
-            verdict.plan.len() - work.len(),
-            work.len(),
-            if doing < work.len() {
-                format!(", leaving after {doing}")
-            } else {
-                String::new()
-            }
-        );
-
-        let mut t = date.and_hms_opt(SESSION_HOUR, 10, 0).unwrap();
-        for s in work.iter().take(doing) {
-            if s.kind == SuggestionKind::Assess {
-                assess_cards += 1;
-            }
-            touched.insert(s.exercise_id);
-            let metric = metric_of
-                .get(&s.exercise_id)
-                .copied()
-                .unwrap_or(Metric::Reps);
-            let truth = athlete.truth(s.exercise_id, opening.get(&s.exercise_id), week);
-            let p = perform(
-                s,
-                truth,
-                metric,
-                inp.exercise_loads.get(&s.exercise_id),
-                behaviour,
-            );
-            for _ in 0..s.sets {
-                hist.push(SetRec {
-                    // Simulated sets are never written back, so a real row id
-                    // would be a fiction; they only need to not collide.
-                    id: -(sets_logged as i64 + 1),
-                    exercise_id: s.exercise_id,
-                    logged_at: t,
-                    reps: p.reps,
-                    load_kg: p.load_kg,
-                    hold_s: p.hold_s,
-                    rpe: None,
-                });
-                t += Duration::minutes(SET_GAP_MIN);
-                sets_logged += 1;
-            }
-            if p.missed {
-                misses += 1;
-            }
-            let name = name_of
-                .get(&s.exercise_id)
-                .cloned()
-                .unwrap_or_else(|| s.exercise_name.clone());
+                .filter(|s| s.kind != SuggestionKind::Warmup)
+                .collect();
+            let doing = behaviour.cards_done(work.len());
             println!(
-                "    {:<7} {} ({})  {} set(s): {}{}",
-                format!("{:?}", s.kind),
-                name,
-                s.group,
-                s.sets,
-                p.note,
-                if p.missed { "  MISS" } else { "" }
+                "{date}  w{week}  Active — training ({} warm-up items, {} work/assess{}){ready_tag}",
+                verdict.plan.len() - work.len(),
+                work.len(),
+                if doing < work.len() {
+                    format!(", leaving after {doing}")
+                } else {
+                    String::new()
+                }
             );
-        }
-        for s in work.iter().skip(doing) {
-            abandoned += 1;
-            println!(
-                "    {:<7} {} ({})  {} set(s): not done — athlete left",
-                format!("{:?}", s.kind),
-                name_of
+
+            let mut t = date.and_hms_opt(SESSION_HOUR, 10, 0).unwrap();
+            for s in work.iter().take(doing) {
+                if s.kind == SuggestionKind::Assess {
+                    assess_cards += 1;
+                }
+                touched.insert(s.exercise_id);
+                let metric = metric_of
+                    .get(&s.exercise_id)
+                    .copied()
+                    .unwrap_or(Metric::Reps);
+                let truth = athlete.truth(s.exercise_id, opening.get(&s.exercise_id), week);
+                let p = perform(
+                    s,
+                    truth,
+                    metric,
+                    inp.exercise_loads.get(&s.exercise_id),
+                    behaviour,
+                );
+                for _ in 0..s.sets {
+                    hist.push(SetRec {
+                        // Simulated sets are never written back, so a real row id
+                        // would be a fiction; they only need to not collide.
+                        id: -(sets_logged as i64 + 1),
+                        exercise_id: s.exercise_id,
+                        logged_at: t,
+                        reps: p.reps,
+                        load_kg: p.load_kg,
+                        hold_s: p.hold_s,
+                        rpe: None,
+                    });
+                    t += Duration::minutes(SET_GAP_MIN);
+                    sets_logged += 1;
+                }
+                if p.missed {
+                    misses += 1;
+                }
+                let name = name_of
                     .get(&s.exercise_id)
                     .cloned()
-                    .unwrap_or_else(|| s.exercise_name.clone()),
-                s.group,
-                s.sets
-            );
-        }
-        for n in &verdict.notices {
-            println!("    (note) {n}");
+                    .unwrap_or_else(|| s.exercise_name.clone());
+                println!(
+                    "    {:<7} {} ({})  {} set(s): {}{}",
+                    format!("{:?}", s.kind),
+                    name,
+                    s.group,
+                    s.sets,
+                    p.note,
+                    if p.missed { "  MISS" } else { "" }
+                );
+            }
+            for s in work.iter().skip(doing) {
+                abandoned += 1;
+                println!(
+                    "    {:<7} {} ({})  {} set(s): not done — athlete left",
+                    format!("{:?}", s.kind),
+                    name_of
+                        .get(&s.exercise_id)
+                        .cloned()
+                        .unwrap_or_else(|| s.exercise_name.clone()),
+                    s.group,
+                    s.sets
+                );
+            }
+            for n in &verdict.notices {
+                println!("    (note) {n}");
+            }
         }
 
         // End of a sim week: how far apart are the engine's belief and the truth?
