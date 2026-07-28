@@ -12,6 +12,7 @@ pub mod location;
 pub mod muscle;
 pub mod nextcloud;
 pub mod pacing;
+pub mod pending_login;
 pub mod routes;
 pub mod seed;
 pub mod session;
