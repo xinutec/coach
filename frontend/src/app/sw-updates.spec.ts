@@ -16,7 +16,17 @@ function setup(isEnabled: boolean) {
   return { svc, versionUpdates, checkForUpdate, apply };
 }
 
-const ready = { type: 'VERSION_READY' } as VersionEvent;
+// Built whole rather than asserted from a `{ type }` stub: `as VersionEvent`
+// silences the compiler about the fields Angular really sends, so the day the
+// service reads one of them the test still passes on a shape the browser never
+// produces.
+const ready: VersionEvent = {
+  type: 'VERSION_READY',
+  currentVersion: { hash: 'old' },
+  latestVersion: { hash: 'new' },
+};
+const detected: VersionEvent = { type: 'VERSION_DETECTED', version: { hash: 'new' } };
+const noUpdate: VersionEvent = { type: 'NO_NEW_VERSION_DETECTED', version: { hash: 'old' } };
 
 function setVisibility(state: 'visible' | 'hidden') {
   Object.defineProperty(document, 'visibilityState', { value: state, configurable: true });
@@ -49,8 +59,8 @@ describe('SwUpdates', () => {
   it('ignores version events other than VERSION_READY', () => {
     const { svc, versionUpdates, apply } = setup(true);
     svc.start();
-    versionUpdates.next({ type: 'VERSION_DETECTED' } as VersionEvent);
-    versionUpdates.next({ type: 'NO_NEW_VERSION_DETECTED' } as VersionEvent);
+    versionUpdates.next(detected);
+    versionUpdates.next(noUpdate);
     expect(apply).not.toHaveBeenCalled();
   });
 

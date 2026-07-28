@@ -10,6 +10,7 @@ import { RouterLink } from "@angular/router";
 import { BUILD_INFO } from "../../build-info";
 import { CoachApi } from "../../coach-api";
 import type { Settings } from "../../models";
+import { isRecord } from "../../shared/narrow";
 import { SwUpdates } from "../../sw-updates";
 
 /** The native bridge the Android wrapper injects as `window.CoachAndroid`. Its
@@ -21,11 +22,17 @@ interface CoachAndroidBridge {
 	setupReminders(): void;
 	disableReminders(): void;
 }
+// Declared on Window rather than asserted at the read. An ambient declaration is
+// what a foreign API contract is *for*: it says the shape once, in one place, so
+// the reads are ordinary typed property accesses instead of a cast each site has
+// to get right.
+declare global {
+	interface Window {
+		CoachAndroid?: CoachAndroidBridge;
+	}
+}
 function coachAndroid(): CoachAndroidBridge | null {
-	return (
-		(window as unknown as { CoachAndroid?: CoachAndroidBridge }).CoachAndroid ??
-		null
-	);
+	return window.CoachAndroid ?? null;
 }
 
 @Component({
@@ -83,12 +90,10 @@ export class SettingsPage {
 		this.isAndroid.set(bridge !== null);
 		if (bridge === null) return;
 		try {
-			const status = JSON.parse(bridge.remindersStatus()) as {
-				hasHome?: boolean;
-				armed?: boolean;
-			};
-			this.remindersHasHome.set(status.hasHome === true);
-			this.remindersArmed.set(status.armed === true);
+			const status: unknown = JSON.parse(bridge.remindersStatus());
+			if (!isRecord(status)) return;
+			this.remindersHasHome.set(status["hasHome"] === true);
+			this.remindersArmed.set(status["armed"] === true);
 		} catch {
 			// Bridge returned something unexpected — leave the defaults.
 		}

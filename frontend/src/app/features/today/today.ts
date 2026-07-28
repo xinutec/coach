@@ -16,6 +16,7 @@ import type {
 	Substitution,
 	Suggestion,
 } from "../../models";
+import { numberField, stringField } from "../../shared/narrow";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
 import { LogSheet, type LogPrefill, type LogSheetData } from "../log/log-sheet";
@@ -91,11 +92,11 @@ export class Today {
 		try {
 			const raw = localStorage.getItem("coach.pickedLocation");
 			if (!raw) return null;
-			const parsed: unknown = JSON.parse(raw);
-			if (typeof parsed !== "object" || parsed === null) return null;
-			const pick = parsed as Record<string, unknown>;
-			if (typeof pick["id"] !== "number" || typeof pick["day"] !== "string") return null;
-			return pick["day"] === new Date().toDateString() ? pick["id"] : null;
+			const pick: unknown = JSON.parse(raw);
+			const id = numberField(pick, "id");
+			const day = stringField(pick, "day");
+			if (id === null || day === null) return null;
+			return day === new Date().toDateString() ? id : null;
 		} catch {
 			return null;
 		}

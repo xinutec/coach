@@ -25,6 +25,14 @@ export default tseslint.config(
     processor: angular.processInlineTemplates,
     rules: {
       "@angular-eslint/component-max-inline-declarations": ["error", { template: 0, styles: 0 }],
+      // `x as Shape` is a claim, not a check — and it is the one hole in the
+      // otherwise-total protection against "[object Object]" reaching the
+      // screen. dev-lint's DL-ANGULAR-STRINGIFIED-OBJECT types every template
+      // expression honestly, so it can only be fooled by a type we manufactured
+      // ourselves: the log sheet asserted an HTTP error body into
+      // `{ error?: { error?: string } }` and rendered the result, and no layer
+      // could see it. Narrow at the boundary instead — src/app/shared/narrow.ts.
+      "@typescript-eslint/no-unsafe-type-assertion": "error",
       "@typescript-eslint/no-empty-function": "off",
     },
   },
