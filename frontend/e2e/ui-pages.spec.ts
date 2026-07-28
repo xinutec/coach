@@ -20,6 +20,38 @@ import {
  */
 test.use({ serviceWorkers: "block" });
 
+/**
+ * Raw values that reached the screen instead of being turned into something a
+ * human reads. `{{ someObject }}` is NOT a compile error: Angular accepts any
+ * expression in an interpolation and calls String() on it — verified by
+ * interpolating a `GroupBalance[]` into a template and watching `ngc
+ * --strictTemplates` pass clean — and angular-eslint's template rules are not
+ * type-aware, so nothing between the editor and the browser can see it. The .ts
+ * side IS covered (typescript-eslint's no-base-to-string and
+ * restrict-template-expressions catch `${obj}` and String(obj)), which leaves
+ * templates, and leaves this: the rendered DOM, where the leak is unambiguous.
+ *
+ * `NaN` catches the arithmetic version of the same failure — a division by a
+ * missing denominator painted as a number.
+ */
+const LEAKED = /\[object Object\]|\bNaN\b|\bundefined\b/;
+
+/** After EVERY test in this file, not at each assertion point — a check you have
+ *  to remember to call is one that stops covering new screens the day it's
+ *  written. This costs one page.evaluate per test and covers whatever the test
+ *  happened to render. */
+test.afterEach(async ({ page }) => {
+	if (page.isClosed()) return;
+	const leaks = await page.evaluate((src: string) => {
+		const re = new RegExp(src);
+		return (document.body.innerText || "")
+			.split("\n")
+			.map((l) => l.trim())
+			.filter((l) => re.test(l));
+	}, LEAKED.source);
+	expect(leaks, "a raw value was painted on screen").toEqual([]);
+});
+
 const ME = { userId: "test", displayName: "Test User", avatarUrl: "" };
 
 const SETTINGS = {
@@ -253,6 +285,30 @@ const PACING = {
 	notices: ["No weights registered here for Kettlebell — I've left its exercises out rather than guess a load."],
 };
 
+// GET /api/exercises/6 — the library sheet's own fetch. The catch-all answers it
+// with `[]`, which is not an ExerciseDetail, so the sheet needs its own mock.
+const DETAIL = {
+	id: 6,
+	slug: "ring_dip",
+	name: "Ring dip",
+	variation: null,
+	pattern: "push",
+	metric: "reps",
+	position: null,
+	unilateral: false,
+	isActive: true,
+	cue: "Rings turned out at the top, elbows in.",
+	demoUrl: null,
+	summary: null,
+	difficulty: 3,
+	hasImage: false,
+	equipment: [{ id: 2, slug: "gymnastic_rings", name: "Gymnastic rings", category: "rig", loadable: false }],
+	muscles: [
+		{ slug: "pec_major", name: "Pectoralis major", group: "Chest", region: "chest", role: "primary" },
+		{ slug: "triceps", name: "Triceps", group: "Triceps", region: "arms", role: "secondary" },
+	],
+};
+
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers
  *  last-registered-first, so the specific routes below win. */
 async function mockApi(page: Page): Promise<void> {
@@ -328,6 +384,38 @@ test("library — exercise cards render clean @ phone", async ({
 	await expectNoTextOverlaps(page, testInfo);
 	await expectNoHorizontalOverflow(page, testInfo);
 	await expectNoOccludedControls(page, testInfo);
+});
+
+const SHEET = ".mat-bottom-sheet-container";
+
+// The two bottom sheets are the app's other half — every number the athlete
+// actually types or reads mid-set is in one of them — and no page-level test
+// opens either, so nothing (including the leaked-value check above) has ever
+// looked at them.
+test("log sheet — the fields the athlete types into render clean @ phone", async ({
+	page,
+}, testInfo) => {
+	await mockApi(page);
+	await page.goto("/today");
+	await page.locator(".add-fab").click();
+	await page.getByRole("button", { name: /^Log set$/ }).waitFor();
+	// Scoped to the sheet: an open bottom sheet is painted OVER the nav, so the
+	// nav's labels sit under an opaque surface. Unscoped, the harness reads that
+	// as "Note (optional)" colliding with "Today" — a collision no eye can see.
+	await expectNoTextOverlaps(page, testInfo, SHEET);
+	await expectNoHorizontalOverflow(page, testInfo, SHEET);
+});
+
+test("exercise sheet — the library detail renders clean @ phone", async ({
+	page,
+}, testInfo) => {
+	await mockApi(page);
+	await page.route("**/api/exercises/6", (r) => r.fulfill({ json: DETAIL }));
+	await page.goto("/library");
+	await page.getByText("Ring dip").click();
+	await page.getByText("Pectoralis major").waitFor();
+	await expectNoTextOverlaps(page, testInfo, SHEET);
+	await expectNoHorizontalOverflow(page, testInfo, SHEET);
 });
 
 test("locations — location card + kit chips render clean @ phone", async ({

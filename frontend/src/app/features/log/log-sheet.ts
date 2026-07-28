@@ -29,6 +29,27 @@ export interface LogSheetData {
   onLogged?: () => void;
 }
 
+/** The server's error body is `{"error": "..."}` (src/error.rs) — but a failure
+ *  can also come from the ingress or the network, where the body is HTML, a
+ *  differently-shaped JSON, or nothing at all. So read the message rather than
+ *  assert it: `err as { error?: { error?: string } }` is a claim the compiler
+ *  cannot check, and anything that isn't a string smuggled through it renders on
+ *  the sheet as "[object Object]" — the athlete is told nothing, twice over. */
+function serverMessage(err: unknown): string | null {
+  if (typeof err !== "object" || err === null) return null;
+  const body: unknown = (err as { error?: unknown }).error;
+  if (typeof body !== "object" || body === null) return null;
+  const msg: unknown = (body as { error?: unknown }).error;
+  return typeof msg === "string" && msg !== "" ? msg : null;
+}
+
+/** Likewise the HTTP status: read it, don't assert it. */
+function statusOf(err: unknown): number | null {
+  if (typeof err !== "object" || err === null) return null;
+  const status: unknown = (err as { status?: unknown }).status;
+  return typeof status === "number" ? status : null;
+}
+
 /** Fast "log a set" bottom sheet. Fields shown adapt to the exercise's metric.
  *
  *  The sheet stays open across sets: sets come in runs, and a sheet that
@@ -147,11 +168,10 @@ export class LogSheet {
         },
         error: (err: unknown) => {
           this.saving.set(false);
-          const e = err as { status?: number; error?: { error?: string } };
-          const msg = e.error?.error;
+          const msg = serverMessage(err);
           // 409 is the load-plausibility query, not a refusal: keep the typed
           // numbers exactly as they are and let him answer it.
-          if (e.status === 409 && msg) {
+          if (statusOf(err) === 409 && msg) {
             this.confirmLoad.set(msg);
             return;
           }
