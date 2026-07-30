@@ -78,6 +78,26 @@ row_id!(
      correct."
 );
 
+/// The flat `workout_sets` columns a checked set writes to. Named rather than a
+/// tuple because four same-shaped `Option`s in a row is exactly the arrangement
+/// this module exists to stop people getting wrong.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Columns {
+    pub reps: Option<i32>,
+    pub load_kg: Option<f64>,
+    pub hold_s: Option<i32>,
+    pub distance_m: Option<i32>,
+}
+
+impl Columns {
+    const EMPTY: Self = Columns {
+        reps: None,
+        load_kg: None,
+        hold_s: None,
+        distance_m: None,
+    };
+}
+
 /// A set that has been checked against its exercise's metric — the only shape
 /// the log is written from.
 ///
@@ -97,10 +117,24 @@ row_id!(
 /// lose a real set.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LoggedSet {
-    Reps { reps: i32 },
-    WeightedReps { reps: i32, load_kg: Option<f64> },
-    Hold { hold_s: i32 },
-    WeightedHold { hold_s: i32, load_kg: Option<f64> },
+    Reps {
+        reps: i32,
+    },
+    WeightedReps {
+        reps: i32,
+        load_kg: Option<f64>,
+    },
+    Hold {
+        hold_s: i32,
+    },
+    WeightedHold {
+        hold_s: i32,
+        load_kg: Option<f64>,
+    },
+    WeightedDistance {
+        distance_m: i32,
+        load_kg: Option<f64>,
+    },
 }
 
 /// Value ceilings no honest set exceeds — plausibility, not policy. Generous on
@@ -111,6 +145,8 @@ pub enum LoggedSet {
 const MAX_REPS: i32 = 100;
 const MAX_HOLD_S: i32 = 600;
 const MAX_LOAD_KG: f64 = 300.0;
+/// A carry is a set, not an outing: past this it is a walk with the shopping.
+const MAX_DISTANCE_M: i32 = 500;
 
 impl LoggedSet {
     /// Build the one shape `metric` allows from what the client sent, or say
@@ -120,16 +156,18 @@ impl LoggedSet {
         reps: Option<i32>,
         load_kg: Option<f64>,
         hold_s: Option<i32>,
+        distance_m: Option<i32>,
     ) -> Result<Self, &'static str> {
         // Which fields this metric has anything to say with. A field outside them
         // is refused rather than dropped: a client sending a load for a bodyweight
         // drill is wrong about something, and silently storing the honest part
         // hides that.
-        let (load_ok, reps_ok, hold_ok) = match metric {
-            Metric::Reps => (false, true, false),
-            Metric::WeightedReps => (true, true, false),
-            Metric::Hold => (false, false, true),
-            Metric::WeightedHold => (true, false, true),
+        let (load_ok, reps_ok, hold_ok, dist_ok) = match metric {
+            Metric::Reps => (false, true, false, false),
+            Metric::WeightedReps => (true, true, false, false),
+            Metric::Hold => (false, false, true, false),
+            Metric::WeightedHold => (true, false, true, false),
+            Metric::WeightedDistance => (true, false, false, true),
         };
         if load_kg.is_some() && !load_ok {
             return Err("this exercise takes no load");
@@ -140,6 +178,9 @@ impl LoggedSet {
         if hold_s.is_some() && !hold_ok {
             return Err("this exercise is measured in reps, not seconds");
         }
+        if distance_m.is_some() && !dist_ok {
+            return Err("this exercise is not measured in metres");
+        }
         if reps.is_some_and(|r| !(1..=MAX_REPS).contains(&r)) {
             return Err("reps must be between 1 and 100");
         }
@@ -149,10 +190,14 @@ impl LoggedSet {
         if load_kg.is_some_and(|l| !(l > 0.0 && l <= MAX_LOAD_KG)) {
             return Err("load must be between 0 and 300 kg");
         }
+        if distance_m.is_some_and(|m| !(1..=MAX_DISTANCE_M).contains(&m)) {
+            return Err("distance must be between 1 and 500 m");
+        }
         // The measurement itself is not optional: "a set" with no reps and no
         // seconds records that something happened and nothing about what.
         const NEEDS_REPS: &str = "how many reps?";
         const NEEDS_SECONDS: &str = "how many seconds?";
+        const NEEDS_METRES: &str = "how far?";
         Ok(match metric {
             Metric::Reps => LoggedSet::Reps {
                 reps: reps.ok_or(NEEDS_REPS)?,
@@ -168,17 +213,43 @@ impl LoggedSet {
                 hold_s: hold_s.ok_or(NEEDS_SECONDS)?,
                 load_kg,
             },
+            Metric::WeightedDistance => LoggedSet::WeightedDistance {
+                distance_m: distance_m.ok_or(NEEDS_METRES)?,
+                load_kg,
+            },
         })
     }
 
     /// The set as the flat `workout_sets` columns hold it. The schema is three
     /// nullable columns, so exactly one place converts, and this is it.
-    pub fn columns(self) -> (Option<i32>, Option<f64>, Option<i32>) {
+    pub fn columns(self) -> Columns {
         match self {
-            LoggedSet::Reps { reps } => (Some(reps), None, None),
-            LoggedSet::WeightedReps { reps, load_kg } => (Some(reps), load_kg, None),
-            LoggedSet::Hold { hold_s } => (None, None, Some(hold_s)),
-            LoggedSet::WeightedHold { hold_s, load_kg } => (None, load_kg, Some(hold_s)),
+            LoggedSet::Reps { reps } => Columns {
+                reps: Some(reps),
+                ..Columns::EMPTY
+            },
+            LoggedSet::WeightedReps { reps, load_kg } => Columns {
+                reps: Some(reps),
+                load_kg,
+                ..Columns::EMPTY
+            },
+            LoggedSet::Hold { hold_s } => Columns {
+                hold_s: Some(hold_s),
+                ..Columns::EMPTY
+            },
+            LoggedSet::WeightedHold { hold_s, load_kg } => Columns {
+                hold_s: Some(hold_s),
+                load_kg,
+                ..Columns::EMPTY
+            },
+            LoggedSet::WeightedDistance {
+                distance_m,
+                load_kg,
+            } => Columns {
+                distance_m: Some(distance_m),
+                load_kg,
+                ..Columns::EMPTY
+            },
         }
     }
 }
@@ -273,12 +344,20 @@ pub enum Metric {
     /// progression is the same double-progression shape as a weighted lift, with
     /// seconds where the reps go: climb the time, then step the weight.
     WeightedHold,
+    /// A loaded carry measured by **distance**: weight and metres. The other
+    /// half of what a carry can be — and the half the athlete actually does. His
+    /// farmer's walks were logged as a fixed 10 m carried heavier over weeks,
+    /// which had nowhere to live: the importer put the distance in the reps
+    /// column, where the ability model read it as reps and derived a one-rep-max
+    /// from it. Same double progression, with metres where the seconds go.
+    WeightedDistance,
 }
 db_str!(Metric {
     Reps => "reps",
     WeightedReps => "weighted_reps",
     Hold => "hold",
     WeightedHold => "weighted_hold",
+    WeightedDistance => "weighted_distance",
 });
 
 /// The high-level training intent the engine optimises for — "what am I aiming

@@ -415,6 +415,7 @@ struct Performed {
     reps: Option<i32>,
     load_kg: Option<f64>,
     hold_s: Option<i32>,
+    distance_m: Option<i32>,
     note: String,
     missed: bool,
 }
@@ -455,6 +456,7 @@ fn perform(
                 reps: Some(did),
                 load_kg: Some(load),
                 hold_s: None,
+                distance_m: None,
                 note: format!(
                     "asked {ask} @ {load} kg, did {did}{}",
                     swapped(asked_load, load)
@@ -469,6 +471,7 @@ fn perform(
                 reps: Some(did),
                 load_kg: None,
                 hold_s: None,
+                distance_m: None,
                 note: format!("asked {ask}, did {did}"),
                 missed: did < ask,
             }
@@ -486,6 +489,7 @@ fn perform(
                 reps: None,
                 load_kg: Some(load),
                 hold_s: Some(did),
+                distance_m: None,
                 note: format!(
                     "asked {ask}s @ {load} kg, did {did}s{}",
                     swapped(asked_load, load)
@@ -500,6 +504,7 @@ fn perform(
                 reps: None,
                 load_kg: None,
                 hold_s: Some(did),
+                distance_m: None,
                 note: format!("asked {ask}s, did {did}s"),
                 missed: did < ask,
             }
@@ -521,6 +526,7 @@ fn perform(
                 reps: Some(reps),
                 load_kg: Some(load),
                 hold_s: None,
+                distance_m: None,
                 note: format!("built up to {reps} @ {load} kg"),
                 missed: false,
             }
@@ -533,7 +539,42 @@ fn perform(
                 reps: None,
                 load_kg: Some(start),
                 hold_s: Some(secs),
+                distance_m: None,
                 note: format!("carried {start} kg for {secs}s"),
+                missed: false,
+            }
+        }
+        // A distance carry: the asked metres at the given weight, capacity
+        // scaling with how far the weight is from the true one — the metre twin
+        // of the timed carry above.
+        Ask::WeightedDistance {
+            load_kg: asked_load,
+            distance_m: ask,
+        } => {
+            let load = behaviour.load_used(asked_load, loads);
+            let cap = ((truth.carry.1 as f64 * truth.carry.0 / load / 3.0).floor() as i32).max(5);
+            let did = behaviour.hold_target(ask).min(cap);
+            Performed {
+                reps: None,
+                load_kg: Some(load),
+                hold_s: None,
+                distance_m: Some(did),
+                note: format!(
+                    "asked {ask} m @ {load} kg, did {did} m{}",
+                    swapped(asked_load, load)
+                ),
+                missed: did < ask,
+            }
+        }
+        Ask::LoadedDistance { start_kg: start } => {
+            let metres =
+                ((truth.carry.1 as f64 * truth.carry.0 / start / 3.0).floor() as i32).clamp(5, 60);
+            Performed {
+                reps: None,
+                load_kg: Some(start),
+                hold_s: None,
+                distance_m: Some(metres),
+                note: format!("carried {start} kg for {metres} m"),
                 missed: false,
             }
         }
@@ -541,6 +582,7 @@ fn perform(
             reps: None,
             load_kg: None,
             hold_s: Some(truth.hold_s),
+            distance_m: None,
             note: format!("max hold {}s", truth.hold_s),
             missed: false,
         },
@@ -548,6 +590,7 @@ fn perform(
             reps: Some(truth.reps),
             load_kg: None,
             hold_s: None,
+            distance_m: None,
             note: format!("AMRAP {}", truth.reps),
             missed: false,
         },
@@ -631,6 +674,7 @@ async fn main() -> Result<()> {
             reps: w.reps,
             load_kg: w.load_kg,
             hold_s: w.hold_s,
+            distance_m: w.distance_m,
             rpe: w.rpe,
         })
         .collect();
@@ -796,6 +840,7 @@ async fn main() -> Result<()> {
                         reps: p.reps,
                         load_kg: p.load_kg,
                         hold_s: p.hold_s,
+                        distance_m: p.distance_m,
                         rpe: None,
                     });
                     t += Duration::minutes(SET_GAP_MIN);
@@ -870,6 +915,12 @@ async fn main() -> Result<()> {
                         a.and_then(|a| a.carry).map(|c| c.secs).unwrap_or(0),
                         truth.carry.0,
                         truth.carry.1
+                    ),
+                    Some(Metric::WeightedDistance) => format!(
+                        "carry {:.1} kg x {} m (true {:.1})",
+                        a.and_then(|a| a.carry_m).map(|c| c.load).unwrap_or(0.0),
+                        a.and_then(|a| a.carry_m).map(|c| c.metres).unwrap_or(0),
+                        truth.carry.0
                     ),
                     None => String::new(),
                 };

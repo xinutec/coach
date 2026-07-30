@@ -16,7 +16,7 @@ import type {
 	Substitution,
 	Suggestion,
 } from "../../models";
-import { askHoldS, askLoadKg, askRepHigh, askRepLow } from "../../shared/ask";
+import { askDistanceM, askHoldS, askLoadKg, askRepHigh, askRepLow } from "../../shared/ask";
 import { numberField, stringField } from "../../shared/narrow";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
@@ -315,8 +315,10 @@ export class Today {
 		}
 		const loadKg = askLoadKg(s.ask);
 		const holdS = askHoldS(s.ask);
+		const distanceM = askDistanceM(s.ask);
 		if (loadKg !== null) bits.push(`${loadKg} kg`);
 		if (holdS !== null) bits.push(`${holdS}s`);
+		if (distanceM !== null) bits.push(`${distanceM} m`);
 		if (bits.length && this.perSide(s.exerciseId)) bits.push("each side");
 		// A loaded warm-up is a ramp-in on the movement itself, not a mobility
 		// drill — that changes what you do with it, so it survives the shortening.
@@ -348,6 +350,8 @@ export class Today {
 				return `Hold as long as your form stays clean — one honest max.${side}`;
 			case "loadedCarry":
 				return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
+			case "loadedDistance":
+				return `Carry it as far as your form stays clean, then log the weight and the distance — both are the measurement.${side}`;
 			// What happened, not how it felt: the instruction asks for the load and
 			// the reps, never for a self-rating out of ten. See docs/trainer.md.
 			case "buildUp":
@@ -414,6 +418,7 @@ export class Today {
 			reps: askRepLow(s.ask),
 			loadKg: askLoadKg(s.ask),
 			holdS: askHoldS(s.ask),
+			distanceM: askDistanceM(s.ask),
 		}));
 	}
 
@@ -436,6 +441,7 @@ export class Today {
 				reps: askRepLow(source.ask),
 				loadKg: askLoadKg(source.ask),
 				holdS: askHoldS(source.ask),
+				distanceM: askDistanceM(source.ask),
 			};
 		}
 		this.sheet.open(LogSheet, { data });

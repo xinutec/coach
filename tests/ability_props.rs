@@ -36,6 +36,7 @@ fn weighted(raw: &[RawSet]) -> Vec<SetRec> {
             reps: Some(reps),
             load_kg: Some(load),
             hold_s: None,
+            distance_m: None,
             rpe,
         })
         .collect()

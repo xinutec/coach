@@ -64,6 +64,8 @@ pub struct SetRec {
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    /// Metres, for a carry measured by distance.
+    pub distance_m: Option<i32>,
     pub rpe: Option<i32>,
 }
 
@@ -307,6 +309,10 @@ pub enum Ask {
     /// Calibration — carry `start_kg` for as long as form holds; the weight *and*
     /// the time are the measurement.
     LoadedCarry { start_kg: f64 },
+    /// A carry measured by distance: this weight, this far.
+    WeightedDistance { load_kg: f64, distance_m: i32 },
+    /// Calibration — carry `start_kg` as far as form holds, logging both.
+    LoadedDistance { start_kg: f64 },
 }
 
 impl Ask {
@@ -316,8 +322,12 @@ impl Ask {
     /// its load, or a bodyweight one that has acquired a load.
     pub fn load_kg(self) -> Option<f64> {
         match self {
-            Ask::Weighted { load_kg, .. } | Ask::WeightedHold { load_kg, .. } => Some(load_kg),
-            Ask::BuildUp { start_kg, .. } | Ask::LoadedCarry { start_kg } => Some(start_kg),
+            Ask::Weighted { load_kg, .. }
+            | Ask::WeightedHold { load_kg, .. }
+            | Ask::WeightedDistance { load_kg, .. } => Some(load_kg),
+            Ask::BuildUp { start_kg, .. }
+            | Ask::LoadedCarry { start_kg }
+            | Ask::LoadedDistance { start_kg } => Some(start_kg),
             Ask::Bodyweight { .. } | Ask::Hold { .. } | Ask::Amrap | Ask::MaxHold => None,
         }
     }
@@ -332,7 +342,9 @@ impl Ask {
             | Ask::WeightedHold { .. }
             | Ask::Amrap
             | Ask::MaxHold
-            | Ask::LoadedCarry { .. } => None,
+            | Ask::LoadedCarry { .. }
+            | Ask::WeightedDistance { .. }
+            | Ask::LoadedDistance { .. } => None,
         }
     }
 
@@ -345,7 +357,9 @@ impl Ask {
             | Ask::BuildUp { .. }
             | Ask::Amrap
             | Ask::MaxHold
-            | Ask::LoadedCarry { .. } => None,
+            | Ask::LoadedCarry { .. }
+            | Ask::WeightedDistance { .. }
+            | Ask::LoadedDistance { .. } => None,
         }
     }
 
@@ -358,7 +372,9 @@ impl Ask {
             | Ask::WeightedHold { .. }
             | Ask::Amrap
             | Ask::MaxHold
-            | Ask::LoadedCarry { .. } => None,
+            | Ask::LoadedCarry { .. }
+            | Ask::WeightedDistance { .. }
+            | Ask::LoadedDistance { .. } => None,
         }
     }
 }
@@ -380,6 +396,10 @@ impl From<Dose> for Ask {
                 load_kg: load,
                 hold_s: secs,
             },
+            Dose::WeightedDistance { load, metres } => Ask::WeightedDistance {
+                load_kg: load,
+                distance_m: metres,
+            },
         }
     }
 }
@@ -394,6 +414,7 @@ impl From<Measure> for Ask {
             Measure::Amrap => Ask::Amrap,
             Measure::MaxHold => Ask::MaxHold,
             Measure::LoadedCarry { start } => Ask::LoadedCarry { start_kg: start },
+            Measure::LoadedDistance { start } => Ask::LoadedDistance { start_kg: start },
         }
     }
 }

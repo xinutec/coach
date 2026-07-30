@@ -202,6 +202,7 @@ fn estimate_converges_to_true_ability_and_holds() {
             reps: Some(reps),
             load_kg: Some(load),
             hold_s: None,
+            distance_m: None,
             rpe: Some(rpe),
         });
     }
@@ -295,6 +296,7 @@ fn the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe() {
             reps: Some(reps),
             load_kg: Some(load),
             hold_s: None,
+            distance_m: None,
             rpe: None, // the whole point
         });
         loads.push(load);
@@ -357,6 +359,7 @@ fn estimate_tracks_true_ability_as_it_grows() {
             reps: Some(reps),
             load_kg: Some(load),
             hold_s: None,
+            distance_m: None,
             rpe: Some(rpe),
         });
         if let Some(e) = sug.explanation.and_then(|e| e.e1rm) {
@@ -521,6 +524,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
                 reps: Some(reps),
                 load_kg: None,
                 hold_s: None,
+                distance_m: None,
                 rpe: Some(rpe),
             });
         }

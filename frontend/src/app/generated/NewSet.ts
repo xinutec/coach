@@ -3,7 +3,11 @@
 /**
  * Body for POST /api/sets. `loggedAt` defaults to now.
  */
-export type NewSet = { exerciseId: number, reps: number | null, loadKg: number | null, holdS: number | null, rpe: number | null, note: string | null, loggedAt: string | null, 
+export type NewSet = { exerciseId: number, reps: number | null, loadKg: number | null, holdS: number | null, 
+/**
+ * Metres, for a carry measured by distance.
+ */
+distanceM: number | null, rpe: number | null, note: string | null, loggedAt: string | null, 
 /**
  * Set by the client when re-sending a load it was asked to confirm — "yes,
  * I really did lift that". Absent/false on a first attempt, so a surprising

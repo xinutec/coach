@@ -30,6 +30,7 @@ fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
         reps: Some(reps),
         load_kg: Some(load),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }
 }

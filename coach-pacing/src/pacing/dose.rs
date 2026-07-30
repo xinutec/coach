@@ -55,6 +55,12 @@ pub const HOLD_STEP_S: i32 = 5;
 /// carry that has reached the ceiling is asking for more weight, not more walking.
 pub const CARRY_BASE_S: i32 = 30;
 pub const CARRY_TOP_S: i32 = 60;
+/// The same ladder for a carry measured in metres: climb the distance to the
+/// ceiling, then take the next weight and start the distance again. 10 m is the
+/// length he has always walked them, so it is where a fresh carry opens.
+pub const CARRY_BASE_M: i32 = 10;
+pub const CARRY_TOP_M: i32 = 30;
+pub const DISTANCE_STEP_M: i32 = 5;
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
 pub const READINESS_HOLD_BELOW: f64 = 0.40;
@@ -348,6 +354,12 @@ pub enum Dose {
         load: f64,
         secs: i32,
     },
+    /// A carry measured by distance. Same reasoning again — a farmer's walk with
+    /// no weight is not a light one, and one with no distance is not a short one.
+    WeightedDistance {
+        load: f64,
+        metres: i32,
+    },
 }
 
 /// A calibration set — what the engine asks for when it *doesn't* trust its
@@ -367,6 +379,9 @@ pub enum Measure {
     /// — both are the measurement. `start` is a safe opening weight, from a stale
     /// carry when there is one, else the lightest owned.
     LoadedCarry { start: f64 },
+    /// The same, measured in metres: carry `start` as far as form holds and log
+    /// the weight and the distance.
+    LoadedDistance { start: f64 },
 }
 
 /// An ability estimate the engine **trusts enough to prescribe from**.

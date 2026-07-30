@@ -21,9 +21,11 @@ export function askLoadKg(ask: Ask): number | null {
 	switch (ask.kind) {
 		case "weighted":
 		case "weightedHold":
+		case "weightedDistance":
 			return ask.loadKg;
 		case "buildUp":
 		case "loadedCarry":
+		case "loadedDistance":
 			return ask.startKg;
 		default:
 			return null;
@@ -66,4 +68,9 @@ export function askHoldS(ask: Ask): number | null {
 		default:
 			return null;
 	}
+}
+
+/** The metres this ask names, if it is a carry measured by distance. */
+export function askDistanceM(ask: Ask): number | null {
+	return ask.kind === "weightedDistance" ? ask.distanceM : null;
 }

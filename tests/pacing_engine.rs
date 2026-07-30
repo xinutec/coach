@@ -113,6 +113,7 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
         reps: Some(8),
         load_kg: None,
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }
 }
@@ -127,6 +128,7 @@ fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
         reps: Some(reps),
         load_kg: None,
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }
 }
@@ -141,6 +143,7 @@ fn wset(exercise_id: i64, at: NaiveDateTime, load: f64, reps: i32) -> SetRec {
         reps: Some(reps),
         load_kg: Some(load),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }
 }
@@ -1846,6 +1849,7 @@ fn cset(exercise_id: i64, at: NaiveDateTime, load: f64, secs: i32) -> SetRec {
         reps: None,
         load_kg: Some(load),
         hold_s: Some(secs),
+        distance_m: None,
         rpe: None,
     }
 }
@@ -3095,4 +3099,137 @@ fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
         led.consecutive_misses, 1,
         "no biometrics is not an excuse the coach invents on his behalf"
     );
+}
+
+// ---- carries measured in metres (weighted_distance) -------------------------
+//
+// The distance carry is the metre twin of the timed one, and its ladder is the
+// same shape: hold the weight and climb the distance, then take the next weight
+// up and start the distance again. These assert the ladder rather than the
+// wording, so they read the `Ask` the engine actually produced.
+
+/// A carry logged at `metres` under `load`, `days_ago`.
+fn carry_set(exercise_id: i64, days_ago: i64, load: f64, metres: i32) -> SetRec {
+    SetRec {
+        id: SetId(0),
+        exercise_id: ExerciseId(exercise_id),
+        logged_at: days_ago_dt(days_ago),
+        reps: None,
+        load_kg: Some(load),
+        hold_s: None,
+        distance_m: Some(metres),
+        rpe: None,
+    }
+}
+
+fn days_ago_dt(d: i64) -> NaiveDateTime {
+    days_ago(d)
+}
+
+/// A distance carry on Lats, doable with kit 3, with a rack of bells.
+fn carry_catalog() -> Vec<ExerciseInfo> {
+    vec![ex(
+        5,
+        "Farmers walk",
+        Pattern::Pull,
+        Metric::WeightedDistance,
+        false,
+        vec![3],
+        vec![(20, MuscleRole::Primary)],
+    )]
+}
+
+fn carry_input(history: Vec<SetRec>) -> PacingInput {
+    PacingInput {
+        groups: back_only(),
+        exercise_loads: BTreeMap::from([(ExerciseId(5), vec![12.0, 16.0, 20.0, 24.0])]),
+        ..input(
+            Mode::Balanced,
+            carry_catalog(),
+            history,
+            None,
+            Some(vec![3]),
+        )
+    }
+}
+
+/// The ask for the carry in today's plan, whatever else is in it.
+fn carry_ask(out: &PacingNow) -> coach::pacing::types::Ask {
+    out.plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind != SuggestionKind::Warmup)
+        .expect("the carry is planned")
+        .ask
+}
+
+#[test]
+fn a_carry_is_asked_for_in_metres_not_seconds() {
+    // Three sessions at 12 kg × 10 m — enough to trust the estimate.
+    let h = vec![
+        carry_set(5, 9, 12.0, 10),
+        carry_set(5, 6, 12.0, 10),
+        carry_set(5, 3, 12.0, 10),
+    ];
+    let out = evaluate(&carry_input(h), now());
+    match carry_ask(&out) {
+        coach::pacing::types::Ask::WeightedDistance {
+            load_kg,
+            distance_m,
+        } => {
+            assert_eq!(load_kg, 12.0, "it holds the rung it has been working");
+            assert!(
+                distance_m >= 10,
+                "the distance climbs or holds, never shrinks on a good day: {distance_m}"
+            );
+        }
+        other => panic!("a distance carry must be asked for in metres, got {other:?}"),
+    }
+}
+
+#[test]
+fn topping_the_distance_takes_the_next_bell_and_restarts_it() {
+    // At the ceiling (30 m) on 12 kg: the weight steps and the distance resets,
+    // which is the whole point of a double progression — you do not carry ever
+    // further at a weight that has stopped being hard.
+    let h = vec![
+        carry_set(5, 9, 12.0, 30),
+        carry_set(5, 6, 12.0, 30),
+        carry_set(5, 3, 12.0, 30),
+    ];
+    let out = evaluate(&carry_input(h), now());
+    match carry_ask(&out) {
+        coach::pacing::types::Ask::WeightedDistance {
+            load_kg,
+            distance_m,
+        } => {
+            assert!(
+                load_kg > 12.0,
+                "the weight steps once the distance tops out"
+            );
+            assert!(
+                distance_m < 30,
+                "and the distance starts again: {distance_m}"
+            );
+        }
+        other => panic!("expected a distance ask, got {other:?}"),
+    }
+}
+
+#[test]
+fn an_unknown_carry_is_measured_in_metres_rather_than_guessed() {
+    // No history: the engine must not invent a distance to prescribe. It asks
+    // for a measurement, in the movement's own unit.
+    let out = evaluate(&carry_input(vec![]), now());
+    let item = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(5))
+        .expect("the carry is planned");
+    assert_eq!(item.kind, SuggestionKind::Assess);
+    match item.ask {
+        coach::pacing::types::Ask::LoadedDistance { start_kg } => {
+            assert_eq!(start_kg, 12.0, "it opens at the lightest bell owned");
+        }
+        other => panic!("expected a distance calibration, got {other:?}"),
+    }
 }

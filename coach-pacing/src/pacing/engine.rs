@@ -30,8 +30,9 @@ use crate::domain::{MuscleRole, Region};
 use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{
-    CARRY_BASE_S, CARRY_TOP_S, Dose, HOLD_STEP_S, Inventory, Known, LOW_READINESS_EXTRA_RIR,
-    Measure, RepTarget, load_for, readiness_advances, rep_range, weighted_ask,
+    CARRY_BASE_M, CARRY_BASE_S, CARRY_TOP_M, CARRY_TOP_S, DISTANCE_STEP_M, Dose, HOLD_STEP_S,
+    Inventory, Known, LOW_READINESS_EXTRA_RIR, Measure, RepTarget, load_for, readiness_advances,
+    rep_range, weighted_ask,
 };
 use super::residual::{self, Residual};
 use super::types::{
@@ -253,7 +254,7 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
             // A loaded carry is conditioning almost by definition — time under a
             // weight, with a heart rate to match. It ranks above a static hold and
             // above a heavy set of reps.
-            Metric::WeightedHold => 0.9,
+            Metric::WeightedHold | Metric::WeightedDistance => 0.9,
             Metric::WeightedReps => 0.7,
             Metric::Hold => 0.3,
         },
@@ -268,7 +269,7 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
             Metric::WeightedReps | Metric::Reps => 1.0,
             // Loaded and real work, but an accessory to the week rather than its
             // spine — between the two.
-            Metric::WeightedHold => 0.8,
+            Metric::WeightedHold | Metric::WeightedDistance => 0.8,
             Metric::Hold => 0.6,
         },
     }
@@ -288,6 +289,7 @@ enum Loaded {
     /// A carry — loaded, like `Weighted`, and so subject to the same rule: no
     /// registered weights means no honest load, so it is never selected.
     WeightedHold(Inventory),
+    WeightedDistance(Inventory),
 }
 
 /// The weights this exercise can actually be built with here (the service worked
@@ -304,6 +306,7 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<ExerciseId, Vec<f64>>) 
         Metric::Hold => Some(Loaded::Hold),
         Metric::WeightedReps => inventory().map(Loaded::Weighted),
         Metric::WeightedHold => inventory().map(Loaded::WeightedHold),
+        Metric::WeightedDistance => inventory().map(Loaded::WeightedDistance),
     }
 }
 
@@ -427,6 +430,32 @@ fn prescribe(
                 secs: CARRY_BASE_S,
             },
         },
+        // The same double progression in metres: hold the weight and climb the
+        // distance; once the distance tops out, take the next weight up and start
+        // it again. Identical shape to the timed carry above — deliberately, so a
+        // carry progresses the same way whichever unit it is measured in.
+        Loaded::WeightedDistance(inv) => match ability.carry_m {
+            Some(c) if back_off => Dose::WeightedDistance {
+                load: inv.next_below(inv.snap(c.load)),
+                metres: CARRY_BASE_M,
+            },
+            Some(c) if c.metres >= CARRY_TOP_M && probe => Dose::WeightedDistance {
+                load: inv.next_above(c.load),
+                metres: CARRY_BASE_M,
+            },
+            Some(c) => Dose::WeightedDistance {
+                load: inv.snap(c.load),
+                metres: if probe {
+                    (c.metres + DISTANCE_STEP_M).min(CARRY_TOP_M)
+                } else {
+                    c.metres
+                },
+            },
+            None => Dose::WeightedDistance {
+                load: inv.lightest(),
+                metres: CARRY_BASE_M,
+            },
+        },
     }
 }
 
@@ -457,6 +486,11 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
         // Both numbers are the measurement, so both are open: carry this, and tell
         // me how long you lasted. The opening weight comes from a stale carry when
         // there is one — never from the e1RM of some other lift.
+        Loaded::WeightedDistance(inv) => Measure::LoadedDistance {
+            start: stale
+                .and_then(|a| a.carry_m.map(|c| inv.snap(c.load)))
+                .unwrap_or_else(|| inv.lightest()),
+        },
         Loaded::WeightedHold(inv) => Measure::LoadedCarry {
             start: match stale.and_then(|a| a.carry) {
                 Some(c) => inv.snap(c.load),
@@ -1022,7 +1056,8 @@ fn build_warmup(
                 rep_low: WARMUP_REPS,
                 rep_high: WARMUP_REPS,
             },
-            Metric::Hold | Metric::WeightedHold => Ask::Hold {
+            // A carry's warm-up drill is still just a hold: prep, unloaded.
+            Metric::Hold | Metric::WeightedHold | Metric::WeightedDistance => Ask::Hold {
                 hold_s: WARMUP_HOLD_S,
             },
         };
@@ -1535,7 +1570,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 | Ask::BuildUp { .. }
                 | Ask::Amrap
                 | Ask::MaxHold
-                | Ask::LoadedCarry { .. } => "easy prep".to_string(),
+                | Ask::LoadedCarry { .. }
+                | Ask::WeightedDistance { .. }
+                | Ask::LoadedDistance { .. } => "easy prep".to_string(),
             };
             format!("{} — {}", s.exercise_name, dose)
         } else {

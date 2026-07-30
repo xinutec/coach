@@ -23,7 +23,7 @@
           <input matInput type="number" inputmode="numeric" [(ngModel)]="reps" />
         </mat-form-field>
       }
-      @if (ex.metric === "weighted_reps" || ex.metric === "weighted_hold") {
+      @if (ex.metric === "weighted_reps" || ex.metric === "weighted_hold" || ex.metric === "weighted_distance") {
         <mat-form-field appearance="outline">
           <mat-label>Load (kg)</mat-label>
           <input matInput type="number" inputmode="decimal" [(ngModel)]="loadKg" />
@@ -35,6 +35,12 @@
             {{ ex.metric === "weighted_hold" ? "Carry (s)" : "Hold (s)" }}{{ ex.unilateral ? " each side" : "" }}
           </mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="holdS" />
+        </mat-form-field>
+      }
+      @if (ex.metric === "weighted_distance") {
+        <mat-form-field appearance="outline">
+          <mat-label>Distance (m){{ ex.unilateral ? " each side" : "" }}</mat-label>
+          <input matInput type="number" inputmode="numeric" [(ngModel)]="distanceM" />
         </mat-form-field>
       }
       <!-- No "Effort (RPE)" field. The app asks what *happened* — reps, load,

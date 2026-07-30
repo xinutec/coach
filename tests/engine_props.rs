@@ -110,6 +110,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
                 reps: reps_v,
                 load_kg,
                 hold_s,
+                distance_m: None,
                 rpe: None,
             }
         })
@@ -377,6 +378,7 @@ proptest! {
                 reps: first.ask.rep_low(),
                 load_kg: first.ask.load_kg(),
                 hold_s: first.ask.hold_s(),
+                distance_m: None,
                 rpe: None,
             });
         }

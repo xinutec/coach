@@ -133,6 +133,8 @@ pub struct Ability {
     /// and neither number means anything alone. `None` for an exercise never
     /// carried under load.
     pub carry: Option<Carry>,
+    /// Decayed best distance carry — the metre-measured half.
+    pub carry_m: Option<CarryDistance>,
     pub confidence: Confidence,
     /// Distinct recent days the exercise was trained (drives confidence).
     pub sessions_recent: i32,
@@ -176,6 +178,15 @@ pub struct Source {
 pub struct Carry {
     pub load: f64,
     pub secs: i32,
+}
+
+/// What a distance carry demonstrated: this weight, for this far. The metre twin
+/// of [`Carry`], kept separate because the two are not interchangeable — you
+/// cannot convert one to the other without inventing a walking pace.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CarryDistance {
+    pub load: f64,
+    pub metres: i32,
 }
 
 /// The better of two carries: the heavier weight wins, and at equal weight the
@@ -237,6 +248,7 @@ struct Bests {
     reps: Option<f64>,
     hold: Option<f64>,
     carry: Option<Carry>,
+    carry_m: Option<CarryDistance>,
     e1rm_src: Option<Source>,
     reps_src: Option<Source>,
     hold_src: Option<Source>,
@@ -284,6 +296,18 @@ impl Bests {
                 },
             );
         }
+        // The metre-measured carry, decayed the same way and ranked the same way:
+        // heavier first, then further.
+        if let (Some(load), Some(m)) = (s.load_kg, s.distance_m) {
+            let c = CarryDistance {
+                load: load * d,
+                metres: libm::floor(m as f64 * d) as i32,
+            };
+            self.carry_m = Some(match self.carry_m {
+                Some(b) if (b.load, b.metres) >= (c.load, c.metres) => b,
+                Some(_) | None => c,
+            });
+        }
     }
 }
 
@@ -309,6 +333,23 @@ fn under_ceiling(
 /// The same ceiling for a carry, applied to each half. Both are capped because
 /// both are prescribed from: a carry held to its recent weight but not its recent
 /// duration would still ask for a walk nobody has taken.
+/// The distance carry's twin of [`carry_under_ceiling`] — the same R6-3 rule, so
+/// a returning athlete's old 30 m cannot be prescribed off a recent 10 m.
+fn carry_m_under_ceiling(
+    carry: Option<CarryDistance>,
+    ceiling: Option<CarryDistance>,
+) -> Option<CarryDistance> {
+    match (carry, ceiling) {
+        (Some(c), Some(k)) => Some(CarryDistance {
+            load: c.load.min(CAP_MULTIPLE * k.load),
+            metres: c
+                .metres
+                .min(libm::floor(CAP_MULTIPLE * k.metres as f64) as i32),
+        }),
+        _ => carry,
+    }
+}
+
 fn carry_under_ceiling(carry: Option<Carry>, ceiling: Option<Carry>) -> Option<Carry> {
     match (carry, ceiling) {
         (Some(c), Some(k)) => Some(Carry {
@@ -416,6 +457,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     let (best_reps, reps_src) = under_ceiling(all.reps, all.reps_src, recent.reps, recent.reps_src);
     let (best_hold, hold_src) = under_ceiling(all.hold, all.hold_src, recent.hold, recent.hold_src);
     let carry = carry_under_ceiling(all.carry, recent.carry);
+    let carry_m = carry_m_under_ceiling(all.carry_m, recent.carry_m);
 
     let sessions_recent = recent_days.len() as i32;
     let confidence = if sessions_recent >= HIGH_SESSIONS {
@@ -432,6 +474,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         best_reps: best_reps.map(|r| libm::floor(r) as i32),
         best_hold: best_hold.map(|h| libm::round(h) as i32),
         carry,
+        carry_m,
         confidence,
         sessions_recent,
         // An exercise is measured in one metric, so at most one of these is the

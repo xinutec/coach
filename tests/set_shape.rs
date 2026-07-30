@@ -12,11 +12,22 @@ use coach::exercise::types::Metric;
 use coach::workout::types::NewSet;
 
 fn set(reps: Option<i32>, load_kg: Option<f64>, hold_s: Option<i32>) -> NewSet {
+    carry(reps, load_kg, hold_s, None)
+}
+
+/// The same, for the metric measured in metres.
+fn carry(
+    reps: Option<i32>,
+    load_kg: Option<f64>,
+    hold_s: Option<i32>,
+    distance_m: Option<i32>,
+) -> NewSet {
     NewSet {
         exercise_id: 1,
         reps,
         load_kg,
         hold_s,
+        distance_m,
         rpe: None,
         note: None,
         logged_at: None,
@@ -128,4 +139,52 @@ fn an_out_of_scale_rpe_is_refused() {
     let mut s = set(Some(5), None, None);
     s.rpe = Some(9);
     assert!(s.validate(Metric::Reps).is_ok());
+}
+
+// ---- the metre-measured carry ----------------------------------------------
+
+#[test]
+fn a_distance_carry_takes_metres_and_a_weight() {
+    assert!(
+        carry(None, Some(20.0), None, Some(10))
+            .validate(Metric::WeightedDistance)
+            .is_ok()
+    );
+    // Its own unit only: seconds belong to the timed carry, reps to neither.
+    assert!(
+        carry(None, Some(20.0), Some(30), None)
+            .validate(Metric::WeightedDistance)
+            .is_err()
+    );
+    assert!(
+        carry(Some(10), Some(20.0), None, None)
+            .validate(Metric::WeightedDistance)
+            .is_err()
+    );
+}
+
+#[test]
+fn metres_belong_to_no_other_metric() {
+    for m in [
+        Metric::Reps,
+        Metric::WeightedReps,
+        Metric::Hold,
+        Metric::WeightedHold,
+    ] {
+        assert!(
+            carry(Some(8), Some(20.0), Some(30), Some(10))
+                .validate(m)
+                .is_err(),
+            "{m:?} accepted a distance"
+        );
+    }
+}
+
+#[test]
+fn a_carry_across_the_county_is_not_a_set() {
+    assert!(
+        carry(None, Some(20.0), None, Some(5000))
+            .validate(Metric::WeightedDistance)
+            .is_err()
+    );
 }

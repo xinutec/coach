@@ -38,6 +38,7 @@ fn weighted(id: i64, days_ago: i64, load: f64, reps: i32, rpe: Option<i32>) -> S
         reps: Some(reps),
         load_kg: Some(load),
         hold_s: None,
+        distance_m: None,
         rpe,
     }
 }
@@ -49,6 +50,7 @@ fn bodyweight(id: i64, days_ago: i64, reps: i32, rpe: Option<i32>) -> SetRec {
         reps: Some(reps),
         load_kg: None,
         hold_s: None,
+        distance_m: None,
         rpe,
     }
 }
@@ -60,6 +62,7 @@ fn hold(id: i64, days_ago: i64, secs: i32) -> SetRec {
         reps: None,
         load_kg: None,
         hold_s: Some(secs),
+        distance_m: None,
         rpe: None,
     }
 }
@@ -259,6 +262,7 @@ fn the_estimate_names_the_set_it_came_from() {
         reps: Some(5),
         load_kg: Some(80.0),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     };
     let lighter = SetRec {
@@ -268,6 +272,7 @@ fn the_estimate_names_the_set_it_came_from() {
         reps: Some(8),
         load_kg: Some(40.0),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     };
     let a = abilities(&[best, lighter], base());
@@ -296,6 +301,7 @@ fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
         reps: Some(8),
         load_kg: Some(140.0),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }];
     h.extend((0..2).map(|d| weighted(1, d * 2, 40.0, 8, None)));
@@ -325,6 +331,7 @@ fn a_capped_estimate_names_the_recent_set_that_caps_it() {
         reps: Some(8),
         load_kg: Some(140.0),
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }];
     h.extend((0..3).map(|d| weighted(1, d * 2, 40.0, 8, None)));
@@ -439,6 +446,7 @@ fn a_rep_estimate_names_its_set() {
         reps: Some(12),
         load_kg: None,
         hold_s: None,
+        distance_m: None,
         rpe: None,
     }];
     let src = abilities(&h, base())[&ExerciseId(2)].source.unwrap();

@@ -87,6 +87,7 @@ async fn main() -> Result<()> {
             reps: w.reps,
             load_kg: w.load_kg,
             hold_s: w.hold_s,
+            distance_m: w.distance_m,
             rpe: w.rpe,
         })
         .collect();

@@ -23,4 +23,4 @@
  * Tagged, so the frontend gets a discriminated union and `@switch` is
  * exhaustive over it rather than a chain of null tests.
  */
-export type Ask = { "kind": "weighted", loadKg: number, repLow: number, repHigh: number, } | { "kind": "bodyweight", repLow: number, repHigh: number, } | { "kind": "hold", holdS: number, } | { "kind": "weightedHold", loadKg: number, holdS: number, } | { "kind": "buildUp", startKg: number, reps: number, } | { "kind": "amrap" } | { "kind": "maxHold" } | { "kind": "loadedCarry", startKg: number, };
+export type Ask = { "kind": "weighted", loadKg: number, repLow: number, repHigh: number, } | { "kind": "bodyweight", repLow: number, repHigh: number, } | { "kind": "hold", holdS: number, } | { "kind": "weightedHold", loadKg: number, holdS: number, } | { "kind": "buildUp", startKg: number, reps: number, } | { "kind": "amrap" } | { "kind": "maxHold" } | { "kind": "loadedCarry", startKg: number, } | { "kind": "weightedDistance", loadKg: number, distanceM: number, } | { "kind": "loadedDistance", startKg: number, };

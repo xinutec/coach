@@ -19,6 +19,7 @@ pub struct WorkoutSet {
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    pub distance_m: Option<i32>,
     pub rpe: Option<i32>,
     pub note: Option<String>,
 }
@@ -34,6 +35,8 @@ pub struct NewSet {
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    /// Metres, for a carry measured by distance.
+    pub distance_m: Option<i32>,
     pub rpe: Option<i32>,
     pub note: Option<String>,
     pub logged_at: Option<NaiveDateTime>,
@@ -75,7 +78,13 @@ impl NewSet {
         }
         Ok(ValidSet {
             exercise_id: self.exercise_id,
-            performed: LoggedSet::parse(metric, self.reps, self.load_kg, self.hold_s)?,
+            performed: LoggedSet::parse(
+                metric,
+                self.reps,
+                self.load_kg,
+                self.hold_s,
+                self.distance_m,
+            )?,
             rpe: self.rpe,
             note: self.note,
             logged_at: self.logged_at,

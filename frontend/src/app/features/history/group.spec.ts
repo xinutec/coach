@@ -12,6 +12,7 @@ function set(exerciseId: number, at: string, s: Partial<WorkoutSet> = {}): Worko
     reps: null,
     loadKg: null,
     holdS: null,
+    distanceM: null,
     rpe: null,
     note: null,
     ...s,

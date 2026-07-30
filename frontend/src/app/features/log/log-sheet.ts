@@ -17,6 +17,7 @@ export interface LogPrefill {
   reps?: number | null;
   loadKg?: number | null;
   holdS?: number | null;
+  distanceM?: number | null;
 }
 export interface LogSheetData {
   exercises: Exercise[];
@@ -95,6 +96,7 @@ export class LogSheet {
   readonly reps = signal<number | null>(this.data.prefill?.reps ?? null);
   readonly loadKg = signal<number | null>(this.data.prefill?.loadKg ?? null);
   readonly holdS = signal<number | null>(this.data.prefill?.holdS ?? null);
+  readonly distanceM = signal<number | null>(this.data.prefill?.distanceM ?? null);
   readonly note = signal("");
   readonly saving = signal(false);
   /** The server's objection to the last attempt (e.g. a value outside human
@@ -131,6 +133,7 @@ export class LogSheet {
     this.reps.set(p?.reps ?? null);
     this.loadKg.set(p?.loadKg ?? null);
     this.holdS.set(p?.holdS ?? null);
+    this.distanceM.set(p?.distanceM ?? null);
   }
 
   /** `confirmed` re-sends a load the server queried, with the athlete's yes. */
@@ -147,8 +150,12 @@ export class LogSheet {
         // Only the fields the metric owns — the server rejects the rest, and a
         // value the form isn't showing must never ride along.
         reps: m === "reps" || m === "weighted_reps" ? this.reps() : null,
-        loadKg: m === "weighted_reps" || m === "weighted_hold" ? this.loadKg() : null,
+        loadKg:
+          m === "weighted_reps" || m === "weighted_hold" || m === "weighted_distance"
+            ? this.loadKg()
+            : null,
         holdS: m === "hold" || m === "weighted_hold" ? this.holdS() : null,
+        distanceM: m === "weighted_distance" ? this.distanceM() : null,
         // Never asked for, so never sent. The wire field stays (the ability model
         // reads an RPE when history has one — imported sets do), but the app does
         // not solicit a self-rating of effort. See docs/trainer.md.

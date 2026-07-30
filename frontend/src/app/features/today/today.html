@@ -179,6 +179,9 @@
                 @case ("weightedHold") {
                   · {{ s.ask.loadKg }} kg · {{ s.ask.holdS }}s hold
                 }
+                @case ("weightedDistance") {
+                  · {{ s.ask.loadKg }} kg · {{ s.ask.distanceM }} m carry
+                }
               }
               @if (perSide(s.exerciseId)) {
                 <span class="per-side">each side</span>
