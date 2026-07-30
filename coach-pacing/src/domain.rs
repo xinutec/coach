@@ -352,6 +352,25 @@ pub enum Metric {
     /// from it. Same double progression, with metres where the seconds go.
     WeightedDistance,
 }
+impl Metric {
+    /// Does a set of this movement carry a weight?
+    ///
+    /// An exhaustive `match` rather than a `matches!` over the variants that do,
+    /// because the difference is not stylistic. Adding `WeightedDistance` produced
+    /// six compile errors and *two silent falsehoods*: `matches!(m, WeightedReps |
+    /// WeightedHold)` in the load resolver and in the implausible-load check both
+    /// went on returning `false` for it, so a carry got no buildable weights and
+    /// was reported to the athlete as kit with nothing registered for it. A
+    /// boolean subset test is a non-exhaustive match that the compiler cannot see.
+    /// This one it can.
+    pub fn takes_load(self) -> bool {
+        match self {
+            Metric::Reps | Metric::Hold => false,
+            Metric::WeightedReps | Metric::WeightedHold | Metric::WeightedDistance => true,
+        }
+    }
+}
+
 db_str!(Metric {
     Reps => "reps",
     WeightedReps => "weighted_reps",

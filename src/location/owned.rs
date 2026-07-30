@@ -15,7 +15,7 @@ use sqlx::MySqlPool;
 
 use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
-use crate::exercise::types::{Exercise, Metric};
+use crate::exercise::types::Exercise;
 use crate::location::{loads, repo as location_repo};
 use coach_pacing::domain::{EquipmentId, ExerciseId};
 
@@ -36,7 +36,7 @@ pub async fn heaviest_buildable(
     user_id: &str,
     exercise: &Exercise,
 ) -> Result<Option<f64>> {
-    if !matches!(exercise.metric, Metric::WeightedReps | Metric::WeightedHold) {
+    if !exercise.metric.takes_load() {
         return Ok(None);
     }
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;

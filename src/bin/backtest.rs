@@ -179,12 +179,17 @@ async fn main() -> Result<()> {
                 .hold_s()
                 .map(|h| format!(" {h}s hold"))
                 .unwrap_or_default();
+            let dist = s
+                .ask
+                .distance_m()
+                .map(|m| format!(" {m} m carry"))
+                .unwrap_or_default();
             let conf = s
                 .explanation
                 .map(|e| format!("  [{:?}]", e.confidence))
                 .unwrap_or_default();
             println!(
-                "    {:<7} {} ({})  {} set(s){}{}{}{}",
+                "    {:<7} {} ({})  {} set(s){}{}{}{}{}",
                 format!("{:?}", s.kind),
                 name,
                 s.group,
@@ -192,6 +197,7 @@ async fn main() -> Result<()> {
                 reps,
                 load,
                 hold,
+                dist,
                 conf
             );
             // What the coach *wanted* here but couldn't give, and why — the same

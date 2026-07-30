@@ -44,8 +44,12 @@ if [ "$count" -eq 0 ]; then
   exit 1
 fi
 
+# `cp -R "$TMP" "$OUT"` copies the temp dir *inside* $OUT when $OUT happens to
+# exist, leaving a `tmp.XXXX/` of generated types nested in the committed ones —
+# which the drift gate then reports as an unexplained extra directory. Copying
+# the *contents* into a directory we ensure exists is idempotent either way.
 rm -rf "$OUT"
-mkdir -p "$(dirname "$OUT")"
-cp -R "$TMP" "$OUT"
+mkdir -p "$OUT"
+cp -R "$TMP/." "$OUT"/
 rm -f "$OUT/cargo.log"
 echo "generated $count type(s) -> $OUT"

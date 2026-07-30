@@ -363,6 +363,22 @@ impl Ask {
         }
     }
 
+    /// The metres this ask names, if it is a carry measured by distance.
+    pub fn distance_m(self) -> Option<i32> {
+        match self {
+            Ask::WeightedDistance { distance_m, .. } => Some(distance_m),
+            Ask::Weighted { .. }
+            | Ask::Bodyweight { .. }
+            | Ask::Hold { .. }
+            | Ask::WeightedHold { .. }
+            | Ask::BuildUp { .. }
+            | Ask::Amrap
+            | Ask::MaxHold
+            | Ask::LoadedCarry { .. }
+            | Ask::LoadedDistance { .. } => None,
+        }
+    }
+
     /// The top of the rep range, if this ask is counted in reps.
     pub fn rep_high(self) -> Option<i32> {
         match self {
