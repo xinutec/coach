@@ -365,6 +365,12 @@ async function main() {
       date: r.Date,
       exerciseSlug: exIdToSlug.get(r.Exercise.Id),
       sets: r.Sets ?? 1,
+      // NOTE: `Count` is whatever the movement counts — reps for a press,
+      // seconds for a plank, metres for a farmer's walk — and this maps all of
+      // them to `reps`. That single line is the origin of the 65 logged sets
+      // whose fields don't fit their exercise's metric (see migrations 0020 and
+      // 0021). A re-run would need to switch on the exercise's metric here;
+      // NocoDB is retired, so the rows were corrected in place instead.
       reps: r.Count ?? null,
       weightKg: r["Weight (kg)"] ?? null,
       band: r.Band ?? null,
