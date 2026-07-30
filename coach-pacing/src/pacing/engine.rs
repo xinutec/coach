@@ -23,6 +23,7 @@ use alloc::collections::BTreeMap;
 use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike};
 
 use crate::domain::Mode;
+use crate::domain::{EquipmentId, ExerciseId, GroupId};
 use crate::domain::{Metric, Pattern};
 use crate::domain::{MuscleRole, Region};
 
@@ -292,7 +293,7 @@ enum Loaded {
 /// them out from the kit *and* how many implements the movement needs). `None` for
 /// a weighted lift = not loadable here, so it isn't selectable and the verdict
 /// says why.
-fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<i64, Vec<f64>>) -> Option<Loaded> {
+fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<ExerciseId, Vec<f64>>) -> Option<Loaded> {
     let inventory = || {
         let loads = exercise_loads.get(&ex.id).cloned().unwrap_or_default();
         Inventory::new(loads)
@@ -527,9 +528,9 @@ enum Tier {
 /// Per-group state the cover and the explanations both read.
 struct Groups {
     /// Dense index per muscle-group id.
-    ix: BTreeMap<i64, GroupIx>,
+    ix: BTreeMap<GroupId, GroupIx>,
     name: ByGroup<String>,
-    id: ByGroup<i64>,
+    id: ByGroup<GroupId>,
     /// Remaining weekly deficit as a fraction (0 = at target, 1 = untrained).
     deficit: ByGroup<f64>,
     /// Graded recovery, 0 (just hammered) .. 1 (fully recovered).
@@ -570,14 +571,14 @@ impl cover::Ranked for Cand<'_> {
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
-    abilities: &BTreeMap<i64, Ability>,
-    residuals: &BTreeMap<i64, Residual>,
+    abilities: &BTreeMap<ExerciseId, Ability>,
+    residuals: &BTreeMap<ExerciseId, Residual>,
     groups: &Groups,
     history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Cand<'a>>, Vec<String>) {
     // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
-    let recency = |id: i64| -> f64 {
+    let recency = |id: ExerciseId| -> f64 {
         match history
             .iter()
             .filter(|s| s.exercise_id == id)
@@ -608,8 +609,8 @@ fn candidates<'a>(
     // stuck: plateaued, or the miss-response has bottomed out (two in a row asking
     // fewer reps than are happening). Checked first, so a plateau below the floor
     // regresses instead of being handed an even harder variation it also can't do.
-    let mut stepped_aside: alloc::collections::BTreeSet<i64> = Default::default();
-    let mut ladder_targets: alloc::collections::BTreeSet<i64> = Default::default();
+    let mut stepped_aside: alloc::collections::BTreeSet<ExerciseId> = Default::default();
+    let mut ladder_targets: alloc::collections::BTreeSet<ExerciseId> = Default::default();
     let mut ladder_notes = Vec::new();
     for ex in &input.exercises {
         if ex.warmup || !kit.has_all(&ex.equipment) {
@@ -865,10 +866,10 @@ fn blocked_ideal(
     input: &PacingInput,
     kit: &Kit,
     weight: &dyn Fn(&ExerciseInfo) -> f64,
-    group_id: i64,
-    chosen_id: i64,
+    group_id: GroupId,
+    chosen_id: ExerciseId,
 ) -> Option<Substitution> {
-    let name_of = |ids: &[i64]| -> Vec<String> {
+    let name_of = |ids: &[EquipmentId]| -> Vec<String> {
         ids.iter()
             .filter_map(|id| input.equipment_names.get(id).cloned())
             .collect()
@@ -876,7 +877,7 @@ fn blocked_ideal(
     // Exactly the two ways `candidates` refuses a movement — kept in the same shape
     // so "blocked" here can't drift from "not selectable" there.
     let blocker = |e: &ExerciseInfo| -> Option<Blocker> {
-        let absent: Vec<i64> = e
+        let absent: Vec<EquipmentId> = e
             .equipment
             .iter()
             .copied()
@@ -936,8 +937,8 @@ fn build_warmup(
     work: &[Suggestion],
     input: &PacingInput,
     kit: &Kit,
-    ex_by_id: &BTreeMap<i64, &ExerciseInfo>,
-    group_name: &BTreeMap<i64, String>,
+    ex_by_id: &BTreeMap<ExerciseId, &ExerciseInfo>,
+    group_name: &BTreeMap<GroupId, String>,
 ) -> (Vec<Suggestion>, Vec<String>) {
     if work.is_empty() {
         return (Vec::new(), Vec::new());
@@ -945,7 +946,7 @@ fn build_warmup(
     // Effective sets each group carries in the committed session — the same
     // credit arithmetic the volume model uses, so "loaded enough to warm up"
     // and "loaded enough to count" can't drift apart.
-    let mut load: BTreeMap<i64, f64> = BTreeMap::new();
+    let mut load: BTreeMap<GroupId, f64> = BTreeMap::new();
     for w in work {
         if let Some(ex) = ex_by_id.get(&w.exercise_id) {
             for (g, r) in &ex.groups {
@@ -956,7 +957,7 @@ fn build_warmup(
         }
     }
     // Heaviest-loaded first; ties by group id, so the order is deterministic.
-    let mut want: Vec<(i64, f64)> = load
+    let mut want: Vec<(GroupId, f64)> = load
         .into_iter()
         .filter(|(_, l)| *l >= WARMUP_MIN_LOAD)
         .collect();
@@ -967,7 +968,7 @@ fn build_warmup(
         .iter()
         .filter(|e| e.warmup && kit.has_all(&e.equipment))
         .collect();
-    let primaries = |e: &ExerciseInfo| -> Vec<i64> {
+    let primaries = |e: &ExerciseInfo| -> Vec<GroupId> {
         e.groups
             .iter()
             .filter(|(_, r)| *r == MuscleRole::Primary)
@@ -983,7 +984,7 @@ fn build_warmup(
     let drill_cap = ((work_sets + WARMUP_SETS_PER_DRILL - 1) / WARMUP_SETS_PER_DRILL)
         .clamp(WARMUP_MIN_DRILLS, WARMUP_MAX_DRILLS);
 
-    let mut covered: alloc::collections::BTreeSet<i64> = alloc::collections::BTreeSet::new();
+    let mut covered: alloc::collections::BTreeSet<GroupId> = alloc::collections::BTreeSet::new();
     let mut out: Vec<Suggestion> = Vec::new();
     let mut gaps: Vec<String> = Vec::new();
     for (g, _) in &want {
@@ -1082,7 +1083,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let after_window = hour >= s.window_end_hour;
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
 
-    let ex_by_id: BTreeMap<i64, &ExerciseInfo> =
+    let ex_by_id: BTreeMap<ExerciseId, &ExerciseInfo> =
         input.exercises.iter().map(|e| (e.id, e)).collect();
 
     // The set just logged, for rest guidance. A mobility drill starts no rest
@@ -1174,16 +1175,17 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let live_roll_cut = now - Duration::days(ROLLING_DAYS);
     let today = now.date();
     // Region per group, for the graded recovery horizon.
-    let region_of: BTreeMap<i64, Region> = input.groups.iter().map(|g| (g.id, g.region)).collect();
+    let region_of: BTreeMap<GroupId, Region> =
+        input.groups.iter().map(|g| (g.id, g.region)).collect();
 
-    let mut current: BTreeMap<i64, f64> = BTreeMap::new();
-    let mut avg_sum: BTreeMap<i64, f64> = BTreeMap::new();
+    let mut current: BTreeMap<GroupId, f64> = BTreeMap::new();
+    let mut avg_sum: BTreeMap<GroupId, f64> = BTreeMap::new();
     // Age-weighted unrecovered load per group: a set counts fully when fresh and
     // ramps to zero over its region's recovery horizon (G6). This grades the old
     // binary "≥3 sets in 36 h" gate.
-    let mut unrecovered: BTreeMap<i64, f64> = BTreeMap::new();
-    let mut live_current: BTreeMap<i64, f64> = BTreeMap::new();
-    let mut live_unrecovered: BTreeMap<i64, f64> = BTreeMap::new();
+    let mut unrecovered: BTreeMap<GroupId, f64> = BTreeMap::new();
+    let mut live_current: BTreeMap<GroupId, f64> = BTreeMap::new();
+    let mut live_unrecovered: BTreeMap<GroupId, f64> = BTreeMap::new();
     let mut done_today = 0i32;
     let mut raw_hist = 0i32;
     let mut first_hist: Option<NaiveDateTime> = None;
@@ -1397,7 +1399,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // `planning`: within a session the committed picks *are* the introductions,
     // so only earlier sessions bind.
     let novel_introduced = {
-        let mut first_seen: BTreeMap<i64, NaiveDateTime> = BTreeMap::new();
+        let mut first_seen: BTreeMap<ExerciseId, NaiveDateTime> = BTreeMap::new();
         for s in &planning {
             if ex_by_id.get(&s.exercise_id).is_none_or(|e| e.warmup) {
                 continue;
@@ -1445,7 +1447,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // boundary is earlier — the day's start, or the session's.
     let day_start = now.date().and_time(NaiveTime::MIN);
     let from = session_start.map_or(day_start, |s| s.min(day_start));
-    let mut logged: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
+    let mut logged: BTreeMap<ExerciseId, Vec<&SetRec>> = BTreeMap::new();
     for s in &input.history {
         if s.logged_at >= from {
             logged.entry(s.exercise_id).or_default().push(s);
@@ -1638,12 +1640,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 fn plan_session(
     input: &PacingInput,
     kit: &Kit,
-    abilities: &BTreeMap<i64, Ability>,
-    residuals: &BTreeMap<i64, Residual>,
+    abilities: &BTreeMap<ExerciseId, Ability>,
+    residuals: &BTreeMap<ExerciseId, Residual>,
     groups: &Groups,
     budget: i32,
     novelty_cap: i32,
-    ex_by_id: &BTreeMap<i64, &ExerciseInfo>,
+    ex_by_id: &BTreeMap<ExerciseId, &ExerciseInfo>,
     history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
@@ -1763,7 +1765,7 @@ fn plan_session(
     work.sort_by_key(|(_, t)| *t);
     let work: Vec<Suggestion> = work.into_iter().map(|(s, _)| s).collect();
 
-    let group_name: BTreeMap<i64, String> = input
+    let group_name: BTreeMap<GroupId, String> = input
         .groups
         .iter()
         .map(|g| (g.id, g.name.clone()))

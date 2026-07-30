@@ -25,6 +25,7 @@ use super::engine;
 use super::types::{
     ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
 };
+use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 
 /// How far back to load set history. Wide enough that the ability model's
 /// staleness decay (which floors around ~30 weeks idle) sees a returning
@@ -51,11 +52,11 @@ pub struct PacingContext {
     pub kit: Option<Kit>,
     /// Buildable loads per *exercise* (not per equipment — a two-dumbbell movement
     /// gets half the discs). Empty = not loadable here.
-    pub exercise_loads: BTreeMap<i64, Vec<f64>>,
+    pub exercise_loads: BTreeMap<ExerciseId, Vec<f64>>,
     /// Kit the coach had to leave out, and why.
     pub notices: Vec<String>,
     /// Equipment id → display name, so a blocked substitution can name the kit.
-    pub equipment_names: BTreeMap<i64, String>,
+    pub equipment_names: BTreeMap<EquipmentId, String>,
 }
 
 /// Load the history-independent context: settings + tz, the active mode, the
@@ -90,7 +91,7 @@ pub async fn context(
     let kit = match location {
         Some(id) => location_repo::equipment_ids(pool, user_id, id)
             .await?
-            .map(|ids| Kit(ids.into_iter().collect::<BTreeSet<i64>>())),
+            .map(|ids| Kit(ids.into_iter().collect::<BTreeSet<EquipmentId>>())),
         None => None,
     };
     // The loadable kit here: fixed weights, bars/handles, and the plates that fit
@@ -101,8 +102,10 @@ pub async fn context(
         None => HashMap::new(),
     };
     let equipment = equipment_repo::list(pool).await?;
-    let equipment_names: BTreeMap<i64, String> =
-        equipment.iter().map(|e| (e.id, e.name.clone())).collect();
+    let equipment_names: BTreeMap<EquipmentId, String> = equipment
+        .iter()
+        .map(|e| (EquipmentId(e.id), e.name.clone()))
+        .collect();
     // Which kit actually *carries* the weight. A bench and a pull-up bar are needed
     // for a dumbbell bench press and a weighted chin-up, but you don't load them —
     // asking what weights are registered for a bench is a category error, and it
@@ -112,10 +115,10 @@ pub async fn context(
     // it as `category == FreeWeight` was right about the bench and wrong about the
     // pulley: a cable stack is a `machine`, so the coach could put no weight on the
     // one machine in the gym whose whole purpose is the weight on it.
-    let bears_load: BTreeSet<i64> = equipment
+    let bears_load: BTreeSet<EquipmentId> = equipment
         .iter()
         .filter(|e| e.weighted)
-        .map(|e| e.id)
+        .map(|e| EquipmentId(e.id))
         .collect();
 
     // Exercise metadata: equipment ids, muscle-group contributions, flags.
@@ -125,7 +128,10 @@ pub async fn context(
         .await?
         .into_iter()
         .map(|e| {
-            let equipment = equip_by_ex.get(&e.id).cloned().unwrap_or_default();
+            let equipment = equip_by_ex
+                .get(&ExerciseId(e.id))
+                .cloned()
+                .unwrap_or_default();
             // Skill = the catalog flag (gymnastic ring/parallette work) or any
             // hold (isometrics are skill-biased). No more equipment-slug sniffing.
             let is_skill = e.skill || e.metric == Metric::Hold;
@@ -137,7 +143,7 @@ pub async fn context(
                 None => e.name.clone(),
             };
             ExerciseInfo {
-                id: e.id,
+                id: ExerciseId(e.id),
                 name,
                 // The bare base name is the movement family: variations share it.
                 family: e.name,
@@ -148,7 +154,10 @@ pub async fn context(
                 is_power: e.power,
                 warmup: e.warmup,
                 equipment,
-                groups: groups_by_ex.get(&e.id).cloned().unwrap_or_default(),
+                groups: groups_by_ex
+                    .get(&ExerciseId(e.id))
+                    .cloned()
+                    .unwrap_or_default(),
             }
         })
         .collect();
@@ -157,14 +166,14 @@ pub async fn context(
     // dumbbells only gets half the discs per dumbbell, and can't use a fixed weight
     // you own one of — so this can't be a per-equipment answer. Empty = not
     // loadable, and the engine leaves the lift out rather than guessing a weight.
-    let implements_by_ex: HashMap<i64, i32> = ex_repo::list(pool, false)
+    let implements_by_ex: HashMap<ExerciseId, i32> = ex_repo::list(pool, false)
         .await?
         .into_iter()
-        .map(|e| (e.id, e.implements))
+        .map(|e| (ExerciseId(e.id), e.implements))
         .collect();
-    let mut exercise_loads: BTreeMap<i64, Vec<f64>> = BTreeMap::new();
-    let mut short_kit: Vec<(i64, i32)> = Vec::new(); // (equipment, implements needed)
-    let mut unweighted: Vec<i64> = Vec::new();
+    let mut exercise_loads: BTreeMap<ExerciseId, Vec<f64>> = BTreeMap::new();
+    let mut short_kit: Vec<(EquipmentId, i32)> = Vec::new(); // (equipment, implements needed)
+    let mut unweighted: Vec<EquipmentId> = Vec::new();
     for ex in &exercises {
         // Every metric that carries a weight, not just weighted *reps* — a carry is
         // loaded too, and leaving it out of this loop would give it no inventory,
@@ -182,7 +191,7 @@ pub async fn context(
         }
         let implements = implements_by_ex.get(&ex.id).copied().unwrap_or(1).max(1);
         let mut loads: Vec<f64> = Vec::new();
-        let load_bearing: Vec<i64> = ex
+        let load_bearing: Vec<EquipmentId> = ex
             .equipment
             .iter()
             .copied()
@@ -223,7 +232,7 @@ pub async fn context(
         .into_iter()
         .map(|(id, name, region)| {
             Ok(GroupMeta {
-                id,
+                id: GroupId(id),
                 name,
                 region: Region::from_db(&region)
                     .ok_or_else(|| anyhow!("unknown region {region:?}"))?,
@@ -249,11 +258,11 @@ pub async fn context(
 /// Say what the coach had to leave out and why. A silent drop reads as a hole in
 /// the plan; naming the kit turns it into something the athlete can fix.
 fn kit_notices(
-    names: &BTreeMap<i64, String>,
-    unweighted: &mut [i64],
-    short_kit: &mut [(i64, i32)],
+    names: &BTreeMap<EquipmentId, String>,
+    unweighted: &mut [EquipmentId],
+    short_kit: &mut [(EquipmentId, i32)],
 ) -> Vec<String> {
-    let name_of = |id: &i64| names.get(id).cloned().unwrap_or_else(|| "equipment".into());
+    let name_of = |id: &EquipmentId| names.get(id).cloned().unwrap_or_else(|| "equipment".into());
     let mut out = Vec::new();
 
     unweighted.sort_unstable();
@@ -330,8 +339,8 @@ pub async fn now(
     let history: Vec<SetRec> = raw
         .iter()
         .map(|w| SetRec {
-            id: w.id,
-            exercise_id: w.exercise_id,
+            id: SetId(w.id),
+            exercise_id: ExerciseId(w.exercise_id),
             logged_at: to_local(w.logged_at),
             reps: w.reps,
             load_kg: w.load_kg,

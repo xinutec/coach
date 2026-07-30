@@ -10,6 +10,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
 use crate::domain::Mode;
+use crate::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 use crate::domain::{Metric, Pattern};
 use crate::domain::{MuscleRole, Region};
 
@@ -19,7 +20,7 @@ use super::ability::Confidence;
 
 #[derive(Clone)]
 pub struct ExerciseInfo {
-    pub id: i64,
+    pub id: ExerciseId,
     pub name: String,
     /// The movement family — the catalog's base name, shared by its variations
     /// ("Farmers walk" plain/suitcase/waiter; both "Hamstring curls"). Cousins
@@ -41,9 +42,9 @@ pub struct ExerciseInfo {
     /// credits no training volume.
     pub warmup: bool,
     /// Equipment ids required (empty = bodyweight).
-    pub equipment: Vec<i64>,
+    pub equipment: Vec<EquipmentId>,
     /// Muscle groups this exercise trains, with the strongest role for each.
-    pub groups: Vec<(i64, MuscleRole)>,
+    pub groups: Vec<(GroupId, MuscleRole)>,
 }
 
 /// A logged set in the trailing history window (rich enough for volume,
@@ -56,8 +57,8 @@ pub struct SetRec {
     /// the *specific* set behind an estimate — a number the athlete can only
     /// correct if the app can tell him which set produced it. Identifying it by
     /// timestamp instead would risk offering to delete the wrong row.
-    pub id: i64,
-    pub exercise_id: i64,
+    pub id: SetId,
+    pub exercise_id: ExerciseId,
     pub logged_at: NaiveDateTime,
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
@@ -68,7 +69,7 @@ pub struct SetRec {
 /// Muscle-group identity for output labelling + the balance view.
 #[derive(Clone)]
 pub struct GroupMeta {
-    pub id: i64,
+    pub id: GroupId,
     pub name: String,
     pub region: Region,
 }
@@ -90,12 +91,12 @@ pub struct PacingSettings {
 /// ([`PacingInput::kit`] = `None`), and it yields a narrower verdict — no
 /// suggestions at all — rather than a wider one.
 #[derive(Clone, Debug, Default)]
-pub struct Kit(pub alloc::collections::BTreeSet<i64>);
+pub struct Kit(pub alloc::collections::BTreeSet<EquipmentId>);
 
 impl Kit {
     /// Is every piece of `required` equipment present here? (Empty = bodyweight,
     /// always true.)
-    pub fn has_all(&self, required: &[i64]) -> bool {
+    pub fn has_all(&self, required: &[EquipmentId]) -> bool {
         required.iter().all(|e| self.0.contains(e))
     }
 }
@@ -116,18 +117,18 @@ pub struct PacingInput {
     /// engine can't say what's doable and won't guess: the verdict carries no
     /// plan and asks for a location. Degradation narrows the claim, never widens it.
     pub kit: Option<Kit>,
-    /// The loads each exercise can actually be built with here, keyed by exercise
-    /// id — *not* by equipment. What's buildable depends on how many implements the
-    /// movement needs: a pair of dumbbells splits a finite disc budget between
-    /// them, and a fixed weight you own one of can't serve a two-dumbbell press.
-    /// Absent or empty = not loadable here, so the lift isn't selectable (see
-    /// [`super::dose::Inventory`]) and the verdict says why rather than inventing
-    /// a number.
-    pub exercise_loads: BTreeMap<i64, Vec<f64>>,
+    /// The loads each exercise can actually be built with here. Keyed per
+    /// *exercise* rather than per piece of kit because what's buildable depends on
+    /// how many implements the movement needs: a pair of dumbbells splits a finite
+    /// disc budget between them, and a fixed weight you own one of can't serve a
+    /// two-dumbbell press. Absent or empty = not loadable here, so the lift isn't
+    /// selectable (see [`super::dose::Inventory`]) and the verdict says why rather
+    /// than inventing a number.
+    pub exercise_loads: BTreeMap<ExerciseId, Vec<f64>>,
     /// Equipment id → its display name, so a blocked substitution can name the kit
     /// it's missing instead of saying "its kit isn't here" and leaving the athlete
     /// to guess which piece.
-    pub equipment_names: BTreeMap<i64, String>,
+    pub equipment_names: BTreeMap<EquipmentId, String>,
     /// Kit the coach had to leave out, and why — surfaced on the verdict so a drop
     /// reads as something to fix rather than a hole in the plan.
     pub notices: Vec<String>,
@@ -224,8 +225,7 @@ pub enum SuggestionKind {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct EstimateSource {
-    #[cfg_attr(feature = "ts", ts(type = "number"))]
-    pub set_id: i64,
+    pub set_id: SetId,
     pub logged_at: NaiveDateTime,
     pub load_kg: Option<f64>,
     pub reps: Option<i32>,
@@ -323,8 +323,7 @@ pub struct DoneSet {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct Suggestion {
-    #[cfg_attr(feature = "ts", ts(type = "number"))]
-    pub exercise_id: i64,
+    pub exercise_id: ExerciseId,
     pub exercise_name: String,
     pub pattern: Pattern,
     /// Work (prescribe) or Assess (measure). Drives the Today card's framing.

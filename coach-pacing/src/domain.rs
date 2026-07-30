@@ -1,10 +1,82 @@
-//! The shared domain enums the pacing engine reasons over — region, muscle role,
-//! movement pattern, set metric, and training mode. Each carries `as_db`/`from_db`
-//! string conversions (the coach ENUM-column convention); the DB row structs and
-//! their fallible `TryFrom` conversions stay in the std shell, which re-exports
-//! these enums so `crate::muscle::types::Region` etc. keep resolving.
+//! The shared domain vocabulary the pacing engine reasons over — the row
+//! identifiers, and the enums for region, muscle role, movement pattern, set
+//! metric, and training mode. Each enum carries `as_db`/`from_db` string
+//! conversions (the coach ENUM-column convention); the DB row structs and their
+//! fallible `TryFrom` conversions stay in the std shell, which re-exports these
+//! so `crate::muscle::types::Region` etc. keep resolving.
 
 use serde::{Deserialize, Serialize};
+
+// ---- identifiers -----------------------------------------------------------
+
+/// Generates a row-id newtype: a `i64` primary key that knows which table it
+/// came from.
+///
+/// Every id in this app was an `i64`, which made four different things one type.
+/// Nothing stopped a group id being passed where an exercise id was wanted —
+/// `blocked_ideal(.., groups.id[ix], c.ex.id)` takes both, adjacent, and swapping
+/// them compiled, ran, and produced a plausible-looking wrong answer. The maps
+/// had the same problem from the other side: `exercise_loads` needed a doc
+/// comment shouting "keyed by exercise id — **not** by equipment" precisely
+/// because its type could not say so. A `BTreeMap<ExerciseId, _>` says it, and
+/// the comment becomes redundant.
+///
+/// `#[serde(transparent)]` keeps the wire format a bare number, so this is
+/// invisible to the frontend and to Android — the guarantee is bought entirely
+/// inside Rust, at no cost to the API.
+macro_rules! row_id {
+    // `wire` marks an id that appears in a serialized API type, so ts-rs emits a
+    // TypeScript alias for it. The other ids are internal to the engine, and
+    // generating TS for them would be output nothing imports.
+    ($name:ident, wire, $doc:literal) => {
+        row_id!(@def $name, $doc,
+            #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+            #[cfg_attr(feature = "ts", ts(export, type = "number"))]
+        );
+    };
+    ($name:ident, $doc:literal) => {
+        row_id!(@def $name, $doc,);
+    };
+    (@def $name:ident, $doc:literal, $(#[$extra:meta])*) => {
+        #[doc = $doc]
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+        )]
+        #[serde(transparent)]
+        $(#[$extra])*
+        pub struct $name(pub i64);
+
+        impl $name {
+            /// The underlying row id — for the DB layer and for formatting. Named
+            /// rather than reached through `.0` at call sites, so a grep for
+            /// `.get()` finds every place the wrapper is deliberately shed.
+            pub const fn get(self) -> i64 {
+                self.0
+            }
+        }
+
+        impl core::fmt::Display for $name {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+    };
+}
+
+row_id!(
+    ExerciseId,
+    wire,
+    "A row in `exercises` — one movement variation."
+);
+row_id!(GroupId, "A row in `muscle_groups`.");
+row_id!(EquipmentId, "A row in `equipment` — one piece of kit.");
+row_id!(
+    SetId,
+    wire,
+    "A row in `workout_sets` — one logged set. Carried on an estimate so the app \
+     can point at the *specific* set behind a number the athlete may need to \
+     correct."
+);
 
 /// Generates the `as_db`/`from_db` string mapping. Pure `match`es — no std.
 macro_rules! db_str {

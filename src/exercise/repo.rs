@@ -15,6 +15,7 @@ use super::types::{
 use crate::equipment::repo::eq_cols;
 use crate::equipment::types::{Equipment, EquipmentRow};
 use crate::muscle::types::MuscleRole;
+use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId};
 
 // Equipment slugs (comma-joined) + image presence, as correlated subqueries so
 // the list stays one row per exercise without a GROUP BY. A macro (not a const)
@@ -296,27 +297,16 @@ pub async fn set_muscles(
 }
 
 /// exercise id → required equipment ids (for the pacing engine's doability check).
-pub async fn equipment_by_exercise(pool: &MySqlPool) -> Result<HashMap<i64, Vec<i64>>> {
+pub async fn equipment_by_exercise(
+    pool: &MySqlPool,
+) -> Result<HashMap<ExerciseId, Vec<EquipmentId>>> {
     let rows: Vec<(i64, i64)> =
         sqlx::query_as("SELECT exercise_id, equipment_id FROM exercise_equipment")
             .fetch_all(pool)
             .await?;
-    let mut map: HashMap<i64, Vec<i64>> = HashMap::new();
+    let mut map: HashMap<ExerciseId, Vec<EquipmentId>> = HashMap::new();
     for (ex, eq) in rows {
-        map.entry(ex).or_default().push(eq);
-    }
-    Ok(map)
-}
-
-/// exercise id → primary muscle ids (for the pacing engine's substitution ranking).
-pub async fn primary_muscles_by_exercise(pool: &MySqlPool) -> Result<HashMap<i64, Vec<i64>>> {
-    let rows: Vec<(i64, i64)> =
-        sqlx::query_as("SELECT exercise_id, muscle_id FROM exercise_muscle WHERE role = 'primary'")
-            .fetch_all(pool)
-            .await?;
-    let mut map: HashMap<i64, Vec<i64>> = HashMap::new();
-    for (ex, mus) in rows {
-        map.entry(ex).or_default().push(mus);
+        map.entry(ExerciseId(ex)).or_default().push(EquipmentId(eq));
     }
     Ok(map)
 }
@@ -327,7 +317,7 @@ pub async fn primary_muscles_by_exercise(pool: &MySqlPool) -> Result<HashMap<i64
 /// strongest role ('primary' < 'secondary' < 'stabilizer' lexically).
 pub async fn muscle_groups_by_exercise(
     pool: &MySqlPool,
-) -> Result<HashMap<i64, Vec<(i64, MuscleRole)>>> {
+) -> Result<HashMap<ExerciseId, Vec<(GroupId, MuscleRole)>>> {
     let rows: Vec<(i64, i64, String)> = sqlx::query_as(
         "SELECT xm.exercise_id, m.muscle_group_id AS grp, MIN(xm.role) AS role \
          FROM exercise_muscle xm JOIN muscles m ON m.id = xm.muscle_id \
@@ -335,10 +325,12 @@ pub async fn muscle_groups_by_exercise(
     )
     .fetch_all(pool)
     .await?;
-    let mut map: HashMap<i64, Vec<(i64, MuscleRole)>> = HashMap::new();
+    let mut map: HashMap<ExerciseId, Vec<(GroupId, MuscleRole)>> = HashMap::new();
     for (ex, grp, role) in rows {
         let role = MuscleRole::from_db(&role).ok_or_else(|| anyhow!("unknown role {role:?}"))?;
-        map.entry(ex).or_default().push((grp, role));
+        map.entry(ExerciseId(ex))
+            .or_default()
+            .push((GroupId(grp), role));
     }
     Ok(map)
 }

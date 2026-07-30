@@ -6,6 +6,7 @@
 //! into one-off sets across every untrained group at once.
 
 use coach::pacing::cover::{ByGroup, Candidate, GroupIx, select};
+use coach_pacing::domain::ExerciseId;
 
 /// A dense need/credit vector from a plain list — built through the public API
 /// (`filled` + indexed writes), since the backing store is private on purpose.
@@ -28,7 +29,7 @@ fn cand(
     cap: i32,
 ) -> Candidate {
     Candidate {
-        id,
+        id: ExerciseId(id),
         family: format!("ex{id}"),
         credit: vec_of(credit),
         weight,
@@ -74,7 +75,7 @@ fn confirmation_carries_a_movement_whose_group_is_already_covered() {
         1,
         "only the confirmable movement is selectable"
     );
-    assert_eq!(chosen[0].item.id, 2);
+    assert_eq!(chosen[0].item.id, ExerciseId(2));
     assert_eq!(
         chosen[0].sets, 2,
         "confirmation takes the minimum effective dose"
@@ -133,10 +134,10 @@ fn a_non_novel_movement_is_never_held_back_by_the_novelty_cap() {
     ];
     let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 10, 0);
     // Novelty cap 0 blocks the novel one entirely, but the known one is picked.
-    let ids: Vec<i64> = chosen.iter().map(|c| c.item.id).collect();
+    let ids: Vec<ExerciseId> = chosen.iter().map(|c| c.item.id).collect();
     assert_eq!(
         ids,
-        vec![2],
+        vec![ExerciseId(2)],
         "cap 0 drops the novel pick, keeps the known one"
     );
 }
@@ -174,7 +175,7 @@ fn a_one_set_calibration_still_fits_a_one_set_remainder() {
         cand(2, vec![0.0, 1.0], 2.0, 0.0, true, 1, 1),
     ];
     let chosen = select(&cands, &vec_of(vec![3.0, 3.0]), 3, 5);
-    let calib = chosen.iter().find(|c| c.item.id == 2);
+    let calib = chosen.iter().find(|c| c.item.id == ExerciseId(2));
     assert!(
         calib.is_some_and(|c| c.sets == 1),
         "the calibration takes the last set: {:?}",

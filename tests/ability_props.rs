@@ -7,6 +7,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use coach::pacing::ability::abilities;
 use coach::pacing::types::SetRec;
+use coach_pacing::domain::{ExerciseId, SetId};
 use proptest::prelude::*;
 
 fn base() -> NaiveDateTime {
@@ -29,8 +30,8 @@ type RawSet = (i64, f64, i32, Option<i32>);
 fn weighted(raw: &[RawSet]) -> Vec<SetRec> {
     raw.iter()
         .map(|&(days_ago, load, reps, rpe)| SetRec {
-            id: 0,
-            exercise_id: 1,
+            id: SetId(0),
+            exercise_id: ExerciseId(1),
             logged_at: base() - Duration::days(days_ago),
             reps: Some(reps),
             load_kg: Some(load),
@@ -58,7 +59,7 @@ proptest! {
     #[test]
     fn e1rm_never_exceeds_the_best_real_set(raw in sets_strategy()) {
         let a = abilities(&weighted(&raw), base());
-        let est = a[&1].e1rm.unwrap();
+        let est = a[&ExerciseId(1)].e1rm.unwrap();
         let ceiling = raw
             .iter()
             .map(|&(_, load, reps, rpe)| raw_e1rm(load, reps, rpe))
@@ -73,8 +74,8 @@ proptest! {
         let hist = weighted(&raw);
         let now = base();
         let later = base() + Duration::days(extra);
-        let e_now = abilities(&hist, now)[&1].e1rm.unwrap();
-        let e_later = abilities(&hist, later)[&1].e1rm.unwrap();
+        let e_now = abilities(&hist, now)[&ExerciseId(1)].e1rm.unwrap();
+        let e_later = abilities(&hist, later)[&ExerciseId(1)].e1rm.unwrap();
         prop_assert!(e_later <= e_now + 1e-6, "idle raised ability: {e_later} > {e_now}");
     }
 }

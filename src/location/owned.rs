@@ -17,6 +17,7 @@ use crate::equipment::repo as equipment_repo;
 use crate::exercise::repo as ex_repo;
 use crate::exercise::types::{Exercise, Metric};
 use crate::location::{loads, repo as location_repo};
+use coach_pacing::domain::{EquipmentId, ExerciseId};
 
 /// The heaviest load `exercise` can be built to with the weights this user owns,
 /// across **every** location they have.
@@ -39,16 +40,16 @@ pub async fn heaviest_buildable(
         return Ok(None);
     }
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
-    let Some(ex_equipment) = equip_by_ex.get(&exercise.id) else {
+    let Some(ex_equipment) = equip_by_ex.get(&ExerciseId(exercise.id)) else {
         return Ok(None);
     };
     // The catalog's `weighted` flag, not a guess from the category — the same
     // rule the engine uses (a cable stack is a machine that certainly bears load).
-    let bears_load: HashSet<i64> = equipment_repo::list(pool)
+    let bears_load: HashSet<EquipmentId> = equipment_repo::list(pool)
         .await?
         .into_iter()
         .filter(|e| e.weighted)
-        .map(|e| e.id)
+        .map(|e| EquipmentId(e.id))
         .collect();
     let implements = u32::try_from(exercise.implements).unwrap_or(1).max(1);
 

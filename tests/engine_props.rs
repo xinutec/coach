@@ -14,6 +14,7 @@ use coach::pacing::types::{
     SuggestionKind,
 };
 use coach::settings::types::Mode;
+use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 use proptest::prelude::*;
 
 fn base() -> NaiveDateTime {
@@ -31,8 +32,8 @@ fn base() -> NaiveDateTime {
 const EQUIP_LOADED: i64 = 3;
 fn catalog() -> Vec<ExerciseInfo> {
     use coach::exercise::types::{Metric, Pattern};
-    let mk = |id, pat, metric, skill, equip: Vec<i64>, group| ExerciseInfo {
-        id,
+    let mk = |id: i64, pat, metric, skill, equip: Vec<i64>, group: i64| ExerciseInfo {
+        id: ExerciseId(id),
         name: format!("ex{id}"),
         family: format!("ex{id}"),
         difficulty: None,
@@ -41,8 +42,8 @@ fn catalog() -> Vec<ExerciseInfo> {
         is_skill: skill,
         is_power: false,
         warmup: false,
-        equipment: equip,
-        groups: vec![(group, MuscleRole::Primary)],
+        equipment: equip.into_iter().map(EquipmentId).collect(),
+        groups: vec![(GroupId(group), MuscleRole::Primary)],
     };
     vec![
         mk(
@@ -63,17 +64,17 @@ const EX_IDS: [i64; 4] = [5, 2, 7, 8];
 fn groups() -> Vec<GroupMeta> {
     vec![
         GroupMeta {
-            id: 10,
+            id: GroupId(10),
             name: "Chest".into(),
             region: Region::Chest,
         },
         GroupMeta {
-            id: 20,
+            id: GroupId(20),
             name: "Back".into(),
             region: Region::Back,
         },
         GroupMeta {
-            id: 30,
+            id: GroupId(30),
             name: "Legs".into(),
             region: Region::Legs,
         },
@@ -104,8 +105,8 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
                 _ => (None, Some(reps), None),            // bodyweight reps
             };
             SetRec {
-                id: 0,
-                exercise_id: id,
+                id: SetId(0),
+                exercise_id: ExerciseId(id),
                 logged_at: base() - Duration::days(days_ago),
                 reps: reps_v,
                 load_kg,
@@ -120,7 +121,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
     let exercise_loads = if owned.is_empty() {
         BTreeMap::new()
     } else {
-        BTreeMap::from([(5i64, owned.to_vec())])
+        BTreeMap::from([(ExerciseId(5), owned.to_vec())])
     };
     PacingInput {
         mode: mode_of(mode_i),
@@ -271,7 +272,7 @@ proptest! {
     fn a_weighted_lift_is_never_planned_without_a_load((m, d, raw, owned) in scenario()) {
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
         for item in out.plan.iter().filter(|s| s.kind != SuggestionKind::Warmup) {
-            if item.exercise_id == 5 {
+            if item.exercise_id == ExerciseId(5) {
                 prop_assert!(
                     item.load_kg.is_some(),
                     "the loaded lift was planned with no load (owned {owned:?})"
@@ -375,7 +376,7 @@ proptest! {
         let mut committed = build_input(m, d, &raw, &owned);
         for _ in 0..first.sets.max(1) {
             committed.history.push(SetRec {
-                id: 0,
+                id: SetId(0),
                 exercise_id: first.exercise_id,
                 logged_at: base(),
                 reps: first.rep_low,
@@ -387,7 +388,7 @@ proptest! {
         committed.last_set_at = Some(base());
         let after = evaluate(&committed, base());
 
-        let work_ids = |out: &coach::pacing::types::PacingNow| -> Vec<i64> {
+        let work_ids = |out: &coach::pacing::types::PacingNow| -> Vec<ExerciseId> {
             out.plan
                 .iter()
                 .filter(|i| i.kind == SuggestionKind::Work)

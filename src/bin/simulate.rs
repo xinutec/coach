@@ -67,6 +67,7 @@ use coach::muscle::types::MuscleRole;
 use coach::pacing::types::{PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
 use coach::pacing::{ability, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
+use coach_pacing::domain::{ExerciseId, SetId};
 
 /// When the athlete checks the app and (if told to) trains. Inside a default
 /// training window; sets are logged from shortly after.
@@ -360,16 +361,16 @@ struct Base {
 
 struct Athlete {
     temperament: Temperament,
-    base: HashMap<i64, Base>,
+    base: HashMap<ExerciseId, Base>,
     /// Exercises whose primary group is the injured one. Empty unless the
     /// temperament is [`Temperament::Injured`].
-    injured: BTreeSet<i64>,
+    injured: BTreeSet<ExerciseId>,
 }
 
 impl Athlete {
     /// True ability at sim week `w`, seeding a deterministic default the first
     /// time an exercise is asked about.
-    fn truth(&mut self, exercise_id: i64, seed: Option<&ability::Ability>, w: i64) -> Base {
+    fn truth(&mut self, exercise_id: ExerciseId, seed: Option<&ability::Ability>, w: i64) -> Base {
         let t = self.temperament;
         let start = t.start_scale();
         let b = self.base.entry(exercise_id).or_insert_with(|| Base {
@@ -628,8 +629,8 @@ async fn main() -> Result<()> {
     let mut hist: Vec<SetRec> = raw
         .iter()
         .map(|w| SetRec {
-            id: w.id,
-            exercise_id: w.exercise_id,
+            id: SetId(w.id),
+            exercise_id: ExerciseId(w.exercise_id),
             logged_at: to_local(w.logged_at),
             reps: w.reps,
             load_kg: w.load_kg,
@@ -642,8 +643,9 @@ async fn main() -> Result<()> {
         bail!("no history for user {user} — nothing to grow the simulation from");
     }
 
-    let metric_of: HashMap<i64, Metric> = ctx.exercises.iter().map(|e| (e.id, e.metric)).collect();
-    let name_of: HashMap<i64, String> = ctx
+    let metric_of: HashMap<ExerciseId, Metric> =
+        ctx.exercises.iter().map(|e| (e.id, e.metric)).collect();
+    let name_of: HashMap<ExerciseId, String> = ctx
         .exercises
         .iter()
         .map(|e| (e.id, e.name.clone()))
@@ -666,7 +668,7 @@ async fn main() -> Result<()> {
         .iter()
         .find(|g| g.name.eq_ignore_ascii_case(INJURED_GROUP))
         .or_else(|| ctx.groups.first());
-    let injured: BTreeSet<i64> = match (temperament, injured_group) {
+    let injured: BTreeSet<ExerciseId> = match (temperament, injured_group) {
         (Temperament::Injured, Some(g)) => ctx
             .exercises
             .iter()
@@ -713,7 +715,7 @@ async fn main() -> Result<()> {
     // offered but never performed because the athlete left early.
     let mut away = 0usize;
     let mut abandoned = 0usize;
-    let mut touched: BTreeSet<i64> = BTreeSet::new();
+    let mut touched: BTreeSet<ExerciseId> = BTreeSet::new();
     // Readiness as it stood each morning, accumulated as the walk grows — exactly
     // what the ledger reconstructs the ask under, so an eased session isn't judged
     // as though it had been full-effort.
@@ -802,7 +804,7 @@ async fn main() -> Result<()> {
                     hist.push(SetRec {
                         // Simulated sets are never written back, so a real row id
                         // would be a fiction; they only need to not collide.
-                        id: -(sets_logged as i64 + 1),
+                        id: SetId(-(sets_logged as i64 + 1)),
                         exercise_id: s.exercise_id,
                         logged_at: t,
                         reps: p.reps,

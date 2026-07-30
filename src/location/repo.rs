@@ -8,6 +8,7 @@ use sqlx::MySqlPool;
 
 use super::loads;
 use super::types::{EquipmentOption, Location, LocationPatch, LocationRow, NewLocation, Plate};
+use coach_pacing::domain::EquipmentId;
 
 macro_rules! loc_cols {
     () => {
@@ -157,7 +158,7 @@ pub async fn equipment_ids(
     pool: &MySqlPool,
     user_id: &str,
     location_id: i64,
-) -> Result<Option<Vec<i64>>> {
+) -> Result<Option<Vec<EquipmentId>>> {
     // Ownership check first (a foreign location id must not leak equipment).
     if get(pool, user_id, location_id).await?.is_none() {
         return Ok(None);
@@ -167,7 +168,9 @@ pub async fn equipment_ids(
             .bind(location_id)
             .fetch_all(pool)
             .await?;
-    Ok(Some(rows.into_iter().map(|(id,)| id).collect()))
+    Ok(Some(
+        rows.into_iter().map(|(id,)| EquipmentId(id)).collect(),
+    ))
 }
 
 /// The loadable kit at a location, per equipment id: fixed free weights (with how
@@ -180,7 +183,7 @@ pub async fn equipment_ids(
 pub async fn kit_loads(
     pool: &MySqlPool,
     location_id: i64,
-) -> Result<HashMap<i64, loads::KitLoads>> {
+) -> Result<HashMap<EquipmentId, loads::KitLoads>> {
     let plates = load_plates(pool, location_id).await?;
     let rows: Vec<KitRow> = sqlx::query_as(
         "SELECT equipment_id, load_kg, kind, qty, plate_slots FROM location_equipment_option \
@@ -191,10 +194,10 @@ pub async fn kit_loads(
     .await?;
 
     let qty = |q: Option<i32>| q.and_then(|q| u32::try_from(q).ok());
-    let mut map: HashMap<i64, loads::KitLoads> = HashMap::new();
+    let mut map: HashMap<EquipmentId, loads::KitLoads> = HashMap::new();
     for (id, load, kind, q, slots) in rows {
         let Some(kg) = load else { continue };
-        let entry = map.entry(id).or_default();
+        let entry = map.entry(EquipmentId(id)).or_default();
         match kind.as_deref() {
             // A loadable bar or dumbbell handle.
             Some("bar") => {
@@ -214,7 +217,7 @@ pub async fn kit_loads(
     for (id, kit) in map.iter_mut() {
         kit.plates = plates
             .iter()
-            .filter(|p| p.equipment_id.is_none_or(|e| e == *id))
+            .filter(|p| p.equipment_id.is_none_or(|e| EquipmentId(e) == *id))
             .map(|p| loads::Plate {
                 kg: p.load_kg,
                 qty: p.qty,

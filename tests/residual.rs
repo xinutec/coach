@@ -12,6 +12,7 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 use coach::pacing::residual::{Outcome, residuals};
 use coach::pacing::types::SetRec;
 use coach::settings::types::Mode;
+use coach_pacing::domain::{ExerciseId, SetId};
 
 fn day(n: i64) -> NaiveDateTime {
     NaiveDate::from_ymd_opt(2026, 1, 1)
@@ -23,8 +24,8 @@ fn day(n: i64) -> NaiveDateTime {
 
 fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
     SetRec {
-        id: 0,
-        exercise_id: 1,
+        id: SetId(0),
+        exercise_id: ExerciseId(1),
         logged_at: day(day_n),
         reps: Some(reps),
         load_kg: Some(load),
@@ -36,19 +37,19 @@ fn wset(day_n: i64, load: f64, reps: i32) -> SetRec {
 /// The weights these sets could have been built from — 20…80 kg in 2.5 kg steps,
 /// keyed by the exercise under test. The ledger reconstructs the ask as a weight
 /// off the rack, so it needs the same rack the coach planned against.
-fn owned() -> std::collections::BTreeMap<i64, Vec<f64>> {
+fn owned() -> std::collections::BTreeMap<ExerciseId, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
     while w <= 80.0 + 1e-9 {
         loads.push(w);
         w += 2.5;
     }
-    std::collections::BTreeMap::from([(1, loads)])
+    std::collections::BTreeMap::from([(ExerciseId(1), loads)])
 }
 
 fn ledger_for(sets: Vec<SetRec>) -> coach::pacing::residual::Residual {
     residuals(&sets, Mode::Balanced, &Default::default(), &owned())
-        .remove(&1)
+        .remove(&ExerciseId(1))
         .unwrap_or_default()
 }
 

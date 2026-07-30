@@ -28,6 +28,8 @@
 //! asks for a fresh assessment.
 
 use crate::prelude::*;
+
+use crate::domain::{ExerciseId, SetId};
 use alloc::collections::{BTreeMap, BTreeSet};
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
@@ -157,7 +159,7 @@ pub struct Ability {
 /// be corrected. Which metric it set is implied by the estimate it accompanies.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Source {
-    pub set_id: i64,
+    pub set_id: SetId,
     pub logged_at: NaiveDateTime,
     pub load_kg: Option<f64>,
     pub reps: Option<i32>,
@@ -319,8 +321,8 @@ fn carry_under_ceiling(carry: Option<Carry>, ceiling: Option<Carry>) -> Option<C
 
 /// Estimate ability for every exercise present in `history`. Exercises absent
 /// from the returned map have never been trained → treat as `Confidence::None`.
-pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> BTreeMap<i64, Ability> {
-    let mut by_ex: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
+pub fn abilities(history: &[SetRec], now: NaiveDateTime) -> BTreeMap<ExerciseId, Ability> {
+    let mut by_ex: BTreeMap<ExerciseId, Vec<&SetRec>> = BTreeMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
@@ -441,7 +443,10 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
 
 /// Confidence for an exercise given the ability map — `None` when it's absent
 /// (never trained).
-pub fn confidence_of(abilities: &BTreeMap<i64, Ability>, exercise_id: i64) -> Confidence {
+pub fn confidence_of(
+    abilities: &BTreeMap<ExerciseId, Ability>,
+    exercise_id: ExerciseId,
+) -> Confidence {
     abilities
         .get(&exercise_id)
         .map(|a| a.confidence)

@@ -33,6 +33,7 @@ use coach::pacing::types::{
     ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, SetRec, Suggestion, SuggestionKind,
 };
 use coach::settings::types::Mode;
+use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 
 // ---- the virtual athlete ---------------------------------------------------
 
@@ -96,19 +97,19 @@ fn start() -> NaiveDateTime {
 /// The barbell row's buildable loads: 20…80 kg in 2.5 kg steps. Keyed by *exercise*
 /// (id 5) — what's buildable depends on how many implements the movement needs, so
 /// the service resolves it per exercise and the engine just consumes the set.
-fn owned() -> BTreeMap<i64, Vec<f64>> {
+fn owned() -> BTreeMap<ExerciseId, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
     while w <= 80.0 + 1e-9 {
         loads.push(w);
         w += 2.5;
     }
-    BTreeMap::from([(5, loads)])
+    BTreeMap::from([(ExerciseId(5), loads)])
 }
 
 fn barbell_row() -> ExerciseInfo {
     ExerciseInfo {
-        id: 5,
+        id: ExerciseId(5),
         name: "Barbell row".into(),
         family: "Barbell row".into(),
         difficulty: None,
@@ -117,14 +118,14 @@ fn barbell_row() -> ExerciseInfo {
         is_skill: false,
         is_power: false,
         warmup: false,
-        equipment: vec![3],
-        groups: vec![(20, MuscleRole::Primary)],
+        equipment: vec![EquipmentId(3)],
+        groups: vec![(GroupId(20), MuscleRole::Primary)],
     }
 }
 
 fn back_group() -> Vec<GroupMeta> {
     vec![GroupMeta {
-        id: 20,
+        id: GroupId(20),
         name: "Lats".into(),
         region: Region::Back,
     }]
@@ -142,7 +143,7 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         last_set_at,
         settings: settings(),
         groups: back_group(),
-        kit: Some(Kit([3].into_iter().collect())),
+        kit: Some(Kit([EquipmentId(3)].into_iter().collect())),
         exercise_loads: owned(),
         equipment_names: BTreeMap::new(),
         notices: Vec::new(),
@@ -155,7 +156,11 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
 fn row_suggestion(history: &[SetRec], now: NaiveDateTime) -> Suggestion {
     let out = evaluate(&row_input(history.to_vec()), now);
     let sug = out.suggestion.expect("a row suggestion every cycle");
-    assert_eq!(sug.exercise_id, 5, "the only exercise is the row");
+    assert_eq!(
+        sug.exercise_id,
+        ExerciseId(5),
+        "the only exercise is the row"
+    );
     sug
 }
 
@@ -188,8 +193,8 @@ fn estimate_converges_to_true_ability_and_holds() {
         let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
-            id: 0,
-            exercise_id: 5,
+            id: SetId(0),
+            exercise_id: ExerciseId(5),
             logged_at: now,
             reps: Some(reps),
             load_kg: Some(load),
@@ -275,8 +280,8 @@ fn the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe() {
         let target = sug.rep_low.expect("a prescription names a rep target");
         let (reps, _rpe) = athlete.lift(load, target);
         history.push(SetRec {
-            id: 0,
-            exercise_id: 5,
+            id: SetId(0),
+            exercise_id: ExerciseId(5),
             logged_at: now,
             reps: Some(reps),
             load_kg: Some(load),
@@ -334,8 +339,8 @@ fn estimate_tracks_true_ability_as_it_grows() {
         let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
-            id: 0,
-            exercise_id: 5,
+            id: SetId(0),
+            exercise_id: ExerciseId(5),
             logged_at: now,
             reps: Some(reps),
             load_kg: Some(load),
@@ -372,7 +377,7 @@ fn estimate_tracks_true_ability_as_it_grows() {
 
 fn body_ex(id: i64, name: &str, pattern: Pattern, group: i64) -> ExerciseInfo {
     ExerciseInfo {
-        id,
+        id: ExerciseId(id),
         name: name.into(),
         family: name.into(),
         difficulty: None,
@@ -382,7 +387,7 @@ fn body_ex(id: i64, name: &str, pattern: Pattern, group: i64) -> ExerciseInfo {
         is_power: false,
         warmup: false,
         equipment: vec![],
-        groups: vec![(group, MuscleRole::Primary)],
+        groups: vec![(GroupId(group), MuscleRole::Primary)],
     }
 }
 
@@ -400,23 +405,27 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
     ];
     let groups = vec![
         GroupMeta {
-            id: 10,
+            id: GroupId(10),
             name: "Chest".into(),
             region: Region::Chest,
         },
         GroupMeta {
-            id: 20,
+            id: GroupId(20),
             name: "Lats".into(),
             region: Region::Back,
         },
         GroupMeta {
-            id: 30,
+            id: GroupId(30),
             name: "Quadriceps".into(),
             region: Region::Legs,
         },
     ];
     // Distinct clean-rep ceilings so the moves aren't interchangeable.
-    let ability = BTreeMap::from([(1, 25), (2, 15), (3, 30)]);
+    let ability = BTreeMap::from([
+        (ExerciseId(1), 25),
+        (ExerciseId(2), 15),
+        (ExerciseId(3), 30),
+    ]);
 
     let mut history: Vec<SetRec> = Vec::new();
 
@@ -484,7 +493,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
         );
 
         // Perform the whole session; each logged set feeds the next day's verdict.
-        let athlete = |id: i64| Athlete {
+        let athlete = |id: ExerciseId| Athlete {
             true_e1rm: 0.0,
             true_reps: ability[&id],
         };
@@ -494,7 +503,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             }
             let (reps, rpe) = athlete(s.exercise_id).reps(s.rep_high.or(s.rep_low));
             history.push(SetRec {
-                id: 0,
+                id: SetId(0),
                 exercise_id: s.exercise_id,
                 logged_at: now,
                 reps: Some(reps),

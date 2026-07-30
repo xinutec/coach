@@ -25,6 +25,7 @@ use coach::pacing::ability::{self, Confidence};
 use coach::pacing::types::SetRec;
 use coach::pacing::{engine, service};
 use coach::workout::repo as workout_repo;
+use coach_pacing::domain::{ExerciseId, SetId};
 
 /// The morning we evaluate each training day at (local). Inside a default
 /// training window, and before the imported sets (stamped midday), so a day's
@@ -80,8 +81,8 @@ async fn main() -> Result<()> {
     let mut sets: Vec<SetRec> = raw
         .iter()
         .map(|w| SetRec {
-            id: w.id,
-            exercise_id: w.exercise_id,
+            id: SetId(w.id),
+            exercise_id: ExerciseId(w.exercise_id),
             logged_at: to_local(w.logged_at),
             reps: w.reps,
             load_kg: w.load_kg,
@@ -96,7 +97,7 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let name_of: HashMap<i64, String> = ctx
+    let name_of: HashMap<ExerciseId, String> = ctx
         .exercises
         .iter()
         .map(|e| (e.id, e.name.clone()))
@@ -120,7 +121,7 @@ async fn main() -> Result<()> {
     // Roll-ups across the walk, to show the "gets finer over time" trajectory.
     let mut total_assess = 0usize;
     let mut total_work = 0usize;
-    let mut ever_high: BTreeSet<i64> = BTreeSet::new();
+    let mut ever_high: BTreeSet<ExerciseId> = BTreeSet::new();
 
     for day in &days {
         let now_local = day.and_hms_opt(MORNING_HOUR, 0, 0).unwrap();

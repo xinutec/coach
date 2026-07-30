@@ -31,6 +31,8 @@
 
 use crate::prelude::*;
 
+use crate::domain::ExerciseId;
+
 /// A dense index into the group space (`0..groups.len()`), assigned from the
 /// group list's order. Distinct from a muscle-group *id* by type.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -114,7 +116,7 @@ impl ByGroup<f64> {
 /// and the most sets of it that belong in one session.
 pub struct Candidate {
     /// Exercise id — carried only to break ties deterministically.
-    pub id: i64,
+    pub id: ExerciseId,
     /// The movement family (the catalog's base name). Variations of one movement
     /// train the same thing the same way, so a session takes at most one entry
     /// per family — the second cousin is redundant stimulus wearing a different

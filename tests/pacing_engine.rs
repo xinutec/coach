@@ -14,6 +14,7 @@ use coach::pacing::types::{
     PacingState, Readiness, SetRec, Suggestion, SuggestionKind,
 };
 use coach::settings::types::Mode;
+use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 
 // Fixed "now": Mon 2026-07-06 12:00 (inside an 08:00–21:00 window).
 fn now() -> NaiveDateTime {
@@ -44,17 +45,17 @@ fn settings() -> PacingSettings {
 fn groups() -> Vec<GroupMeta> {
     vec![
         GroupMeta {
-            id: 10,
+            id: GroupId(10),
             name: "Chest".into(),
             region: Region::Chest,
         },
         GroupMeta {
-            id: 20,
+            id: GroupId(20),
             name: "Lats".into(),
             region: Region::Back,
         },
         GroupMeta {
-            id: 30,
+            id: GroupId(30),
             name: "Quadriceps".into(),
             region: Region::Legs,
         },
@@ -72,7 +73,7 @@ fn ex(
     grps: Vec<(i64, MuscleRole)>,
 ) -> ExerciseInfo {
     ExerciseInfo {
-        id,
+        id: ExerciseId(id),
         name: name.into(),
         family: name.into(),
         difficulty: None,
@@ -81,15 +82,15 @@ fn ex(
         is_skill,
         is_power: false,
         warmup: false,
-        equipment,
-        groups: grps,
+        equipment: equipment.into_iter().map(EquipmentId).collect(),
+        groups: grps.into_iter().map(|(g, r)| (GroupId(g), r)).collect(),
     }
 }
 
 /// A warm-up (mobility) exercise on `group`, doable anywhere.
 fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
     ExerciseInfo {
-        id,
+        id: ExerciseId(id),
         name: name.into(),
         family: name.into(),
         difficulty: None,
@@ -99,15 +100,15 @@ fn warmup_ex(id: i64, name: &str, group: i64) -> ExerciseInfo {
         is_power: false,
         warmup: true,
         equipment: vec![],
-        groups: vec![(group, MuscleRole::Primary)],
+        groups: vec![(GroupId(group), MuscleRole::Primary)],
     }
 }
 
 /// A bodyweight set (reps only) — for volume/recovery scenarios.
 fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
     SetRec {
-        id: 0,
-        exercise_id,
+        id: SetId(0),
+        exercise_id: ExerciseId(exercise_id),
         logged_at: at,
         reps: Some(8),
         load_kg: None,
@@ -120,8 +121,8 @@ fn set(exercise_id: i64, at: NaiveDateTime) -> SetRec {
 /// demonstrated maximum, not the volume, is the point.
 fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
     SetRec {
-        id: 0,
-        exercise_id,
+        id: SetId(0),
+        exercise_id: ExerciseId(exercise_id),
         logged_at: at,
         reps: Some(reps),
         load_kg: None,
@@ -134,8 +135,8 @@ fn bset(exercise_id: i64, at: NaiveDateTime, reps: i32) -> SetRec {
 /// derives from.
 fn wset(exercise_id: i64, at: NaiveDateTime, load: f64, reps: i32) -> SetRec {
     SetRec {
-        id: 0,
-        exercise_id,
+        id: SetId(0),
+        exercise_id: ExerciseId(exercise_id),
         logged_at: at,
         reps: Some(reps),
         load_kg: Some(load),
@@ -156,7 +157,7 @@ fn input(
     // a location stocked with everything the catalog needs — not the old "no
     // filter" special case (there isn't one: absent kit means absent kit).
     let kit = Kit(match available {
-        Some(v) => v.into_iter().collect(),
+        Some(v) => v.into_iter().map(EquipmentId).collect(),
         None => exercises.iter().flat_map(|e| e.equipment.clone()).collect(),
     });
     PacingInput {
@@ -225,7 +226,7 @@ fn barbell_row() -> ExerciseInfo {
 }
 fn back_only() -> Vec<GroupMeta> {
     vec![GroupMeta {
-        id: 20,
+        id: GroupId(20),
         name: "Lats".into(),
         region: Region::Back,
     }]
@@ -235,14 +236,14 @@ fn back_only() -> Vec<GroupMeta> {
 /// Keyed by *exercise*, not equipment — what you can build depends on how many
 /// implements the movement uses, so the service resolves it per exercise. Without
 /// an inventory there's no honest load, so the engine leaves the lift out.
-fn owned() -> BTreeMap<i64, Vec<f64>> {
+fn owned() -> BTreeMap<ExerciseId, Vec<f64>> {
     let mut loads = Vec::new();
     let mut w = 20.0;
     while w <= 80.0 + 1e-9 {
         loads.push(w);
         w += 2.5;
     }
-    BTreeMap::from([(5, loads)])
+    BTreeMap::from([(ExerciseId(5), loads)])
 }
 
 #[test]
@@ -267,10 +268,10 @@ fn surfaces_the_lagging_group() {
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     assert_eq!(out.state, PacingState::Active);
     let sug = out.suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 2); // ring row — the back exercise
+    assert_eq!(sug.exercise_id, ExerciseId(2)); // ring row — the back exercise
     assert_eq!(sug.group, "Lats");
     // The single suggestion is just the head of the ordered plan.
-    assert_eq!(out.plan.first().map(|s| s.exercise_id), Some(2));
+    assert_eq!(out.plan.first().map(|s| s.exercise_id), Some(ExerciseId(2)));
 }
 
 #[test]
@@ -318,7 +319,7 @@ fn a_started_movement_is_confirmed_even_when_its_group_is_covered() {
     let pushup = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 1)
+        .find(|s| s.exercise_id == ExerciseId(1))
         .expect("the started movement is confirmed, not abandoned once its group is covered");
     assert_eq!(pushup.kind, SuggestionKind::Work);
     assert!(
@@ -388,8 +389,8 @@ fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
     ];
     let out = evaluate(&input(Mode::Balanced, exs, vec![], None, None), now());
     let order: Vec<_> = out.plan.iter().map(|s| s.exercise_id).collect();
-    let skill = order.iter().position(|&id| id == 7);
-    let compound = order.iter().position(|&id| id == 5);
+    let skill = order.iter().position(|&id| id == ExerciseId(7));
+    let compound = order.iter().position(|&id| id == ExerciseId(5));
     if let (Some(sk), Some(co)) = (skill, compound) {
         assert!(
             sk < co,
@@ -408,7 +409,7 @@ fn power_work_leads_even_skill_and_compounds() {
     // rep target. The jump is patterned Core on purpose: box jumps and slams are,
     // and the finisher tier must not claim them ahead of the power check.
     let jump = ExerciseInfo {
-        id: 9,
+        id: ExerciseId(9),
         name: "Broad jump".into(),
         family: "Broad jump".into(),
         difficulty: Some(2),
@@ -418,7 +419,7 @@ fn power_work_leads_even_skill_and_compounds() {
         is_power: true,
         warmup: false,
         equipment: vec![],
-        groups: vec![(30, MuscleRole::Primary)],
+        groups: vec![(GroupId(30), MuscleRole::Primary)],
     };
     let exs = vec![
         // A bodyweight compound (breadth 3 → tier 3), doable without registered
@@ -449,9 +450,9 @@ fn power_work_leads_even_skill_and_compounds() {
     ];
     let out = evaluate(&input(Mode::Balanced, exs, vec![], None, None), now());
     let order: Vec<_> = out.plan.iter().map(|s| s.exercise_id).collect();
-    let power = order.iter().position(|&id| id == 9);
-    let skill = order.iter().position(|&id| id == 7);
-    let compound = order.iter().position(|&id| id == 5);
+    let power = order.iter().position(|&id| id == ExerciseId(9));
+    let skill = order.iter().position(|&id| id == ExerciseId(7));
+    let compound = order.iter().position(|&id| id == ExerciseId(5));
     if let (Some(p), Some(sk), Some(co)) = (power, skill, compound) {
         assert!(
             p < sk && p < co,
@@ -480,7 +481,7 @@ fn warmups_are_never_picked_as_work_and_credit_no_volume() {
         now(),
     );
     // No plan item is the warm-up move; the back group still reads in deficit.
-    assert!(out.plan.iter().all(|s| s.exercise_id != 9));
+    assert!(out.plan.iter().all(|s| s.exercise_id != ExerciseId(9)));
     let back = out.groups.iter().find(|g| g.group == "Lats").unwrap();
     assert_eq!(back.current, 0.0, "warm-up volume didn't credit the group");
     assert_eq!(out.day_done_sets, 0, "warm-ups don't count toward the day");
@@ -511,12 +512,12 @@ fn the_warmup_block_leads_and_covers_the_session_groups() {
     );
     let head = out.plan.first().unwrap();
     assert_eq!(head.kind, SuggestionKind::Warmup);
-    assert_eq!(head.exercise_id, 9, "warm-up leads the session");
+    assert_eq!(head.exercise_id, ExerciseId(9), "warm-up leads the session");
     // The training item (id 2, never done → an assessment) still follows.
     assert!(
         out.plan
             .iter()
-            .any(|s| s.exercise_id == 2 && s.kind != SuggestionKind::Warmup)
+            .any(|s| s.exercise_id == ExerciseId(2) && s.kind != SuggestionKind::Warmup)
     );
     // No warm-up is offered for a group we're not training.
     assert_eq!(
@@ -565,7 +566,8 @@ fn a_group_with_no_mobility_move_is_named_not_silently_left_bare() {
 fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
     // A weighted work item → the warm-up block adds a light ramp-in set (~half the
     // working load) of that same lift.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![20.0, 30.0, 40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![20.0, 30.0, 40.0, 50.0, 60.0])]);
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
@@ -592,7 +594,7 @@ fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
     let ramp = out
         .plan
         .iter()
-        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 5)
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(5))
         .expect("a ramp-in warm-up of the lift");
     assert!(
         ramp.load_kg.unwrap() < work.load_kg.unwrap(),
@@ -661,7 +663,7 @@ fn mode_changes_the_bias() {
     // The bias shows up as where the day's sets *go*, not as what leads the list:
     // session order is a separate rule (skills first, while the CNS is fresh), so
     // reading the plan's head would conflate preference with ordering.
-    let sets_of = |out: &coach::pacing::types::PacingNow, id: i64| -> i32 {
+    let sets_of = |out: &coach::pacing::types::PacingNow, id: ExerciseId| -> i32 {
         out.plan
             .iter()
             .filter(|s| s.exercise_id == id && s.kind != SuggestionKind::Warmup)
@@ -671,11 +673,11 @@ fn mode_changes_the_bias() {
     let strength = evaluate(&mk(Mode::Strength), now());
     let skills = evaluate(&mk(Mode::Skills), now());
     assert!(
-        sets_of(&strength, 5) > sets_of(&strength, 6),
+        sets_of(&strength, ExerciseId(5)) > sets_of(&strength, ExerciseId(6)),
         "strength spends the day on the loaded row"
     );
     assert!(
-        sets_of(&skills, 6) > sets_of(&skills, 5),
+        sets_of(&skills, ExerciseId(6)) > sets_of(&skills, ExerciseId(5)),
         "skills spends the day on the ring skill"
     );
 }
@@ -706,11 +708,11 @@ fn location_substitutes_the_ideal() {
     ];
     let inp = PacingInput {
         groups: back_only(),
-        equipment_names: BTreeMap::from([(101, "Barbell".to_string())]),
+        equipment_names: BTreeMap::from([(EquipmentId(101), "Barbell".to_string())]),
         ..input(Mode::Strength, exs, vec![], None, Some(vec![]))
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
-    assert_eq!(sug.exercise_id, 2);
+    assert_eq!(sug.exercise_id, ExerciseId(2));
     let sub = sug
         .substituted_for
         .expect("the barbell row is genuinely blocked");
@@ -764,9 +766,9 @@ fn substitution_prefers_the_ideal_exercise_metric() {
     let pull = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 7)
+        .find(|s| s.exercise_id == ExerciseId(7))
         .expect("a rep pull stands in for the missing machine");
-    let hold = out.plan.iter().find(|s| s.exercise_id == 6);
+    let hold = out.plan.iter().find(|s| s.exercise_id == ExerciseId(6));
     // The rep pull is the stand-in for the blocked machine — and it's the *first*
     // thing the cover reached for, which its own trace proves: the first pick pays
     // down more of the group's need than anything taken after it.
@@ -849,7 +851,7 @@ fn the_plan_remembers_what_you_did_earlier_today() {
     let wu = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 9)
+        .find(|s| s.exercise_id == ExerciseId(9))
         .expect("the drill is still planned");
     assert_eq!(
         wu.done, 1,
@@ -859,7 +861,7 @@ fn the_plan_remembers_what_you_did_earlier_today() {
         out.plan
             .iter()
             .find(|s| s.done < s.sets)
-            .is_some_and(|s| s.exercise_id != 9),
+            .is_some_and(|s| s.exercise_id != ExerciseId(9)),
         "and it is no longer what to do next"
     );
 }
@@ -882,7 +884,7 @@ fn the_card_reports_what_you_lifted_not_only_how_many_sets() {
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 1)
+        .find(|s| s.exercise_id == ExerciseId(1))
         .expect("push-up planned");
     assert_eq!(
         item.done as usize,
@@ -918,7 +920,7 @@ fn yesterdays_sets_are_not_todays_progress() {
     let wu = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 9)
+        .find(|s| s.exercise_id == ExerciseId(9))
         .expect("the drill is planned");
     assert_eq!(wu.done, 0, "yesterday is not today");
 }
@@ -930,7 +932,11 @@ fn a_calibration_is_complete_after_its_measurement() {
     // and prescribe more of the movement the athlete just took to form breakdown.
     let h = vec![bset(2, minutes_ago(30), 6)]; // ring row: first-ever set, today
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
-    let items: Vec<_> = out.plan.iter().filter(|s| s.exercise_id == 2).collect();
+    let items: Vec<_> = out
+        .plan
+        .iter()
+        .filter(|s| s.exercise_id == ExerciseId(2))
+        .collect();
     assert_eq!(items.len(), 1, "one card for the measured movement");
     assert_eq!(
         items[0].kind,
@@ -941,7 +947,8 @@ fn a_calibration_is_complete_after_its_measurement() {
     assert_eq!(items[0].done, 1, "and it's done");
     if let Some(sug) = &out.suggestion {
         assert_ne!(
-            sug.exercise_id, 2,
+            sug.exercise_id,
+            ExerciseId(2),
             "next up is something unfinished, not the spent calibration"
         );
     }
@@ -966,7 +973,7 @@ fn the_committed_plan_survives_a_logged_set() {
     let asked = before
         .plan
         .iter()
-        .find(|s| s.exercise_id == 1)
+        .find(|s| s.exercise_id == ExerciseId(1))
         .expect("push-up planned")
         .sets;
 
@@ -975,12 +982,12 @@ fn the_committed_plan_survives_a_logged_set() {
     let pushup = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 1)
+        .find(|s| s.exercise_id == ExerciseId(1))
         .expect("a half-done movement stays on the plan");
     assert_eq!(pushup.sets, asked, "the ask is the committed one");
     assert_eq!(pushup.done, 1, "progress is reported against it");
     assert!(
-        out.plan.iter().any(|s| s.exercise_id == 3),
+        out.plan.iter().any(|s| s.exercise_id == ExerciseId(3)),
         "untouched movements stay planned too"
     );
 }
@@ -993,7 +1000,11 @@ fn no_rep_ratchet_within_a_session() {
     let mut h: Vec<SetRec> = (1..=7).map(|i| bset(1, days_ago(2 * i), 4)).collect();
     h.push(bset(1, minutes_ago(20), 5));
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
-    let pushup = out.plan.iter().find(|s| s.exercise_id == 1).unwrap();
+    let pushup = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(1))
+        .unwrap();
     assert_eq!(
         pushup.rep_low,
         Some(5),
@@ -1009,7 +1020,7 @@ fn no_new_novel_movement_backfills_mid_session() {
     let committed = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     let ids = |p: &coach::pacing::types::PacingNow| {
-        let mut v: Vec<i64> = p.plan.iter().map(|s| s.exercise_id).collect();
+        let mut v: Vec<ExerciseId> = p.plan.iter().map(|s| s.exercise_id).collect();
         v.sort();
         v
     };
@@ -1049,7 +1060,7 @@ fn a_novel_movement_introduced_today_spends_its_slot_across_sessions() {
     let never_done = out
         .plan
         .iter()
-        .filter(|s| s.exercise_id != 40 && s.kind == SuggestionKind::Assess)
+        .filter(|s| s.exercise_id != ExerciseId(40) && s.kind == SuggestionKind::Assess)
         .count();
     assert!(
         never_done <= 2,
@@ -1140,7 +1151,7 @@ fn a_warmup_is_an_instruction_with_a_dose() {
     let wu = out
         .plan
         .iter()
-        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 9)
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(9))
         .expect("the drill leads the plan");
     assert_eq!(wu.rep_low, Some(10), "a dose, not a vibe");
 
@@ -1150,7 +1161,7 @@ fn a_warmup_is_an_instruction_with_a_dose() {
     let wu = out
         .plan
         .iter()
-        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == 9)
+        .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(9))
         .expect("still on the plan");
     assert_eq!(wu.done, 1, "a logged warm-up completes its card");
 }
@@ -1174,7 +1185,7 @@ fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
     let pushup = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 1)
+        .find(|s| s.exercise_id == ExerciseId(1))
         .expect("a trusted, recovered movement in deficit is planned");
     assert_eq!(pushup.kind, SuggestionKind::Work);
     assert_eq!(
@@ -1200,7 +1211,11 @@ fn a_bodyweight_target_never_asks_past_the_mode_ceiling() {
         bset(1, days_ago(6), 15),
     ];
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
-    let pushup = out.plan.iter().find(|s| s.exercise_id == 1).unwrap();
+    let pushup = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(1))
+        .unwrap();
     assert_eq!(pushup.rep_low, Some(12));
 }
 
@@ -1235,7 +1250,8 @@ fn a_stronger_history_earns_a_heavier_owned_weight() {
     // Same exercise, owned 15/17.5/20 kg. A weaker recent history prescribes a
     // lighter owned weight than a stronger one — the load step is *earned* by the
     // logged sets raising the e1RM past the next weight, never a blind bump.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![15.0, 17.5, 20.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![15.0, 17.5, 20.0])]);
     let sug = |hist: Vec<SetRec>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1261,7 +1277,7 @@ fn a_stronger_history_earns_a_heavier_owned_weight() {
     // Every prescribed load is a weight actually owned here.
     for s in [&weak, &strong] {
         assert!(
-            owned[&5].contains(&s.load_kg.unwrap()),
+            owned[&ExerciseId(5)].contains(&s.load_kg.unwrap()),
             "prescribed {:?} must be an owned weight",
             s.load_kg
         );
@@ -1273,7 +1289,8 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
     // A 6 × 60 kg top set from 200 days ago and nothing since: the old engine
     // would prescribe ~60 kg + a rep. Staleness decays the estimate, so the
     // prescription is conservatively lighter — a returning athlete rebuilds.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![40.0, 50.0, 60.0])]);
     let inp = PacingInput {
         groups: back_only(),
         exercise_loads: owned,
@@ -1297,7 +1314,8 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
 fn a_work_item_carries_its_reasoning() {
     // A trained group in deficit → the suggestion explains itself: the group's
     // deficit + recovery, the ability confidence, and (here) an e1RM estimate.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![40.0, 50.0, 60.0])]);
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
@@ -1339,7 +1357,8 @@ fn a_work_item_carries_its_reasoning() {
 fn a_never_done_lift_is_an_assessment_at_the_lightest_owned_weight() {
     // No history for a weighted lift → the engine can't prescribe honestly, so it
     // asks you to calibrate: one build-up set at the lightest weight you own.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![10.0, 15.0, 20.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![10.0, 15.0, 20.0])]);
     let inp = PacingInput {
         groups: back_only(),
         exercise_loads: owned,
@@ -1362,7 +1381,8 @@ fn trusted_ability_prescribes_untrusted_ability_assesses() {
     // Same lift + owned inventory. Three recent sessions → High confidence → a
     // real prescription (Work). Only a 200-day-old set → Low confidence → the
     // engine re-measures (Assess) rather than trust the stale number.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 50.0, 60.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![40.0, 50.0, 60.0])]);
     let mk = |hist: Vec<SetRec>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1391,7 +1411,8 @@ fn trusted_ability_prescribes_untrusted_ability_assesses() {
 fn low_readiness_prescribes_lighter_than_a_good_day() {
     // Identical history + inventory; a low-readiness day leaves more in reserve,
     // so the working load is lighter (never heavier) than a normal day.
-    let owned: BTreeMap<i64, Vec<f64>> = BTreeMap::from([(5, vec![40.0, 45.0, 50.0, 55.0, 60.0])]);
+    let owned: BTreeMap<ExerciseId, Vec<f64>> =
+        BTreeMap::from([(ExerciseId(5), vec![40.0, 45.0, 50.0, 55.0, 60.0])]);
     let mk = |r: Option<Readiness>| {
         let inp = PacingInput {
             groups: back_only(),
@@ -1764,11 +1785,11 @@ fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
     let out = evaluate(&inp, now());
 
     assert!(
-        out.plan.iter().all(|s| s.exercise_id != 5),
+        out.plan.iter().all(|s| s.exercise_id != ExerciseId(5)),
         "a weighted lift with no registered weights is never planned"
     );
     assert!(
-        out.plan.iter().any(|s| s.exercise_id == 2),
+        out.plan.iter().any(|s| s.exercise_id == ExerciseId(2)),
         "the session still happens — on what the athlete can actually load"
     );
     assert!(
@@ -1824,9 +1845,9 @@ fn waiter_walk() -> ExerciseInfo {
 }
 
 /// The bells at the office: 6…36 kg.
-fn bells() -> BTreeMap<i64, Vec<f64>> {
+fn bells() -> BTreeMap<ExerciseId, Vec<f64>> {
     BTreeMap::from([(
-        7,
+        ExerciseId(7),
         vec![
             6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 20.0, 24.0, 28.0, 32.0, 36.0,
         ],
@@ -1836,8 +1857,8 @@ fn bells() -> BTreeMap<i64, Vec<f64>> {
 /// A carry set: a load *and* a duration, no reps.
 fn cset(exercise_id: i64, at: NaiveDateTime, load: f64, secs: i32) -> SetRec {
     SetRec {
-        id: 0,
-        exercise_id,
+        id: SetId(0),
+        exercise_id: ExerciseId(exercise_id),
         logged_at: at,
         reps: None,
         load_kg: Some(load),
@@ -1961,7 +1982,7 @@ fn a_carry_with_no_registered_weights_is_not_prescribed() {
         now(),
     );
     assert!(
-        !out.plan.iter().any(|s| s.exercise_id == 7),
+        !out.plan.iter().any(|s| s.exercise_id == ExerciseId(7)),
         "a carry with no weights registered must not be prescribed"
     );
 }
@@ -2056,7 +2077,7 @@ fn row_plan(history: Vec<SetRec>) -> PacingNow {
 fn row_work(out: &PacingNow) -> Option<Suggestion> {
     out.plan
         .iter()
-        .find(|s| s.kind == SuggestionKind::Work && s.exercise_id == 5)
+        .find(|s| s.kind == SuggestionKind::Work && s.exercise_id == ExerciseId(5))
         .cloned()
 }
 
@@ -2086,7 +2107,7 @@ fn three_misses_send_a_trusted_lift_back_to_calibration() {
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5)
+        .find(|s| s.exercise_id == ExerciseId(5))
         .expect("the row is still planned");
     assert_eq!(
         item.kind,
@@ -2116,37 +2137,37 @@ fn a_steady_history_still_prescribes_work_at_its_level() {
 fn r2_groups() -> Vec<GroupMeta> {
     vec![
         GroupMeta {
-            id: 10,
+            id: GroupId(10),
             name: "Chest".into(),
             region: Region::Chest,
         },
         GroupMeta {
-            id: 20,
+            id: GroupId(20),
             name: "Lats".into(),
             region: Region::Back,
         },
         GroupMeta {
-            id: 30,
+            id: GroupId(30),
             name: "Quadriceps".into(),
             region: Region::Legs,
         },
         GroupMeta {
-            id: 40,
+            id: GroupId(40),
             name: "Biceps".into(),
             region: Region::Arms,
         },
         GroupMeta {
-            id: 50,
+            id: GroupId(50),
             name: "Upper back".into(),
             region: Region::Back,
         },
         GroupMeta {
-            id: 60,
+            id: GroupId(60),
             name: "Biceps brachii".into(),
             region: Region::Arms,
         },
         GroupMeta {
-            id: 65,
+            id: GroupId(65),
             name: "Forearms".into(),
             region: Region::Forearms,
         },
@@ -2212,12 +2233,12 @@ fn finishing_exactly_the_plan_reads_complete() {
     let mut t = 40i64;
     for item in &cold.plan {
         for _ in 0..item.sets {
-            h.push(bset(item.exercise_id, minutes_ago(t), 8));
+            h.push(bset(item.exercise_id.get(), minutes_ago(t), 8));
             t -= 2;
         }
     }
     h.push(bset(
-        cold.plan.last().unwrap().exercise_id,
+        cold.plan.last().unwrap().exercise_id.get(),
         minutes_ago(t),
         8,
     ));
@@ -2250,7 +2271,7 @@ fn warmup_labels_name_distinct_groups() {
         // old rule B was included for lats but labelled chest, same as A.
         warmup_ex(100, "Chest opener", 10),
         ExerciseInfo {
-            id: 101,
+            id: ExerciseId(101),
             name: "Reach and roll".into(),
             family: "Reach and roll".into(),
             difficulty: None,
@@ -2260,7 +2281,10 @@ fn warmup_labels_name_distinct_groups() {
             is_power: false,
             warmup: true,
             equipment: vec![],
-            groups: vec![(10, MuscleRole::Primary), (20, MuscleRole::Primary)],
+            groups: vec![
+                (GroupId(10), MuscleRole::Primary),
+                (GroupId(20), MuscleRole::Primary),
+            ],
         },
     ];
     exercises.rotate_left(0);
@@ -2443,7 +2467,7 @@ fn compounds_run_before_isolations() {
     let out = evaluate(
         &PacingInput {
             groups: r2_groups(),
-            exercise_loads: BTreeMap::from([(9, vec![6.0, 8.0, 10.0])]),
+            exercise_loads: BTreeMap::from([(ExerciseId(9), vec![6.0, 8.0, 10.0])]),
             // Steady readiness: the 9-day fixture otherwise trips the
             // volume-spike deload proxy and shrinks the budget below two
             // full doses.
@@ -2468,8 +2492,8 @@ fn compounds_run_before_isolations() {
         .iter()
         .filter(|s| s.kind != SuggestionKind::Warmup)
         .collect();
-    let pos = |id: i64| work.iter().position(|s| s.exercise_id == id);
-    let (Some(pull), Some(curl)) = (pos(7), pos(9)) else {
+    let pos = |id: ExerciseId| work.iter().position(|s| s.exercise_id == id);
+    let (Some(pull), Some(curl)) = (pos(ExerciseId(7)), pos(ExerciseId(9))) else {
         panic!("both movements planned: {:?}", out.plan);
     };
     assert!(
@@ -2509,7 +2533,7 @@ fn a_rest_prompt_says_how_long() {
     }
     let base = |h: Vec<SetRec>| PacingInput {
         groups: r2_groups(),
-        exercise_loads: BTreeMap::from([(9, vec![6.0, 8.0, 10.0])]),
+        exercise_loads: BTreeMap::from([(ExerciseId(9), vec![6.0, 8.0, 10.0])]),
         ..input(
             Mode::Balanced,
             vec![r2_pullup(), r2_curl()],
@@ -2600,7 +2624,7 @@ fn an_items_label_is_a_prime_mover() {
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 8)
+        .find(|s| s.exercise_id == ExerciseId(8))
         .expect("the hybrid is planned (lats need pays for it)");
     assert_eq!(
         item.group, "Chest",
@@ -2639,7 +2663,7 @@ fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 2)
+        .find(|s| s.exercise_id == ExerciseId(2))
         .expect("the row is planned");
     assert_eq!(
         item.rep_low,
@@ -2661,7 +2685,7 @@ fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 2)
+        .find(|s| s.exercise_id == ExerciseId(2))
         .expect("the row is planned");
     assert_eq!(item.rep_low, Some(11), "the periodic probe still reaches");
 }
@@ -2709,13 +2733,13 @@ fn a_plateaued_movement_hands_over_to_its_harder_sibling() {
         now(),
     );
     assert!(
-        out.plan.iter().all(|s| s.exercise_id != 7),
+        out.plan.iter().all(|s| s.exercise_id != ExerciseId(7)),
         "the plateaued rung steps aside"
     );
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 8)
+        .find(|s| s.exercise_id == ExerciseId(8))
         .expect("the harder sibling takes the slot");
     assert_eq!(
         item.kind,
@@ -2768,14 +2792,14 @@ fn a_movement_too_hard_to_build_steps_down_to_an_easier_sibling() {
         now(),
     );
     assert!(
-        out.plan.iter().all(|s| s.exercise_id != 8),
+        out.plan.iter().all(|s| s.exercise_id != ExerciseId(8)),
         "the too-hard rung steps aside: {:?}",
         out.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>()
     );
     let item = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 7)
+        .find(|s| s.exercise_id == ExerciseId(7))
         .expect("the easier sibling takes the slot");
     assert_eq!(
         item.kind,
@@ -2805,7 +2829,7 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
-            exercise_loads: BTreeMap::from([(5, vec![4.0, 5.0])]),
+            exercise_loads: BTreeMap::from([(ExerciseId(5), vec![4.0, 5.0])]),
             ..input(Mode::Balanced, vec![barbell_row()], h.clone(), None, None)
         },
         now(),
@@ -2813,7 +2837,7 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .expect("a trusted row in deficit is prescribed");
     assert_eq!(
         w.load_kg,
@@ -2831,9 +2855,9 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     // The same rack the engine planned against — the ledger reconstructs the ask as
     // a weight off it, so handing it a different one would judge against a card that
     // was never written.
-    let rack = BTreeMap::from([(5, vec![4.0, 5.0])]);
+    let rack = BTreeMap::from([(ExerciseId(5), vec![4.0, 5.0])]);
     let led = coach::pacing::residual::residuals(&done, Mode::Balanced, &Default::default(), &rack)
-        .remove(&5)
+        .remove(&ExerciseId(5))
         .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 0,
@@ -2858,11 +2882,11 @@ fn a_topped_out_movement_hands_over_even_while_meeting_it() {
         now(),
     );
     assert!(
-        out.plan.iter().all(|s| s.exercise_id != 7),
+        out.plan.iter().all(|s| s.exercise_id != ExerciseId(7)),
         "the range top is a wall, not a target to re-serve"
     );
     assert!(
-        out.plan.iter().any(|s| s.exercise_id == 8),
+        out.plan.iter().any(|s| s.exercise_id == ExerciseId(8)),
         "the harder sibling takes the slot"
     );
 }
@@ -2881,7 +2905,7 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .expect("a trusted lift in deficit is prescribed, not assessed");
     h.push(wset(
         5,
@@ -2890,14 +2914,17 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
         w.rep_low.expect("and a rep target"),
     ));
     coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-        .remove(&5)
+        .remove(&ExerciseId(5))
         .unwrap_or_default()
 }
 
 fn strength_row(h: Vec<SetRec>) -> PacingInput {
     PacingInput {
         groups: back_only(),
-        exercise_loads: BTreeMap::from([(5, (8..=40).map(|i| i as f64 * 2.5).collect())]),
+        exercise_loads: BTreeMap::from([(
+            ExerciseId(5),
+            (8..=40).map(|i| i as f64 * 2.5).collect(),
+        )]),
         ..input(Mode::Strength, vec![barbell_row()], h, None, Some(vec![3]))
     }
 }
@@ -2919,7 +2946,7 @@ fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
     ];
     let before =
         coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-            .remove(&5)
+            .remove(&ExerciseId(5))
             .unwrap_or_default();
     assert_eq!(before.consecutive_misses, 2, "two genuine misses");
     assert!(before.wants_back_off() && !before.wants_remeasure());
@@ -2956,12 +2983,12 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .unwrap();
     // Two reps short of the eased ask.
     h.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
     let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-        .remove(&5)
+        .remove(&ExerciseId(5))
         .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 3,
@@ -2999,7 +3026,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .expect("a trusted lift is still prescribed on a bad day, just lighter");
 
     // Do precisely what the eased card said.
@@ -3009,7 +3036,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     // Judged as though it were a full-effort day, this reads as a failure...
     let blind =
         coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
-            .remove(&5)
+            .remove(&ExerciseId(5))
             .unwrap_or_default();
     assert_eq!(
         blind.consecutive_misses, 1,
@@ -3019,7 +3046,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     // ...but told what the coach knew that morning, it reads as what it was.
     let known = BTreeMap::from([(now().date(), spent)]);
     let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known, &owned())
-        .remove(&5)
+        .remove(&ExerciseId(5))
         .unwrap_or_default();
     assert_eq!(
         led.outcomes.last().map(|(_, o)| *o),
@@ -3043,14 +3070,14 @@ fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
     let w = out
         .plan
         .iter()
-        .find(|s| s.exercise_id == 5 && s.kind == SuggestionKind::Work)
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .unwrap();
     // Two reps short of a full-effort ask, on a day health knows nothing about.
     let mut done = h;
     done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
     let led =
         coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
-            .remove(&5)
+            .remove(&ExerciseId(5))
             .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 1,

@@ -182,12 +182,6 @@ async fn every_read_path_runs() {
             .is_empty()
     );
     assert!(
-        !ex_repo::primary_muscles_by_exercise(pool)
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
         !ex_repo::muscle_groups_by_exercise(pool)
             .await
             .unwrap()
@@ -289,7 +283,7 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
             pool,
             u,
             &NewSet {
-                exercise_id: ex_id,
+                exercise_id: ex_id.get(),
                 reps: Some(8),
                 load_kg: Some(10.0),
                 hold_s: None,
@@ -611,7 +605,7 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
     // reason the card has to be able to reach back to it.
     let log = |load: f64, reps: i32, days_ago: i64| {
         let ns = NewSet {
-            exercise_id: ex_id,
+            exercise_id: ex_id.get(),
             reps: Some(reps),
             load_kg: Some(load),
             hold_s: None,
@@ -644,14 +638,15 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
         .and_then(|e| e.estimate_from)
         .expect("the estimate must name the set it came from");
     assert_eq!(
-        src.set_id, bogus.id,
+        src.set_id.get(),
+        bogus.id,
         "the card pointed at the wrong set — removing it would delete honest history"
     );
     assert_eq!(src.load_kg, Some(100.0));
 
     // Removing it is what the button does; the next verdict re-derives.
     assert!(
-        workout_repo::soft_delete(pool, u, src.set_id)
+        workout_repo::soft_delete(pool, u, src.set_id.get())
             .await
             .unwrap(),
         "the set the card offered to remove could not be removed"
@@ -667,7 +662,8 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
         .and_then(|e| e.estimate_from);
     if let Some(a) = after {
         assert_ne!(
-            a.set_id, bogus.id,
+            a.set_id.get(),
+            bogus.id,
             "the removed set still defines the estimate"
         );
         assert_eq!(

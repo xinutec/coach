@@ -36,6 +36,7 @@ use super::dose::{
     reserve,
 };
 use super::types::{Readiness, SetRec};
+use crate::domain::ExerciseId;
 use crate::domain::Mode;
 
 // ---- tunable heuristics ----------------------------------------------------
@@ -181,9 +182,9 @@ pub fn residuals(
     history: &[SetRec],
     mode: Mode,
     readiness: &BTreeMap<NaiveDate, Readiness>,
-    loads: &BTreeMap<i64, Vec<f64>>,
-) -> BTreeMap<i64, Residual> {
-    let mut by_ex: BTreeMap<i64, Vec<&SetRec>> = BTreeMap::new();
+    loads: &BTreeMap<ExerciseId, Vec<f64>>,
+) -> BTreeMap<ExerciseId, Residual> {
+    let mut by_ex: BTreeMap<ExerciseId, Vec<&SetRec>> = BTreeMap::new();
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }

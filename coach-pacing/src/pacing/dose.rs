@@ -27,6 +27,7 @@ use alloc::collections::BTreeMap;
 
 use super::ability::{Ability, Confidence, confidence_of};
 use super::residual::Residual;
+use crate::domain::ExerciseId;
 use crate::domain::Mode;
 
 // ---- what a dose looks like ------------------------------------------------
@@ -392,9 +393,9 @@ impl<'a> Known<'a> {
     /// The trusted estimate for `exercise_id`, or `None` — in which case the caller
     /// must assess instead.
     pub fn of(
-        abilities: &'a BTreeMap<i64, Ability>,
-        residuals: &BTreeMap<i64, Residual>,
-        exercise_id: i64,
+        abilities: &'a BTreeMap<ExerciseId, Ability>,
+        residuals: &BTreeMap<ExerciseId, Residual>,
+        exercise_id: ExerciseId,
     ) -> Option<Self> {
         if residuals
             .get(&exercise_id)
