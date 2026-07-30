@@ -15,6 +15,7 @@ use crate::domain::{Metric, Pattern};
 use crate::domain::{MuscleRole, Region};
 
 use super::ability::Confidence;
+use super::dose::{Dose, Measure};
 
 // ---- inputs (internal; not wire types) -------------------------------------
 
@@ -217,6 +218,148 @@ pub enum SuggestionKind {
     Assess,
 }
 
+/// What the coach is asking for, in the terms the movement's metric allows.
+///
+/// This is the wire form of [`super::dose::Dose`] (a prescription) and
+/// [`super::dose::Measure`] (a calibration), which are one type here because a
+/// card shows one or the other and never both.
+///
+/// It exists because the guarantee `dose` establishes used to stop at
+/// `Serialize`. The verdict carried `rep_low`, `rep_high`, `load_kg` and
+/// `hold_s` as four independent `Option`s — the same "thirty-two representable
+/// shapes, about three legal ones" that `dose`'s own doc comment describes
+/// itself as having removed. Everything downstream then had to guess the shape
+/// back: the engine did it to phrase "do this next", the back-test did it to
+/// recover what the coach had asked, the simulator did it to decide what the
+/// athlete should perform, and the Today card did it twice more in TypeScript.
+/// Six reconstructions of a fact that was known exactly at the point it was
+/// computed, each free to disagree with the others — and the ledger disagreeing
+/// with the coach is the failure this area keeps rediscovering (R4-1, R5-1,
+/// R6-1).
+///
+/// Tagged, so the frontend gets a discriminated union and `@switch` is
+/// exhaustive over it rather than a chain of null tests.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(rename_all_fields = "camelCase")]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum Ask {
+    /// A weighted lift: climb from `rep_low` to `rep_high` at this load, then the
+    /// load steps. The load is not optional — a weighted set without a weight is
+    /// not a lighter prescription, it is a nonsense one.
+    Weighted {
+        load_kg: f64,
+        rep_low: i32,
+        rep_high: i32,
+    },
+    /// Bodyweight reps — the only lever is the rep count.
+    Bodyweight { rep_low: i32, rep_high: i32 },
+    /// An unloaded hold, in seconds.
+    Hold { hold_s: i32 },
+    /// A loaded carry: both, because a carry is both.
+    WeightedHold { load_kg: f64, hold_s: i32 },
+    /// Calibration — build up to a hard-but-clean set of `reps` and log what it
+    /// took. `start_kg` is a safe opening weight, never a prescription.
+    BuildUp { start_kg: f64, reps: i32 },
+    /// Calibration — as many clean reps as you have.
+    Amrap,
+    /// Calibration — one max hold.
+    MaxHold,
+    /// Calibration — carry `start_kg` for as long as form holds; the weight *and*
+    /// the time are the measurement.
+    LoadedCarry { start_kg: f64 },
+}
+
+impl Ask {
+    /// The weight this ask names, if it names one. Derived from the variant, so
+    /// unlike the `Option<f64>` field it replaced it cannot disagree with the
+    /// rest of the ask — there is no way to build a weighted lift that has lost
+    /// its load, or a bodyweight one that has acquired a load.
+    pub fn load_kg(self) -> Option<f64> {
+        match self {
+            Ask::Weighted { load_kg, .. } | Ask::WeightedHold { load_kg, .. } => Some(load_kg),
+            Ask::BuildUp { start_kg, .. } | Ask::LoadedCarry { start_kg } => Some(start_kg),
+            Ask::Bodyweight { .. } | Ask::Hold { .. } | Ask::Amrap | Ask::MaxHold => None,
+        }
+    }
+
+    /// The bottom of the rep range — the number actually asked for — if this ask
+    /// is counted in reps.
+    pub fn rep_low(self) -> Option<i32> {
+        match self {
+            Ask::Weighted { rep_low, .. } | Ask::Bodyweight { rep_low, .. } => Some(rep_low),
+            Ask::BuildUp { reps, .. } => Some(reps),
+            Ask::Hold { .. }
+            | Ask::WeightedHold { .. }
+            | Ask::Amrap
+            | Ask::MaxHold
+            | Ask::LoadedCarry { .. } => None,
+        }
+    }
+
+    /// The seconds this ask names, if it is timed.
+    pub fn hold_s(self) -> Option<i32> {
+        match self {
+            Ask::Hold { hold_s } | Ask::WeightedHold { hold_s, .. } => Some(hold_s),
+            Ask::Weighted { .. }
+            | Ask::Bodyweight { .. }
+            | Ask::BuildUp { .. }
+            | Ask::Amrap
+            | Ask::MaxHold
+            | Ask::LoadedCarry { .. } => None,
+        }
+    }
+
+    /// The top of the rep range, if this ask is counted in reps.
+    pub fn rep_high(self) -> Option<i32> {
+        match self {
+            Ask::Weighted { rep_high, .. } | Ask::Bodyweight { rep_high, .. } => Some(rep_high),
+            Ask::BuildUp { reps, .. } => Some(reps),
+            Ask::Hold { .. }
+            | Ask::WeightedHold { .. }
+            | Ask::Amrap
+            | Ask::MaxHold
+            | Ask::LoadedCarry { .. } => None,
+        }
+    }
+}
+
+impl From<Dose> for Ask {
+    fn from(d: Dose) -> Self {
+        match d {
+            Dose::Weighted { load, reps } => Ask::Weighted {
+                load_kg: load,
+                rep_low: reps.low,
+                rep_high: reps.high,
+            },
+            Dose::Bodyweight { reps } => Ask::Bodyweight {
+                rep_low: reps.low,
+                rep_high: reps.high,
+            },
+            Dose::Hold { secs } => Ask::Hold { hold_s: secs },
+            Dose::WeightedHold { load, secs } => Ask::WeightedHold {
+                load_kg: load,
+                hold_s: secs,
+            },
+        }
+    }
+}
+
+impl From<Measure> for Ask {
+    fn from(m: Measure) -> Self {
+        match m {
+            Measure::BuildUp { start, reps } => Ask::BuildUp {
+                start_kg: start,
+                reps,
+            },
+            Measure::Amrap => Ask::Amrap,
+            Measure::MaxHold => Ask::MaxHold,
+            Measure::LoadedCarry { start } => Ask::LoadedCarry { start_kg: start },
+        }
+    }
+}
+
 /// The logged set an ability estimate came from, named on the card so it can be
 /// corrected. `setId` is the `workout_sets` row, so the UI can act on exactly
 /// that set rather than guessing from a timestamp.
@@ -338,10 +481,9 @@ pub struct Suggestion {
     /// Those sets' actual numbers, oldest first — `done` in long form. Always
     /// `done` entries long.
     pub logged: Vec<DoneSet>,
-    pub rep_low: Option<i32>,
-    pub rep_high: Option<i32>,
-    pub load_kg: Option<f64>,
-    pub hold_s: Option<i32>,
+    /// What to actually do: the prescription, or the calibration that stands in
+    /// for one when the estimate isn't trusted.
+    pub ask: Ask,
     /// The muscle group this targets (for the reason text).
     pub group: String,
     /// When set, the ideal exercise for this group genuinely isn't doable here, so

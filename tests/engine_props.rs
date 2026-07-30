@@ -201,7 +201,7 @@ proptest! {
         prop_assume!(!owned.is_empty());
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
         for item in &out.plan {
-            if let Some(load) = item.load_kg {
+            if let Some(load) = item.ask.load_kg() {
                 // Only the loaded lift (id 5) carries a load; it uses EQUIP_LOADED.
                 prop_assert!(
                     owned.iter().any(|w| (w - load).abs() < 1e-6),
@@ -217,7 +217,7 @@ proptest! {
     fn rep_targets_are_sane((m, d, raw, owned) in scenario()) {
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
         for item in &out.plan {
-            if let (Some(lo), Some(hi)) = (item.rep_low, item.rep_high) {
+            if let (Some(lo), Some(hi)) = (item.ask.rep_low(), item.ask.rep_high()) {
                 prop_assert!(lo >= 1 && lo <= hi && hi <= 25, "reps {lo}..{hi}");
             }
             prop_assert!(item.sets >= 1, "sets {}", item.sets);
@@ -274,7 +274,7 @@ proptest! {
         for item in out.plan.iter().filter(|s| s.kind != SuggestionKind::Warmup) {
             if item.exercise_id == ExerciseId(5) {
                 prop_assert!(
-                    item.load_kg.is_some(),
+                    item.ask.load_kg().is_some(),
                     "the loaded lift was planned with no load (owned {owned:?})"
                 );
                 prop_assert!(
@@ -345,7 +345,7 @@ proptest! {
             }) else {
                 continue;
             };
-            if let (Some(tired_load), Some(fresh_load)) = (t.load_kg, f.load_kg) {
+            if let (Some(tired_load), Some(fresh_load)) = (t.ask.load_kg(), f.ask.load_kg()) {
                 prop_assert!(
                     tired_load <= fresh_load + 1e-9,
                     "exercise {}: tired day asked {tired_load} kg, fresh day {fresh_load} kg",
@@ -379,9 +379,9 @@ proptest! {
                 id: SetId(0),
                 exercise_id: first.exercise_id,
                 logged_at: base(),
-                reps: first.rep_low,
-                load_kg: first.load_kg,
-                hold_s: first.hold_s,
+                reps: first.ask.rep_low(),
+                load_kg: first.ask.load_kg(),
+                hold_s: first.ask.hold_s(),
                 rpe: None,
             });
         }

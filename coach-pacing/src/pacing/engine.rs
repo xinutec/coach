@@ -35,7 +35,7 @@ use super::dose::{
 };
 use super::residual::{self, Residual};
 use super::types::{
-    Band, Blocker, DoneSet, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit,
+    Ask, Band, Blocker, DoneSet, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit,
     PacingInput, PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
 };
 
@@ -1016,9 +1016,14 @@ fn build_warmup(
         }
         // The drill's dose, in its own metric — reps to move through, or
         // seconds to hold. Always unloaded: this is prep, not training.
-        let (rep_low, rep_high, hold_s) = match e.metric {
-            Metric::Reps | Metric::WeightedReps => (Some(WARMUP_REPS), Some(WARMUP_REPS), None),
-            Metric::Hold | Metric::WeightedHold => (None, None, Some(WARMUP_HOLD_S)),
+        let ask = match e.metric {
+            Metric::Reps | Metric::WeightedReps => Ask::Bodyweight {
+                rep_low: WARMUP_REPS,
+                rep_high: WARMUP_REPS,
+            },
+            Metric::Hold | Metric::WeightedHold => Ask::Hold {
+                hold_s: WARMUP_HOLD_S,
+            },
         };
         out.push(Suggestion {
             exercise_id: e.id,
@@ -1028,10 +1033,7 @@ fn build_warmup(
             sets: WARMUP_SETS,
             done: 0,
             logged: Vec::new(),
-            rep_low,
-            rep_high,
-            load_kg: None,
-            hold_s,
+            ask,
             // The group this slot is *for* — never a second card for one group.
             group: group_name.get(g).cloned().unwrap_or_default(),
             substituted_for: None,
@@ -1043,9 +1045,12 @@ fn build_warmup(
     // groove the movement before the working sets.
     if let Some(w) = work
         .iter()
-        .find(|s| s.kind == SuggestionKind::Work && s.load_kg.is_some())
-        && let (Some(ex), Some(load)) = (ex_by_id.get(&w.exercise_id), w.load_kg)
+        .find(|s| s.kind == SuggestionKind::Work && s.ask.load_kg().is_some())
+        && let (Some(ex), Some(load)) = (ex_by_id.get(&w.exercise_id), w.ask.load_kg())
         && let Some(Loaded::Weighted(inv)) = loadable(ex, &input.exercise_loads)
+        // A ramp-in is an easy set of the top of the range, so it only means
+        // something for an ask that has a rep range.
+        && let Some(top) = w.ask.rep_high()
     {
         out.push(Suggestion {
             exercise_id: w.exercise_id,
@@ -1055,10 +1060,11 @@ fn build_warmup(
             sets: WARMUP_SETS,
             done: 0,
             logged: Vec::new(),
-            rep_low: w.rep_high, // an easy set of the top of the range
-            rep_high: w.rep_high,
-            load_kg: Some(inv.snap(load * RAMP_FRACTION)),
-            hold_s: None,
+            ask: Ask::Weighted {
+                load_kg: inv.snap(load * RAMP_FRACTION),
+                rep_low: top,
+                rep_high: top,
+            },
             group: w.group.clone(),
             substituted_for: None,
             explanation: None,
@@ -1509,11 +1515,22 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // dose, work with its remaining sets and muscle group.
     let next_phrase = |s: &Suggestion| -> String {
         if s.kind == SuggestionKind::Warmup {
-            let dose = match (s.rep_low, s.hold_s, s.load_kg) {
-                (Some(r), _, Some(kg)) => format!("{r} × {kg} kg ramp-in"),
-                (Some(r), _, None) => format!("{r} slow reps"),
-                (None, Some(secs), _) => format!("{secs}s"),
-                _ => "easy prep".to_string(),
+            // Total over the ask: a warm-up is only ever built as one of these
+            // three, and the compiler is what says so — this used to end in a
+            // catch-all reading "easy prep" for shapes that could not occur.
+            let dose = match s.ask {
+                Ask::Weighted {
+                    rep_low, load_kg, ..
+                } => {
+                    format!("{rep_low} × {load_kg} kg ramp-in")
+                }
+                Ask::Bodyweight { rep_low, .. } => format!("{rep_low} slow reps"),
+                Ask::Hold { hold_s } => format!("{hold_s}s"),
+                Ask::WeightedHold { .. }
+                | Ask::BuildUp { .. }
+                | Ask::Amrap
+                | Ask::MaxHold
+                | Ask::LoadedCarry { .. } => "easy prep".to_string(),
             };
             format!("{} — {}", s.exercise_name, dose)
         } else {
@@ -1667,37 +1684,20 @@ fn plan_session(
         let sets = pick.sets;
         let ability = abilities.get(&c.ex.id);
         let feedback = residuals.get(&c.ex.id).cloned().unwrap_or_default();
-        let (kind, dose, measure) = match Known::of(abilities, residuals, c.ex.id) {
+        // Trusted estimate → prescribe; untrusted → measure. Exactly one of the
+        // two, which is why this is a single `Ask` rather than the pair of
+        // `Option`s it used to be: the fourth case of that pair ("neither") was
+        // unreachable, and every reader downstream still had to carry a branch
+        // for it.
+        let (kind, ask) = match Known::of(abilities, residuals, c.ex.id) {
             Some(known) => (
                 SuggestionKind::Work,
-                Some(prescribe(&c.loaded, &known, input.mode, advance, &feedback)),
-                None,
+                Ask::from(prescribe(&c.loaded, &known, input.mode, advance, &feedback)),
             ),
             None => (
                 SuggestionKind::Assess,
-                None,
-                Some(assess(&c.loaded, ability)),
+                Ask::from(assess(&c.loaded, ability)),
             ),
-        };
-        // Wire shape: the sum types above are the engine's truth; these flat
-        // fields are their rendering for the UI + Android.
-        let (rep_low, rep_high, load_kg, hold_s) = match (&dose, &measure) {
-            (Some(Dose::Weighted { load, reps }), _) => {
-                (Some(reps.low), Some(reps.high), Some(*load), None)
-            }
-            (Some(Dose::Bodyweight { reps }), _) => (Some(reps.low), Some(reps.high), None, None),
-            (Some(Dose::Hold { secs }), _) => (None, None, None, Some(*secs)),
-            (Some(Dose::WeightedHold { load, secs }), _) => (None, None, Some(*load), Some(*secs)),
-            (_, Some(Measure::BuildUp { start, reps })) => {
-                (Some(*reps), Some(*reps), Some(*start), None)
-            }
-            // The weight is given; the duration is the open field, because it is
-            // what we're measuring.
-            (_, Some(Measure::LoadedCarry { start })) => (None, None, Some(*start), None),
-            // AMRAP / max hold — the open fields say "as many clean reps / as long
-            // as clean form holds", which is exactly what we're measuring.
-            (_, Some(Measure::Amrap) | Some(Measure::MaxHold)) => (None, None, None, None),
-            (None, None) => (None, None, None, None),
         };
 
         let (group, explanation, substituted_for) = match c.label {
@@ -1748,10 +1748,7 @@ fn plan_session(
                 sets,
                 done: 0,
                 logged: Vec::new(),
-                rep_low,
-                rep_high,
-                load_kg,
-                hold_s,
+                ask,
                 group,
                 substituted_for,
                 explanation,

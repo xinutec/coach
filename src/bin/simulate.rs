@@ -64,7 +64,7 @@ use coach::exercise::types::Metric;
 use coach::health::Recovery as RawRecovery;
 use coach::location::repo as location_repo;
 use coach::muscle::types::MuscleRole;
-use coach::pacing::types::{PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
+use coach::pacing::types::{Ask, PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
 use coach::pacing::{ability, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
 use coach_pacing::domain::{ExerciseId, SetId};
@@ -424,7 +424,6 @@ struct Performed {
 fn perform(
     s: &Suggestion,
     truth: Base,
-    metric: Metric,
     loads: Option<&Vec<f64>>,
     behaviour: Behaviour,
 ) -> Performed {
@@ -436,124 +435,121 @@ fn perform(
             String::new()
         }
     }
-    match s.kind {
-        SuggestionKind::Warmup => unreachable!("warm-ups are skipped by the caller"),
-        SuggestionKind::Work => match (s.load_kg, s.rep_low, s.hold_s) {
-            // Weighted reps: attempt the asked reps at the given load.
-            (Some(asked_load), Some(ask), _) => {
-                let load = behaviour.load_used(asked_load, loads);
-                let can = reps_at(truth.e1rm, load).max(1);
-                let did = behaviour.rep_target(ask).min(can).max(1);
-                Performed {
-                    reps: Some(did),
-                    load_kg: Some(load),
-                    hold_s: None,
-                    note: format!(
-                        "asked {ask} @ {load} kg, did {did}{}",
-                        swapped(asked_load, load)
-                    ),
-                    missed: did < ask,
-                }
+    // One match over what was actually asked. This used to be two nested matches
+    // over `s.kind` and a tuple of Options, with a catch-all arm reading
+    // "unintelligible card" — the simulator guessing at a prescription the engine
+    // had computed exactly. It also had to consult the exercise's `metric` to tell
+    // an AMRAP from a max hold, because the flat fields could not say; the ask now
+    // says it, so the parameter is gone. Warm-ups are skipped by the caller.
+    match s.ask {
+        // Weighted reps: attempt the asked reps at the given load.
+        Ask::Weighted {
+            load_kg: asked_load,
+            rep_low: ask,
+            ..
+        } => {
+            let load = behaviour.load_used(asked_load, loads);
+            let can = reps_at(truth.e1rm, load).max(1);
+            let did = behaviour.rep_target(ask).min(can).max(1);
+            Performed {
+                reps: Some(did),
+                load_kg: Some(load),
+                hold_s: None,
+                note: format!(
+                    "asked {ask} @ {load} kg, did {did}{}",
+                    swapped(asked_load, load)
+                ),
+                missed: did < ask,
             }
-            // Bodyweight reps.
-            (None, Some(ask), _) => {
-                let did = behaviour.rep_target(ask).min(truth.reps).max(1);
-                Performed {
-                    reps: Some(did),
-                    load_kg: None,
-                    hold_s: None,
-                    note: format!("asked {ask}, did {did}"),
-                    missed: did < ask,
-                }
-            }
-            // Loaded carry: the asked seconds at the given weight, capacity
-            // scaling with how far the weight is from the true one.
-            (Some(asked_load), None, Some(ask)) => {
-                let load = behaviour.load_used(asked_load, loads);
-                let cap = ((truth.carry.1 as f64 * truth.carry.0 / load).floor() as i32).max(5);
-                let did = behaviour.hold_target(ask).min(cap);
-                Performed {
-                    reps: None,
-                    load_kg: Some(load),
-                    hold_s: Some(did),
-                    note: format!(
-                        "asked {ask}s @ {load} kg, did {did}s{}",
-                        swapped(asked_load, load)
-                    ),
-                    missed: did < ask,
-                }
-            }
-            // Unloaded hold.
-            (None, None, Some(ask)) => {
-                let did = behaviour.hold_target(ask).min(truth.hold_s).max(5);
-                Performed {
-                    reps: None,
-                    load_kg: None,
-                    hold_s: Some(did),
-                    note: format!("asked {ask}s, did {did}s"),
-                    missed: did < ask,
-                }
-            }
-            _ => Performed {
-                reps: None,
+        }
+        // Bodyweight reps.
+        Ask::Bodyweight { rep_low: ask, .. } => {
+            let did = behaviour.rep_target(ask).min(truth.reps).max(1);
+            Performed {
+                reps: Some(did),
                 load_kg: None,
                 hold_s: None,
-                note: "unintelligible card".into(),
+                note: format!("asked {ask}, did {did}"),
+                missed: did < ask,
+            }
+        }
+        // Loaded carry: the asked seconds at the given weight, capacity scaling
+        // with how far the weight is from the true one.
+        Ask::WeightedHold {
+            load_kg: asked_load,
+            hold_s: ask,
+        } => {
+            let load = behaviour.load_used(asked_load, loads);
+            let cap = ((truth.carry.1 as f64 * truth.carry.0 / load).floor() as i32).max(5);
+            let did = behaviour.hold_target(ask).min(cap);
+            Performed {
+                reps: None,
+                load_kg: Some(load),
+                hold_s: Some(did),
+                note: format!(
+                    "asked {ask}s @ {load} kg, did {did}s{}",
+                    swapped(asked_load, load)
+                ),
+                missed: did < ask,
+            }
+        }
+        // Unloaded hold.
+        Ask::Hold { hold_s: ask } => {
+            let did = behaviour.hold_target(ask).min(truth.hold_s).max(5);
+            Performed {
+                reps: None,
+                load_kg: None,
+                hold_s: Some(did),
+                note: format!("asked {ask}s, did {did}s"),
+                missed: did < ask,
+            }
+        }
+        // Build-up: work up to a hard-but-clean set of the asked reps. The athlete
+        // lands on the heaviest owned weight that still leaves ~1 rep in reserve at
+        // that count.
+        Ask::BuildUp { reps, .. } => {
+            let target = truth.e1rm / (1.0 + (reps as f64 + 1.0) / 30.0);
+            let mut owned: Vec<f64> = loads.cloned().unwrap_or_default();
+            owned.sort_by(f64::total_cmp);
+            let load = owned
+                .iter()
+                .copied()
+                .rfind(|w| *w <= target + 1e-9)
+                .or_else(|| owned.first().copied())
+                .unwrap_or(target);
+            Performed {
+                reps: Some(reps),
+                load_kg: Some(load),
+                hold_s: None,
+                note: format!("built up to {reps} @ {load} kg"),
                 missed: false,
-            },
+            }
+        }
+        // Loaded carry assessment: carry the given start for as long as form holds.
+        Ask::LoadedCarry { start_kg: start } => {
+            let secs =
+                ((truth.carry.1 as f64 * truth.carry.0 / start).floor() as i32).clamp(5, 120);
+            Performed {
+                reps: None,
+                load_kg: Some(start),
+                hold_s: Some(secs),
+                note: format!("carried {start} kg for {secs}s"),
+                missed: false,
+            }
+        }
+        Ask::MaxHold => Performed {
+            reps: None,
+            load_kg: None,
+            hold_s: Some(truth.hold_s),
+            note: format!("max hold {}s", truth.hold_s),
+            missed: false,
         },
-        SuggestionKind::Assess => match (s.load_kg, s.rep_low) {
-            // Build-up: work up to a hard-but-clean set of the asked reps. The
-            // athlete lands on the heaviest owned weight that still leaves ~1
-            // rep in reserve at that count.
-            (Some(_start), Some(reps)) => {
-                let target = truth.e1rm / (1.0 + (reps as f64 + 1.0) / 30.0);
-                let mut owned: Vec<f64> = loads.cloned().unwrap_or_default();
-                owned.sort_by(f64::total_cmp);
-                let load = owned
-                    .iter()
-                    .copied()
-                    .rfind(|w| *w <= target + 1e-9)
-                    .or_else(|| owned.first().copied())
-                    .unwrap_or(target);
-                Performed {
-                    reps: Some(reps),
-                    load_kg: Some(load),
-                    hold_s: None,
-                    note: format!("built up to {reps} @ {load} kg"),
-                    missed: false,
-                }
-            }
-            // Loaded carry assessment: carry the given start for as long as
-            // form holds.
-            (Some(start), None) => {
-                let secs =
-                    ((truth.carry.1 as f64 * truth.carry.0 / start).floor() as i32).clamp(5, 120);
-                Performed {
-                    reps: None,
-                    load_kg: Some(start),
-                    hold_s: Some(secs),
-                    note: format!("carried {start} kg for {secs}s"),
-                    missed: false,
-                }
-            }
-            // AMRAP / max hold — the metric says which.
-            (None, _) => match metric {
-                Metric::Hold => Performed {
-                    reps: None,
-                    load_kg: None,
-                    hold_s: Some(truth.hold_s),
-                    note: format!("max hold {}s", truth.hold_s),
-                    missed: false,
-                },
-                _ => Performed {
-                    reps: Some(truth.reps),
-                    load_kg: None,
-                    hold_s: None,
-                    note: format!("AMRAP {}", truth.reps),
-                    missed: false,
-                },
-            },
+        Ask::Amrap => Performed {
+            reps: Some(truth.reps),
+            load_kg: None,
+            hold_s: None,
+            note: format!("AMRAP {}", truth.reps),
+            missed: false,
         },
     }
 }
@@ -788,18 +784,8 @@ async fn main() -> Result<()> {
                     assess_cards += 1;
                 }
                 touched.insert(s.exercise_id);
-                let metric = metric_of
-                    .get(&s.exercise_id)
-                    .copied()
-                    .unwrap_or(Metric::Reps);
                 let truth = athlete.truth(s.exercise_id, opening.get(&s.exercise_id), week);
-                let p = perform(
-                    s,
-                    truth,
-                    metric,
-                    inp.exercise_loads.get(&s.exercise_id),
-                    behaviour,
-                );
+                let p = perform(s, truth, inp.exercise_loads.get(&s.exercise_id), behaviour);
                 for _ in 0..s.sets {
                     hist.push(SetRec {
                         // Simulated sets are never written back, so a real row id

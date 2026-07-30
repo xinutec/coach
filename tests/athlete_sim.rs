@@ -186,11 +186,14 @@ fn estimate_converges_to_true_ability_and_holds() {
         let now = start() + Duration::days(3 * i);
         let sug = row_suggestion(&history, now);
         est.push(sug.explanation.and_then(|e| e.e1rm));
-        let load = sug.load_kg.expect("a weighted prescription carries a load");
+        let load = sug
+            .ask
+            .load_kg()
+            .expect("a weighted prescription carries a load");
         loads.push(load);
         // Aim for the top of the range (what "climb to the top" asks); the load
         // only advances when the logged sets earn it.
-        let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
+        let target = sug.ask.rep_high().or(sug.ask.rep_low()).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
             id: SetId(0),
@@ -274,10 +277,16 @@ fn the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe() {
     for i in 0..40 {
         let now = start() + Duration::days(3 * i);
         let sug = row_suggestion(&history, now);
-        let load = sug.load_kg.expect("a weighted prescription carries a load");
+        let load = sug
+            .ask
+            .load_kg()
+            .expect("a weighted prescription carries a load");
         // The aim on the card, not the top of the range: this athlete stops where
         // told, which is exactly what makes the fixed point bite.
-        let target = sug.rep_low.expect("a prescription names a rep target");
+        let target = sug
+            .ask
+            .rep_low()
+            .expect("a prescription names a rep target");
         let (reps, _rpe) = athlete.lift(load, target);
         history.push(SetRec {
             id: SetId(0),
@@ -335,8 +344,11 @@ fn estimate_tracks_true_ability_as_it_grows() {
     for i in 0..30 {
         let now = start() + Duration::days(3 * i);
         let sug = row_suggestion(&history, now);
-        let load = sug.load_kg.expect("a weighted prescription carries a load");
-        let target = sug.rep_high.or(sug.rep_low).unwrap_or(5);
+        let load = sug
+            .ask
+            .load_kg()
+            .expect("a weighted prescription carries a load");
+        let target = sug.ask.rep_high().or(sug.ask.rep_low()).unwrap_or(5);
         let (reps, rpe) = athlete.lift(load, target);
         history.push(SetRec {
             id: SetId(0),
@@ -501,7 +513,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             if s.kind == SuggestionKind::Warmup {
                 continue;
             }
-            let (reps, rpe) = athlete(s.exercise_id).reps(s.rep_high.or(s.rep_low));
+            let (reps, rpe) = athlete(s.exercise_id).reps(s.ask.rep_high().or(s.ask.rep_low()));
             history.push(SetRec {
                 id: SetId(0),
                 exercise_id: s.exercise_id,

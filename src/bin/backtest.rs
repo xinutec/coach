@@ -159,13 +159,25 @@ async fn main() -> Result<()> {
                 .get(&s.exercise_id)
                 .cloned()
                 .unwrap_or_else(|| s.exercise_name.clone());
-            let reps = match (s.rep_low, s.rep_high) {
+            // Read straight off the ask rather than inferring it from a tuple of
+            // Options. This is the trace the engine's changes are judged against,
+            // so it has to report what the coach asked, not a plausible
+            // reconstruction of it.
+            let reps = match (s.ask.rep_low(), s.ask.rep_high()) {
                 (Some(a), Some(b)) if a != b => format!(" {a}-{b} reps"),
                 (Some(a), _) => format!(" {a} reps"),
                 _ => String::new(),
             };
-            let load = s.load_kg.map(|l| format!(" @ {l} kg")).unwrap_or_default();
-            let hold = s.hold_s.map(|h| format!(" {h}s hold")).unwrap_or_default();
+            let load = s
+                .ask
+                .load_kg()
+                .map(|l| format!(" @ {l} kg"))
+                .unwrap_or_default();
+            let hold = s
+                .ask
+                .hold_s()
+                .map(|h| format!(" {h}s hold"))
+                .unwrap_or_default();
             let conf = s
                 .explanation
                 .map(|e| format!("  [{:?}]", e.confidence))

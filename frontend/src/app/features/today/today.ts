@@ -16,6 +16,7 @@ import type {
 	Substitution,
 	Suggestion,
 } from "../../models";
+import { askHoldS, askLoadKg, askRepHigh, askRepLow } from "../../shared/ask";
 import { numberField, stringField } from "../../shared/narrow";
 import { ExercisesStore, LocationsStore } from "../../stores/catalog";
 import { ExerciseSheet } from "../library/exercise-sheet";
@@ -139,6 +140,9 @@ export class Today {
 	 *  correcting a number is still a two-tap job rather than a hunt through
 	 *  history for a set logged weeks ago. */
 	readonly confirmRemoveSetId = signal<number | null>(null);
+
+	/** The opening weight an assessment names, for the template. */
+	readonly askLoadKg = askLoadKg;
 
 	/** The set behind the estimate, in the terms it was logged in. */
 	describeSource(src: EstimateSource): string {
@@ -300,20 +304,23 @@ export class Today {
 	 *  what happened instead, which is the more useful of the two. */
 	compactDose(s: Suggestion): string {
 		const bits: string[] = [];
-		if (s.repLow !== null) {
+		const repLow = askRepLow(s.ask);
+		if (repLow !== null) {
 			// A warm-up's range is a single number; only a work item aims.
 			bits.push(
-				s.kind === "warmup" || s.repLow === s.repHigh
-					? `${s.repLow} reps`
-					: `aim ${s.repLow}`,
+				s.kind === "warmup" || repLow === askRepHigh(s.ask)
+					? `${repLow} reps`
+					: `aim ${repLow}`,
 			);
 		}
-		if (s.loadKg !== null) bits.push(`${s.loadKg} kg`);
-		if (s.holdS !== null) bits.push(`${s.holdS}s`);
+		const loadKg = askLoadKg(s.ask);
+		const holdS = askHoldS(s.ask);
+		if (loadKg !== null) bits.push(`${loadKg} kg`);
+		if (holdS !== null) bits.push(`${holdS}s`);
 		if (bits.length && this.perSide(s.exerciseId)) bits.push("each side");
 		// A loaded warm-up is a ramp-in on the movement itself, not a mobility
 		// drill — that changes what you do with it, so it survives the shortening.
-		if (s.kind === "warmup" && s.loadKg !== null) bits.unshift("Ramp-in");
+		if (s.kind === "warmup" && loadKg !== null) bits.unshift("Ramp-in");
 		const dose = bits.join(" · ");
 		if (s.done >= s.sets) {
 			const sets = `${s.done} set${s.done === 1 ? "" : "s"}`;
@@ -324,22 +331,29 @@ export class Today {
 
 	/**
 	 * The calibration instruction for an `assess` suggestion — what to actually do
-	 * so the logged set measures your ability. Metric comes from the catalog (the
-	 * wire suggestion doesn't carry it), so assess-reps and assess-hold differ.
+	 * so the logged set measures your ability.
+	 *
+	 * This used to infer the instruction from the exercise's *metric* in the
+	 * catalog, because the wire suggestion didn't say which calibration had been
+	 * asked for; the rep count came with a `?? 5` for the case where the fields
+	 * didn't line up. The ask names the calibration, so both the lookup and the
+	 * invented default are gone.
 	 */
-	assessInstruction(exerciseId: number, repLow: number | null): string {
-		const ex = this.exercises().find((e) => e.id === exerciseId);
+	assessInstruction(s: Suggestion): string {
+		const ex = this.exercises().find((e) => e.id === s.exerciseId);
 		const side = ex?.unilateral ? " Both sides — the numbers are per side." : "";
-		const metric = ex?.metric;
-		if (metric === "hold")
-			return `Hold as long as your form stays clean — one honest max.${side}`;
-		if (metric === "weighted_hold")
-			return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
-		// What happened, not how it felt: the instruction asks for the load and the
-		// reps, never for a self-rating out of ten. See docs/trainer.md.
-		if (metric === "weighted_reps")
-			return `Build up to a hard-but-clean set of ${repLow ?? 5}, then log the load and the reps.${side}`;
-		return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
+		switch (s.ask.kind) {
+			case "maxHold":
+				return `Hold as long as your form stays clean — one honest max.${side}`;
+			case "loadedCarry":
+				return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
+			// What happened, not how it felt: the instruction asks for the load and
+			// the reps, never for a self-rating out of ten. See docs/trainer.md.
+			case "buildUp":
+				return `Build up to a hard-but-clean set of ${s.ask.reps}, then log the load and the reps.${side}`;
+			default:
+				return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
+		}
 	}
 
 	imageUrl(id: number): string {
@@ -395,9 +409,9 @@ export class Today {
 		}
 		return [...by.values()].map((s) => ({
 			exerciseId: s.exerciseId,
-			reps: s.repLow,
-			loadKg: s.loadKg,
-			holdS: s.holdS,
+			reps: askRepLow(s.ask),
+			loadKg: askLoadKg(s.ask),
+			holdS: askHoldS(s.ask),
 		}));
 	}
 
@@ -417,9 +431,9 @@ export class Today {
 		if (source) {
 			data.prefill = {
 				exerciseId: source.exerciseId,
-				reps: source.repLow,
-				loadKg: source.loadKg,
-				holdS: source.holdS,
+				reps: askRepLow(source.ask),
+				loadKg: askLoadKg(source.ask),
+				holdS: askHoldS(source.ask),
 			};
 		}
 		this.sheet.open(LogSheet, { data });

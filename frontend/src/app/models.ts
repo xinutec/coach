@@ -1,6 +1,7 @@
 // Barrel over the ts-rs–generated wire types (frontend/src/app/generated/),
 // regenerated from the Rust API types by scripts/gen-types.sh. Import from here.
 
+export * from "./generated/Ask";
 export * from "./generated/Band";
 export * from "./generated/Blocker";
 export * from "./generated/Category";

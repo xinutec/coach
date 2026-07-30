@@ -595,7 +595,7 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
     let ex_id = first
         .plan
         .iter()
-        .find(|s| s.kind != SuggestionKind::Warmup && s.load_kg.is_some())
+        .find(|s| s.kind != SuggestionKind::Warmup && s.ask.load_kg().is_some())
         .map(|s| s.exercise_id)
         .expect("expected a loadable movement in the plan");
 

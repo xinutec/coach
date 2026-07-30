@@ -597,10 +597,10 @@ fn a_heavy_lift_gets_a_ramp_in_warmup_set() {
         .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(5))
         .expect("a ramp-in warm-up of the lift");
     assert!(
-        ramp.load_kg.unwrap() < work.load_kg.unwrap(),
+        ramp.ask.load_kg().unwrap() < work.ask.load_kg().unwrap(),
         "ramp-in ({:?}) lighter than the working load ({:?})",
-        ramp.load_kg,
-        work.load_kg
+        ramp.ask.load_kg(),
+        work.ask.load_kg()
     );
 }
 
@@ -808,12 +808,12 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert_eq!(
-        sug.load_kg,
+        sug.ask.load_kg(),
         Some(60.0),
         "no blind +2.5 the reps don't support"
     );
-    assert_eq!(sug.rep_high, Some(6));
-    assert!(sug.rep_low.unwrap() >= 3 && sug.rep_low.unwrap() <= 6);
+    assert_eq!(sug.ask.rep_high(), Some(6));
+    assert!(sug.ask.rep_low().unwrap() >= 3 && sug.ask.rep_low().unwrap() <= 6);
 }
 
 // ---- a session in progress is a commitment ---------------------------------
@@ -1006,7 +1006,7 @@ fn no_rep_ratchet_within_a_session() {
         .find(|s| s.exercise_id == ExerciseId(1))
         .unwrap();
     assert_eq!(
-        pushup.rep_low,
+        pushup.ask.rep_low(),
         Some(5),
         "the committed target holds for the whole session"
     );
@@ -1153,7 +1153,7 @@ fn a_warmup_is_an_instruction_with_a_dose() {
         .iter()
         .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(9))
         .expect("the drill leads the plan");
-    assert_eq!(wu.rep_low, Some(10), "a dose, not a vibe");
+    assert_eq!(wu.ask.rep_low(), Some(10), "a dose, not a vibe");
 
     // Log the drill mid-session → its card reads done.
     let h = vec![set(9, minutes_ago(10))];
@@ -1189,12 +1189,12 @@ fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
         .expect("a trusted, recovered movement in deficit is planned");
     assert_eq!(pushup.kind, SuggestionKind::Work);
     assert_eq!(
-        pushup.rep_low,
+        pushup.ask.rep_low(),
         Some(3),
         "one rep above the demonstrated 2 — not the mode floor of 8"
     );
     assert_eq!(
-        pushup.rep_high,
+        pushup.ask.rep_high(),
         Some(12),
         "the style range still names where the climb tops out"
     );
@@ -1216,7 +1216,7 @@ fn a_bodyweight_target_never_asks_past_the_mode_ceiling() {
         .iter()
         .find(|s| s.exercise_id == ExerciseId(1))
         .unwrap();
-    assert_eq!(pushup.rep_low, Some(12));
+    assert_eq!(pushup.ask.rep_low(), Some(12));
 }
 
 #[test]
@@ -1237,9 +1237,9 @@ fn a_weighted_target_respects_ability_when_the_lightest_weight_is_heavy() {
         )
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
-    assert_eq!(sug.load_kg, Some(20.0), "the lightest owned rung");
+    assert_eq!(sug.ask.load_kg(), Some(20.0), "the lightest owned rung");
     assert_eq!(
-        sug.rep_low,
+        sug.ask.rep_low(),
         Some(3),
         "the reps the estimate supports at that weight — not the style floor of 6"
     );
@@ -1269,17 +1269,17 @@ fn a_stronger_history_earns_a_heavier_owned_weight() {
     let weak = sug(vec![wset(5, days_ago(2), 15.0, 8)]); // e1RM ≈ 19
     let strong = sug(vec![wset(5, days_ago(2), 20.0, 5)]); // e1RM ≈ 23.3
     assert!(
-        strong.load_kg.unwrap() > weak.load_kg.unwrap(),
+        strong.ask.load_kg().unwrap() > weak.ask.load_kg().unwrap(),
         "stronger history → heavier owned weight ({:?} > {:?})",
-        strong.load_kg,
-        weak.load_kg
+        strong.ask.load_kg(),
+        weak.ask.load_kg()
     );
     // Every prescribed load is a weight actually owned here.
     for s in [&weak, &strong] {
         assert!(
-            owned[&ExerciseId(5)].contains(&s.load_kg.unwrap()),
+            owned[&ExerciseId(5)].contains(&s.ask.load_kg().unwrap()),
             "prescribed {:?} must be an owned weight",
-            s.load_kg
+            s.ask.load_kg()
         );
     }
 }
@@ -1304,9 +1304,9 @@ fn a_stale_pr_is_not_prescribed_at_face_value() {
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert!(
-        sug.load_kg.unwrap() < 60.0,
+        sug.ask.load_kg().unwrap() < 60.0,
         "stale PR decayed below its old weight, got {:?}",
-        sug.load_kg
+        sug.ask.load_kg()
     );
 }
 
@@ -1373,7 +1373,7 @@ fn a_never_done_lift_is_an_assessment_at_the_lightest_owned_weight() {
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert_eq!(sug.kind, SuggestionKind::Assess);
     assert_eq!(sug.sets, 1, "a single calibration set");
-    assert_eq!(sug.load_kg, Some(10.0));
+    assert_eq!(sug.ask.load_kg(), Some(10.0));
 }
 
 #[test]
@@ -1426,7 +1426,12 @@ fn low_readiness_prescribes_lighter_than_a_good_day() {
                 Some(vec![3]),
             )
         };
-        evaluate(&inp, now()).suggestion.unwrap().load_kg.unwrap()
+        evaluate(&inp, now())
+            .suggestion
+            .unwrap()
+            .ask
+            .load_kg()
+            .unwrap()
     };
     let normal = mk(None);
     let low = mk(Some(Readiness {
@@ -1898,10 +1903,10 @@ fn a_carry_is_never_prescribed_in_reps() {
         .iter()
         .find(|s| s.kind == SuggestionKind::Work)
         .expect("a work item for a trusted carry");
-    assert!(w.load_kg.is_some(), "a carry has a weight");
-    assert!(w.hold_s.is_some(), "a carry has a duration");
-    assert_eq!(w.rep_low, None, "a carry is not measured in reps");
-    assert_eq!(w.rep_high, None, "a carry is not measured in reps");
+    assert!(w.ask.load_kg().is_some(), "a carry has a weight");
+    assert!(w.ask.hold_s().is_some(), "a carry has a duration");
+    assert_eq!(w.ask.rep_low(), None, "a carry is not measured in reps");
+    assert_eq!(w.ask.rep_high(), None, "a carry is not measured in reps");
 }
 
 #[test]
@@ -1920,14 +1925,14 @@ fn a_carry_climbs_the_clock_then_steps_the_weight() {
         .find(|s| s.kind == SuggestionKind::Work)
         .unwrap();
     assert_eq!(
-        w.load_kg,
+        w.ask.load_kg(),
         Some(12.0),
         "the bell holds while the clock climbs"
     );
     assert!(
-        w.hold_s.unwrap() > 30,
+        w.ask.hold_s().unwrap() > 30,
         "the walk gets longer, got {:?}",
-        w.hold_s
+        w.ask.hold_s()
     );
 
     // At the ceiling: the walk is long enough, so it's asking for a heavier bell —
@@ -1943,8 +1948,16 @@ fn a_carry_climbs_the_clock_then_steps_the_weight() {
         .iter()
         .find(|s| s.kind == SuggestionKind::Work)
         .unwrap();
-    assert_eq!(w.load_kg, Some(14.0), "the next bell up, and one he owns");
-    assert_eq!(w.hold_s, Some(30), "the clock resets at the heavier weight");
+    assert_eq!(
+        w.ask.load_kg(),
+        Some(14.0),
+        "the next bell up, and one he owns"
+    );
+    assert_eq!(
+        w.ask.hold_s(),
+        Some(30),
+        "the clock resets at the heavier weight"
+    );
 }
 
 #[test]
@@ -1958,9 +1971,17 @@ fn an_unmeasured_carry_is_measured_not_guessed() {
         .iter()
         .find(|s| s.kind == SuggestionKind::Assess)
         .expect("an untrained carry is a calibration item");
-    assert_eq!(a.load_kg, Some(6.0), "opens at the lightest bell owned");
-    assert_eq!(a.hold_s, None, "the duration is what's being measured");
-    assert_eq!(a.rep_low, None, "still not reps");
+    assert_eq!(
+        a.ask.load_kg(),
+        Some(6.0),
+        "opens at the lightest bell owned"
+    );
+    assert_eq!(
+        a.ask.hold_s(),
+        None,
+        "the duration is what's being measured"
+    );
+    assert_eq!(a.ask.rep_low(), None, "still not reps");
 }
 
 #[test]
@@ -2089,10 +2110,10 @@ fn two_misses_prescribe_a_lighter_load_than_a_steady_history() {
     let after_misses =
         row_work(&row_plan(row_sessions(&[60.0, 60.0, 45.0, 45.0]))).expect("a work item");
     assert!(
-        after_misses.load_kg.unwrap() < steady.load_kg.unwrap(),
+        after_misses.ask.load_kg().unwrap() < steady.ask.load_kg().unwrap(),
         "two misses should back the load off: steady {:?} vs after-misses {:?}",
-        steady.load_kg,
-        after_misses.load_kg
+        steady.ask.load_kg(),
+        after_misses.ask.load_kg()
     );
     // ...and it says why, so "eased off" reads as a decision rather than a glitch.
     assert_eq!(after_misses.explanation.map(|e| e.misses), Some(2));
@@ -2123,9 +2144,9 @@ fn a_steady_history_still_prescribes_work_at_its_level() {
     let out = row_plan(row_sessions(&[60.0, 60.0, 60.0]));
     let w = row_work(&out).expect("a work item");
     assert!(
-        w.load_kg.unwrap() >= 50.0,
+        w.ask.load_kg().unwrap() >= 50.0,
         "prescribed near his level, got {:?}",
-        w.load_kg
+        w.ask.load_kg()
     );
     assert_eq!(w.explanation.map(|e| e.misses), Some(0));
 }
@@ -2666,7 +2687,7 @@ fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
         .find(|s| s.exercise_id == ExerciseId(2))
         .expect("the row is planned");
     assert_eq!(
-        item.rep_low,
+        item.ask.rep_low(),
         Some(10),
         "between probes the ask is the demonstrated best, not best+1"
     );
@@ -2687,7 +2708,11 @@ fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
         .iter()
         .find(|s| s.exercise_id == ExerciseId(2))
         .expect("the row is planned");
-    assert_eq!(item.rep_low, Some(11), "the periodic probe still reaches");
+    assert_eq!(
+        item.ask.rep_low(),
+        Some(11),
+        "the periodic probe still reaches"
+    );
 }
 
 /// The hamstring-curl pair from the real catalog: same family, same primaries,
@@ -2840,18 +2865,18 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
         .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .expect("a trusted row in deficit is prescribed");
     assert_eq!(
-        w.load_kg,
+        w.ask.load_kg(),
         Some(4.0),
         "the nearest rung — the one whose reps land inside the mode's range"
     );
-    let asked = w.rep_low.expect("a weighted ask carries reps");
+    let asked = w.ask.rep_low().expect("a weighted ask carries reps");
     assert!(
         (6..=10).contains(&asked),
         "the ask stays inside the Balanced range, got {asked}"
     );
 
     let mut done = h;
-    done.push(wset(5, now(), w.load_kg.unwrap(), asked));
+    done.push(wset(5, now(), w.ask.load_kg().unwrap(), asked));
     // The same rack the engine planned against — the ledger reconstructs the ask as
     // a weight off it, so handing it a different one would judge against a card that
     // was never written.
@@ -2910,8 +2935,8 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
     h.push(wset(
         5,
         now(),
-        w.load_kg.expect("a weighted lift has a load"),
-        w.rep_low.expect("and a rep target"),
+        w.ask.load_kg().expect("a weighted lift has a load"),
+        w.ask.rep_low().expect("and a rep target"),
     ));
     coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
         .remove(&ExerciseId(5))
@@ -2986,7 +3011,12 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
         .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
         .unwrap();
     // Two reps short of the eased ask.
-    h.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
+    h.push(wset(
+        5,
+        now(),
+        w.ask.load_kg().unwrap(),
+        w.ask.rep_low().unwrap() - 2,
+    ));
     let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
         .remove(&ExerciseId(5))
         .unwrap_or_default();
@@ -3031,7 +3061,12 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
 
     // Do precisely what the eased card said.
     let mut done = h;
-    done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap()));
+    done.push(wset(
+        5,
+        now(),
+        w.ask.load_kg().unwrap(),
+        w.ask.rep_low().unwrap(),
+    ));
 
     // Judged as though it were a full-effort day, this reads as a failure...
     let blind =
@@ -3074,7 +3109,12 @@ fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
         .unwrap();
     // Two reps short of a full-effort ask, on a day health knows nothing about.
     let mut done = h;
-    done.push(wset(5, now(), w.load_kg.unwrap(), w.rep_low.unwrap() - 2));
+    done.push(wset(
+        5,
+        now(),
+        w.ask.load_kg().unwrap(),
+        w.ask.rep_low().unwrap() - 2,
+    ));
     let led =
         coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
             .remove(&ExerciseId(5))

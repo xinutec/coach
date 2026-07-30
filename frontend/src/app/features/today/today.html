@@ -138,9 +138,9 @@
             </p>
           }
           @if (s.kind === "assess") {
-            <p class="s-assess">{{ assessInstruction(s.exerciseId, s.repLow) }}</p>
-            @if (s.loadKg !== null) {
-              <p class="s-detail">Start around {{ s.loadKg }} kg</p>
+            <p class="s-assess">{{ assessInstruction(s) }}</p>
+            @if (askLoadKg(s.ask); as start) {
+              <p class="s-detail">Start around {{ start }} kg</p>
             }
           } @else {
             <!-- A single-arm movement counts per side: one set is both arms, and the
@@ -152,21 +152,33 @@
               } @else {
                 {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
               }
-              <!-- The low end is the day's aim (demonstrated ability ± the
-                   day's adjustment), the high end the style ceiling — "3–12"
-                   read as a floor of 3, which invites the minimum. -->
-              @if (s.repLow !== null) {
-                @if (s.repLow === s.repHigh) {
-                  · {{ s.repLow }} reps
-                } @else {
-                  · aim {{ s.repLow }}, up to {{ s.repHigh }} reps
+              <!-- One arm per shape the ask can take, so this can't render a
+                   rep range for a carry or a load for a bodyweight lift. The low
+                   end is the day's aim (demonstrated ability ± the day's
+                   adjustment), the high end the style ceiling — "3–12" read as a
+                   floor of 3, which invites the minimum. -->
+              @switch (s.ask.kind) {
+                @case ("weighted") {
+                  @if (s.ask.repLow === s.ask.repHigh) {
+                    · {{ s.ask.repLow }} reps
+                  } @else {
+                    · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                  }
+                  · {{ s.ask.loadKg }} kg
                 }
-              }
-              @if (s.loadKg !== null) {
-                · {{ s.loadKg }} kg
-              }
-              @if (s.holdS !== null) {
-                · {{ s.holdS }}s hold
+                @case ("bodyweight") {
+                  @if (s.ask.repLow === s.ask.repHigh) {
+                    · {{ s.ask.repLow }} reps
+                  } @else {
+                    · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                  }
+                }
+                @case ("hold") {
+                  · {{ s.ask.holdS }}s hold
+                }
+                @case ("weightedHold") {
+                  · {{ s.ask.loadKg }} kg · {{ s.ask.holdS }}s hold
+                }
               }
               @if (perSide(s.exerciseId)) {
                 <span class="per-side">each side</span>
