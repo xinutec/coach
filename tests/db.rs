@@ -23,6 +23,7 @@ use chrono::{Duration, Utc};
 use sqlx::{AssertSqlSafe, MySqlPool};
 
 use coach::exercise::repo as ex_repo;
+use coach::exercise::types::Metric;
 use coach::location::types::{EquipmentOption, NewLocation};
 use coach::pacing::service;
 use coach::pacing::types::SuggestionKind;
@@ -291,7 +292,9 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
                 note: None,
                 logged_at: None,
                 confirm_load: None,
-            },
+            }
+            .validate(Metric::WeightedReps)
+            .unwrap(),
         )
         .await
         .unwrap();
@@ -614,7 +617,8 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
             logged_at: Some(Utc::now().naive_utc() - Duration::days(days_ago)),
             confirm_load: Some(true), // the athlete confirmed it; that's the bug
         };
-        async move { workout_repo::create(pool, u, &ns).await.unwrap() }
+        let valid = ns.validate(Metric::WeightedReps).unwrap();
+        async move { workout_repo::create(pool, u, &valid).await.unwrap() }
     };
 
     // Honest work across separate days, plus one fat-fingered set weeks back.

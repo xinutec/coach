@@ -85,6 +85,20 @@ pub async fn nocodb(pool: &MySqlPool, user_id: &str, bundle: Bundle) -> Result<I
                 continue;
             };
             let logged_at = date.and_hms_opt(12, 0, 0).expect("noon is valid");
+            // NOTE: the one write path that does not go through
+            // `NewSet::validate` / `workout::repo::create`, because it needs the
+            // `band` column the API has no field for. It stores NocoDB's
+            // `reps`/`weight_kg` against whatever the exercise's metric is, and
+            // 65 of the 357 sets now in the log are the result — reps recorded
+            // against holds, loads against bodyweight drills.
+            //
+            // Deliberately left as it is. Parsing here would *reject* those rows
+            // rather than store them, and that trades a wrong shape for missing
+            // history: NocoDB's "reps" for a hold movement is most likely seconds
+            // under the wrong heading, so the fix is to map the column, not to
+            // drop the row. Which it is per exercise is a question about the
+            // source data, not about this type.
+            //
             // NocoDB stored one row per (exercise, day) with a set count; coach
             // logs one row per set — expand.
             for _ in 0..row.sets.max(1) {

@@ -5,10 +5,11 @@ use anyhow::{Result, anyhow};
 use chrono::NaiveDateTime;
 use sqlx::MySqlPool;
 
-use super::types::{NewSet, WorkoutSet};
+use super::types::{ValidSet, WorkoutSet};
 
 /// Insert a logged set. `logged_at` defaults to now when the client omits it.
-pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewSet) -> Result<WorkoutSet> {
+pub async fn create(pool: &MySqlPool, user_id: &str, n: &ValidSet) -> Result<WorkoutSet> {
+    let (reps, load_kg, hold_s) = n.performed.columns();
     let res = sqlx::query(
         // logged_at defaults to UTC (UTC_TIMESTAMP), so the pacing engine's
         // local-tz day/window math is correct regardless of server tz.
@@ -19,9 +20,9 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewSet) -> Result<Worko
     .bind(user_id)
     .bind(n.exercise_id)
     .bind(n.logged_at)
-    .bind(n.reps)
-    .bind(n.load_kg)
-    .bind(n.hold_s)
+    .bind(reps)
+    .bind(load_kg)
+    .bind(hold_s)
     .bind(n.rpe)
     .bind(&n.note)
     .execute(pool)

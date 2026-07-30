@@ -28,16 +28,18 @@ pub async fn create(
     let ex = exercise_repo::get(&app.pool, body.exercise_id)
         .await?
         .ok_or(AppError::NotFound)?;
-    if let Some(msg) = body.shape_error(ex.metric) {
-        return Err(AppError::BadRequest(msg.to_string()));
-    }
+    // The plausibility confirm reads the raw body, because it is about a number
+    // the athlete may genuinely have meant; the shape check below is about a
+    // number that means nothing at all.
+    let raw_load = body.load_kg;
+    let confirmed = body.confirm_load.unwrap_or(false);
     // A load far past anything he owns is the signature of a mistyped field, and
     // ability is a max over history — one such number becomes a PR the engine
     // cannot unlearn, and every future session is prescribed off it. So ask
     // once. A confirm rather than a refusal, because improvised weights are real
     // and the ledger already judges them honestly.
-    if let Some(load) = body.load_kg
-        && !body.confirm_load.unwrap_or(false)
+    if let Some(load) = raw_load
+        && !confirmed
     {
         let heaviest = owned::heaviest_buildable(&app.pool, &user.user_id, &ex).await?;
         if owned::implausible(load, heaviest) {
@@ -49,7 +51,12 @@ pub async fn create(
             )));
         }
     }
-    Ok(Json(repo::create(&app.pool, &user.user_id, &body).await?))
+    // Past this point the body no longer exists in unchecked form: `validate`
+    // consumes it, and `repo::create` accepts nothing else.
+    let valid = body
+        .validate(ex.metric)
+        .map_err(|msg| AppError::BadRequest(msg.to_string()))?;
+    Ok(Json(repo::create(&app.pool, &user.user_id, &valid).await?))
 }
 
 #[derive(Deserialize)]

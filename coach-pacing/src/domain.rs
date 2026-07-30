@@ -78,6 +78,111 @@ row_id!(
      correct."
 );
 
+/// A set that has been checked against its exercise's metric — the only shape
+/// the log is written from.
+///
+/// The fields a set may carry are its metric's fields and nothing else. That was
+/// a runtime predicate over three independent `Option`s (`NewSet::shape_error`)
+/// with a test file of its own, enforced at exactly one call site, and a load on
+/// a bodyweight mobility drill got in anyway — twice, and the rows are still in
+/// the log. Parsing the request body into this instead means the illegal shapes
+/// stop existing after the check rather than merely being disapproved of, and a
+/// second write path cannot forget to ask.
+///
+/// The measurement is required; the load is not. A set that records neither reps
+/// nor seconds is not a set — the old predicate accepted an entirely empty body,
+/// because it only ever asked whether a *present* field was allowed. The load
+/// stays optional because an unweighted set of a weighted movement is honest: an
+/// empty-bar technique set the athlete chose not to weigh, and refusing it would
+/// lose a real set.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LoggedSet {
+    Reps { reps: i32 },
+    WeightedReps { reps: i32, load_kg: Option<f64> },
+    Hold { hold_s: i32 },
+    WeightedHold { hold_s: i32, load_kg: Option<f64> },
+}
+
+/// Value ceilings no honest set exceeds — plausibility, not policy. Generous on
+/// purpose: a real outlier day must never be refused, only a number that
+/// describes nothing a human did. The round-3 field test stored a fat-fingered
+/// **3 530-second** farmers walk (an "append" instead of a replace) and the
+/// carry ability model would have read it as a demonstrated max.
+const MAX_REPS: i32 = 100;
+const MAX_HOLD_S: i32 = 600;
+const MAX_LOAD_KG: f64 = 300.0;
+
+impl LoggedSet {
+    /// Build the one shape `metric` allows from what the client sent, or say
+    /// what is wrong with it. The error strings are the athlete-facing ones.
+    pub fn parse(
+        metric: Metric,
+        reps: Option<i32>,
+        load_kg: Option<f64>,
+        hold_s: Option<i32>,
+    ) -> Result<Self, &'static str> {
+        // Which fields this metric has anything to say with. A field outside them
+        // is refused rather than dropped: a client sending a load for a bodyweight
+        // drill is wrong about something, and silently storing the honest part
+        // hides that.
+        let (load_ok, reps_ok, hold_ok) = match metric {
+            Metric::Reps => (false, true, false),
+            Metric::WeightedReps => (true, true, false),
+            Metric::Hold => (false, false, true),
+            Metric::WeightedHold => (true, false, true),
+        };
+        if load_kg.is_some() && !load_ok {
+            return Err("this exercise takes no load");
+        }
+        if reps.is_some() && !reps_ok {
+            return Err("this exercise is measured in seconds, not reps");
+        }
+        if hold_s.is_some() && !hold_ok {
+            return Err("this exercise is measured in reps, not seconds");
+        }
+        if reps.is_some_and(|r| !(1..=MAX_REPS).contains(&r)) {
+            return Err("reps must be between 1 and 100");
+        }
+        if hold_s.is_some_and(|s| !(1..=MAX_HOLD_S).contains(&s)) {
+            return Err("seconds must be between 1 and 600");
+        }
+        if load_kg.is_some_and(|l| !(l > 0.0 && l <= MAX_LOAD_KG)) {
+            return Err("load must be between 0 and 300 kg");
+        }
+        // The measurement itself is not optional: "a set" with no reps and no
+        // seconds records that something happened and nothing about what.
+        const NEEDS_REPS: &str = "how many reps?";
+        const NEEDS_SECONDS: &str = "how many seconds?";
+        Ok(match metric {
+            Metric::Reps => LoggedSet::Reps {
+                reps: reps.ok_or(NEEDS_REPS)?,
+            },
+            Metric::WeightedReps => LoggedSet::WeightedReps {
+                reps: reps.ok_or(NEEDS_REPS)?,
+                load_kg,
+            },
+            Metric::Hold => LoggedSet::Hold {
+                hold_s: hold_s.ok_or(NEEDS_SECONDS)?,
+            },
+            Metric::WeightedHold => LoggedSet::WeightedHold {
+                hold_s: hold_s.ok_or(NEEDS_SECONDS)?,
+                load_kg,
+            },
+        })
+    }
+
+    /// The set as the flat `workout_sets` columns hold it. The schema is three
+    /// nullable columns, so exactly one place converts, and this is it.
+    pub fn columns(self) -> (Option<i32>, Option<f64>, Option<i32>) {
+        match self {
+            LoggedSet::Reps { reps } => (Some(reps), None, None),
+            LoggedSet::WeightedReps { reps, load_kg } => (Some(reps), load_kg, None),
+            LoggedSet::Hold { hold_s } => (None, None, Some(hold_s)),
+            LoggedSet::WeightedHold { hold_s, load_kg } => (None, load_kg, Some(hold_s)),
+        }
+    }
+}
+
 /// Generates the `as_db`/`from_db` string mapping. Pure `match`es — no std.
 macro_rules! db_str {
     ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
