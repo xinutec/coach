@@ -13,16 +13,16 @@ export type Suggestion = { exerciseId: ExerciseId, exerciseName: string, pattern
  */
 kind: SuggestionKind, sets: number, 
 /**
- * Sets of this item already logged **today**. The plan is committed at the
- * session's first set; this is the athlete's progress against that
- * commitment, shown on the card. Day-scoped, not session-scoped: the
- * session gap elapses hours before the day does, and the plan forgetting
- * your morning is not something you should have to work around.
- */
-done: number, 
-/**
- * Those sets' actual numbers, oldest first — `done` in long form. Always
- * `done` entries long.
+ * The sets of this item already logged **today**, oldest first — what the
+ * athlete has actually put in against the plan's commitment.
+ *
+ * Day-scoped, not session-scoped: the session gap elapses hours before the
+ * day does, and the plan forgetting your morning is not something you should
+ * have to work around.
+ *
+ * There used to be a `done: i32` beside this, documented as "always `done`
+ * entries long" — a length carried twice, which is a length that can
+ * disagree with itself. It's [`Suggestion::done`] now.
  */
 logged: Array<DoneSet>, 
 /**

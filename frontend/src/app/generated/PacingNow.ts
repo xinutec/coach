@@ -3,6 +3,7 @@ import type { GroupBalance } from "./GroupBalance";
 import type { PacingState } from "./PacingState";
 import type { Readiness } from "./Readiness";
 import type { Suggestion } from "./Suggestion";
+import type { WindowState } from "./WindowState";
 
 /**
  * The full coach verdict for an instant. Drives the Today UI and the Android
@@ -17,11 +18,11 @@ deload: boolean,
 /**
  * Biometric readiness driving today's volume/progression, when health had data.
  */
-readiness: Readiness | null, nudge: boolean, reason: string, withinWindow: boolean, 
+readiness: Readiness | null, nudge: boolean, reason: string, 
 /**
- * Past the training window's end — coach defers to tomorrow.
+ * Where now sits relative to the training window.
  */
-afterWindow: boolean, spacingOk: boolean, minutesSinceLastSet: number | null, 
+window: WindowState, spacingOk: boolean, minutesSinceLastSet: number | null, 
 /**
  * The computed session-size target + what's been done today (drive the nudge).
  */

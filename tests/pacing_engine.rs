@@ -11,7 +11,7 @@ use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
     Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings,
-    PacingState, Readiness, SetRec, Suggestion, SuggestionKind,
+    PacingState, Readiness, SetRec, Suggestion, SuggestionKind, WindowState,
 };
 use coach::settings::types::Mode;
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
@@ -854,13 +854,14 @@ fn the_plan_remembers_what_you_did_earlier_today() {
         .find(|s| s.exercise_id == ExerciseId(9))
         .expect("the drill is still planned");
     assert_eq!(
-        wu.done, 1,
+        wu.done(),
+        1,
         "this morning's warm-up still counts this evening"
     );
     assert!(
         out.plan
             .iter()
-            .find(|s| s.done < s.sets)
+            .find(|s| s.done() < s.sets)
             .is_some_and(|s| s.exercise_id != ExerciseId(9)),
         "and it is no longer what to do next"
     );
@@ -887,11 +888,11 @@ fn the_card_reports_what_you_lifted_not_only_how_many_sets() {
         .find(|s| s.exercise_id == ExerciseId(1))
         .expect("push-up planned");
     assert_eq!(
-        item.done as usize,
+        item.done() as usize,
         item.logged.len(),
         "one entry per done set"
     );
-    assert_eq!(item.done, 2, "both of today's sets counted");
+    assert_eq!(item.done(), 2, "both of today's sets counted");
     assert_eq!(
         item.logged.iter().map(|d| d.reps).collect::<Vec<_>>(),
         vec![Some(9), Some(6)],
@@ -922,7 +923,7 @@ fn yesterdays_sets_are_not_todays_progress() {
         .iter()
         .find(|s| s.exercise_id == ExerciseId(9))
         .expect("the drill is planned");
-    assert_eq!(wu.done, 0, "yesterday is not today");
+    assert_eq!(wu.done(), 0, "yesterday is not today");
 }
 
 #[test]
@@ -944,7 +945,7 @@ fn a_calibration_is_complete_after_its_measurement() {
         "still the measurement"
     );
     assert_eq!(items[0].sets, 1);
-    assert_eq!(items[0].done, 1, "and it's done");
+    assert_eq!(items[0].done(), 1, "and it's done");
     if let Some(sug) = &out.suggestion {
         assert_ne!(
             sug.exercise_id,
@@ -985,7 +986,7 @@ fn the_committed_plan_survives_a_logged_set() {
         .find(|s| s.exercise_id == ExerciseId(1))
         .expect("a half-done movement stays on the plan");
     assert_eq!(pushup.sets, asked, "the ask is the committed one");
-    assert_eq!(pushup.done, 1, "progress is reported against it");
+    assert_eq!(pushup.done(), 1, "progress is reported against it");
     assert!(
         out.plan.iter().any(|s| s.exercise_id == ExerciseId(3)),
         "untouched movements stay planned too"
@@ -1163,7 +1164,7 @@ fn a_warmup_is_an_instruction_with_a_dose() {
         .iter()
         .find(|s| s.kind == SuggestionKind::Warmup && s.exercise_id == ExerciseId(9))
         .expect("still on the plan");
-    assert_eq!(wu.done, 1, "a logged warm-up completes its card");
+    assert_eq!(wu.done(), 1, "a logged warm-up completes its card");
 }
 
 #[test]
@@ -1624,7 +1625,8 @@ fn nudges_when_behind_midday() {
         h.push(set(1, days_ago(d)));
     }
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
-    assert!(out.within_window && !out.after_window && out.spacing_ok);
+    assert_eq!(out.window, WindowState::Within);
+    assert!(out.spacing_ok);
     assert!(out.nudge);
     assert!(out.day_target_sets >= 3);
 }
@@ -1731,14 +1733,14 @@ fn outside_the_window_suggests_but_never_nudges() {
         &input(Mode::Balanced, catalog(), hist(), None, None),
         at(22),
     );
-    assert!(late.after_window && !late.within_window);
+    assert_eq!(late.window, WindowState::After);
     assert!(!late.nudge);
     assert!(late.suggestion.is_some(), "still trainable any time");
     assert!(late.reason.contains("rolls to tomorrow"));
 
     // Before the window's start (06:00, start=8): neutral, no nudge, no defer.
     let early = evaluate(&input(Mode::Balanced, catalog(), hist(), None, None), at(6));
-    assert!(!early.within_window && !early.after_window);
+    assert_eq!(early.window, WindowState::Before);
     assert!(!early.nudge);
     assert!(early.suggestion.is_some());
     assert!(early.reason.contains("Outside your training window"));
@@ -2266,7 +2268,7 @@ fn finishing_exactly_the_plan_reads_complete() {
     let done = evaluate(&input(Mode::Balanced, exercises, h, None, None), now());
     let (sets, counted): (i32, i32) = (
         done.plan.iter().map(|s| s.sets).sum(),
-        done.plan.iter().map(|s| s.done).sum(),
+        done.plan.iter().map(|s| s.done()).sum(),
     );
     assert_eq!(
         counted,
@@ -2274,7 +2276,7 @@ fn finishing_exactly_the_plan_reads_complete() {
         "finishing the plan is N of N (warm-ups counted, extras capped): {:?}",
         done.plan
             .iter()
-            .map(|s| (&s.exercise_name, s.done, s.sets))
+            .map(|s| (&s.exercise_name, s.done(), s.sets))
             .collect::<Vec<_>>()
     );
 }

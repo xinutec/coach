@@ -482,14 +482,16 @@ pub struct Suggestion {
     /// Work (prescribe) or Assess (measure). Drives the Today card's framing.
     pub kind: SuggestionKind,
     pub sets: i32,
-    /// Sets of this item already logged **today**. The plan is committed at the
-    /// session's first set; this is the athlete's progress against that
-    /// commitment, shown on the card. Day-scoped, not session-scoped: the
-    /// session gap elapses hours before the day does, and the plan forgetting
-    /// your morning is not something you should have to work around.
-    pub done: i32,
-    /// Those sets' actual numbers, oldest first — `done` in long form. Always
-    /// `done` entries long.
+    /// The sets of this item already logged **today**, oldest first — what the
+    /// athlete has actually put in against the plan's commitment.
+    ///
+    /// Day-scoped, not session-scoped: the session gap elapses hours before the
+    /// day does, and the plan forgetting your morning is not something you should
+    /// have to work around.
+    ///
+    /// There used to be a `done: i32` beside this, documented as "always `done`
+    /// entries long" — a length carried twice, which is a length that can
+    /// disagree with itself. It's [`Suggestion::done`] now.
     pub logged: Vec<DoneSet>,
     /// What to actually do: the prescription, or the calibration that stands in
     /// for one when the estimate isn't trusted.
@@ -510,6 +512,36 @@ pub struct Suggestion {
     pub explanation: Option<Explanation>,
 }
 
+impl Suggestion {
+    /// How many sets of this item are already in — the length of [`logged`], not
+    /// a second copy of it.
+    ///
+    /// [`logged`]: Suggestion::logged
+    pub fn done(&self) -> i32 {
+        // A plan never holds more sets than an i32 can count.
+        self.logged.len() as i32
+    }
+}
+
+/// Where the moment sits relative to the athlete's training window.
+///
+/// This was `within_window: bool` beside `after_window: bool` — four states for
+/// three real ones, with "both true" meaningless and readers spelling "before"
+/// as `!within_window && !after_window`. A clock is somewhere on a line, so it
+/// is one value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum WindowState {
+    /// Before it opens — the coach has nothing to say yet.
+    Before,
+    /// Inside it. The only state that nudges.
+    Within,
+    /// Past its end; the coach defers to tomorrow.
+    After,
+}
+
 /// The full coach verdict for an instant. Drives the Today UI and the Android
 /// nudge (fired only when `nudge` AND the phone's geofence says you're home).
 #[derive(Clone, Debug, Serialize)]
@@ -525,9 +557,8 @@ pub struct PacingNow {
     pub readiness: Option<Readiness>,
     pub nudge: bool,
     pub reason: String,
-    pub within_window: bool,
-    /// Past the training window's end — coach defers to tomorrow.
-    pub after_window: bool,
+    /// Where now sits relative to the training window.
+    pub window: WindowState,
     pub spacing_ok: bool,
     #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub minutes_since_last_set: Option<i64>,

@@ -273,7 +273,7 @@ export class Today {
 	 * page exists — sat below the fold for the whole session.
 	 */
 	isCompact(s: Suggestion): boolean {
-		return s.done >= s.sets || s.kind === "warmup";
+		return s.logged.length >= s.sets || s.kind === "warmup";
 	}
 
 	/**
@@ -322,8 +322,9 @@ export class Today {
 		// drill — that changes what you do with it, so it survives the shortening.
 		if (s.kind === "warmup" && loadKg !== null) bits.unshift("Ramp-in");
 		const dose = bits.join(" · ");
-		if (s.done >= s.sets) {
-			const sets = `${s.done} set${s.done === 1 ? "" : "s"}`;
+		const done = s.logged.length;
+		if (done >= s.sets) {
+			const sets = `${done} set${done === 1 ? "" : "s"}`;
 			return dose ? `${sets} · ${dose}` : sets;
 		}
 		return dose || "Mobility";
@@ -405,7 +406,8 @@ export class Today {
 		const by = new Map<number, Suggestion>();
 		for (const s of this.pacing()?.plan ?? []) {
 			const cur = by.get(s.exerciseId);
-			if (!cur || (cur.done >= cur.sets && s.done < s.sets)) by.set(s.exerciseId, s);
+			if (!cur || (cur.logged.length >= cur.sets && s.logged.length < s.sets))
+				by.set(s.exerciseId, s);
 		}
 		return [...by.values()].map((s) => ({
 			exerciseId: s.exerciseId,
@@ -455,21 +457,21 @@ export class Today {
 		return this.work(p).reduce((a, s) => a + s.sets, 0);
 	}
 	planDone(p: PacingNow): number {
-		return this.work(p).reduce((a, s) => a + s.done, 0);
+		return this.work(p).reduce((a, s) => a + s.logged.length, 0);
 	}
 
 	/** The first plan item with sets still to do — what "Next up" points at and
 	 *  what the bare + defaults to. Warm-ups count: done ones stop leading. */
 	nextUp(): Suggestion | null {
 		const p = this.pacing();
-		return p?.plan.find((s) => s.done < s.sets) ?? null;
+		return p?.plan.find((s) => s.logged.length < s.sets) ?? null;
 	}
 
 	/** Whether this plan item is the one to do now (by position, not id — a
 	 *  ramp-in warm-up shares its exercise id with the work item after it). */
 	isNextUp(index: number): boolean {
 		const p = this.pacing();
-		if (!p?.withinWindow) return false;
-		return p.plan.findIndex((s) => s.done < s.sets) === index;
+		if (p?.window !== "within") return false;
+		return p.plan.findIndex((s) => s.logged.length < s.sets) === index;
 	}
 }

@@ -35,9 +35,9 @@
     <!-- Past the window the coach said "this rolls to tomorrow" — the plan must
          agree: it's a preview, with no "Next up" pressure and no burn-down. -->
     <div class="plan-head">
-      <h3>{{ p.afterWindow ? "Tomorrow's session" : "Today's session" }}</h3>
+      <h3>{{ p.window === "after" ? "Tomorrow's session" : "Today's session" }}</h3>
       <span class="plan-count">
-        @if (p.afterWindow) {
+        @if (p.window === "after") {
           {{ planSets(p) }} sets
         } @else {
           {{ planDone(p) }} / {{ planSets(p) }} sets
@@ -50,7 +50,7 @@
         [class.assess]="s.kind === 'assess'"
         [class.warmup]="s.kind === 'warmup'"
         [class.next]="isNextUp(i)"
-        [class.done]="s.done >= s.sets"
+        [class.done]="s.logged.length >= s.sets"
         [class.compact]="isCompact(s)"
       >
         @if (isCompact(s)) {
@@ -79,7 +79,7 @@
               <div class="s-row-dose">
                 <!-- The tick is the "Done" pill's job at row scale: state, not a
                      control, so it carries the label a screen reader needs. -->
-                @if (s.done >= s.sets) {
+                @if (s.logged.length >= s.sets) {
                   <mat-icon class="tick" aria-label="Done">check</mat-icon>
                 }
                 <!-- What happened beats what was asked, once there's a what. -->
@@ -90,11 +90,11 @@
               mat-icon-button
               class="s-row-act"
               [attr.aria-label]="
-                (s.done >= s.sets ? 'Log another set of ' : 'Mark done: ') + s.exerciseName
+                (s.logged.length >= s.sets ? 'Log another set of ' : 'Mark done: ') + s.exerciseName
               "
               (click)="openLog(s)"
             >
-              <mat-icon>{{ s.done >= s.sets ? "add" : "check" }}</mat-icon>
+              <mat-icon>{{ s.logged.length >= s.sets ? "add" : "check" }}</mat-icon>
             </button>
           </mat-card-content>
         } @else {
@@ -147,8 +147,8 @@
                  reps/seconds are what each one does. Saying "3 × 10" without that
                  is half a session or a double one depending on how you read it. -->
             <p class="s-detail">
-              @if (s.done > 0) {
-                {{ s.done }}/{{ s.sets }} sets
+              @if (s.logged.length > 0) {
+                {{ s.logged.length }}/{{ s.sets }} sets
               } @else {
                 {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
               }

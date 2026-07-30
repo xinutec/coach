@@ -37,6 +37,7 @@ use super::residual::{self, Residual};
 use super::types::{
     Ask, Band, Blocker, DoneSet, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit,
     PacingInput, PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
+    WindowState,
 };
 
 /// Cold-start hold (seconds) when an isometric has no history yet.
@@ -1031,7 +1032,6 @@ fn build_warmup(
             pattern: e.pattern,
             kind: SuggestionKind::Warmup,
             sets: WARMUP_SETS,
-            done: 0,
             logged: Vec::new(),
             ask,
             // The group this slot is *for* — never a second card for one group.
@@ -1058,7 +1058,6 @@ fn build_warmup(
             pattern: w.pattern,
             kind: SuggestionKind::Warmup,
             sets: WARMUP_SETS,
-            done: 0,
             logged: Vec::new(),
             ask: Ask::Weighted {
                 load_kg: inv.snap(load * RAMP_FRACTION),
@@ -1083,10 +1082,17 @@ fn build_warmup(
 pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let s = &input.settings;
     let hour = now.hour() as i32;
-    let within_window = hour >= s.window_start_hour && hour < s.window_end_hour;
+    let window = if hour < s.window_start_hour {
+        WindowState::Before
+    } else if hour < s.window_end_hour {
+        WindowState::Within
+    } else {
+        WindowState::After
+    };
+    let within_window = window == WindowState::Within;
     // Past the window's end: coach goes quiet and defers to tomorrow (the single
     // evening line; you can still train + log, it just won't nudge).
-    let after_window = hour >= s.window_end_hour;
+
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
 
     let ex_by_id: BTreeMap<ExerciseId, &ExerciseInfo> =
@@ -1468,7 +1474,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     for item in &mut plan {
         let queue = logged.entry(item.exercise_id).or_default();
         let take = queue.len().min(item.sets.max(0) as usize);
-        item.done = take as i32;
         item.logged = queue
             .drain(..take)
             .map(|s| DoneSet {
@@ -1503,14 +1508,14 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // something already done this session.
     let suggestion = plan
         .iter()
-        .find(|s| s.kind != SuggestionKind::Warmup && s.done < s.sets)
+        .find(|s| s.kind != SuggestionKind::Warmup && s.done() < s.sets)
         .cloned();
     // What the athlete should literally do next — warm-ups very much included.
     // The banner speaks from this, so it can never disagree with the plan's
     // "Next up" pill (which points at the same item): the round-2 test caught
     // the banner saying "Next up: 2 × Dips" while the pill sat on a mobility
     // drill.
-    let next_item = plan.iter().find(|s| s.done < s.sets).cloned();
+    let next_item = plan.iter().find(|s| s.done() < s.sets).cloned();
     // One phrasing for "do this next", kind-aware: a warm-up is named with its
     // dose, work with its remaining sets and muscle group.
     let next_phrase = |s: &Suggestion| -> String {
@@ -1534,7 +1539,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             };
             format!("{} — {}", s.exercise_name, dose)
         } else {
-            format!("{} × {} ({})", s.sets - s.done, s.exercise_name, s.group)
+            format!("{} × {} ({})", s.sets - s.done(), s.exercise_name, s.group)
         }
     };
 
@@ -1590,9 +1595,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
     } else if !has_work {
         "You're on top of it today — nice work.".to_string()
-    } else if after_window {
+    } else if window == WindowState::After {
         "It's late — this rolls to tomorrow.".to_string()
-    } else if !within_window {
+    } else if window == WindowState::Before {
         format!(
             "Outside your training window ({:02}:00–{:02}:00).",
             s.window_start_hour, s.window_end_hour
@@ -1637,8 +1642,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         readiness: input.readiness,
         nudge,
         reason,
-        within_window,
-        after_window,
+        window,
         spacing_ok,
         minutes_since_last_set,
         day_target_sets,
@@ -1746,7 +1750,6 @@ fn plan_session(
                 pattern: c.ex.pattern,
                 kind,
                 sets,
-                done: 0,
                 logged: Vec::new(),
                 ask,
                 group,

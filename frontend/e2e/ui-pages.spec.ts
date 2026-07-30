@@ -194,8 +194,7 @@ const PACING = {
 	nudge: true,
 	// Readiness is woven into the coach's sentence server-side (no chips).
 	reason: "Recovered — good day to push. 2 × Ring dip (Chest) — you're a bit light there this week.",
-	withinWindow: true,
-	afterWindow: false,
+	window: "within",
 	spacingOk: true,
 	minutesSinceLastSet: 33,
 	dayTargetSets: 6,
@@ -207,7 +206,6 @@ const PACING = {
 		pattern: "push",
 		kind: "work",
 		sets: 2,
-		done: 0,
 		logged: [],
 		ask: { kind: "bodyweight", repLow: 5, repHigh: 8 },
 		group: "Chest",
@@ -221,7 +219,6 @@ const PACING = {
 			pattern: "core",
 			kind: "warmup",
 			sets: 1,
-			done: 0,
 			logged: [],
 			ask: { kind: "bodyweight", repLow: 8, repHigh: 8 },
 			group: "Shoulders",
@@ -233,7 +230,6 @@ const PACING = {
 			pattern: "push",
 			kind: "work",
 			sets: 2,
-			done: 0,
 			logged: [],
 			ask: { kind: "bodyweight", repLow: 5, repHigh: 8 },
 			group: "Chest",
@@ -253,7 +249,6 @@ const PACING = {
 			pattern: "legs",
 			kind: "assess",
 			sets: 1,
-			done: 0,
 			logged: [],
 			ask: { kind: "buildUp", startKg: 20, reps: 5 },
 			group: "Quadriceps",
@@ -454,8 +449,7 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
 			json: {
 				...PACING,
 				nudge: false,
-				withinWindow: false,
-				afterWindow: true,
+				window: "after",
 				reason: "It's late — this rolls to tomorrow.",
 			},
 		}),
@@ -485,9 +479,9 @@ test("today — mid-session, the next thing to do is on screen @ phone", async (
 				// page spends most of a session in.
 				plan: PACING.plan.map((s, i) =>
 					i === 0
-						? { ...s, done: 1, logged: [{ reps: 10, loadKg: null, holdS: null }] }
+						? { ...s, logged: [{ reps: 10, loadKg: null, holdS: null }] }
 						: i === 1
-							? { ...s, done: 1, logged: [{ reps: 7, loadKg: null, holdS: null }] }
+							? { ...s, logged: [{ reps: 7, loadKg: null, holdS: null }] }
 							: s,
 				),
 			},
