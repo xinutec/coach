@@ -58,9 +58,18 @@ fn every_weighted_lift_declares_kit_that_carries_a_load() {
         "no equipment carries a load — the flag is missing from equipment.json"
     );
 
+    // Every metric that carries a weight, not just weighted *reps*. A carry is
+    // loaded too, and a weighted plank is a hold with a plate on it — the check
+    // used to look only at `weighted_reps`, so those two could declare kit that
+    // holds nothing and the coach would silently never prescribe them.
+    let loaded = ["weighted_reps", "weighted_hold"];
     let orphans: Vec<String> = catalog()
         .iter()
-        .filter(|ex| ex.get("metric").and_then(Value::as_str) == Some("weighted_reps"))
+        .filter(|ex| {
+            ex.get("metric")
+                .and_then(Value::as_str)
+                .is_some_and(|m| loaded.contains(&m))
+        })
         .filter(|ex| {
             let kit = ex.get("equipment").and_then(Value::as_array);
             !kit.is_some_and(|kit| {

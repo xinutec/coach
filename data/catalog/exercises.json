@@ -524,7 +524,7 @@
     "name": "Good morning",
     "variation": "GHD, prone",
     "pattern": "legs",
-    "metric": "reps",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 2,
@@ -564,7 +564,8 @@
       }
     ],
     "equipment": [
-      "ghd"
+      "ghd",
+      "dumbbell"
     ],
     "image": {
       "file": "good_morning_ghd_prone.jpg",
@@ -1142,7 +1143,7 @@
     "name": "Rotational downward chop",
     "variation": null,
     "pattern": "core",
-    "metric": "reps",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 2,
@@ -1169,7 +1170,9 @@
         "role": "secondary"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "dumbbell"
+    ],
     "image": {
       "file": "rotational_downward_chop.jpg",
       "type": "image/jpeg"
@@ -1436,7 +1439,7 @@
     "name": "Plank to side plank",
     "variation": null,
     "pattern": "core",
-    "metric": "hold",
+    "metric": "reps",
     "skill": false,
     "warmup": false,
     "difficulty": 2,
@@ -1593,7 +1596,7 @@
     "name": "Good morning",
     "variation": "bench, seated",
     "pattern": "legs",
-    "metric": "reps",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 2,
@@ -1633,7 +1636,8 @@
       }
     ],
     "equipment": [
-      "bench"
+      "bench",
+      "dumbbell"
     ],
     "image": {
       "file": "good_morning_bench_seated.png",
@@ -1857,7 +1861,7 @@
     "name": "Split squat",
     "variation": "front foot elevated",
     "pattern": "legs",
-    "metric": "reps",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 3,
@@ -1904,7 +1908,9 @@
         "role": "stabilizer"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "dumbbell"
+    ],
     "image": {
       "file": "split_squat_front_foot_elevated.png",
       "type": "image/png"
@@ -1971,7 +1977,7 @@
     "name": "Side plank",
     "variation": "dynamic",
     "pattern": "core",
-    "metric": "hold",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 2,
@@ -2002,7 +2008,9 @@
         "role": "stabilizer"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "dumbbell"
+    ],
     "image": {
       "file": "side_plank_dynamic.jpg",
       "type": "image/jpeg"
@@ -2702,7 +2710,7 @@
     "name": "Row",
     "variation": "high plank",
     "pattern": "pull",
-    "metric": "hold",
+    "metric": "weighted_reps",
     "skill": false,
     "warmup": false,
     "difficulty": 3,
@@ -4590,7 +4598,7 @@
     "name": "Plank",
     "variation": null,
     "pattern": "core",
-    "metric": "hold",
+    "metric": "weighted_hold",
     "skill": false,
     "warmup": false,
     "difficulty": 1,
