@@ -10,8 +10,7 @@ use std::collections::BTreeMap;
 use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, Readiness, SetRec,
-    SuggestionKind,
+    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingSettings, Readiness, SetRec, SuggestionKind,
 };
 use coach::settings::types::Mode;
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
@@ -158,17 +157,13 @@ fn owned_strategy() -> impl Strategy<Value = Vec<f64>> {
     })
 }
 
-/// The same scenario judged at a given readiness. `band` follows `score` on the
-/// engine's own thresholds, so the pair can't describe a day that couldn't happen.
+/// The same scenario judged at a given readiness.
+///
+/// This used to build `Readiness { score, band }` with the thresholds copied
+/// inline, which let the property generate a band that didn't follow its score —
+/// a day the engine cannot produce, so any failure it found was unreachable.
 fn with_readiness(mut input: PacingInput, score: f64) -> PacingInput {
-    let band = if score < 0.40 {
-        Band::Low
-    } else if score > 0.65 {
-        Band::High
-    } else {
-        Band::Normal
-    };
-    input.readiness = Some(Readiness { score, band });
+    input.readiness = Some(Readiness::of(score));
     input
 }
 

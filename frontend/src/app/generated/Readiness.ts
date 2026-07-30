@@ -3,6 +3,13 @@ import type { Band } from "./Band";
 
 /**
  * The readiness verdict coach computes from health's raw recovery data.
+ *
+ * The fields are private and there is one constructor, because `band` is a pure
+ * function of `score` and a struct that stores both invites them to disagree —
+ * the same defect as a length kept beside the list it counts. Both still cross
+ * the wire: the client should not be re-deriving the thresholds, and when it
+ * tried, the two ended up written down in three places (here, `tests/readiness`
+ * and inline literals in `tests/engine_props`).
  */
 export type Readiness = { 
 /**

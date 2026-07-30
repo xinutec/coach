@@ -4,11 +4,9 @@
 
 use coach::health::{Recovery, Stat};
 use coach::pacing::readiness::readiness;
-use coach::pacing::types::Band;
+use coach::pacing::types::{BAND_HIGH, BAND_LOW, Band};
 
 // z-score bands mirror the constants in readiness.rs (kept private there).
-const BAND_LOW: f64 = 0.40;
-const BAND_HIGH: f64 = 0.65;
 
 fn stat(latest: f64, mean: f64, sd: f64, n: i64) -> Stat {
     Stat {
@@ -49,8 +47,12 @@ fn good_recovery_scores_high() {
         resting_hr: Some(stat(50.0, 56.0, 4.0, 14)), // -1.5 sd → sigmoid ~0.82
     };
     let out = readiness(&r).unwrap();
-    assert!(out.score > BAND_HIGH, "score {} should be high", out.score);
-    assert_eq!(out.band, Band::High);
+    assert!(
+        out.score() > BAND_HIGH,
+        "score {} should be high",
+        out.score()
+    );
+    assert_eq!(out.band(), Band::High);
 }
 
 #[test]
@@ -61,8 +63,12 @@ fn poor_recovery_scores_low() {
         resting_hr: Some(stat(62.0, 56.0, 4.0, 14)), // +1.5 sd → ~0.18
     };
     let out = readiness(&r).unwrap();
-    assert!(out.score < BAND_LOW, "score {} should be low", out.score);
-    assert_eq!(out.band, Band::Low);
+    assert!(
+        out.score() < BAND_LOW,
+        "score {} should be low",
+        out.score()
+    );
+    assert_eq!(out.band(), Band::Low);
 }
 
 #[test]
@@ -74,8 +80,8 @@ fn at_baseline_is_normal() {
         resting_hr: Some(stat(56.0, 56.0, 4.0, 14)),
     };
     let out = readiness(&r).unwrap();
-    assert!((out.score - 0.5).abs() < 1e-9);
-    assert_eq!(out.band, Band::Normal);
+    assert!((out.score() - 0.5).abs() < 1e-9);
+    assert_eq!(out.band(), Band::Normal);
 }
 
 #[test]
@@ -87,5 +93,5 @@ fn renormalises_over_present_signals() {
         resting_hr: None,
     };
     let out = readiness(&r).unwrap();
-    assert!((out.score - 1.0).abs() < 1e-9);
+    assert!((out.score() - 1.0).abs() < 1e-9);
 }

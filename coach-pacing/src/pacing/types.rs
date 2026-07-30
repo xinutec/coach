@@ -160,14 +160,52 @@ pub enum Band {
 }
 
 /// The readiness verdict coach computes from health's raw recovery data.
+///
+/// The fields are private and there is one constructor, because `band` is a pure
+/// function of `score` and a struct that stores both invites them to disagree —
+/// the same defect as a length kept beside the list it counts. Both still cross
+/// the wire: the client should not be re-deriving the thresholds, and when it
+/// tried, the two ended up written down in three places (here, `tests/readiness`
+/// and inline literals in `tests/engine_props`).
 #[derive(Clone, Copy, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct Readiness {
     /// 0 (unrecovered) .. 1 (fully recovered).
-    pub score: f64,
-    pub band: Band,
+    score: f64,
+    band: Band,
+}
+
+/// Below this the day is under-recovered; above [`BAND_HIGH`] it is a good one.
+/// The one place these live.
+pub const BAND_LOW: f64 = 0.40;
+pub const BAND_HIGH: f64 = 0.65;
+
+impl Readiness {
+    /// The verdict for a 0..1 recovery score. Clamped, so a caller's arithmetic
+    /// cannot produce a readiness outside the scale it is defined on.
+    pub fn of(score: f64) -> Self {
+        let score = score.clamp(0.0, 1.0);
+        let band = if score < BAND_LOW {
+            Band::Low
+        } else if score > BAND_HIGH {
+            Band::High
+        } else {
+            Band::Normal
+        };
+        Readiness { score, band }
+    }
+
+    /// 0 (unrecovered) .. 1 (fully recovered).
+    pub fn score(self) -> f64 {
+        self.score
+    }
+
+    /// The band `score` falls in — derived, never stored independently.
+    pub fn band(self) -> Band {
+        self.band
+    }
 }
 
 // ---- output (wire types) ---------------------------------------------------

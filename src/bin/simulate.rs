@@ -726,7 +726,7 @@ async fn main() -> Result<()> {
             readiness_history.insert(date, r);
         }
         let ready_tag = today_readiness
-            .map(|r| format!(" [readiness {:?} {:.2}]", r.band, r.score))
+            .map(|r| format!(" [readiness {:?} {:.2}]", r.band(), r.score()))
             .unwrap_or_default();
         let last_set_at = hist.last().map(|s| s.logged_at);
         let inp = service::input_from(

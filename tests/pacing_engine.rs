@@ -1435,10 +1435,7 @@ fn low_readiness_prescribes_lighter_than_a_good_day() {
             .unwrap()
     };
     let normal = mk(None);
-    let low = mk(Some(Readiness {
-        score: 0.2,
-        band: Band::Low,
-    }));
+    let low = mk(Some(Readiness::of(0.2)));
     assert!(
         low <= normal,
         "low readiness ({low}) not heavier than normal ({normal})"
@@ -1495,10 +1492,7 @@ fn low_readiness_reduces_the_day_target() {
         .day_target_sets
     };
     let normal = mk(None);
-    let low = mk(Some(Readiness {
-        score: 0.15,
-        band: Band::Low,
-    }));
+    let low = mk(Some(Readiness::of(0.15)));
     assert!(low < normal, "low readiness {low} < normal {normal}");
 }
 
@@ -1638,20 +1632,8 @@ fn readiness_scales_the_target() {
         readiness: Some(r),
         ..input(Mode::Balanced, catalog(), vec![], None, None)
     };
-    let high = evaluate(
-        &mk(Readiness {
-            score: 0.9,
-            band: Band::High,
-        }),
-        now(),
-    );
-    let low = evaluate(
-        &mk(Readiness {
-            score: 0.2,
-            band: Band::Low,
-        }),
-        now(),
-    );
+    let high = evaluate(&mk(Readiness::of(0.9)), now());
+    let low = evaluate(&mk(Readiness::of(0.2)), now());
     let ht = high
         .groups
         .iter()
@@ -1668,7 +1650,7 @@ fn readiness_scales_the_target() {
         ht > lt,
         "recovered → higher target ({ht}) than spent ({lt})"
     );
-    assert_eq!(high.readiness.map(|r| r.band), Some(Band::High));
+    assert_eq!(high.readiness.map(|r| r.band()), Some(Band::High));
 }
 
 #[test]
@@ -1682,10 +1664,7 @@ fn readiness_suppresses_volume_deload() {
         }
     }
     let inp = PacingInput {
-        readiness: Some(Readiness {
-            score: 0.9,
-            band: Band::High,
-        }),
+        readiness: Some(Readiness::of(0.9)),
         ..input(Mode::Balanced, catalog(), h, None, None)
     };
     let out = evaluate(&inp, now());
@@ -1701,10 +1680,7 @@ fn high_readiness_notes_the_reason() {
         h.push(set(1, days_ago(d)));
     }
     let inp = PacingInput {
-        readiness: Some(Readiness {
-            score: 0.9,
-            band: Band::High,
-        }),
+        readiness: Some(Readiness::of(0.9)),
         ..input(Mode::Balanced, catalog(), h, None, None)
     };
     let out = evaluate(&inp, now());
@@ -2494,10 +2470,7 @@ fn compounds_run_before_isolations() {
             // Steady readiness: the 9-day fixture otherwise trips the
             // volume-spike deload proxy and shrinks the budget below two
             // full doses.
-            readiness: Some(Readiness {
-                score: 0.5,
-                band: Band::Normal,
-            }),
+            readiness: Some(Readiness::of(0.5)),
             ..input(
                 Mode::Balanced,
                 vec![r2_pullup(), r2_curl()],
@@ -3044,10 +3017,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
         wset(5, days_ago(6), 40.0, 5),
         wset(5, days_ago(4), 40.0, 5),
     ];
-    let spent = Readiness {
-        score: 0.2,
-        band: Band::Low,
-    };
+    let spent = Readiness::of(0.2);
     let out = evaluate(
         &PacingInput {
             readiness: Some(spent),

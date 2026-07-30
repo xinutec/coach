@@ -10,7 +10,7 @@
 //! to its volume-spike heuristic).
 
 use crate::health::{Recovery, Stat};
-use crate::pacing::types::{Band, Readiness};
+use crate::pacing::types::Readiness;
 
 /// Days of baseline history required before a metric's z-score is trusted.
 const MIN_BASELINE_N: i64 = 7;
@@ -20,9 +20,6 @@ const MIN_BASELINE_N: i64 = 7;
 const W_SLEEP: f64 = 0.40;
 const W_HRV: f64 = 0.35;
 const W_RHR: f64 = 0.25;
-
-const BAND_LOW: f64 = 0.40;
-const BAND_HIGH: f64 = 0.65;
 
 fn sigmoid(z: f64) -> f64 {
     1.0 / (1.0 + libm::exp(-z))
@@ -70,13 +67,5 @@ pub fn readiness(r: &Recovery) -> Option<Readiness> {
     if den <= 0.0 {
         return None;
     }
-    let score = num / den;
-    let band = if score < BAND_LOW {
-        Band::Low
-    } else if score > BAND_HIGH {
-        Band::High
-    } else {
-        Band::Normal
-    };
-    Some(Readiness { score, band })
+    Some(Readiness::of(num / den))
 }

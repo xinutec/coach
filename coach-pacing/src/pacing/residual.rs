@@ -241,7 +241,7 @@ fn ledger(
 
         // What health knew about that morning — absent means no reason to think the
         // day was anything but full-effort.
-        let recovered = readiness_advances(readiness.get(&day.date()).map(|r| r.score));
+        let recovered = readiness_advances(readiness.get(&day.date()).map(|r| r.score()));
 
         // The weighted ask that morning, from the *same* function that wrote the
         // card. Computed before judging, because it is what the session is judged

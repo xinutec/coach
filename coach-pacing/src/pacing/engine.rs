@@ -1314,7 +1314,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let last7_total: f64 = current.values().sum();
     let volume_deload = baseline_weekly > 0.0 && last7_total > DELOAD_RATIO * baseline_weekly;
     let recovery_scale = match input.readiness {
-        Some(r) => 0.75 + 0.5 * r.score, // 0.75 (spent) .. 1.25 (fully recovered)
+        Some(r) => 0.75 + 0.5 * r.score(), // 0.75 (spent) .. 1.25 (fully recovered)
         None if volume_deload => DELOAD_SCALE,
         None => 1.0,
     };
@@ -1570,7 +1570,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // readiness and invites the work, and never urges *intensity* ("push", "go
     // hard"). The athlete decides how hard; the coach's job is to say what to do and
     // that today's a good day for it.
-    let day_note = match input.readiness.map(|r| r.band) {
+    let day_note = match input.readiness.map(|r| r.band()) {
         Some(Band::High) => Some("Recovered — a good day to train well."),
         Some(Band::Low) => Some("Low readiness — keeping it light."),
         None if deload => Some("Volume's run hot lately — easing off."),
@@ -1674,7 +1674,7 @@ fn plan_session(
     let chosen = cover::select(&cands, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
-    let advance = readiness_advances(input.readiness.map(|r| r.score));
+    let advance = readiness_advances(input.readiness.map(|r| r.score()));
     let weight = |e: &ExerciseInfo| mode_fit(input.mode, e) * 2.0;
 
     // Only the *first* exercise the cover picks for a group is a stand-in for that
@@ -1733,7 +1733,7 @@ fn plan_session(
                             hold_s: s.hold_s,
                         }),
                         misses: feedback.consecutive_misses,
-                        readiness: input.readiness.map(|r| r.band),
+                        readiness: input.readiness.map(|r| r.band()),
                     }),
                     (label_is_primary && stood_in.insert(ix))
                         .then(|| blocked_ideal(input, kit, &weight, groups.id[ix], c.ex.id))
