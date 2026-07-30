@@ -18,6 +18,7 @@ import {
   PacingNow,
   Settings,
   SettingsPatch,
+  TelemetryEvent,
   WorkoutSet,
 } from "./models";
 
@@ -32,6 +33,17 @@ export class CoachApi {
   }
   logout(): Observable<unknown> {
     return this.http.post("/logout", {});
+  }
+
+  /**
+   * Send a batch of client events to be logged.
+   *
+   * Fire-and-forget at the call site: the caller subscribes with an empty error
+   * handler, because a trace that surfaces its own failures is a trace that
+   * interferes with the app it observes.
+   */
+  sendTelemetry(events: readonly TelemetryEvent[]): Observable<void> {
+    return this.http.post<void>("/api/telemetry", events);
   }
 
   // Exercise catalog

@@ -36,6 +36,7 @@ export * from "./generated/Position";
 export * from "./generated/Readiness";
 export * from "./generated/Region";
 export * from "./generated/Settings";
+export * from "./generated/TelemetryEvent";
 export * from "./generated/SettingsPatch";
 export * from "./generated/Substitution";
 export * from "./generated/Suggestion";

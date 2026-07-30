@@ -10,6 +10,7 @@ pub mod muscles;
 pub mod pacing;
 pub mod places;
 pub mod settings;
+pub mod telemetry;
 pub mod workout;
 
 use axum::Router;
@@ -51,6 +52,8 @@ pub fn router(state: AppState) -> Router {
         // Pacing settings + the live pacing verdict
         .route("/settings", get(settings::get).patch(settings::patch))
         .route("/pacing/now", get(pacing::now))
+        // What the person did, folded into the same log as what the API saw.
+        .route("/telemetry", post(telemetry::record))
         // One INFO line per API request (method, path, status, latency). Scoped to
         // /api so static-asset serving and the k8s /healthz probe don't spam it.
         .layer(

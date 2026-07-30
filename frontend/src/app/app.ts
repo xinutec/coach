@@ -10,6 +10,7 @@ import { MatToolbarModule } from "@angular/material/toolbar";
 import { CoachApi } from "./coach-api";
 import { Me } from "./models";
 import { SwUpdates } from "./sw-updates";
+import { Telemetry } from "./telemetry";
 
 interface NavItem {
   path: string;
@@ -36,6 +37,9 @@ interface NavItem {
 export class App {
   private api = inject(CoachApi);
   private swUpdates = inject(SwUpdates);
+  // Instrumented from the shell alone: a trace each screen had to remember to
+  // join would have holes in exactly the screens nobody thought about.
+  private telemetry = inject(Telemetry);
 
   readonly me = signal<Me | null>(null);
   readonly loading = signal(true);
@@ -51,6 +55,7 @@ export class App {
 
   constructor() {
     this.swUpdates.start();
+    this.telemetry.init();
     this.api.me().subscribe({
       next: (m) => {
         this.me.set(m);
