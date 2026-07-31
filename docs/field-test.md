@@ -792,7 +792,7 @@ on the reporting day was never measured. `novice:skipper` turns out to be a four
 overclaiming cell (+2.8 %), invisible until the report moved out of the skip path.
 What the engine believes is true of the week whether or not the athlete turned up.
 
-## R6-4. The plan never learns that you always leave early — OPEN
+## R6-4. The plan never learns that you always leave early — FIXED
 
 `partial` leaves after 60 % of the cards, every session, for eight weeks. Session
 order is by movement breadth, and it is deterministic, so the tail is the same
@@ -850,6 +850,42 @@ which is exactly the population this finding is about.
 trace into offered-vs-performed per movement, which is the number the run
 summary can't give ("128 cards abandoned" doesn't say whether that was 128
 movements once each or the same seven every session).
+
+### Fixed 2026-07-31
+
+**The offers are written down** (`plan_offers`, migration 0025 — one row per
+user/day/movement, so re-evaluating the verdict is idempotent) and the engine
+reads them raw (`PacingInput.offers`), owning the judgment itself. A movement
+offered on **four** days he trained and never once performed is *neglected*, and
+a neglected movement is **promoted one tier** — Finisher to Isolation, Isolation
+to Compound — and sorts ahead of its new tier-mates rather than merely joining
+them, which was cut 3's mistake.
+
+Never into Power or Skill. Those lead because a fresh CNS is what makes a
+max-power measurement or a hold worth anything — R6-#1 was exactly a jump
+calibration taken fatigued — and that is a fact about physiology, not about
+scheduling. It is not the tail's to borrow.
+
+Both sides of the ratio count only days carrying a logged set, which is what
+stops the Android geofence poller from manufacturing skips: it fetches a verdict
+on days the app is never opened, and those are not days he declined anything.
+
+**Result on the `partial` athlete** (the run that found this): nothing is offered
+more than **3 times** without being done, against Pallof press and Body saw at
+**20× each** before. Four movements are still never performed and all four sit
+*below* the threshold, so the rule correctly has not fired on them. The trace
+shows the loop closing: Body saw sat at positions 6, 8, 9, 10 and was never
+reached, then appears at position 3 on 2026-08-07 and is performed — and again at
+3 and 4 on the 11th and 20th.
+
+**`sim-neglect.py` was itself wrong, and this is why it matters.** It keyed on
+`name (group)`, but the parenthesised group is the one the *cover labelled that
+card for*, and it moves between sessions — Body saw is "(Deep core)" one day and
+"(Abdominals)" the next. One movement split into several phantom ones, each
+reported as never-performed: it read "Body saw 6× offered, 0 done" over a run in
+which Body saw was done three times. Now keyed on the movement alone. A finding
+is only as good as the instrument, and this instrument was over-reporting the
+very thing it exists to detect.
 
 ## R6-5. Readiness bottoms out and still books a full session — FIXED
 

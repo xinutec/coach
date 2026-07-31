@@ -760,6 +760,7 @@ async fn main() -> Result<()> {
     // what the ledger reconstructs the ask under, so an eased session isn't judged
     // as though it had been full-effort.
     let mut readiness_history: BTreeMap<NaiveDate, Readiness> = BTreeMap::new();
+    let mut offers: BTreeMap<ExerciseId, Vec<NaiveDate>> = BTreeMap::new();
 
     for d in 0..weeks * 7 {
         let date = sim_start + Duration::days(d);
@@ -779,8 +780,24 @@ async fn main() -> Result<()> {
             last_set_at,
             today_readiness,
             readiness_history.clone(),
+            offers.clone(),
         );
         let verdict = engine::evaluate(&inp, now);
+
+        // Keep the offer ledger the prod service keeps, so the R6-4 loop is
+        // actually exercised: an athlete who leaves early has to be able to grow
+        // a history of cards he was shown and did not take. Warm-ups excluded,
+        // matching `service::now`.
+        for s in verdict
+            .plan
+            .iter()
+            .filter(|s| s.kind != SuggestionKind::Warmup)
+        {
+            let days = offers.entry(s.exercise_id).or_default();
+            if !days.contains(&date) {
+                days.push(date);
+            }
+        }
 
         // A labelled block rather than `continue`, so that a rest day or a no-show
         // skips the *session* without also skipping the end-of-week report below.

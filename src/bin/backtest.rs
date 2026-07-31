@@ -133,7 +133,16 @@ async fn main() -> Result<()> {
             .cloned()
             .collect();
         let last_set_at = hist.iter().map(|s| s.logged_at).max();
-        let inp = service::input_from(&ctx, hist.clone(), last_set_at, None, Default::default());
+        // No offers: this replays a history recorded before the coach wrote cards
+        // down, so every movement reads as never-offered rather than never-done.
+        let inp = service::input_from(
+            &ctx,
+            hist.clone(),
+            last_set_at,
+            None,
+            Default::default(),
+            Default::default(),
+        );
         let verdict = engine::evaluate(&inp, now_local);
 
         // Confidence the estimate carries into this morning's plan.

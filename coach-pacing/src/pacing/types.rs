@@ -138,6 +138,16 @@ pub struct PacingInput {
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,
+    /// The days each movement was *offered* — put on a card the athlete could
+    /// have done — keyed by exercise.
+    ///
+    /// Raw, like `readiness_history`: the engine owns the judgment about what
+    /// counts as neglect. This cannot be derived from `history`, which is by
+    /// construction the record of what *did* happen; "offered twenty times,
+    /// performed zero" is a fact about cards, and R6-4 is the finding that no
+    /// group-level statistic can see it (Pistol squat offered 8, performed 0,
+    /// while Quadriceps was the best-served group in the whole log).
+    pub offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
     /// Readiness as it stood on each past training day, keyed by local date.
     ///
     /// The prediction-error ledger needs it. The coach asks for *less* on an

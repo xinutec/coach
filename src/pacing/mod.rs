@@ -4,6 +4,7 @@
 //! `service` is the std shell: it assembles the engine input from the DB and
 //! applies the user's timezone.
 
+pub mod offers;
 pub mod service;
 
 pub use coach_pacing::pacing::{ability, cover, dose, engine, readiness, residual, types};

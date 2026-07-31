@@ -35,7 +35,14 @@ def tally(path):
         m = CARD.match(line)
         if not m:
             continue
-        name = f"{m.group(2)} ({m.group(3)})"
+        # Keyed on the movement alone. The trace's parenthesised group is the
+        # group the cover *labelled* this card for, and that moves between
+        # sessions — Body saw is "(Deep core)" one day and "(Abdominals)" the
+        # next. Folding the label into the key split one movement into several
+        # phantom ones and reported each as never-performed, which is exactly the
+        # false alarm this script exists to rule out: it read "Body saw 6x
+        # offered, 0 done" over a run in which Body saw was done three times.
+        name = m.group(2)
         counts[name][0] += 1
         if SKIPPED not in m.group(4):
             counts[name][1] += 1

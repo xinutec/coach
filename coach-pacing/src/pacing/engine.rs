@@ -20,7 +20,7 @@
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
-use chrono::{Duration, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use crate::domain::Mode;
 use crate::domain::{EquipmentId, ExerciseId, GroupId};
@@ -141,6 +141,15 @@ fn recovery_of(unrecovered: f64) -> f64 {
     (1.0 - unrecovered / RECOVERY_SETS).clamp(0.0, 1.0)
 }
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
+/// Offers on training days before a movement he never does is called neglected.
+///
+/// Counted only over days he actually logged something, which is the rule that
+/// keeps the Android geofence poller from manufacturing skips: it fetches the
+/// verdict on days the app is never opened, and those days are not evidence that
+/// he declined anything. Four is the smallest number that isn't an accident — it
+/// is a movement reaching the tail of four separate sessions he did train.
+const NEGLECT_MIN_OFFERS: usize = 4;
+
 /// Readiness at or below this is not a light day, it is a day off (R6-5).
 ///
 /// `recovery_scale` bottoms out at 0.75, so biometrics pinned at the floor still
@@ -527,13 +536,13 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
 /// extension before push-ups: the isolation pre-fatigues the small muscle the
 /// compound needs as a link, so the compound reads artificially weak — and its
 /// reps are exactly what the ability model measures.
-fn tier(ex: &ExerciseInfo) -> Tier {
+fn tier(ex: &ExerciseInfo, neglected: bool) -> Tier {
     let breadth = ex
         .groups
         .iter()
         .filter(|(_, r)| *r != MuscleRole::Stabilizer)
         .count();
-    if ex.is_power {
+    let base = if ex.is_power {
         Tier::Power
     } else if ex.is_skill || ex.metric == Metric::Hold {
         Tier::Skill
@@ -543,7 +552,49 @@ fn tier(ex: &ExerciseInfo) -> Tier {
         Tier::Compound
     } else {
         Tier::Isolation
+    };
+    // A movement he keeps not reaching moves up the session. A human coach who
+    // watched someone walk out before the core work twenty times would put the
+    // core work earlier, and the alternative — leaving it in the tail — is
+    // self-reinforcing: its group keeps its deficit, so the cover keeps picking
+    // it, and its breadth keeps putting it last, where it keeps not happening.
+    //
+    // One step, and never into Power or Skill. Those two lead because a fresh CNS
+    // is what makes a max-power measurement or a hold worth anything (R6-#1 was
+    // exactly a jump calibration taken fatigued), and that is a fact about
+    // physiology rather than about scheduling — it is not the tail's to borrow.
+    if neglected { base.promoted() } else { base }
+}
+
+/// Movements he is offered on days he trains, and does not do.
+///
+/// Only days carrying at least one logged set count, on both sides of the ratio.
+/// A day with no sets is not a day he declined anything — he may never have
+/// opened the app, and the Android geofence poller fetches a verdict regardless.
+/// Counting those would turn every quiet day into evidence against every
+/// movement.
+fn neglected(
+    offers: &BTreeMap<ExerciseId, Vec<NaiveDate>>,
+    history: &[SetRec],
+) -> alloc::collections::BTreeSet<ExerciseId> {
+    let trained: alloc::collections::BTreeSet<NaiveDate> =
+        history.iter().map(|s| s.logged_at.date()).collect();
+    let mut out = alloc::collections::BTreeSet::new();
+    for (ex, days) in offers {
+        // Days he trained and this was on the card.
+        let offered = days.iter().filter(|d| trained.contains(d)).count();
+        if offered < NEGLECT_MIN_OFFERS {
+            continue;
+        }
+        // ...and did he ever actually do it on one of them?
+        let performed = history
+            .iter()
+            .any(|s| s.exercise_id == *ex && days.contains(&s.logged_at.date()));
+        if !performed {
+            out.insert(*ex);
+        }
     }
+    out
 }
 
 /// Where a movement sits in the session's running order.
@@ -554,7 +605,7 @@ fn tier(ex: &ExerciseInfo) -> Tier {
 /// because the two orders genuinely differ: [`tier`] tests `Core` third so a
 /// patterned-Core movement can't be claimed as a compound, but a finisher still
 /// *trains* last.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Tier {
     /// Ballistic power — fresh CNS, before anything fatiguing.
     Power,
@@ -566,6 +617,18 @@ enum Tier {
     Isolation,
     /// Core and conditioning finisher.
     Finisher,
+}
+
+impl Tier {
+    /// One step earlier in the session, bounded below by `Compound` — see the
+    /// note in [`tier`] for why Power and Skill are not promotable into.
+    fn promoted(self) -> Self {
+        match self {
+            Tier::Finisher => Tier::Isolation,
+            Tier::Isolation => Tier::Compound,
+            Tier::Power | Tier::Skill | Tier::Compound => self,
+        }
+    }
 }
 
 /// Per-group state the cover and the explanations both read.
@@ -1746,6 +1809,7 @@ fn plan_session(
     history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
+    let skipped = neglected(&input.offers, history);
     let (cands, ladder_notes) = candidates(input, kit, abilities, residuals, groups, history, now);
     let chosen = cover::select(&cands, &groups.need, budget, novelty_cap);
 
@@ -1758,7 +1822,7 @@ fn plan_session(
     // a second substitute for the same thing.
     let mut stood_in: alloc::collections::BTreeSet<GroupIx> = alloc::collections::BTreeSet::new();
 
-    let mut work: Vec<(Suggestion, Tier)> = Vec::new();
+    let mut work: Vec<(Suggestion, (Tier, bool))> = Vec::new();
     for pick in chosen {
         let c = pick.item;
         let sets = pick.sets;
@@ -1832,13 +1896,19 @@ fn plan_session(
                 substituted_for,
                 explanation,
             },
-            tier(c.ex),
+            {
+                let n = skipped.contains(&c.ex.id);
+                (tier(c.ex, n), !n)
+            },
         ));
     }
 
-    // Present in training order: tier, then the order the cover picked them
-    // (biggest marginal gain first), which the stable sort preserves.
-    work.sort_by_key(|(_, t)| *t);
+    // Present in training order: tier, then a neglected movement ahead of its new
+    // tier-mates rather than merely joining them (promoting it into a tier and
+    // leaving it at the back of that tier moves it barely at all), then the order
+    // the cover picked them — biggest marginal gain first — which the stable sort
+    // preserves.
+    work.sort_by_key(|(_, k)| *k);
     let work: Vec<Suggestion> = work.into_iter().map(|(s, _)| s).collect();
 
     let group_name: BTreeMap<GroupId, String> = input

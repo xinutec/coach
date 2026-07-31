@@ -22,8 +22,10 @@ use crate::settings::types::Mode;
 use crate::workout::repo as workout_repo;
 
 use super::engine;
+use super::offers;
 use super::types::{
     ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
+    SuggestionKind,
 };
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 
@@ -293,6 +295,7 @@ pub fn input_from(
     last_set_at: Option<NaiveDateTime>,
     readiness: Option<Readiness>,
     readiness_history: BTreeMap<NaiveDate, Readiness>,
+    offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
 ) -> PacingInput {
     PacingInput {
         mode: ctx.mode,
@@ -309,6 +312,7 @@ pub fn input_from(
         notices: ctx.notices.clone(),
         readiness,
         readiness_history,
+        offers,
     }
 }
 
@@ -351,6 +355,38 @@ pub async fn now(
         .collect();
     let last_set_at = raw.iter().map(|w| w.logged_at).max().map(to_local);
 
-    let inp = input_from(&ctx, history, last_set_at, readiness, readiness_history);
-    Ok(engine::evaluate(&inp, now_local))
+    // What the coach has been putting on his card lately — the half of R6-4 the
+    // set log cannot hold.
+    let offers = offers::since(
+        pool,
+        user_id,
+        now_local.date() - Duration::weeks(offers::OFFER_WEEKS),
+    )
+    .await?;
+
+    let inp = input_from(
+        &ctx,
+        history,
+        last_set_at,
+        readiness,
+        readiness_history,
+        offers,
+    );
+    let verdict = engine::evaluate(&inp, now_local);
+
+    // Record today's card. Warm-ups excluded — a mobility drill nobody does is
+    // not what R6-4 is about, and the ramp-in shares its movement's id anyway.
+    // Whether today counts as evidence is decided at *read* time by whether the
+    // day carries a logged set, so writing this on a poll the athlete never saw
+    // cannot manufacture a skip.
+    let offered: Vec<ExerciseId> = verdict
+        .plan
+        .iter()
+        .filter(|s| s.kind != SuggestionKind::Warmup)
+        .map(|s| s.exercise_id)
+        .collect();
+    if !offered.is_empty() {
+        offers::record(pool, user_id, now_local.date(), &offered).await?;
+    }
+    Ok(verdict)
 }

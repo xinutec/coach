@@ -178,6 +178,7 @@ fn input(
         notices: Vec::new(),
         readiness: None,
         readiness_history: Default::default(),
+        offers: Default::default(),
     }
 }
 
@@ -3295,4 +3296,188 @@ fn a_normal_morning_is_untouched_by_the_rest_rule() {
         now(),
     );
     assert!(!out.plan.is_empty(), "a recovered athlete trains");
+}
+
+// ---- R6-4: the plan learns what he never reaches ----------------------------
+//
+// "Offered twenty times, performed zero" is a fact about *cards*, and cards are
+// not in the set log — the set log is by construction what did happen. These
+// pin the rule that reads the two together.
+
+/// `id` was on the card on each of `days` days ago.
+fn offered(id: i64, days: &[i64]) -> (ExerciseId, Vec<chrono::NaiveDate>) {
+    (
+        ExerciseId(id),
+        days.iter().map(|d| days_ago(*d).date()).collect(),
+    )
+}
+
+/// A session logged on each of those days — all of it movement 1, never the
+/// finisher.
+fn trained_on(days: &[i64]) -> Vec<SetRec> {
+    days.iter().map(|d| bset(1, days_ago(*d), 8)).collect()
+}
+
+/// One movement per group, so the cover takes all three, and exactly one of them
+/// is a Core finisher — the tail position R6-4 is about.
+fn tail_catalog() -> Vec<ExerciseInfo> {
+    vec![
+        ex(
+            1,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+        ex(
+            8,
+            "Body saw",
+            Pattern::Core,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(30, MuscleRole::Primary)],
+        ),
+    ]
+}
+
+#[test]
+fn a_movement_he_never_reaches_moves_up_the_session() {
+    let days = [12, 9, 6, 3];
+    let base = input(
+        Mode::Balanced,
+        tail_catalog(),
+        trained_on(&days),
+        None,
+        None,
+    );
+    let plain = evaluate(&base, now());
+    let with_offers = evaluate(
+        &PacingInput {
+            offers: BTreeMap::from([offered(8, &days)]),
+            ..input(
+                Mode::Balanced,
+                tail_catalog(),
+                trained_on(&days),
+                None,
+                None,
+            )
+        },
+        now(),
+    );
+    let place = |out: &PacingNow| {
+        out.plan
+            .iter()
+            .filter(|s| s.kind != SuggestionKind::Warmup)
+            .position(|s| s.exercise_id == ExerciseId(8))
+    };
+    match (place(&plain), place(&with_offers)) {
+        (Some(before), Some(after)) => assert!(
+            after < before,
+            "four offers on days he trained, never once done — it should stop \
+             being last: was {before}, now {after}"
+        ),
+        (before, after) => {
+            panic!("movement 8 should be planned both ways: {before:?} -> {after:?}")
+        }
+    }
+}
+
+#[test]
+fn three_offers_are_not_yet_a_pattern() {
+    let days = [9, 6, 3];
+    let out = evaluate(
+        &PacingInput {
+            offers: BTreeMap::from([offered(8, &days)]),
+            ..input(
+                Mode::Balanced,
+                tail_catalog(),
+                trained_on(&days),
+                None,
+                None,
+            )
+        },
+        now(),
+    );
+    let plain = evaluate(
+        &input(
+            Mode::Balanced,
+            tail_catalog(),
+            trained_on(&days),
+            None,
+            None,
+        ),
+        now(),
+    );
+    let ids = |o: &PacingNow| o.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>();
+    assert_eq!(
+        ids(&out),
+        ids(&plain),
+        "below the threshold nothing should move — three skips is a fortnight, not a habit"
+    );
+}
+
+#[test]
+fn offers_on_days_he_never_trained_are_not_evidence() {
+    // The Android geofence poller fetches a verdict whether or not he opens the
+    // app. Days with no logged set must not read as days he declined anything,
+    // or every quiet week would convict every movement.
+    let offer_days = [12, 9, 6, 3];
+    let out = evaluate(
+        &PacingInput {
+            offers: BTreeMap::from([offered(8, &offer_days)]),
+            // trained on *different* days
+            ..input(
+                Mode::Balanced,
+                tail_catalog(),
+                trained_on(&[11, 8, 5, 2]),
+                None,
+                None,
+            )
+        },
+        now(),
+    );
+    let plain = evaluate(
+        &input(
+            Mode::Balanced,
+            tail_catalog(),
+            trained_on(&[11, 8, 5, 2]),
+            None,
+            None,
+        ),
+        now(),
+    );
+    let ids = |o: &PacingNow| o.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>();
+    assert_eq!(ids(&out), ids(&plain), "silence is not a refusal");
+}
+
+#[test]
+fn a_movement_he_does_reach_is_left_where_it_is() {
+    let days = [12, 9, 6, 3];
+    let mut hist = trained_on(&days);
+    hist.extend(days.iter().map(|d| bset(8, days_ago(*d), 8)));
+    let out = evaluate(
+        &PacingInput {
+            offers: BTreeMap::from([offered(8, &days)]),
+            ..input(Mode::Balanced, tail_catalog(), hist.clone(), None, None)
+        },
+        now(),
+    );
+    let plain = evaluate(
+        &input(Mode::Balanced, tail_catalog(), hist, None, None),
+        now(),
+    );
+    let ids = |o: &PacingNow| o.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>();
+    assert_eq!(ids(&out), ids(&plain), "offered and done is not neglect");
 }

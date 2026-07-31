@@ -145,6 +145,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
         notices: Vec::new(),
         readiness: None,
         readiness_history: Default::default(),
+        offers: Default::default(),
     }
 }
 
