@@ -12,11 +12,6 @@ data only Pippijn can supply.
 - **The cable stack's pin ladder** at the office. The kit is registered but has no
   weights, so the coach drops all five cable movements and says so. One line of
   `coachctl weights` fixes it.
-- **Pictures for kneeling lat reach and heel-toe rocks** — the last two
-  image-less exercises (the other warm-up drills added 2026-07-16 got theirs);
-  `scripts/add-image.py <slug> <url-or-file>` seeds each one. Demo videos are
-  covered by the `coachctl todo` bullet above. Superseded entirely once
-  [anatomy-renders.md](anatomy-renders.md) reaches M5.
 
 ## Agreed, not built
 
