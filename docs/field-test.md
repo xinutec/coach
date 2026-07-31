@@ -851,7 +851,7 @@ trace into offered-vs-performed per movement, which is the number the run
 summary can't give ("128 cards abandoned" doesn't say whether that was 128
 movements once each or the same seven every session).
 
-## R6-5. Readiness bottoms out and still books a full session — OPEN
+## R6-5. Readiness bottoms out and still books a full session — FIXED
 
 R4 surfaced "no rest day in 56 days" across three temperaments and left it, on the
 grounds that biometric readiness was absent from the simulation and would scale
@@ -865,6 +865,29 @@ every one of them — including an 8-movement day on 2026-08-01, bigger than sev
 of that fortnight's fully-rested days. The one input designed to say *not today*
 is pinned at zero and still says yes.
 
+**Fixed.** The mechanism was `recovery_scale`, which maps readiness to volume as
+`0.75 + 0.5 × score` — so the floor of the scale is 0.75, and no score, however
+bad, could ask for less than three-quarters of a normal day. Scaling a session
+cannot express *not today*; only declining to plan one can. So rest is now a
+separate decision (`READINESS_REST_BELOW = 0.15`) rather than a smaller number.
+
+It is gated on carrying fatigue as well as on the score, because the two mean
+different things. Unrecovered load plus a floor reading is a body that has been
+trained and has not come back, and rest is the training decision. A floor reading
+with *nothing* unrecovered is a bad night, or a cold, or a watch having a bad week
+— and standing the athlete down for a week over that would be its own failure,
+since the person who most needs a plan is the one who has not been training.
+
+That also makes it self-limiting, with no counter and no state: `unrecovered` is
+age-weighted, so a rest day decays the very thing that justified it. On the
+roughweek axis the seven floor days now yield **five rest days, not seven** — the
+coach stands down, and by the third day the body has recovered enough to train
+again even though the score is still 0.00.
+
+The named failure is gone: 2026-08-01, previously an 8-movement session on a 0.00
+score, is a rest day. Across the axis: **0 rest days → 5**, 56 training days → 51.
+Runs without biometrics are untouched (no readiness, no rule), which the
+`untracked` axis confirms at 0 rest days.
 ## R6-6. The coach follows an improvising athlete down the rack — FIXED
 
 `improviser` takes the bell below the one on the card and completes every ask.

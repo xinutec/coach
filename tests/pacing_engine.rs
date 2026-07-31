@@ -3233,3 +3233,66 @@ fn an_unknown_carry_is_measured_in_metres_rather_than_guessed() {
         other => panic!("expected a distance calibration, got {other:?}"),
     }
 }
+
+// ---- R6-5: readiness has to be able to say "not today" ----------------------
+
+/// Yesterday's session, so the body is carrying something to recover from.
+fn trained_yesterday() -> Vec<SetRec> {
+    (0..8).map(|i| bset(1, days_ago(1), 8 + i)).collect()
+}
+
+#[test]
+fn readiness_at_the_floor_books_no_session() {
+    let out = evaluate(
+        &PacingInput {
+            readiness: Some(Readiness::of(0.0)),
+            ..input(Mode::Balanced, catalog(), trained_yesterday(), None, None)
+        },
+        now(),
+    );
+    assert!(
+        out.plan.is_empty(),
+        "a floor reading on a fatigued body is a rest day, not a smaller one: {:?}",
+        out.plan
+            .iter()
+            .map(|s| &s.exercise_name)
+            .collect::<Vec<_>>()
+    );
+    assert!(out.suggestion.is_none());
+    assert!(!out.nudge, "and it must not nudge him out to train");
+    assert!(
+        out.reason.contains("recovery") || out.reason.contains("day off"),
+        "the coach has to say why, or a vanished plan reads as a broken app: {:?}",
+        out.reason
+    );
+}
+
+#[test]
+fn the_same_morning_with_a_rested_body_still_plans() {
+    // Floor readiness, but nothing unrecovered — a bad night, not accumulated
+    // fatigue. Answering that with silence would stand the athlete down
+    // indefinitely, and the one who most needs a plan is the one not training.
+    let out = evaluate(
+        &PacingInput {
+            readiness: Some(Readiness::of(0.0)),
+            ..input(Mode::Balanced, catalog(), vec![], None, None)
+        },
+        now(),
+    );
+    assert!(
+        !out.plan.is_empty(),
+        "a floor reading with nothing to recover from is not a reason to stop training"
+    );
+}
+
+#[test]
+fn a_normal_morning_is_untouched_by_the_rest_rule() {
+    let out = evaluate(
+        &PacingInput {
+            readiness: Some(Readiness::of(0.8)),
+            ..input(Mode::Balanced, catalog(), trained_yesterday(), None, None)
+        },
+        now(),
+    );
+    assert!(!out.plan.is_empty(), "a recovered athlete trains");
+}

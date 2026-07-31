@@ -141,6 +141,14 @@ fn recovery_of(unrecovered: f64) -> f64 {
     (1.0 - unrecovered / RECOVERY_SETS).clamp(0.0, 1.0)
 }
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
+/// Readiness at or below this is not a light day, it is a day off (R6-5).
+///
+/// `recovery_scale` bottoms out at 0.75, so biometrics pinned at the floor still
+/// bought a session three-quarters the usual size — round 6 swept fifteen cells
+/// and every one trained on every available day, including an 8-movement day on a
+/// 0.00 score. Scaling volume cannot express "not today"; only declining to plan
+/// can, so that is a separate decision rather than a smaller number.
+const READINESS_REST_BELOW: f64 = 0.15;
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
 const STABILIZER_CREDIT: f64 = 0.25; // an isometric stabilizer counts a quarter
@@ -1478,6 +1486,28 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         None => (Vec::new(), Vec::new(), Vec::new()),
     };
 
+    // --- the one input designed to say "not today" ---
+    //
+    // Gated on carrying fatigue as well as on the score, because the two mean
+    // different things. Unrecovered load plus a floor reading is a body that has
+    // been trained and has not come back: rest is the training decision. A floor
+    // reading with nothing unrecovered is a bad night, or a cold, or a watch
+    // having a bad week — and answering that with a *week* of silence would be its
+    // own failure, since the athlete who most needs a plan is the one who has not
+    // trained lately.
+    //
+    // It is self-limiting for the same reason: `unrecovered` is age-weighted, so a
+    // rest day decays the very thing that justified it. The coach stands down for
+    // a day, maybe two, and then plans again on its own — no counter, no state.
+    let carrying_fatigue = groups.recovery.iter().any(|(_, r)| r < RECOVERED_FRACTION);
+    let resting = input
+        .readiness
+        .is_some_and(|r| r.score() <= READINESS_REST_BELOW)
+        && carrying_fatigue;
+    if resting {
+        plan.clear();
+    }
+
     // Progress against the plan: the day's sets pay its items in plan order (a
     // ramp-in warm-up shares its exercise with the work item that follows, so
     // order is what attributes them).
@@ -1609,7 +1639,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // that today's a good day for it.
     let day_note = match input.readiness.map(|r| r.band()) {
         Some(Band::High) => Some("Recovered — a good day to train well."),
-        Some(Band::Low) => Some("Low readiness — keeping it light."),
+        // "keeping it light" is a claim about a session; on a rest day there
+        // isn't one, and the reason below says so in full.
+        Some(Band::Low) if !resting => Some("Low readiness — keeping it light."),
         None if deload => Some("Volume's run hot lately — easing off."),
         _ => None,
     };
@@ -1625,6 +1657,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             // you trained. `done_today` already counts the day, warm-ups
             // excluded, so a day of only prep is not a session closed.
             "That's the session — nice work.".to_string()
+        } else if resting {
+            // A rest day the coach *chose*, which is a different sentence from
+            // having nothing left to give: it has to name the reason, or a plan
+            // that simply vanished reads as the app being broken. Still an
+            // invitation rather than an instruction — he can train anyway, and
+            // the log is always open.
+            "Your recovery's low today — I'd take the day off. Log anything you do.".to_string()
         } else if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
         } else {

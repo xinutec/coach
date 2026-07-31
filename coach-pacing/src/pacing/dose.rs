@@ -58,8 +58,14 @@ pub const CARRY_TOP_S: i32 = 60;
 /// The same ladder for a carry measured in metres: climb the distance to the
 /// ceiling, then take the next weight and start the distance again. 10 m is the
 /// length he has always walked them, so it is where a fresh carry opens.
+///
+/// The ceiling is 20 m — three sessions per weight rung (10 → 15 → 20), the same
+/// rhythm as the timed carry's 30 → 60 s. It was 30 m by analogy with the clock,
+/// and the forward simulation showed what that costs: 29 m under a 6 kg bell,
+/// five sessions of walking three times his usual distance before the weight was
+/// allowed to move at all.
 pub const CARRY_BASE_M: i32 = 10;
-pub const CARRY_TOP_M: i32 = 30;
+pub const CARRY_TOP_M: i32 = 20;
 pub const DISTANCE_STEP_M: i32 = 5;
 
 /// Readiness score below this → hold progression (don't chase PRs on a bad day).
