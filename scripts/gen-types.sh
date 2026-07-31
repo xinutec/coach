@@ -44,12 +44,17 @@ if [ "$count" -eq 0 ]; then
   exit 1
 fi
 
-# `cp -R "$TMP" "$OUT"` copies the temp dir *inside* $OUT when $OUT happens to
-# exist, leaving a `tmp.XXXX/` of generated types nested in the committed ones —
-# which the drift gate then reports as an unexplained extra directory. Copying
-# the *contents* into a directory we ensure exists is idempotent either way.
+# Copy the generated TYPES, not the scratch dir's contents. $TMP is also where
+# cargo's log lands, and anything else a build step decides to drop there would
+# be copied into the committed output and then reported by the drift gate as
+# unexplained drift — a confusing failure whose cause is invisible in the diff.
+# (`rm -f "$OUT/cargo.log"` used to name the one known stray; naming strays one
+# at a time only works for the ones already met. A 2026-07-31 fleet sweep failed
+# coach on exactly this, with a `tmp.XXXX` that has not reproduced since.)
+#
+# The whole output is replaced rather than merged, so a type deleted on the Rust
+# side does not linger as a committed file nothing generates any more.
 rm -rf "$OUT"
 mkdir -p "$OUT"
-cp -R "$TMP/." "$OUT"/
-rm -f "$OUT/cargo.log"
+find "$TMP" -maxdepth 1 -name '*.ts' -exec cp {} "$OUT"/ \;
 echo "generated $count type(s) -> $OUT"
