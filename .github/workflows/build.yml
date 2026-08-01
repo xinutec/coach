@@ -59,17 +59,23 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
+      # Before setup-node, whose `cache: pnpm` shells out to `pnpm store path`.
+      # The major floats: pinning it would be a second version held level with
+      # the flake's by hand, and the lockfile is what has to match.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
       # ui-check builds (prod) then runs the shared layout harness (text overlap,
       # horizontal overflow, occluded controls) at phone + wide viewports.
-      - run: npx playwright install --with-deps chromium
-      - run: npm run ui-check
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm run ui-check
 
   image:
     needs: [verify, fe-verify]
@@ -91,5 +97,5 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
           cache-from: type=registry,ref=xinutec/coach:cache
-          # mode=max persists the builder-stage layers (npm ci, cargo deps) too.
+          # mode=max persists the builder-stage layers (pnpm install, cargo deps) too.
           cache-to: type=registry,ref=xinutec/coach:cache,mode=max

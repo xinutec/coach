@@ -20,6 +20,7 @@
             pkgs.clippy
             pkgs.sqlx-cli
             pkgs.nodejs_24 # Angular 22 frontend (frontend/)
+            pkgs.pnpm # the frontend's installer; node ships npm too, ignore it
           ];
         };
       });

@@ -23,7 +23,7 @@ trap 'rm -f "$log"' EXIT
 for attempt in 1 2; do
   # Run the build as an if-condition so a non-zero exit doesn't trip errexit —
   # we need to inspect the code and the output before deciding it's fatal.
-  if npx ng build "$@" 2>&1 | tee "$log"; then
+  if pnpm exec ng build "$@" 2>&1 | tee "$log"; then
     exit 0
   fi
   rc=${PIPESTATUS[0]}

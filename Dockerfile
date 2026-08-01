@@ -5,17 +5,26 @@
 # --- frontend: build the Angular bundle ---
 FROM node:24-alpine AS frontend
 WORKDIR /fe
-COPY frontend/package.json frontend/package-lock.json ./
+# pnpm-workspace.yaml belongs in this layer, not with the sources: it carries the
+# install-script allowlist, and without it neither esbuild nor the ui-harness
+# unpacks — the build then fails on dependencies that look installed.
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 # git: the shared layout harness is a git dependency (github:xinutec/ui-harness),
-# so npm ci clones it — node:alpine ships no git.
-RUN apk add --no-cache git ca-certificates && npm ci
+# so the install clones it — node:alpine ships no git.
+#
+# pnpm is taken unpinned. The host gets its copy from the flake, and pinning a
+# second version here would be two numbers held level by hand; the lockfile is
+# what has to match, and --frozen-lockfile fails rather than drift.
+RUN apk add --no-cache git ca-certificates \
+    && npm install -g pnpm \
+    && pnpm install --frozen-lockfile
 COPY frontend/ .
 # Stamp the build version into the bundle (see scripts/stamp-version.mjs). The
 # build context has no .git, so the commit comes from GIT_SHA (passed by CI —
 # .github/workflows/docker.yml); it defaults to 'dev' for a plain local build.
 ARG GIT_SHA=dev
 RUN GIT_SHA="$GIT_SHA" node scripts/stamp-version.mjs
-RUN npx ng build --configuration production
+RUN pnpm exec ng build --configuration production
 
 # --- backend: build the Rust binary (deps cached in their own layer) ---
 FROM rust:1-bookworm AS backend
