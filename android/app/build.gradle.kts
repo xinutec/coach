@@ -39,9 +39,19 @@ kotlin {
     }
 }
 
+// Say so in a sentence rather than a stacktrace when the shell isn't beside us.
+// Resolved against rootDir (android/), so this is the same path settings.gradle.kts
+// includes — file() here would resolve against app/ and never match.
+require(rootDir.resolve("../../ui-harness/android").isDirectory) {
+    "ui-harness must be checked out beside this repo (~/Code/ui-harness)"
+}
+
 dependencies {
-    // The UI is a single WebView (framework), so the only extras are core-ktx and
-    // Play Services location for the home geofence + set-home flow.
+    // The shared WebView shell (ui-harness/android), substituted to a project by
+    // settings.gradle.kts. No version, ever: it resolves by path.
+    implementation("org.xinutec:shell")
+    // The UI is a single WebView (framework), so the only other extras are core-ktx
+    // and Play Services location for the home geofence + set-home flow.
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.location)
 }

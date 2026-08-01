@@ -2,36 +2,23 @@ package org.xinutec.coach
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
-import android.view.ViewGroup
-import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import org.json.JSONObject
+import org.xinutec.shell.ShellConfig
+import org.xinutec.shell.WebShellActivity
 
 /**
- * A full-screen [WebView] onto coach (the Angular app at [Config.BASE_URL]),
- * presented as a native app — no address bar, a home-screen icon, session cookie
- * kept for one-time Nextcloud sign-in.
+ * coach (the Angular app at [Config.BASE_URL]) in the fleet's shared
+ * [WebShellActivity] — session cookie kept, so the Nextcloud sign-in is one-time.
  *
  * The home-geofence reminders are configured from the web app's own Settings page
  * (there's no native chrome overlaying the web UI): the page calls the
@@ -40,122 +27,29 @@ import org.json.JSONObject
  * [Geofencing], [GeofenceBroadcastReceiver]); the home location is stored
  * on-device only ([Prefs]).
  */
-class MainActivity : Activity() {
-    private lateinit var web: WebView
-    private lateinit var root: FrameLayout
+class MainActivity : WebShellActivity() {
+    override val shell =
+        ShellConfig(
+            url = Config.BASE_URL,
+            allowedHosts = Config.ALLOWED_HOSTS,
+            consoleTag = "coach-web",
+        )
 
     // Drives the multi-step permission → set-home → arm flow across the async
     // location fetch and the permission-result callbacks.
     private var setupInProgress = false
     private var notifAsked = false
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("viewer", Context.MODE_PRIVATE)
-        web =
-            WebView(this).apply {
-                layoutParams =
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                settings.javaScriptEnabled = true // Angular needs JS
-                settings.domStorageEnabled = true // localStorage / sessionStorage
-                settings.useWideViewPort = true
-                settings.loadWithOverviewMode = true
-                // The web Settings page calls this to configure home reminders.
-                addJavascriptInterface(CoachBridge(), "CoachAndroid")
-                // Keep coach (and its Nextcloud login hop) in this WebView; hand
-                // every other origin to the real browser. Remember the current SPA
-                // route so a cold reopen returns to it.
-                webViewClient =
-                    object : WebViewClient() {
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): Boolean {
-                            val url = request.url
-                            if (url.scheme == "https" && url.host in Config.ALLOWED_HOSTS) {
-                                return false // in-app
-                            }
-                            try {
-                                startActivity(Intent(Intent.ACTION_VIEW, url))
-                            } catch (_: ActivityNotFoundException) {
-                                // No handler — drop the navigation.
-                            }
-                            return true
-                        }
-
-                        override fun doUpdateVisitedHistory(
-                            view: WebView,
-                            url: String,
-                            isReload: Boolean,
-                        ) {
-                            super.doUpdateVisitedHistory(view, url, isReload)
-                            if (Restore.isRestorable(Config.BASE_URL, url)) {
-                                prefs.edit().putString(KEY_LAST_URL, url).apply()
-                            }
-                        }
-
-                        // Paint the strips behind the system bars with the page's own
-                        // surface colour so it follows the app's light/dark theme.
-                        override fun onPageFinished(view: WebView, url: String) {
-                            super.onPageFinished(view, url)
-                            view.evaluateJavascript(
-                                "getComputedStyle(document.body).backgroundColor",
-                            ) { result -> parseCssColor(result)?.let(root::setBackgroundColor) }
-                        }
-                    }
-                webChromeClient =
-                    object : WebChromeClient() {
-                        // Mirror the web app's console to logcat (adb logcat -s coach-web).
-                        override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
-                            Log.d(
-                                "coach-web",
-                                "${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})",
-                            )
-                            return true
-                        }
-                    }
-                setBackgroundColor(Color.BLACK) // avoid a white flash on launch
-            }
-
-        root =
-            FrameLayout(this).apply {
-                addView(web)
-                setBackgroundColor(Color.BLACK)
-            }
-
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            // ime() included: with enforced edge-to-edge (targetSdk 35+) the window
-            // no longer auto-resizes for the keyboard — without this the IME just
-            // draws over the page and bottom sheets stay buried under it.
-            val bars =
-                insets.getInsets(
-                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime(),
-                )
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            WindowInsetsCompat.CONSUMED
-        }
-        setContentView(root)
-        web.loadUrl(prefs.getString(KEY_LAST_URL, null) ?: Config.BASE_URL)
-
         // Re-register the geofence if reminders were armed before (e.g. after an
         // app update). No-op if not armed / permissions missing.
         Geofencing.arm(this)
     }
 
-    override fun onDestroy() {
-        root.removeView(web)
-        web.destroy()
-        super.onDestroy()
-    }
-
-    @Deprecated("Deprecated in Java")
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (web.canGoBack()) web.goBack() else super.onBackPressed()
+    override fun onWebViewCreated(web: WebView) {
+        // The web Settings page calls this to configure home reminders.
+        web.addJavascriptInterface(CoachBridge(), "CoachAndroid")
     }
 
     // ---- bridge for the web Settings page ----
@@ -269,9 +163,14 @@ class MainActivity : Activity() {
             }
     }
 
+    // Still the request-code API rather than the Activity Result one: the flow is
+    // resumed from several places and re-enters itself, so the request code is the
+    // state machine's own signal, not a launcher's callback.
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String>,
+        permissions: Array<String>,
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -308,18 +207,9 @@ class MainActivity : Activity() {
 
     private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
 
-    // evaluateJavascript hands back the JSON-encoded result, e.g. "rgb(18, 18, 18)".
-    // Pull out the RGB triple; alpha is ignored (the surface is opaque).
-    private fun parseCssColor(raw: String?): Int? {
-        val m = raw?.let { Regex("""rgba?\((\d+),\s*(\d+),\s*(\d+)""").find(it) } ?: return null
-        val (r, g, b) = m.destructured
-        return Color.rgb(r.toInt(), g.toInt(), b.toInt())
-    }
-
     private companion object {
         const val REQ_FINE = 101
         const val REQ_BG = 102
         const val REQ_NOTIF = 103
-        const val KEY_LAST_URL = "last_url"
     }
 }
