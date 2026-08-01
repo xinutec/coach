@@ -2,8 +2,17 @@
   "boundaries": [
     {
       "path": "frontend/src/app/generated",
-      "importableBy": ["frontend/src/app/models.ts"],
+      "importableBy": [
+        "frontend/src/app/models.ts"
+      ],
       "why": "ts-rs writes one file per wire type here and scripts/gen-types.sh replaces the whole directory on every run, so a renamed or retired Rust type must break one barrel import rather than scatter dead paths through the app"
+    },
+    {
+      "path": "frontend/src/app/shared",
+      "mustNotImport": [
+        "frontend/src/app/features"
+      ],
+      "why": "shared is reusable only while it depends on no feature: a shared component that reaches into features/ creates a cycle, pins the component to one screen's model, and cannot be lifted into another app"
     }
   ]
 }
