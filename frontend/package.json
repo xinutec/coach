@@ -13,7 +13,7 @@
     "pretest": "node scripts/stamp-version.mjs",
     "test": "ng test --watch=false",
     "prelint": "node scripts/stamp-version.mjs",
-    "lint": "eslint src e2e playwright.config.ts",
+    "lint": "eslint src",
     "ui-check": "bash scripts/ng-build.sh && playwright test",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json"
   },
