@@ -76,7 +76,7 @@ nix develop -c bash -c '
   if [ ! -d frontend/node_modules ] || [ frontend/pnpm-lock.yaml -nt frontend/node_modules ]; then
     ( cd frontend && pnpm install --frozen-lockfile )
   fi
-  ( cd frontend && pnpm run lint && bash scripts/ng-build.sh && pnpm test && pnpm run ui-check )
+  ( cd frontend && pnpm run lint && pnpm run typecheck:e2e && bash scripts/ng-build.sh && pnpm test && pnpm run ui-check )
 '
 dev_lint_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/dev-lint"
 [ -d "$dev_lint_dir" ] || dev_lint_dir="$HOME/Code/dev-lint"
