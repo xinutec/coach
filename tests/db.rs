@@ -443,6 +443,70 @@ async fn first_id(pool: &MySqlPool) -> i64 {
     ex_repo::list(pool, false).await.unwrap()[0].id
 }
 
+/// The shape rules hold even when nobody asks the parser.
+///
+/// `LoggedSet::parse` is the only shape the API writes, and the pure tests prove
+/// it thoroughly — but a parser is a property of one code path. The NocoDB
+/// importer already bypasses it by design (it needs the `band` column the API
+/// has no field for) and put 65 mis-shaped sets in the log that way; migrations
+/// 0020–0024 are the clean-up. So the same rules are stated a second time as
+/// CHECK constraints (0026), and this test writes raw SQL — exactly as that
+/// importer does — to prove the database refuses on its own.
+///
+/// The metric-dependent half (which column a given exercise may use) is *not*
+/// here and cannot be: it needs `exercises.metric`, and a CHECK cannot subquery.
+/// That half is still the parser's, which is why the parser still exists.
+#[tokio::test]
+async fn the_database_refuses_a_set_no_parser_looked_at() {
+    let pool = &fresh("shape").await;
+    let ex = first_id(pool).await;
+    let raw = |cols: &str, vals: &str| {
+        let sql = format!(
+            "INSERT INTO workout_sets (user_id, exercise_id, logged_at, {cols}) \
+             VALUES ('test-shape', {ex}, NOW(), {vals})"
+        );
+        async move { sqlx::query(AssertSqlSafe(sql)).execute(pool).await }
+    };
+
+    // Numbers that describe nothing a human did. The 3 530-second carry is the
+    // real one: round 3 of the field test, an append instead of a replace, and
+    // the ability model read it as a demonstrated max.
+    for (what, cols, vals) in [
+        ("no reps at all", "reps", "0"),
+        ("more reps than a set has", "reps", "101"),
+        ("the fat-fingered carry", "hold_s", "3530"),
+        ("a walk with the shopping", "distance_m", "501"),
+        ("a weight nobody lifts", "reps, load_kg", "5, 301"),
+        ("a weightless weight", "reps, load_kg", "5, 0"),
+        ("an effort off the scale", "reps, rpe", "5, 11"),
+        // Neither of these is a set: one records that something happened and
+        // nothing about what, the other doesn't say which measurement it means.
+        ("no measurement", "load_kg", "20"),
+        ("two measurements", "reps, hold_s", "5, 30"),
+    ] {
+        assert!(
+            raw(cols, vals).await.is_err(),
+            "the schema accepted {what} ({cols} = {vals})"
+        );
+    }
+
+    // And every honest shape still goes in — including the one that looks like a
+    // mistake and isn't: a weighted movement logged with no weight is an
+    // empty-bar technique set the athlete chose not to weigh, and refusing it
+    // would lose a real set.
+    for (what, cols, vals) in [
+        ("bodyweight reps", "reps", "12"),
+        ("an empty-bar set", "reps", "8"),
+        ("weighted reps", "reps, load_kg", "5, 60"),
+        ("a hold", "hold_s", "45"),
+        ("a carry in metres", "distance_m, load_kg", "20, 24"),
+    ] {
+        raw(cols, vals)
+            .await
+            .unwrap_or_else(|e| panic!("the schema refused {what} ({cols} = {vals}): {e}"));
+    }
+}
+
 /// A picture can arrive after the movement does — a movement is catalogued the
 /// moment it's real, and someone photographs it later. The image seed used to be
 /// gated on the exercise being *new*, so a picture added to an existing row had

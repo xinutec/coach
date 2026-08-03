@@ -44,6 +44,10 @@ fn one() -> i32 {
 pub struct ImportSummary {
     pub history_sets_inserted: i64,
     pub history_skipped_existing: bool,
+    /// Bundle rows carrying no measurement at all — see the skip in `nocodb`.
+    /// Reported rather than silently dropped: a bundle that loses rows here is a
+    /// fact about the export, and the one-time run has to be auditable.
+    pub history_skipped_shapeless: i64,
     /// Bundle slugs that don't resolve to a catalog exercise (should be empty).
     pub unknown_exercises: Vec<String>,
 }
@@ -76,6 +80,7 @@ pub async fn nocodb(pool: &MySqlPool, user_id: &str, bundle: Bundle) -> Result<I
             .await?;
     let history_skipped_existing = existing_sets > 0;
     let mut history_sets_inserted = 0i64;
+    let mut history_skipped_shapeless = 0i64;
     if !history_skipped_existing {
         for row in &bundle.history {
             let Some(exercise_id) = resolve(&row.exercise_slug, &mut unknown) else {
@@ -99,6 +104,21 @@ pub async fn nocodb(pool: &MySqlPool, user_id: &str, bundle: Bundle) -> Result<I
             // drop the row. Which it is per exercise is a question about the
             // source data, not about this type.
             //
+            // Two coercions the schema now requires (0026), and the parser this
+            // path skips would have made anyway.
+            //
+            // A row with no count carries no measurement, and a set with no
+            // measurement records that something happened and nothing about
+            // what. It is skipped rather than aborting the run: the bundle is a
+            // fixed historical artefact, and one shapeless row in it is not a
+            // reason to lose the other three hundred.
+            let Some(reps) = row.reps else {
+                history_skipped_shapeless += i64::from(row.sets.max(1));
+                continue;
+            };
+            // NocoDB wrote an unweighted set as 0 kg. Zero is not a weight, it
+            // is the absence of one, and the domain spells that `None`.
+            let load_kg = row.weight_kg.filter(|kg| *kg > 0.0);
             // NocoDB stored one row per (exercise, day) with a set count; coach
             // logs one row per set — expand.
             for _ in 0..row.sets.max(1) {
@@ -110,8 +130,8 @@ pub async fn nocodb(pool: &MySqlPool, user_id: &str, bundle: Bundle) -> Result<I
                 .bind(user_id)
                 .bind(exercise_id)
                 .bind(logged_at)
-                .bind(row.reps)
-                .bind(row.weight_kg)
+                .bind(reps)
+                .bind(load_kg)
                 .bind(&row.band)
                 .execute(pool)
                 .await?;
@@ -123,6 +143,7 @@ pub async fn nocodb(pool: &MySqlPool, user_id: &str, bundle: Bundle) -> Result<I
     Ok(ImportSummary {
         history_sets_inserted,
         history_skipped_existing,
+        history_skipped_shapeless,
         unknown_exercises: unknown,
     })
 }

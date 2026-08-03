@@ -5,6 +5,12 @@
  */
 export type ImportSummary = { historySetsInserted: bigint, historySkippedExisting: boolean, 
 /**
+ * Bundle rows carrying no measurement at all — see the skip in `nocodb`.
+ * Reported rather than silently dropped: a bundle that loses rows here is a
+ * fact about the export, and the one-time run has to be auditable.
+ */
+historySkippedShapeless: bigint, 
+/**
  * Bundle slugs that don't resolve to a catalog exercise (should be empty).
  */
 unknownExercises: Array<string>, };
