@@ -72,6 +72,10 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
+      # The component specs — the card's presentation logic, where the engine's
+      # verdict becomes something a person reads. Runs under jsdom, so no browser
+      # is needed and this sits before the harness rather than after it.
+      - run: pnpm test
       # ui-check builds (prod) then runs the shared layout harness (text overlap,
       # horizontal overflow, occluded controls) at phone + wide viewports.
       - run: pnpm exec playwright install --with-deps chromium
