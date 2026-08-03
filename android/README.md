@@ -61,10 +61,16 @@ arriving home ([Geofencing.settledAtHome]), what a pacing response means
 real `org.json` — the android.jar stubs throw on every call — pinned to SDK 35 by
 `app/src/test/resources/robolectric.properties` (it has no runtime for 36 yet).
 
-**These are not in CI.** `scripts/verify.sh` has to run from a clean checkout,
-and this needs the Android SDK shell plus `ui-harness` checked out beside the
-repo; a gate that silently skips when its toolchain is missing is worse than no
-gate. Run it by hand when you touch anything under `android/`.
+`scripts/verify.sh` runs this (plus `:app:assembleDebug`, since `MainActivity`
+and the receivers carry no unit tests and packaging is what proves they still
+build), so the pre-commit hook covers it — you don't have to remember. A missing
+Android shell, or a missing `ui-harness` beside the repo, **fails** the gate
+rather than skipping it.
+
+Not in CI, and neither is any other Android app in the fleet: the GitHub runners
+have no Android SDK and no sibling checkouts. The nightly `check --full` agent on
+the Mac mini runs every repo's `verify.sh`, which is where these get their
+scheduled run.
 
 ## Layout
 

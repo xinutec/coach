@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # coach verify — rust backend (fmt + clippy + tests) + angular frontend (build +
-# unit tests) + shared rules.
+# unit tests) + the android app (build + unit tests) + shared rules.
 #
 # The backend tests include tests/db.rs, which runs the real SQL against a real
 # MariaDB — the gate that was missing when a query drifted from its `FromRow`
@@ -78,6 +78,25 @@ nix develop -c bash -c '
   fi
   ( cd frontend && pnpm run lint && pnpm run typecheck:e2e && bash scripts/ng-build.sh && pnpm test && pnpm run ui-check )
 '
+# The phone is a real client, not a bookmark: it decides what counts as arriving
+# home, reads the pacing verdict, and holds the only copy of the home coordinates.
+# Those tests run here rather than when someone remembers — the same gate the
+# other Android apps in the fleet use (fleetwatch, heatcam, observe, scanner).
+#
+# Toolchain comes from recall's android dev shell, the same one android/deploy.sh
+# uses; a missing shell fails the gate rather than skipping it, because a gate
+# that skips is a gate that lies. This build additionally needs ui-harness (the
+# shared WebView shell) checked out beside the repo — app/build.gradle.kts says so
+# in a sentence when it isn't.
+#
+# `assembleDebug` as well as the tests: MainActivity and the receivers carry no
+# unit tests, so packaging the APK is what proves they still build.
+#
+# Not `-q`: at quiet level a failure reports "1 failed" and an HTML report path
+# and never names the test, which is the one thing you want from a gate that just
+# went red. The pre-commit hook prints nothing unless the run fails, so the cost
+# is noise on a hand-run — which every other step here already makes.
+( cd android && nix develop ~/Code/recall#android --command ./gradlew --console=plain :app:assembleDebug :app:testDebugUnitTest )
 dev_lint_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/dev-lint"
 [ -d "$dev_lint_dir" ] || dev_lint_dir="$HOME/Code/dev-lint"
 [ -d "$dev_lint_dir" ] || dev_lint_dir="$HOME/code/dev-lint"
