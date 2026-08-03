@@ -40,6 +40,28 @@ object PacingClient {
             }
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             conn.disconnect()
+            parse(body)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * The verdict a `/api/pacing/now` body describes, or null if it describes
+     * none.
+     *
+     * Split from the fetch so the decision can be tested without a device: a
+     * body that doesn't parse and a body that says "don't nudge" have to reach
+     * the same outcome — silence — and the only difference between them is
+     * whether the phone was wrong or the coach was.
+     *
+     * Everything is read with a default. The verdict is a much larger object
+     * than this, and it grows; the reminder needs two fields of it, and a
+     * response that has gained or lost any of the rest must not turn into a
+     * missed reminder.
+     */
+    fun parse(body: String): Verdict? =
+        try {
             val json = JSONObject(body)
             Verdict(
                 nudge = json.optBoolean("nudge", false),
@@ -48,5 +70,4 @@ object PacingClient {
         } catch (_: Exception) {
             null
         }
-    }
 }

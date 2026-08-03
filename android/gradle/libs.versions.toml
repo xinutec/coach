@@ -4,11 +4,20 @@ agp = "8.13.0"
 kotlin = "2.4.0"
 coreKtx = "1.16.0"
 playServicesLocation = "21.3.0"
+junit = "4.13.2"
+robolectric = "4.16"
+androidxTestCore = "1.6.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 # FusedLocationProviderClient (set-home) + GeofencingClient (the home geofence).
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+# A real Android runtime on the JVM, so SharedPreferences (Prefs) and org.json
+# (PacingClient) are the implementations the phone runs rather than the android.jar
+# stubs, which throw "not mocked" on every call.
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

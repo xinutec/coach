@@ -3,7 +3,6 @@ package org.xinutec.coach
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 
 /**
@@ -19,12 +18,8 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val event = GeofencingEvent.fromIntent(intent) ?: return
         if (event.hasError()) return
-        val transition = event.geofenceTransition
-        if (transition != Geofence.GEOFENCE_TRANSITION_ENTER &&
-            transition != Geofence.GEOFENCE_TRANSITION_DWELL
-        ) {
-            return
-        }
+        // The same list `Geofencing.arm` registered — see Geofencing.TRANSITIONS.
+        if (!Geofencing.settledAtHome(event.geofenceTransition)) return
 
         val app = context.applicationContext
         val pending = goAsync()

@@ -20,6 +20,23 @@ import com.google.android.gms.location.LocationServices
 object Geofencing {
     private const val REQUEST_ID = "home"
 
+    /**
+     * The crossings that mean *settled at home* rather than merely passing the
+     * boundary — DWELL (with the loiter below) is the one that keeps a walk past
+     * the door from being read as arriving.
+     *
+     * Stated once because it is used twice, at opposite ends of the same
+     * mechanism: [arm] registers these with Play Services, and
+     * [GeofenceBroadcastReceiver] filters incoming events by them. Two lists that
+     * must agree and are written apart drift — registering a transition the
+     * receiver drops is a reminder that silently never fires, and there is no
+     * error anywhere to notice.
+     */
+    const val TRANSITIONS = Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_DWELL
+
+    /** Whether a delivered transition is one of [TRANSITIONS]. */
+    fun settledAtHome(transition: Int): Boolean = (transition and TRANSITIONS) != 0
+
     fun hasBackgroundLocation(context: Context): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED &&
@@ -59,9 +76,8 @@ object Geofencing {
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 // DWELL (with a 1-min loiter) means "settled at home", not just
                 // passing the boundary — avoids a nudge when you walk past.
-                .setTransitionTypes(
-                    Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_DWELL,
-                ).setLoiteringDelay(60_000)
+                .setTransitionTypes(TRANSITIONS)
+                .setLoiteringDelay(60_000)
                 .build()
 
         val request =

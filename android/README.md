@@ -45,6 +45,27 @@ nix develop ~/Code/recall#android --command ./gradlew :app:assembleDebug
 The APK is signed with the auto-generated debug key — fine for sideloading, the
 only distribution path.
 
+## Tests
+
+```sh
+cd android
+nix develop ~/Code/recall#android --command ./gradlew :app:testDebugUnitTest
+```
+
+JVM unit tests — no device, no emulator. The parts of this app worth testing are
+decisions, and all of them run on the JVM: which boundary crossing counts as
+arriving home ([Geofencing.settledAtHome]), what a pacing response means
+(`PacingClient.parse`), what the on-device home store does with a coordinate
+(`Prefs`), and that the app is allowed to load itself (`Config`).
+[Robolectric](https://robolectric.org) supplies a real `SharedPreferences` and a
+real `org.json` — the android.jar stubs throw on every call — pinned to SDK 35 by
+`app/src/test/resources/robolectric.properties` (it has no runtime for 36 yet).
+
+**These are not in CI.** `scripts/verify.sh` has to run from a clean checkout,
+and this needs the Android SDK shell plus `ui-harness` checked out beside the
+repo; a gate that silently skips when its toolchain is missing is worse than no
+gate. Run it by hand when you touch anything under `android/`.
+
 ## Layout
 
 ```

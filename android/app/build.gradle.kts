@@ -31,6 +31,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric reads the merged manifest and resources to stand up a
+            // real Android runtime on the JVM.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {
@@ -54,4 +62,12 @@ dependencies {
     // and Play Services location for the home geofence + set-home flow.
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.location)
+
+    // JVM unit tests (`./gradlew :app:testDebugUnitTest`). No device, no emulator:
+    // the parts of this app worth testing are decisions — which crossing counts as
+    // arriving home, what a pacing response means, what the on-device home store
+    // does with a coordinate — and all of them run on the JVM.
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
