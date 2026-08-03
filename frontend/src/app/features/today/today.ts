@@ -187,11 +187,11 @@ export class Today {
 	}
 
 	/** Display name of the selected location for the status line. */
-	locationName(): string {
+	readonly locationName = computed(() => {
 		const id = this.selectedLocationId();
 		const name = id == null ? undefined : this.locations().find((l) => l.id === id)?.name;
 		return name ?? "No location";
-	}
+	});
 
 	// Which plan items have their "why this?" reasoning expanded (by exercise id).
 	private readonly whyOpen = signal<ReadonlySet<number>>(new Set());

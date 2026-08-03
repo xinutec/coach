@@ -1,4 +1,4 @@
-import { Component, inject, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { MatButtonModule } from "@angular/material/button";
 import { MatFormFieldModule } from "@angular/material/form-field";
@@ -129,11 +129,11 @@ export class SettingsPage {
 	/** Which build this tab is running — the commit and when it was built. Uses the
 	 *  stamp compiled into *this* bundle, so a stale cached tab reports its own old
 	 *  commit instead of the server's; that's what makes "Up to date." checkable. */
-	buildStamp(): string {
+	readonly buildStamp = computed(() => {
 		const at = new Date(BUILD_INFO.builtAt);
 		const when = Number.isNaN(at.getTime()) ? BUILD_INFO.builtAt : at.toLocaleString();
 		return `Build ${BUILD_INFO.sha} · ${when}`;
-	}
+	});
 
 	async checkUpdates(): Promise<void> {
 		const r = await this.swUpdates.checkNow();
