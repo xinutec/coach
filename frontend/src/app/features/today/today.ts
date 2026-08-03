@@ -347,7 +347,7 @@ export class Today {
 		const side = ex?.unilateral ? " Both sides — the numbers are per side." : "";
 		switch (s.ask.kind) {
 			case "maxHold":
-				return `Hold as long as your form stays clean — one honest max.${side}`;
+				return `Hold as long as your form stays clean — one honest max, then log the seconds.${side}`;
 			case "loadedCarry":
 				return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
 			case "loadedDistance":
