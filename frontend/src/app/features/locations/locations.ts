@@ -369,7 +369,10 @@ export class LocationsPage {
 			),
 		);
 	}
-	removePlate(slug: string, p: PlateForm): void {
+	/** The plate carries the kit it is pinned to, so removing it needs nothing
+	 *  else — a shared-pool disc shown under the barbell is still the shared one,
+	 *  and taking it away takes it from every bar. */
+	removePlate(p: PlateForm): void {
 		this.formPlates.set(
 			this.formPlates().filter(
 				(x) => !(x.loadKg === p.loadKg && x.equipment === p.equipment),

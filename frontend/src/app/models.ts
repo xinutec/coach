@@ -34,6 +34,7 @@ export * from "./generated/NewSet";
 export * from "./generated/PacingNow";
 export * from "./generated/PacingState";
 export * from "./generated/Pattern";
+export * from "./generated/Plate";
 export * from "./generated/Position";
 export * from "./generated/Readiness";
 export * from "./generated/Region";
@@ -43,6 +44,8 @@ export * from "./generated/TelemetryEvent";
 export * from "./generated/SettingsPatch";
 export * from "./generated/Substitution";
 export * from "./generated/Suggestion";
+export * from "./generated/SuggestionKind";
+export * from "./generated/WindowState";
 export * from "./generated/WorkoutSet";
 
 import type { Exercise } from "./generated/Exercise";

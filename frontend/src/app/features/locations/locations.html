@@ -186,7 +186,7 @@
             <div class="spec-name">Plates that fit it (kg)</div>
             <div class="chips">
               @for (p of platesOf(slug); track p.loadKg) {
-                <button type="button" class="chip on" (click)="removePlate(slug, p)">
+                <button type="button" class="chip on" (click)="removePlate(p)">
                   {{ p.loadKg }}@if (p.qty) { <em>×{{ p.qty }}</em> }
                   <mat-icon>close</mat-icon>
                 </button>
