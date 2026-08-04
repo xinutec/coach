@@ -33,28 +33,28 @@ gamepads before cutting: an up-to-date `--frozen-lockfile` install is 455 ms.
 **The `&&` chains are gone.** `pnpm run lint && ng-build && pnpm test &&
 pnpm run ui-check` reported one name when four things could be wrong.
 
+**The vocabulary moved into the schema.** `inDevShell`, the clippy target
+directory, the Angular worker cap, and the `ng-build` / `dev-lint` /
+`check-table` rows were defined here and in ten other tables identically — the
+duplication the shared tools were built to remove, recreated one level up. They
+are `G.` values now. Two consequences the rendered JSON shows: every dev-shell
+row gains `--no-warn-dirty`, because a gate that prints "Git tree is dirty" on
+every row of every run has trained everyone to ignore a warning; and dev-lint is
+pinned to its committed HEAD rather than run out of its worktree, which is what
+stops a neighbour's half-finished edit failing this gate for a reason no commit
+anywhere explains.
+
 The generated `gate.json` is committed; `the table matches its Dhall` re-renders
 and diffs it, so running the gate needs no `dhall`.
 -}
 
 let G = ../dev-lint/gate/schema.dhall
 
-let inDevShell = \(argv : List Text) -> [ "nix", "develop", "--command" ] # argv
-
-{-| `ng build` tears down its Piscina worker pool at process exit; on macOS /
-    Node 24 / libuv 1.52 that teardown intermittently aborts the process AFTER a
-    complete, valid bundle is on disk. This lowers the rate — fewer worker pipes
-    to race — but does not eliminate it. The build row does not need this: it
-    goes through `ng-build`, which sets the knob itself and then decides from the
-    artifact anyway. These are the rows that drive a build indirectly.
--}
-let oneAngularWorker = toMap { NG_BUILD_MAX_WORKERS = "1" }
-
 in  { name = "coach"
     , checks =
       [ G.Check::{
         , name = "formatting"
-        , argv = inDevShell [ "cargo", "fmt", "--all", "--check" ]
+        , argv = G.inDevShell [ "cargo", "fmt", "--all", "--check" ]
         , timeout_s = 180
         }
       , G.Check::{
@@ -66,7 +66,7 @@ in  { name = "coach"
               decorative.
           -}
           argv =
-            inDevShell
+            G.inDevShell
               [ "cargo"
               , "clippy"
               , "--workspace"
@@ -80,8 +80,7 @@ in  { name = "coach"
               shared one, forcing a full recompile.
           -}
           env =
-            toMap
-              { CARGO_TARGET_DIR = "/Users/pippijn/.cache/cargo/clippy-target" }
+            G.clippyTarget
         , timeout_s = 1800
         }
       , {-  The pacing core must compile #![no_std]. This is the purity guarantee
@@ -94,7 +93,7 @@ in  { name = "coach"
         -}
         G.Check::{
         , name = "the pacing core still compiles no_std"
-        , argv = inDevShell [ "cargo", "build", "-p", "coach-pacing" ]
+        , argv = G.inDevShell [ "cargo", "build", "-p", "coach-pacing" ]
         , timeout_s = 900
         }
       , {-  The whole suite, including tests/db.rs, which runs real SQL against a
@@ -110,7 +109,7 @@ in  { name = "coach"
         G.Check::{
         , name = "tests (against a real MariaDB)"
         , argv =
-              inDevShell
+              G.inDevShell
                 [ "nix", "run", "../dev-lint#with-test-db", "--" ]
             # [ "--database"
               , "coach"
@@ -135,7 +134,7 @@ in  { name = "coach"
         -}
         G.Check::{
         , name = "generated types are current"
-        , argv = inDevShell [ "scripts/check-types.sh" ]
+        , argv = G.inDevShell [ "scripts/check-types.sh" ]
         , timeout_s = 900
         }
       , {-  `--frozen-lockfile` is pnpm ci: install exactly pnpm-lock.yaml, or
@@ -146,13 +145,13 @@ in  { name = "coach"
         G.Check::{
         , name = "frontend deps match the lockfile"
         , cwd = "frontend"
-        , argv = inDevShell [ "pnpm", "install", "--frozen-lockfile" ]
+        , argv = G.inDevShell [ "pnpm", "install", "--frozen-lockfile" ]
         , timeout_s = 900
         }
       , G.Check::{
         , name = "frontend lint"
         , cwd = "frontend"
-        , argv = inDevShell [ "pnpm", "run", "lint" ]
+        , argv = G.inDevShell [ "pnpm", "run", "lint" ]
         , timeout_s = 900
         }
       , {-  `../../dev-lint`, not `../dev-lint`: cwd is `coach/frontend`.
@@ -161,22 +160,17 @@ in  { name = "coach"
         , name = "frontend build"
         , cwd = "frontend"
         , argv =
-              inDevShell [ "nix", "run", "../../dev-lint#ng-build", "--" ]
-            # [ "--expect"
-              , "dist/coach-web/browser"
-              , "--"
-              , "pnpm"
-              , "exec"
-              , "ng"
-              , "build"
-              ]
+            G.ngBuild
+              "../../"
+              [ "dist/coach-web/browser" ]
+              [ "pnpm", "exec", "ng", "build" ]
         , timeout_s = 1800
         }
       , G.Check::{
         , name = "frontend unit tests"
         , cwd = "frontend"
-        , argv = inDevShell [ "pnpm", "test" ]
-        , env = oneAngularWorker
+        , argv = G.inDevShell [ "pnpm", "test" ]
+        , env = G.oneAngularWorker
         , timeout_s = 1800
         }
       , {-  The L2 phone-width layout harness: it serves the freshly-built dist
@@ -194,7 +188,7 @@ in  { name = "coach"
         G.Check::{
         , name = "frontend ui-check (phone-width layout harness)"
         , cwd = "frontend"
-        , argv = inDevShell [ "pnpm", "run", "ui-check" ]
+        , argv = G.inDevShell [ "pnpm", "run", "ui-check" ]
         , timeout_s = 1800
         }
       , {-  The Android app. Toolchain comes from recall's android dev shell,
@@ -244,23 +238,7 @@ in  { name = "coach"
             ]
         , timeout_s = 1800
         }
-      , G.Check::{
-        , name = "the table matches its Dhall"
-        , argv =
-            [ "nix"
-            , "run"
-            , "../dev-lint#gate"
-            , "--"
-            , "--check-table"
-            , "gate.dhall"
-            , "gate.json"
-            ]
-        , timeout_s = 120
-        }
-      , G.Check::{
-        , name = "dev-lint"
-        , argv = [ "nix", "run", "../dev-lint", "--", "." ]
-        , timeout_s = 900
-        }
+      , G.checkTable "../dev-lint"
+      , G.devLint "../"
       ]
     }
