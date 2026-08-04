@@ -34,17 +34,36 @@ interface CoachAndroidBridge {
 
 /** What we can ask the phone for. Three words, matching MainActivity. */
 type BridgeRequest = "status" | "setup" | "disable";
+
+/** The shape an app older than this page injects: three plain methods, from the
+ *  `addJavascriptInterface` era. The app is sideloaded, so the page always
+ *  updates first and can be running against either — and calling
+ *  `addEventListener` on this one throws, which would take the whole Settings
+ *  page down rather than just the reminders card. */
+interface LegacyCoachAndroidBridge {
+	remindersStatus(): string;
+	setupReminders(): void;
+	disableReminders(): void;
+}
 // Declared on Window rather than asserted at the read. An ambient declaration is
 // what a foreign API contract is *for*: it says the shape once, in one place, so
 // the reads are ordinary typed property accesses instead of a cast each site has
 // to get right.
 declare global {
 	interface Window {
-		CoachAndroid?: CoachAndroidBridge;
+		CoachAndroid?: CoachAndroidBridge | LegacyCoachAndroidBridge;
 	}
 }
+/** The bridge, if the installed app speaks this page's version of it.
+ *
+ *  An older app reads as no bridge at all: the reminders card is then absent,
+ *  exactly as in a desktop browser, and installing the current APK brings it
+ *  back. Narrowed with `in` rather than asserted — which of the two is there is a
+ *  fact about the phone, not something this page gets to decide. */
 function coachAndroid(): CoachAndroidBridge | null {
-	return window.CoachAndroid ?? null;
+	const bridge = window.CoachAndroid;
+	if (bridge === undefined) return null;
+	return "postMessage" in bridge ? bridge : null;
 }
 
 @Component({
