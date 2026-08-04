@@ -44,9 +44,9 @@ let inDevShell = \(argv : List Text) -> [ "nix", "develop", "--command" ] # argv
 {-| `ng build` tears down its Piscina worker pool at process exit; on macOS /
     Node 24 / libuv 1.52 that teardown intermittently aborts the process AFTER a
     complete, valid bundle is on disk. This lowers the rate — fewer worker pipes
-    to race — but does not eliminate it, which is why the build goes through
-    `frontend/scripts/ng-build.sh`, which treats "bundle complete, then abort in
-    teardown" as the success it is. Harmless on Linux/CI, which build cleanly.
+    to race — but does not eliminate it. The build row does not need this: it
+    goes through `ng-build`, which sets the knob itself and then decides from the
+    artifact anyway. These are the rows that drive a build indirectly.
 -}
 let oneAngularWorker = toMap { NG_BUILD_MAX_WORKERS = "1" }
 
@@ -155,11 +155,21 @@ in  { name = "coach"
         , argv = inDevShell [ "pnpm", "run", "lint" ]
         , timeout_s = 900
         }
-      , G.Check::{
+      , {-  `../../dev-lint`, not `../dev-lint`: cwd is `coach/frontend`.
+        -}
+        G.Check::{
         , name = "frontend build"
         , cwd = "frontend"
-        , argv = inDevShell [ "scripts/ng-build.sh" ]
-        , env = oneAngularWorker
+        , argv =
+              inDevShell [ "nix", "run", "../../dev-lint#ng-build", "--" ]
+            # [ "--expect"
+              , "dist/coach-web/browser"
+              , "--"
+              , "pnpm"
+              , "exec"
+              , "ng"
+              , "build"
+              ]
         , timeout_s = 1800
         }
       , G.Check::{
@@ -170,15 +180,21 @@ in  { name = "coach"
         , timeout_s = 1800
         }
       , {-  The L2 phone-width layout harness: it serves the freshly-built dist
-            and asserts no overlap or overflow at Pixel width. Runs after the
-            build, which is why it is placed here — though placement is
-            presentation only, and it would run regardless.
+            and asserts no overlap or overflow at Pixel width.
+
+            Placement is no longer only presentation. `pnpm run ui-check` used to
+            begin with a build of its own, so the gate built the frontend twice —
+            once in the row above and once here — and this row's ordering did not
+            matter. The build is now the row above and nothing else, so this one
+            genuinely reads what that one wrote. That is how the rest of the
+            fleet does it (memview, recall), and it is what makes the mtime rule
+            in `ng-build` mean something: exactly one thing in the gate writes
+            `dist/`, and it has to prove it did.
         -}
         G.Check::{
         , name = "frontend ui-check (phone-width layout harness)"
         , cwd = "frontend"
         , argv = inDevShell [ "pnpm", "run", "ui-check" ]
-        , env = oneAngularWorker
         , timeout_s = 1800
         }
       , {-  The Android app. Toolchain comes from recall's android dev shell,

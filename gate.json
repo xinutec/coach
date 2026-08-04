@@ -124,12 +124,20 @@
         "nix",
         "develop",
         "--command",
-        "scripts/ng-build.sh"
+        "nix",
+        "run",
+        "../../dev-lint#ng-build",
+        "--",
+        "--expect",
+        "dist/coach-web/browser",
+        "--",
+        "pnpm",
+        "exec",
+        "ng",
+        "build"
       ],
       "cwd": "frontend",
-      "env": {
-        "NG_BUILD_MAX_WORKERS": "1"
-      },
+      "env": {},
       "name": "frontend build",
       "timeout_s": 1800
     },
@@ -158,9 +166,7 @@
         "ui-check"
       ],
       "cwd": "frontend",
-      "env": {
-        "NG_BUILD_MAX_WORKERS": "1"
-      },
+      "env": {},
       "name": "frontend ui-check (phone-width layout harness)",
       "timeout_s": 1800
     },
