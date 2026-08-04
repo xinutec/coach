@@ -15,6 +15,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import org.json.JSONObject
 import org.xinutec.shell.ShellConfig
 import org.xinutec.shell.WebShellActivity
+import org.xinutec.shell.sameOrigin
 
 /**
  * coach (the Angular app at [Config.BASE_URL]) in the fleet's shared
@@ -87,7 +88,13 @@ class MainActivity : WebShellActivity() {
     // Only act on bridge calls from the coach app itself, not the NC login hop or
     // any page that slips past navigation confinement. Reads web.url, so callers
     // must be on the UI thread.
-    private fun fromCoach(): Boolean = web.url?.startsWith(Config.BASE_URL) == true
+    //
+    // `startsWith(BASE_URL)` before, which is not an origin test: it says yes to
+    // `https://coach.xinutec.org.evil.test/`, a host somebody else can register
+    // for the price of a domain. [sameOrigin] is the shell's own comparison —
+    // scheme, host and port — the same one confinement and Restore make, so the
+    // three agree by construction rather than by intention.
+    private fun fromCoach(): Boolean = sameOrigin(Config.BASE_URL, web.url)
 
     // ---- geofence setup flow ----
 
