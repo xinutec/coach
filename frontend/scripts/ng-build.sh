@@ -6,7 +6,7 @@
 # process — a libuv kqueue assertion ("errno == EINTR", uv__io_poll → Abort 6)
 # or "EBADF: bad file descriptor, close" — AFTER "Application bundle generation
 # complete", i.e. once a complete, valid bundle is already on disk.
-# NG_BUILD_MAX_WORKERS=1 (set by verify.sh) lowers the rate but does NOT
+# NG_BUILD_MAX_WORKERS=1 (set by the gate row) lowers the rate but does NOT
 # eliminate it. Rather than make every commit flaky and re-run by hand, treat
 # "bundle completed, then aborted in worker teardown" as the success it is (the
 # artifact is valid), and retry once for a genuine mid-build failure. Harmless on
