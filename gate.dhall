@@ -131,10 +131,16 @@ in  { name = "coach"
       , {-  Generated-types drift: regenerate the ts-rs bindings and fail if the
             committed frontend output moved. Catches a Rust API-type edit that
             was not regenerated and committed.
+
+            `scripts/gen-types.sh --check` rather than a `scripts/check-types.sh`
+            of its own: both paths go through `dev-lint#gen-types` now, and the
+            one thing that is coach's — the output directory and the cargo
+            invocation that emits into it — is stated in that script once rather
+            than in two files that can disagree about which types exist.
         -}
         G.Check::{
         , name = "generated types are current"
-        , argv = G.inDevShell [ "scripts/check-types.sh" ]
+        , argv = G.inDevShell [ "scripts/gen-types.sh", "--check" ]
         , timeout_s = 900
         }
       , {-  `--frozen-lockfile` is pnpm ci: install exactly pnpm-lock.yaml, or
