@@ -26,6 +26,27 @@ Permissions requested when you turn reminders on: fine location → background
 location ("Allow all the time", required for the geofence to fire while the app is
 closed) → notifications.
 
+**The bridge is origin-scoped.** The web Settings page drives that flow through
+`window.CoachAndroid`, injected by `WebViewCompat.addWebMessageListener` with an
+`allowedOriginRules` of exactly `Config.BASE_URL`. It was `addJavascriptInterface`,
+which Android documents as *"available to every frame within the WebView,
+including iframes. It lacks origin-based access control"* — and the library sheet
+embeds a `youtube-nocookie.com` player, so the WebView deliberately runs somebody
+else's code. That frame could have called `setupReminders()`; the main-frame URL
+check passed, because the main frame really was coach. The listener also checks
+`sourceOrigin` and `isMainFrame`, which is what Android's guidance recommends
+rather than trusting the rules alone.
+
+The contract is a `postMessage` out (`status`, `setup`, `disable`) and a `message`
+event back carrying `{hasHome, armed}` — two booleans, never the coordinates. The
+phone reports when the permission flow settles, so the page no longer re-reads the
+state on a timer.
+
+Without `WebViewFeature.WEB_MESSAGE_LISTENER` the bridge is simply absent and the
+Settings page shows no reminders controls, as in a desktop browser. Falling back
+to `addJavascriptInterface` would re-open the hole on the devices least able to
+afford it.
+
 Runs on any Android 8+ (minSdk 26).
 
 ## Build & install

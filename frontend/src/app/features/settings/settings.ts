@@ -16,12 +16,24 @@ import { SwUpdates } from "../../sw-updates";
 /** The native bridge the Android wrapper injects as `window.CoachAndroid`. Its
  *  presence is how we know we're running inside the app and can offer the
  *  on-device home-geofence reminders (the geofence + notifications are native;
- *  the home location never leaves the phone). Absent in a plain browser. */
+ *  the home location never leaves the phone). Absent in a plain browser.
+ *
+ *  A message port rather than the three plain methods it used to be. The wrapper
+ *  injects it with `WebViewCompat.addWebMessageListener`, whose origin rules keep
+ *  it out of every frame that isn't this app — the library sheet embeds a YouTube
+ *  player, and the API this replaced was injected into that frame too. The shape
+ *  is the platform's `MessagePort`, so it is a `postMessage` out and a `message`
+ *  event back, and `remindersStatus()` could no longer be a return value. */
 interface CoachAndroidBridge {
-	remindersStatus(): string;
-	setupReminders(): void;
-	disableReminders(): void;
+	postMessage(message: string): void;
+	addEventListener(
+		type: "message",
+		listener: (event: { data: string }) => void,
+	): void;
 }
+
+/** What we can ask the phone for. Three words, matching MainActivity. */
+type BridgeRequest = "status" | "setup" | "disable";
 // Declared on Window rather than asserted at the read. An ambient declaration is
 // what a foreign API contract is *for*: it says the shape once, in one place, so
 // the reads are ordinary typed property accesses instead of a cast each site has
@@ -85,30 +97,45 @@ export class SettingsPage {
 		this.refreshReminders();
 	}
 
+	/** Listen for what the phone says about the reminders, then ask once.
+	 *
+	 *  Every answer arrives the same way, whether we asked for it or the native
+	 *  flow finished and volunteered it. That replaces a pair of `setTimeout`s
+	 *  that re-read the state 1500 ms after asking to set up — a guess at how long
+	 *  someone takes to answer two permission dialogs, and wrong in both
+	 *  directions: too short and the page showed the old state, too long and it
+	 *  sat there having already succeeded. */
 	private refreshReminders(): void {
 		const bridge = coachAndroid();
 		this.isAndroid.set(bridge !== null);
 		if (bridge === null) return;
+		bridge.addEventListener("message", (event) => this.onBridgeMessage(event.data));
+		this.ask("status");
+	}
+
+	private ask(request: BridgeRequest): void {
+		coachAndroid()?.postMessage(request);
+	}
+
+	private onBridgeMessage(data: string): void {
 		try {
-			const status: unknown = JSON.parse(bridge.remindersStatus());
+			const status: unknown = JSON.parse(data);
 			if (!isRecord(status)) return;
 			this.remindersHasHome.set(status["hasHome"] === true);
 			this.remindersArmed.set(status["armed"] === true);
 		} catch {
-			// Bridge returned something unexpected — leave the defaults.
+			// Bridge said something unexpected — leave the defaults.
 		}
 	}
 
 	/** Kick off the native set-home + arm flow (permission dialogs are native).
-	 *  Status updates a moment later once the flow settles. */
+	 *  The phone reports the outcome when the flow settles. */
 	enableReminders(): void {
-		coachAndroid()?.setupReminders();
-		setTimeout(() => this.refreshReminders(), 1500);
+		this.ask("setup");
 	}
 
 	disableReminders(): void {
-		coachAndroid()?.disableReminders();
-		setTimeout(() => this.refreshReminders(), 300);
+		this.ask("disable");
 	}
 
 	save(): void {

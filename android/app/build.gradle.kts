@@ -62,6 +62,7 @@ dependencies {
     // and Play Services location for the home geofence + set-home flow.
     implementation(libs.androidx.core.ktx)
     implementation(libs.play.services.location)
+    implementation(libs.androidx.webkit)
 
     // JVM unit tests (`./gradlew :app:testDebugUnitTest`). No device, no emulator:
     // the parts of this app worth testing are decisions — which crossing counts as

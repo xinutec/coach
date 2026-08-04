@@ -3,12 +3,16 @@ package org.xinutec.coach
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -48,53 +52,93 @@ class MainActivity : WebShellActivity() {
         Geofencing.arm(this)
     }
 
+    /**
+     * Expose the reminders bridge to the coach app's own pages, and to nothing
+     * else in the WebView.
+     *
+     * This was `addJavascriptInterface`, which Android documents as "available to
+     * every frame within the WebView, including iframes. It lacks origin-based
+     * access control." The library sheet embeds a `youtube-nocookie.com` player
+     * so a demo can be watched mid-warm-up without leaving the app — so the
+     * WebView deliberately runs somebody else's code, which is the exact
+     * condition the API's own warning names. That frame could call
+     * `setupReminders()`, and the old main-frame URL check passed, because the
+     * main frame really was coach.
+     *
+     * `addWebMessageListener` is the origin-scoped replacement: the WebView
+     * itself guarantees the object is only injected into frames matching
+     * [ALLOWED_ORIGINS]. The `sourceOrigin` and `isMainFrame` checks below are
+     * belt and braces on top of that, which is what Android's own guidance
+     * recommends rather than trusting the rules alone.
+     *
+     * With no [WebViewFeature.WEB_MESSAGE_LISTENER] the bridge is simply absent —
+     * the Settings page then shows no reminders controls, exactly as it does in a
+     * desktop browser. Degrading to `addJavascriptInterface` would be re-opening
+     * the hole on the devices least able to afford it.
+     */
     override fun onWebViewCreated(web: WebView) {
-        // The web Settings page calls this to configure home reminders.
-        web.addJavascriptInterface(CoachBridge(), "CoachAndroid")
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        WebViewCompat.addWebMessageListener(
+            web,
+            BRIDGE_NAME,
+            ALLOWED_ORIGINS,
+            ::onBridgeMessage,
+        )
     }
 
     // ---- bridge for the web Settings page ----
 
-    /** Exposed to the web app as `window.CoachAndroid`. Its presence is how the
-     *  Settings page knows it's running inside the native app and can offer the
-     *  home-reminders controls. */
-    inner class CoachBridge {
-        /** JSON `{hasHome, armed}` so the page can reflect current state. Reads
-         *  only local flags — safe on the binder thread. */
-        @JavascriptInterface
-        fun remindersStatus(): String {
-            val p = Prefs(this@MainActivity)
-            return JSONObject().put("hasHome", p.hasHome).put("armed", p.armed).toString()
-        }
+    /** The page's channel back to us, kept so the flow can report when it settles
+     *  rather than making the page guess with a timer. Null until it first speaks,
+     *  and stale after a reload — a push that lands nowhere is not an error, the
+     *  page asks again on load. */
+    private var reply: JavaScriptReplyProxy? = null
 
-        /** Set home to the current location and arm reminders (permission flow). */
-        @JavascriptInterface
-        fun setupReminders() {
-            runOnUiThread { if (fromCoach()) beginSetup() }
-        }
+    /**
+     * One message in, one action. The vocabulary is three words; anything else is
+     * ignored rather than answered, so a frame that got this far learns nothing
+     * from probing it.
+     */
+    private fun onBridgeMessage(
+        @Suppress("UNUSED_PARAMETER") view: WebView,
+        message: WebMessageCompat,
+        sourceOrigin: Uri,
+        isMainFrame: Boolean,
+        proxy: JavaScriptReplyProxy,
+    ) {
+        // The origin rules already did this. Checked again because a bridge that
+        // depends on one line being right elsewhere is a bridge that breaks when
+        // that line is edited by someone who doesn't know it is load-bearing.
+        if (!isMainFrame) return
+        if (!sameOrigin(Config.BASE_URL, sourceOrigin.toString())) return
+        reply = proxy
+        when (message.data) {
+            MSG_STATUS -> {
+                postStatus()
+            }
 
-        /** Turn reminders off and remove the geofence. */
-        @JavascriptInterface
-        fun disableReminders() {
-            runOnUiThread {
-                if (!fromCoach()) return@runOnUiThread
-                Prefs(this@MainActivity).armed = false
-                Geofencing.disarm(this@MainActivity)
+            MSG_SETUP -> {
+                beginSetup()
+            }
+
+            MSG_DISABLE -> {
+                Prefs(this).armed = false
+                Geofencing.disarm(this)
                 toast("Reminders off.")
+                postStatus()
             }
         }
     }
 
-    // Only act on bridge calls from the coach app itself, not the NC login hop or
-    // any page that slips past navigation confinement. Reads web.url, so callers
-    // must be on the UI thread.
-    //
-    // `startsWith(BASE_URL)` before, which is not an origin test: it says yes to
-    // `https://coach.xinutec.org.evil.test/`, a host somebody else can register
-    // for the price of a domain. [sameOrigin] is the shell's own comparison —
-    // scheme, host and port — the same one confinement and Restore make, so the
-    // three agree by construction rather than by intention.
-    private fun fromCoach(): Boolean = sameOrigin(Config.BASE_URL, web.url)
+    /** Tell the page what the on-device state is: whether a home has been set and
+     *  whether reminders are armed. Two booleans — never the coordinates, which do
+     *  not leave the phone. */
+    private fun postStatus() {
+        val p = Prefs(this)
+        reply?.postMessage(
+            JSONObject().put("hasHome", p.hasHome).put("armed", p.armed).toString(),
+        )
+    }
 
     // ---- geofence setup flow ----
 
@@ -137,14 +181,27 @@ class MainActivity : WebShellActivity() {
         val prefs = Prefs(this)
         prefs.armed = true
         val ok = Geofencing.arm(this)
-        setupInProgress = false
-        toast(
+        settle(
             if (ok) {
                 "Reminders on — I'll nudge you when you're home."
             } else {
                 "Couldn't arm the geofence."
             },
         )
+    }
+
+    /**
+     * The flow is over, whichever way it went: say so, and tell the page.
+     *
+     * The page used to re-read the state on a `setTimeout` — 1500 ms after asking
+     * to set up, which is a guess about how long someone takes to answer two
+     * permission dialogs, and wrong in both directions. It settles when it
+     * settles, and now the phone is the one that says so.
+     */
+    private fun settle(message: String) {
+        setupInProgress = false
+        toast(message)
+        postStatus()
     }
 
     @SuppressLint("MissingPermission") // FINE is checked in continueSetup before we get here
@@ -161,12 +218,10 @@ class MainActivity : WebShellActivity() {
                     toast("Home set to here.")
                     continueSetup()
                 } else {
-                    setupInProgress = false
-                    toast("Couldn't get a location fix — try again near a window.")
+                    settle("Couldn't get a location fix — try again near a window.")
                 }
             }.addOnFailureListener {
-                setupInProgress = false
-                toast("Location unavailable.")
+                settle("Location unavailable.")
             }
     }
 
@@ -188,8 +243,7 @@ class MainActivity : WebShellActivity() {
                 if (granted) {
                     continueSetup()
                 } else {
-                    setupInProgress = false
-                    toast("Location is needed to know when you're home.")
+                    settle("Location is needed to know when you're home.")
                 }
             }
 
@@ -197,8 +251,7 @@ class MainActivity : WebShellActivity() {
                 if (granted) {
                     continueSetup()
                 } else {
-                    setupInProgress = false
-                    toast("Set location to \"Allow all the time\" for home reminders to work.")
+                    settle("Set location to \"Allow all the time\" for home reminders to work.")
                 }
             }
 
@@ -218,5 +271,18 @@ class MainActivity : WebShellActivity() {
         const val REQ_FINE = 101
         const val REQ_BG = 102
         const val REQ_NOTIF = 103
+
+        /** `window.CoachAndroid` on the page. Its presence is still how the
+         *  Settings page knows it is running inside the native app. */
+        const val BRIDGE_NAME = "CoachAndroid"
+
+        /** The only origin the bridge is injected into. An origin rule is
+         *  `scheme://host[:port]` with no trailing slash — which [Config.BASE_URL]
+         *  already is, and a test in ConfigTest keeps it that way. */
+        val ALLOWED_ORIGINS = setOf(Config.BASE_URL)
+
+        const val MSG_STATUS = "status"
+        const val MSG_SETUP = "setup"
+        const val MSG_DISABLE = "disable"
     }
 }

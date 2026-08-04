@@ -30,15 +30,21 @@ class ConfigTest {
         assertTrue(Config.BASE_URL.startsWith("https://"))
     }
 
-    // `fromCoach()` compares with startsWith, so a trailing slash here would make
-    // every bridge call from the app itself fail the check.
+    /**
+     * `BASE_URL` is handed to `addWebMessageListener` as the reminders bridge's
+     * only allowed origin rule, and a rule is `scheme://host[:port]` — nothing
+     * after the authority. A trailing slash or a path makes it malformed, and
+     * malformed throws `IllegalArgumentException` when the WebView is created:
+     * the app fails to start rather than the bridge quietly not working.
+     */
     @Test
-    fun `the base url is a prefix of the pages the bridge trusts`() {
+    fun `the base url is a well-formed origin rule`() {
+        assertTrue("BASE_URL must not end in a slash", !Config.BASE_URL.endsWith("/"))
         assertTrue(
-            "BASE_URL must not end in a slash — fromCoach() compares with startsWith",
-            !Config.BASE_URL.endsWith("/"),
+            "BASE_URL must carry no path",
+            !Config.BASE_URL.substringAfter("://").contains("/"),
         )
-        assertTrue("${Config.BASE_URL}/settings".startsWith(Config.BASE_URL))
+        assertTrue("BASE_URL must carry no query", !Config.BASE_URL.contains("?"))
     }
 
     @Test
