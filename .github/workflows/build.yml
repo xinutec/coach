@@ -76,8 +76,17 @@ jobs:
       # verdict becomes something a person reads. Runs under jsdom, so no browser
       # is needed and this sits before the harness rather than after it.
       - run: pnpm test
-      # ui-check builds (prod) then runs the shared layout harness (text overlap,
-      # horizontal overflow, occluded controls) at phone + wide viewports.
+      # The harness serves `dist/coach-web/browser` and asserts about painted
+      # pixels, so the bundle has to exist first. `ui-check` used to build it
+      # itself; 9e1ddda moved that into the gate's own `frontend build` row to
+      # stop building twice, and CI — which has no such row — was left running
+      # the harness against a dist that was never made. Its webServer then never
+      # came up and every run since died on the 60 s timeout, which reads as a
+      # flaky harness rather than a missing build. Mirror the gate: build, then
+      # check.
+      - run: pnpm exec ng build
+      # The shared layout harness (text overlap, horizontal overflow, occluded
+      # controls) at phone + wide viewports.
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run ui-check
 

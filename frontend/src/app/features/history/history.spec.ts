@@ -114,7 +114,13 @@ describe("grouping by day", () => {
 	/** `loggedAt` has no zone on it; the component appends `Z`. Without that a
 	 *  set is read as local time that was already local, and an evening session
 	 *  in BST lands an hour out — which is a different day either side of
-	 *  midnight. */
+	 *  midnight.
+	 *
+	 *  This case only exists under a non-UTC zone: in UTC both readings of the
+	 *  string agree, so dropping the `Z` changes nothing and the assertion is
+	 *  vacuous. `pnpm test` therefore pins `TZ=Europe/London` — the athlete's
+	 *  zone, and the backend's own default (`src/pacing/service.rs`). Ran green
+	 *  locally and red on a UTC runner until it did. */
 	it("puts a late-evening set on the day it was trained", () => {
 		// 23:30 UTC on the 14th is 00:30 on the 15th in London (BST).
 		const { page } = history([set("2026-07-14T23:30:00")]);
