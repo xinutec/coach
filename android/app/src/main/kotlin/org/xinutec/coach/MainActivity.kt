@@ -19,18 +19,19 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import org.json.JSONObject
 import org.xinutec.shell.ShellConfig
 import org.xinutec.shell.WebShellActivity
-import org.xinutec.shell.sameOrigin
 
 /**
  * coach (the Angular app at [Config.BASE_URL]) in the fleet's shared
  * [WebShellActivity] — session cookie kept, so the Nextcloud sign-in is one-time.
  *
  * The home-geofence reminders are configured from the web app's own Settings page
- * (there's no native chrome overlaying the web UI): the page calls the
- * [CoachBridge] `@JavascriptInterface`, which drives the native permission →
+ * (there's no native chrome overlaying the web UI): the page posts to the
+ * [Bridge] message port, which drives the native permission →
  * set-home → arm flow. The geofence itself + notifications are native (see
  * [Geofencing], [GeofenceBroadcastReceiver]); the home location is stored
  * on-device only ([Prefs]).
+ *
+ * What the page is allowed to say, and from where, is [Bridge].
  */
 class MainActivity : WebShellActivity() {
     override val shell =
@@ -80,8 +81,8 @@ class MainActivity : WebShellActivity() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         WebViewCompat.addWebMessageListener(
             web,
-            BRIDGE_NAME,
-            ALLOWED_ORIGINS,
+            Bridge.NAME,
+            Bridge.ALLOWED_ORIGINS,
             ::onBridgeMessage,
         )
     }
@@ -95,9 +96,11 @@ class MainActivity : WebShellActivity() {
     private var reply: JavaScriptReplyProxy? = null
 
     /**
-     * One message in, one action. The vocabulary is three words; anything else is
-     * ignored rather than answered, so a frame that got this far learns nothing
-     * from probing it.
+     * One message in, one action. Who may speak and what the words mean is
+     * [Bridge.actionFor]'s decision — everything that reaches the `when` has
+     * already been established to be coach's own main frame saying something we
+     * answer. A message that earns no action does not become the reply target
+     * either: `reply` moves only for a caller we are actually talking to.
      */
     private fun onBridgeMessage(
         @Suppress("UNUSED_PARAMETER") view: WebView,
@@ -106,22 +109,18 @@ class MainActivity : WebShellActivity() {
         isMainFrame: Boolean,
         proxy: JavaScriptReplyProxy,
     ) {
-        // The origin rules already did this. Checked again because a bridge that
-        // depends on one line being right elsewhere is a bridge that breaks when
-        // that line is edited by someone who doesn't know it is load-bearing.
-        if (!isMainFrame) return
-        if (!sameOrigin(Config.BASE_URL, sourceOrigin.toString())) return
+        val action = Bridge.actionFor(message.data, sourceOrigin.toString(), isMainFrame) ?: return
         reply = proxy
-        when (message.data) {
-            MSG_STATUS -> {
+        when (action) {
+            BridgeAction.STATUS -> {
                 postStatus()
             }
 
-            MSG_SETUP -> {
+            BridgeAction.SETUP -> {
                 beginSetup()
             }
 
-            MSG_DISABLE -> {
+            BridgeAction.DISABLE -> {
                 Prefs(this).armed = false
                 Geofencing.disarm(this)
                 toast("Reminders off.")
@@ -271,18 +270,5 @@ class MainActivity : WebShellActivity() {
         const val REQ_FINE = 101
         const val REQ_BG = 102
         const val REQ_NOTIF = 103
-
-        /** `window.CoachAndroid` on the page. Its presence is still how the
-         *  Settings page knows it is running inside the native app. */
-        const val BRIDGE_NAME = "CoachAndroid"
-
-        /** The only origin the bridge is injected into. An origin rule is
-         *  `scheme://host[:port]` with no trailing slash — which [Config.BASE_URL]
-         *  already is, and a test in ConfigTest keeps it that way. */
-        val ALLOWED_ORIGINS = setOf(Config.BASE_URL)
-
-        const val MSG_STATUS = "status"
-        const val MSG_SETUP = "setup"
-        const val MSG_DISABLE = "disable"
     }
 }

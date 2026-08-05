@@ -9,8 +9,8 @@ import java.net.URI
  *
  * `ALLOWED_HOSTS` confines navigation to the WebView; anything else opens in the
  * real browser. If the app's own host ever fell out of that set the app would
- * launch itself straight into Chrome — and the bridge (`fromCoach`) tests the
- * URL against `BASE_URL`, so the reminder controls would go dead at the same
+ * launch itself straight into Chrome — and [Bridge] admits a message only from
+ * `BASE_URL`'s own origin, so the reminder controls would go dead at the same
  * time.
  */
 class ConfigTest {
