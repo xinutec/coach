@@ -12,6 +12,14 @@ data only Pippijn can supply.
 - **The cable stack's pin ladder** at the office. The kit is registered but has no
   weights, so the coach drops all five cable movements and says so. One line of
   `coachctl weights` fixes it.
+- **One tap on "Set home here & turn on"**, in the installed app, to confirm the
+  status line flips to **On** by itself. The reminders card renders and the
+  permissions are granted, which proves the message port is injected and the
+  old-APK guard works — but the phone reporting the outcome when the flow settles
+  is the half no test reaches. `BridgeTest` covers what the bridge admits and
+  `settings.spec.ts` covers what the page does with an answer; neither can make a
+  real geofence arm. If the line stays **Off** while the toast says reminders are
+  on, the reply path is broken rather than the flow.
 
 ## Agreed, not built
 
