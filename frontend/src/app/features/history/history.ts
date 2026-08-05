@@ -118,6 +118,9 @@ export class HistoryPage {
     if (s.reps != null) parts.push(`${s.reps} reps`);
     if (s.loadKg != null) parts.push(`${s.loadKg} kg`);
     if (s.holdS != null) parts.push(`${s.holdS}s`);
+    // See `summarise` — a carry is measured in metres, and dropping them here
+    // rendered every farmer's walk as its weight alone.
+    if (s.distanceM != null) parts.push(`${s.distanceM} m`);
     if (s.rpe != null) parts.push(`RPE ${s.rpe}`);
     return parts.join(" · ");
   }

@@ -73,6 +73,14 @@ export function summarise(sets: readonly WorkoutSet[], unilateral: boolean): str
       (s) => s.holdS,
       (v) => `${v}s`,
     ),
+    // Metres are the twin of seconds, not an alternative to them: a farmer's walk
+    // is measured by how far you carried it (migration 0024), and the ten timed
+    // carries that predate the column are deliberately still seconds. A set can
+    // therefore hold either, and the line must be able to say either.
+    range(
+      (s) => s.distanceM,
+      (v) => `${v} m`,
+    ),
     // A single-arm movement's numbers are per side — one set is both arms.
     unilateral ? "each side" : "",
     range(

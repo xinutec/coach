@@ -59,6 +59,45 @@ describe("summarise", () => {
     // A bodyweight set has no load, and no RPE was given.
     expect(summarise([set(1, "2026-07-14T16:00:00", { reps: 3 })], false)).toBe("1 set · 3 reps");
   });
+
+  /** Migration 0024 gave carries their own column so distance would stop living
+   *  as prose in a note — "Distance becomes something coach can say". It was not
+   *  said here: every farmer's walk read as its weight alone, and the metres the
+   *  migration had just rescued were invisible on the one screen that reads the
+   *  log back. */
+  it("says how far a carry went", () => {
+    const sets = [
+      set(1, "2026-07-14T16:00:00", { loadKg: 24, distanceM: 10 }),
+      set(1, "2026-07-14T16:03:00", { loadKg: 24, distanceM: 10 }),
+    ];
+    expect(summarise(sets, false)).toBe("2 sets · 24 kg · 10 m");
+  });
+
+  it("ranges the distance like everything else", () => {
+    const sets = [
+      set(1, "2026-07-14T16:00:00", { loadKg: 24, distanceM: 10 }),
+      set(1, "2026-07-14T16:03:00", { loadKg: 24, distanceM: 14 }),
+    ];
+    expect(summarise(sets, false)).toBe("2 sets · 24 kg · 10–14 m");
+  });
+
+  /** The ten carries logged in July 2026 are seconds, deliberately never
+   *  converted — nobody recorded a pace, so metres from seconds would be an
+   *  invented number. Both units therefore exist in the log at once. */
+  it("keeps a timed carry timed and a measured one measured", () => {
+    const timed = [set(1, "2026-07-14T16:00:00", { loadKg: 24, holdS: 30 })];
+    const walked = [set(1, "2026-07-20T16:00:00", { loadKg: 24, distanceM: 10 })];
+    expect(summarise(timed, false)).toBe("1 set · 24 kg · 30s");
+    expect(summarise(walked, false)).toBe("1 set · 24 kg · 10 m");
+  });
+
+  it("says both when a movement was trained each way in one day", () => {
+    const sets = [
+      set(1, "2026-07-14T16:00:00", { loadKg: 24, holdS: 30 }),
+      set(1, "2026-07-14T16:03:00", { loadKg: 24, distanceM: 10 }),
+    ];
+    expect(summarise(sets, false)).toBe("2 sets · 24 kg · 30s · 10 m");
+  });
 });
 
 describe("byMovement", () => {
