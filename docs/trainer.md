@@ -415,13 +415,12 @@ not a fix.
      vocabulary; E1 back-test, E2 property tests, E3 athlete simulation, E4 residual
      ledger, E5 explanation trace, E6 database tests. -->
 
-[`Known`]: ../src/pacing/dose.rs
-[`Inventory`]: ../src/pacing/dose.rs
-[`Dose`]: ../src/pacing/dose.rs
-[`engine.rs`]: ../src/pacing/engine.rs
-[`pacing/ability.rs`]: ../src/pacing/ability.rs
-[`pacing/residual.rs`]: ../src/pacing/residual.rs
-[`pacing/dose.rs`]: ../src/pacing/dose.rs
-[`pacing/cover.rs`]: ../src/pacing/cover.rs
-[`pacing/dose.rs`]: ../src/pacing/dose.rs
+[`Known`]: ../coach-pacing/src/pacing/dose.rs
+[`Inventory`]: ../coach-pacing/src/pacing/dose.rs
+[`Dose`]: ../coach-pacing/src/pacing/dose.rs
+[`engine.rs`]: ../coach-pacing/src/pacing/engine.rs
+[`pacing/ability.rs`]: ../coach-pacing/src/pacing/ability.rs
+[`pacing/residual.rs`]: ../coach-pacing/src/pacing/residual.rs
+[`pacing/dose.rs`]: ../coach-pacing/src/pacing/dose.rs
+[`pacing/cover.rs`]: ../coach-pacing/src/pacing/cover.rs
 [`seed/render.rs`]: ../src/seed/render.rs
