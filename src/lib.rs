@@ -7,7 +7,6 @@ pub mod equipment;
 pub mod error;
 pub mod exercise;
 pub mod health;
-pub mod import;
 pub mod location;
 pub mod muscle;
 pub mod nextcloud;

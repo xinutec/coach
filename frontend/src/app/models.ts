@@ -19,7 +19,6 @@ export * from "./generated/Explanation";
 export * from "./generated/ExerciseMuscle";
 export * from "./generated/ExercisePatch";
 export * from "./generated/GroupBalance";
-export * from "./generated/ImportSummary";
 export * from "./generated/Location";
 export * from "./generated/LocationPatch";
 export * from "./generated/Me";

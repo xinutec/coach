@@ -4,7 +4,6 @@ pub mod api;
 pub mod auth;
 pub mod equipment;
 pub mod exercises;
-pub mod import;
 pub mod locations;
 pub mod muscles;
 pub mod pacing;
@@ -44,8 +43,6 @@ pub fn router(state: AppState) -> Router {
         // health-sync bridge: detected places (for linking) + current location
         .route("/places/detected", get(places::detected))
         .route("/location/current", get(places::current))
-        // One-time migration import (history)
-        .route("/import/nocodb", post(import::nocodb))
         // Micro-log
         .route("/sets", get(workout::list).post(workout::create))
         .route("/sets/{id}", delete(workout::delete))

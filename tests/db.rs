@@ -447,11 +447,13 @@ async fn first_id(pool: &MySqlPool) -> i64 {
 ///
 /// `LoggedSet::parse` is the only shape the API writes, and the pure tests prove
 /// it thoroughly — but a parser is a property of one code path. The NocoDB
-/// importer already bypasses it by design (it needs the `band` column the API
-/// has no field for) and put 65 mis-shaped sets in the log that way; migrations
-/// 0020–0024 are the clean-up. So the same rules are stated a second time as
-/// CHECK constraints (0026), and this test writes raw SQL — exactly as that
-/// importer does — to prove the database refuses on its own.
+/// importer bypassed it by design (it needed the `band` column the API has no
+/// field for) and put 65 mis-shaped sets in the log that way; migrations
+/// 0020–0024 are the clean-up. That importer is gone, which removes the one
+/// caller and not the lesson: the next path to write this table directly won't
+/// have a parser either. So the same rules are stated a second time as CHECK
+/// constraints (0026), and this test writes raw SQL to prove the database
+/// refuses on its own.
 ///
 /// The metric-dependent half (which column a given exercise may use) is *not*
 /// here and cannot be: it needs `exercises.metric`, and a CHECK cannot subquery.
