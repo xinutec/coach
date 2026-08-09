@@ -12,6 +12,13 @@ data only Pippijn can supply.
 - **The cable stack's pin ladder** at the office. The kit is registered but has no
   weights, so the coach drops all five cable movements and says so. One line of
   `coachctl weights` fixes it.
+- **An authoring pass over `difficulty`**, per pattern and primary muscle group.
+  All 136 catalog exercises carry a value, but they were authored before round 4
+  made the variation ladder read it. The ladder picks "the harder version of
+  this" by pattern + shared prime mover + next difficulty, so two movements
+  mis-ranked against each other now send the athlete a step they aren't ready
+  for. Judgement about real movements, not something the code can settle —
+  [field-test.md](field-test.md) flags it under round 4.
 - **One tap on "Set home here & turn on"**, in the installed app, to confirm the
   status line flips to **On** by itself. The reminders card renders and the
   permissions are granted, which proves the message port is injected and the
@@ -23,6 +30,14 @@ data only Pippijn can supply.
 
 ## Agreed, not built
 
+- **Round 7 of the field test: does the coach handle lost fitness?** Round 6
+  named the gap in its own conclusions — the simulated athlete does not detrain
+  over a layoff, so the 21-day-away case tested re-entry after *silence*, not
+  after *decline*. Every temperament in `src/bin/simulate.rs` so far grows or
+  plateaus; none gets weaker while away. An athlete who returns measurably weaker
+  meets an ability estimate built from who they were, and the first session back
+  would be asked at the old numbers. Whether staleness decay is enough to absorb
+  that is unknown, because nothing has ever asked it.
 - **Anatomy renders** — generate exercise illustrations from a 3D anatomical
   model, muscle colouring driven by the catalog. Plan and milestones in
   [anatomy-renders.md](anatomy-renders.md).
