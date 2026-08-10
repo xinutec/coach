@@ -135,14 +135,26 @@ describe("searching", () => {
 		expect(names(page)).toEqual(["Pull-up (bar)", "Pull-up (L-sit)"]);
 	});
 
-	/** The haystack is `name + " " + variation`; the label on screen is
-	 *  `name (variation)`. So the brackets are not searchable, and pasting a name
-	 *  back in finds nothing. Asserted because it is a real difference between
-	 *  what is shown and what is matched, not because it is desired. */
-	it("does not match the brackets it displays", () => {
+	/** The name on the card was once the one string that found nothing: the
+	 *  haystack was `name + " " + variation` while the label is
+	 *  `name (variation)`, so reading a movement off the screen and typing it
+	 *  back returned an empty library. Both spellings match now. */
+	it("matches the name exactly as the card spells it, brackets and all", () => {
 		const { page } = library();
 		page.search.set("Pull-up (L-sit)");
-		expect(names(page)).toEqual([]);
+		expect(names(page)).toEqual(["Pull-up (L-sit)"]);
+	});
+
+	it("still matches the same movement typed straight through", () => {
+		const { page } = library();
+		page.search.set("pull-up l-sit");
+		expect(names(page)).toEqual(["Pull-up (L-sit)"]);
+	});
+
+	it("matches a partial bracketed name, which is what typing looks like", () => {
+		const { page } = library();
+		page.search.set("pull-up (l");
+		expect(names(page)).toEqual(["Pull-up (L-sit)"]);
 	});
 
 	it("finds nothing rather than everything when nothing matches", () => {

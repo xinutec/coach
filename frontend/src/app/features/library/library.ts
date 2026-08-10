@@ -43,8 +43,14 @@ export class LibraryPage {
     return this.exercises().filter((e) => {
       if (pat && e.pattern !== pat) return false;
       if (!q) return true;
-      const name = (e.variation ? `${e.name} ${e.variation}` : e.name).toLowerCase();
-      return name.includes(q);
+      // Both spellings of the same movement: the one on the card ("Pull-up
+      // (L-sit)") so a name read off the screen finds itself, and the unbracketed
+      // one so typing straight through — "pull-up l-sit" — works too. Matching
+      // only the second made the displayed name the one string that found
+      // nothing.
+      const shown = displayName(e).toLowerCase();
+      const plain = (e.variation ? `${e.name} ${e.variation}` : e.name).toLowerCase();
+      return shown.includes(q) || plain.includes(q);
     });
   });
 
