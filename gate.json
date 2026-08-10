@@ -133,6 +133,21 @@
         "develop",
         "--no-warn-dirty",
         "--command",
+        "pnpm",
+        "run",
+        "typecheck:e2e"
+      ],
+      "cwd": "frontend",
+      "env": {},
+      "name": "frontend e2e specs type-check",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "--no-warn-dirty",
+        "--command",
         "nix",
         "run",
         "../../dev-lint#ng-build",

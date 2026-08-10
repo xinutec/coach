@@ -160,6 +160,22 @@ in  { name = "coach"
         , argv = G.inDevShell [ "pnpm", "run", "lint" ]
         , timeout_s = 900
         }
+      , {-  The Playwright specs, type-checked. Nothing else reads them:
+            Playwright transforms them with esbuild, which strips types rather
+            than checking them, and `tsconfig.app.json` reaches only what
+            `src/main.ts` imports. `typecheck:e2e` has been in package.json all
+            along and no gate has ever run it — DL-E2E-TYPES-UNCHECKED found
+            that on 2026-08-10, when it stopped accepting a script's existence
+            as proof of its execution. The layout harness is the only gate that
+            sees what a phone suffers; it should not be the least-checked code
+            here.
+        -}
+        G.Check::{
+        , name = "frontend e2e specs type-check"
+        , cwd = "frontend"
+        , argv = G.inDevShell [ "pnpm", "run", "typecheck:e2e" ]
+        , timeout_s = 900
+        }
       , {-  `../../dev-lint`, not `../dev-lint`: cwd is `coach/frontend`.
         -}
         G.Check::{
