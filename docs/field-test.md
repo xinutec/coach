@@ -970,7 +970,98 @@ visible, not because the athlete is the problem.)
 - **The return from three weeks off is calm and correct.** Every card in the first
   session back was met; staleness decay had the ask exactly where it should be.
   (The simulated athlete does not detrain over the layoff, so this tests the coach's
-  re-entry after silence, not its handling of lost fitness.)
+  re-entry after silence, not its handling of lost fitness. **Round 7 removed that
+  limitation and re-ran it: the answer holds, and the reason it holds is not the
+  one this line assumes.**)
 - **The injury's step-up was the right call.** Faced with a shoulder that stopped
   responding, the ladder moved to Overhead press and estimated it correctly from
   scratch. The response was right; only the estimator behind it was stuck.
+
+# Round 7 — the athlete who comes back weaker
+
+Round 6 closed with a caveat against its own conclusion: *the simulated athlete
+does not detrain over the layoff, so this tests the coach's re-entry after
+silence, not its handling of lost fitness.* Round 7 removes the caveat and asks
+the question it was hiding.
+
+**The instrument first, because the gap was structural.** Every temperament banks
+progress as a function of the sim week — `banked(w)` can only rise — so the
+21-day layoff athlete came back *stronger* than they left. `Behaviour::Layoff`
+decides whether the athlete turns up; nothing connected that to ability. The two
+axes were separated on the grounds that ability and compliance move
+independently, and disuse is exactly where they do not: **it is caused by the
+behaviour and it moves the ability.**
+
+So detraining is not a seventh temperament. It follows from the days actually
+trained: nothing for the first week off, then ~0.5%/day of strength capped at
+20%, regained at twice the rate it was lost, with endurance decaying at double.
+A skipper's two-day gaps cost nothing and three weeks away costs real strength,
+without any code knowing which temperament is running. "Trained" means sets
+reached the log — a rest day, a day away and a day the athlete turned up and left
+before the first card are the same day to a muscle.
+
+The layoff athlete now leaves at 100% and returns at **93%** of trained strength
+(86% on holds and reps), regaining par over the following week.
+
+## R7-1. The coach handles it — and the margin that saves it is incidental
+
+**It handles it.** Across the 8-week layoff run, modelling the decline costs
+**one extra missed card** (17 against 16), and the misses after the return are
+one-rep near-misses rather than routs. There is no defect here to fix.
+
+What is worth writing down is *why*, because two different things are doing the
+work and only one of them was designed for it.
+
+**Staleness decay fires, and points the right way.** Belief fell on 22 of the 23
+movements carried through the absence, by a median **-11%** against a body that
+fell -7% (strength) and -14% (endurance). That is the right direction and the
+right order of magnitude, from a mechanism that knows nothing about detraining —
+it decays what it has not seen lately.
+
+⚠ **But it is not calibrated to what it is correcting for, and the spread is
+enormous** — from -50% to 0% on the same 21 days:
+
+```
+decayed MORE than the body fell (asks too little, 12 movements)
+   -50.0%  Dips (parallettes)          believed 2 reps -> 1
+   -33.3%  Broad jump                  believed 3 reps -> 2
+decayed LESS than the body fell (asks too much, 11 movements)
+    -2.6%  Biceps curl (alternating)   believed 11.7 kg -> 11.4
+    +0.0%  Side plank (Copenhagen)
+```
+
+The split is by **metric, not by movement**. A rep-based estimate held as a small
+integer loses a whole rep and moves 33–50%; a load-based one moves a fraction of
+a kilo and barely registers. Same rule, wildly different granularity — so the
+size of the correction is an accident of how the movement is measured.
+
+**The second mechanism is not a mechanism at all: the coach is protected by being
+wrong about you.** At the end of the run the engine's estimates sit at a median
+**62% of true ability** (mean 68%); only 6 of 33 movements have caught up to
+true. A 7% decline disappears into a 38% margin. And those six are precisely
+where it does not: `Push-up (pseudo planche)` and `Broad jump` miss on the first
+week back **in the ablated run too** — the engine was already asking at true
+ability, so any decline at all breaches them.
+
+That is the part to keep in view. **The better the estimate, the less headroom
+absorbs a layoff** — and closing that gap is an explicit goal of the estimator
+work. The protection is strongest exactly where the coach is worst.
+
+**Where it breaks, measured rather than assumed.** Raising disuse to 2%/day (28%
+lost over the three weeks) breaches it properly: misses after the return go 4 →
+5 → **11**, and the first sessions back stop being near-misses —
+`Biceps curl: asked 9 @ 9 kg, did 1`, `Snatch: asked 6 @ 5 kg, did 1`. So the
+current behaviour is safe for a realistic layoff and unsafe for a long one, with
+no mechanism in between that knows the difference.
+
+| decline at return | misses after return | missed cards, whole run |
+|---|---|---|
+| none (ablated) | 4 | 16 |
+| 7% — three weeks off | 5 | 17 |
+| 28% — a long layoff | 11 | 23 |
+
+**Not fixed, deliberately.** At realistic magnitudes there is nothing to repair,
+and a "return ramp" built now would be a feature answering a question the data
+does not yet ask. What this round buys is that the question can now be asked at
+all: the instrument exists, the dose-response is measured, and the day the
+estimator gets accurate this table is the place to look first.

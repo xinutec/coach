@@ -30,14 +30,6 @@ data only Pippijn can supply.
 
 ## Agreed, not built
 
-- **Round 7 of the field test: does the coach handle lost fitness?** Round 6
-  named the gap in its own conclusions — the simulated athlete does not detrain
-  over a layoff, so the 21-day-away case tested re-entry after *silence*, not
-  after *decline*. Every temperament in `src/bin/simulate.rs` so far grows or
-  plateaus; none gets weaker while away. An athlete who returns measurably weaker
-  meets an ability estimate built from who they were, and the first session back
-  would be asked at the old numbers. Whether staleness decay is enough to absorb
-  that is unknown, because nothing has ever asked it.
 - **Anatomy renders** — generate exercise illustrations from a 3D anatomical
   model, muscle colouring driven by the catalog. Plan and milestones in
   [anatomy-renders.md](anatomy-renders.md).

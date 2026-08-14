@@ -113,6 +113,32 @@ const INJURY_MULT: f64 = 0.4;
 /// The sim week the injury lands in.
 const INJURY_WEEK: i64 = 2;
 
+/// Detraining: what *not* training costs.
+///
+/// ⚠ This is deliberately NOT a [`Temperament`], which is the modelling gap
+/// round 6 named. Every temperament banks progress as a function of the sim
+/// week, so an athlete who disappears for three weeks comes back *stronger* —
+/// and the 21-day layoff therefore tested re-entry after silence rather than
+/// after decline. Ability and compliance were separated on the grounds that they
+/// move independently, and disuse is exactly where they do not: it is caused by
+/// the behaviour and it moves the ability.
+///
+/// So it follows from the days actually trained rather than from the layoff
+/// window. A skipper's two-day gaps cost nothing; three weeks away costs real
+/// strength; and nothing has to know which temperament is running.
+///
+/// The numbers are the modest end of the literature, matching the rest of this
+/// file's refusal to make a montage of it: a trained person loses little in the
+/// first week off, then roughly half a percent a day, and regains it about twice
+/// as fast on return — the asymmetry anyone who has come back from a layoff
+/// recognises. Endurance goes first and further, which is why holds and reps
+/// carry their own multiple.
+const DETRAIN_GRACE_DAYS: i64 = 7;
+const DETRAIN_PER_DAY: f64 = 0.005;
+const DETRAIN_MAX: f64 = 0.20;
+const REGAIN_PER_DAY: f64 = 0.010;
+const DETRAIN_ENDURANCE_MULT: f64 = 2.0;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Temperament {
     Improver,
@@ -365,9 +391,30 @@ struct Athlete {
     /// Exercises whose primary group is the injured one. Empty unless the
     /// temperament is [`Temperament::Injured`].
     injured: BTreeSet<ExerciseId>,
+    /// Consecutive days without training, and the ability lost to them — see the
+    /// detraining constants. State rather than a function of the day, because
+    /// coming back does not undo a layoff instantly: the loss has to persist and
+    /// then be regained.
+    idle_days: i64,
+    detrained: f64,
 }
 
 impl Athlete {
+    /// Spend one sim day. `trained` means sets actually reached the log — not
+    /// that the coach offered a session, and not that the athlete turned up and
+    /// left, both of which are days the body spends idle.
+    fn spend_day(&mut self, trained: bool) {
+        if trained {
+            self.idle_days = 0;
+            self.detrained = (self.detrained - REGAIN_PER_DAY).max(0.0);
+        } else {
+            self.idle_days += 1;
+            if self.idle_days > DETRAIN_GRACE_DAYS {
+                self.detrained = (self.detrained + DETRAIN_PER_DAY).min(DETRAIN_MAX);
+            }
+        }
+    }
+
     /// True ability at sim week `w`, seeding a deterministic default the first
     /// time an exercise is asked about.
     fn truth(&mut self, exercise_id: ExerciseId, seed: Option<&ability::Ability>, w: i64) -> Base {
@@ -388,13 +435,22 @@ impl Athlete {
                 .unwrap_or(DEFAULT_CARRY),
         });
         let hurt = t.injury(w, self.injured.contains(&exercise_id));
+        // Disuse multiplies what banked progress produced rather than unbanking
+        // it: the weeks were still trained, the body has just let some of it go.
+        let idle = 1.0 - self.detrained;
+        let idle_endurance = (1.0 - self.detrained * DETRAIN_ENDURANCE_MULT).max(0.5);
         Base {
-            e1rm: b.e1rm * t.strength(w) * hurt,
-            reps: ((b.reps as f64 + t.reps(w)) * hurt).round().max(1.0) as i32,
-            hold_s: ((b.hold_s as f64 + t.hold(w)) * hurt).round().max(5.0) as i32,
+            e1rm: b.e1rm * t.strength(w) * hurt * idle,
+            reps: ((b.reps as f64 + t.reps(w)) * hurt * idle_endurance)
+                .round()
+                .max(1.0) as i32,
+            hold_s: ((b.hold_s as f64 + t.hold(w)) * hurt * idle_endurance)
+                .round()
+                .max(5.0) as i32,
             carry: (
-                b.carry.0 * t.strength(w) * hurt,
-                (((b.carry.1 as f64 + t.hold(w) / 2.0) * hurt).round()).max(5.0) as i32,
+                b.carry.0 * t.strength(w) * hurt * idle,
+                (((b.carry.1 as f64 + t.hold(w) / 2.0) * hurt * idle_endurance).round()).max(5.0)
+                    as i32,
             ),
         }
     }
@@ -725,6 +781,8 @@ async fn main() -> Result<()> {
         temperament,
         base: HashMap::new(),
         injured,
+        idle_days: 0,
+        detrained: 0.0,
     };
 
     println!(
@@ -773,6 +831,7 @@ async fn main() -> Result<()> {
         let ready_tag = today_readiness
             .map(|r| format!(" [readiness {:?} {:.2}]", r.band(), r.score()))
             .unwrap_or_default();
+        let sets_at_dawn = sets_logged;
         let last_set_at = hist.last().map(|s| s.logged_at);
         let inp = service::input_from(
             &ctx,
@@ -896,6 +955,20 @@ async fn main() -> Result<()> {
             for n in &verdict.notices {
                 println!("    (note) {n}");
             }
+        }
+
+        // The body spends the day whatever the coach and the athlete decided.
+        // Measured by sets reaching the log rather than by attendance: a rest
+        // day, a day the athlete stayed away and a day they turned up and left
+        // before the first card are the same day to a muscle.
+        let trained_today = sets_logged > sets_at_dawn;
+        athlete.spend_day(trained_today);
+        if athlete.detrained > 0.0 && (trained_today || athlete.idle_days % 7 == 0) {
+            println!(
+                "{date}  w{week}  (body) {:.0}% of trained strength, {} day(s) idle",
+                (1.0 - athlete.detrained) * 100.0,
+                athlete.idle_days
+            );
         }
 
         // End of a sim week: how far apart are the engine's belief and the truth?
