@@ -139,6 +139,27 @@ const DETRAIN_MAX: f64 = 0.20;
 const REGAIN_PER_DAY: f64 = 0.010;
 const DETRAIN_ENDURANCE_MULT: f64 = 2.0;
 
+/// Parse an axis from its env-var spelling, and say what the spellings are.
+///
+/// Both halves come from one list because they drifted apart when they didn't:
+/// round 6 added `novice`, `strong` and `injured` to `Temperament::parse` and
+/// left `SIM_ATHLETE`'s rejection message naming the original three, so the one
+/// output a reader consults *after* getting it wrong told them the new athletes
+/// did not exist. Same shape as `db_str!` in `coach-pacing`.
+macro_rules! sim_axis {
+    ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
+        impl $name {
+            fn parse(s: &str) -> Option<Self> {
+                match s { $($s => Some(Self::$variant),)+ _ => None }
+            }
+            /// The accepted spellings, for the message shown when parsing fails.
+            fn names() -> String {
+                [$($s),+].join(" | ")
+            }
+        }
+    };
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Temperament {
     Improver,
@@ -149,19 +170,16 @@ enum Temperament {
     Injured,
 }
 
-impl Temperament {
-    fn parse(s: &str) -> Option<Self> {
-        match s {
-            "improver" => Some(Self::Improver),
-            "plateauer" => Some(Self::Plateauer),
-            "badweek" => Some(Self::BadWeek),
-            "novice" => Some(Self::Novice),
-            "strong" => Some(Self::Strong),
-            "injured" => Some(Self::Injured),
-            _ => None,
-        }
-    }
+sim_axis!(Temperament {
+    Improver => "improver",
+    Plateauer => "plateauer",
+    BadWeek => "badweek",
+    Novice => "novice",
+    Strong => "strong",
+    Injured => "injured",
+});
 
+impl Temperament {
     /// Where true ability *opens*, as a fraction of what the real history's own
     /// estimates say. Everyone but the novice and the strong athlete starts
     /// where the engine believes they are — for those two the opening gap is
@@ -258,19 +276,16 @@ const PARTIAL_FRACTION: f64 = 0.6;
 const LAYOFF_FROM: i64 = 14;
 const LAYOFF_TO: i64 = 35;
 
-impl Behaviour {
-    fn parse(s: &str) -> Option<Self> {
-        match s {
-            "compliant" => Some(Self::Compliant),
-            "skipper" => Some(Self::Skipper),
-            "partial" => Some(Self::Partial),
-            "overachiever" => Some(Self::Overachiever),
-            "improviser" => Some(Self::Improviser),
-            "layoff" => Some(Self::Layoff),
-            _ => None,
-        }
-    }
+sim_axis!(Behaviour {
+    Compliant => "compliant",
+    Skipper => "skipper",
+    Partial => "partial",
+    Overachiever => "overachiever",
+    Improviser => "improviser",
+    Layoff => "layoff",
+});
 
+impl Behaviour {
     /// Does the athlete turn up on sim day `d` at all? The coach still computes
     /// the day's verdict either way — what changes is whether any sets come back.
     fn attends(self, d: i64) -> bool {
@@ -338,16 +353,13 @@ enum Sleep {
     RoughWeek,
 }
 
-impl Sleep {
-    fn parse(s: &str) -> Option<Self> {
-        match s {
-            "untracked" => Some(Self::Untracked),
-            "rested" => Some(Self::Rested),
-            "roughweek" => Some(Self::RoughWeek),
-            _ => None,
-        }
-    }
+sim_axis!(Sleep {
+    Untracked => "untracked",
+    Rested => "rested",
+    RoughWeek => "roughweek",
+});
 
+impl Sleep {
     /// Hours slept before sim day `d` (0-based), or `None` when the night wasn't
     /// tracked at all. Feeds the readiness score via the real compose function.
     fn hours(self, d: i64) -> Option<f64> {
@@ -671,24 +683,21 @@ async fn main() -> Result<()> {
         let raw = std::env::var("SIM_ATHLETE").unwrap_or_else(|_| "improver".into());
         match Temperament::parse(&raw) {
             Some(t) => t,
-            None => bail!("SIM_ATHLETE must be improver | plateauer | badweek, got {raw:?}"),
+            None => bail!("SIM_ATHLETE must be {}, got {raw:?}", Temperament::names()),
         }
     };
     let sleep = {
         let raw = std::env::var("SIM_RECOVERY").unwrap_or_else(|_| "untracked".into());
         match Sleep::parse(&raw) {
             Some(s) => s,
-            None => bail!("SIM_RECOVERY must be untracked | rested | roughweek, got {raw:?}"),
+            None => bail!("SIM_RECOVERY must be {}, got {raw:?}", Sleep::names()),
         }
     };
     let behaviour = {
         let raw = std::env::var("SIM_BEHAVIOUR").unwrap_or_else(|_| "compliant".into());
         match Behaviour::parse(&raw) {
             Some(b) => b,
-            None => bail!(
-                "SIM_BEHAVIOUR must be compliant | skipper | partial | overachiever | \
-                 improviser | layoff, got {raw:?}"
-            ),
+            None => bail!("SIM_BEHAVIOUR must be {}, got {raw:?}", Behaviour::names()),
         }
     };
 
