@@ -9,10 +9,18 @@
 #   1. dev DB running:   ./scripts/dev-db.sh      (another terminal)
 #   2. a prod dump:      ./scripts/prod-dump.sh
 #
-#   ./scripts/simulate.sh                              # 8 weeks, improver
-#   SIM_ATHLETE=plateauer ./scripts/simulate.sh        # temperaments: improver | plateauer | badweek
+#   ./scripts/simulate.sh                              # 8 weeks, compliant improver
+#   SIM_ATHLETE=novice ./scripts/simulate.sh           # how strong, and where that goes:
+#                                                      #   improver | plateauer | badweek
+#                                                      #   novice | strong | injured
+#   SIM_BEHAVIOUR=partial ./scripts/simulate.sh        # whether they do what they're told:
+#                                                      #   compliant | skipper | partial
+#                                                      #   overachiever | improviser | layoff
 #   SIM_RECOVERY=roughweek ./scripts/simulate.sh       # recovery: untracked | rested | roughweek
 #   SIM_WEEKS=12 SIM_LOCATION=Office ./scripts/simulate.sh
+#
+# The two athlete axes are crossed by ./scripts/simulate-matrix.sh — a single run
+# asks "does it handle this athlete?", only the sweep asks which one it handles badly.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

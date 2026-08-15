@@ -361,8 +361,12 @@ converged, tracking when ability grows, and that the estimate never exceeds trut
 test above is one athlete on one exercise; this plays a whole athlete against the
 whole engine for simulated weeks, growing forward from the real history in the dev
 DB: each day's verdict is performed as well as a temperament's hidden true ability
-allows — `improver`, `plateauer`, `badweek` — logged, and the walk continues on the
-grown history. It exercises the loop the athlete actually lives in (prescribe →
+allows — `improver`, `plateauer`, `badweek`, `novice`, `strong`, `injured` — logged,
+and the walk continues on the grown history. Whether the athlete does what they are
+told is a second, independent axis (`compliant`, `skipper`, `partial`, `overachiever`,
+`improviser`, `layoff`), because a set that fell short and a set that never happened
+reach the ledger as different signals; `scripts/simulate-matrix.sh` crosses the two.
+It exercises the loop the athlete actually lives in (prescribe →
 perform → re-estimate → prescribe), which the back-test structurally cannot: replayed
 history never responds to the coach. Deterministic, so traces diff across engine
 changes. The probe cadence, the plateau/ladder pair and the coarse-rack rounding rule
