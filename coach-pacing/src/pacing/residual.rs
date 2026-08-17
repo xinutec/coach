@@ -1,29 +1,25 @@
 //! The prediction-error ledger: how well the engine's estimate has been describing
 //! the athlete lately.
 //!
-//! Every prescription is a **prediction** — "you can do 8 × 40 kg". Until now the
-//! engine never checked. Ability is a *max* over decayed sets, so a session that
-//! went badly pulled nothing down: a bad day was ignored rather than answered, and
-//! the athlete kept being handed a number the sets had already contradicted.
+//! Every prescription is a **prediction** — "you can do 8 × 40 kg" — and ability is a
+//! *max* over decayed sets, so a session that went badly pulled nothing down: a bad day
+//! was ignored rather than answered, and the athlete kept being handed a number the sets
+//! had already contradicted.
 //!
-//! Nothing is stored to fix that. The residual is **recomputable from history
-//! alone**, which keeps the engine stateless: for each training day, ask what the
-//! ability estimate was *before* it (the same [`ability::estimate`] the engine would
-//! have used that morning, over the strictly-earlier sets), and compare it against
-//! what the day actually produced.
+//! Nothing is stored to fix that. The residual is **recomputable from history alone**,
+//! keeping the engine stateless: for each training day, ask what the estimate was
+//! *before* it (the same [`ability::estimate`], over the strictly-earlier sets) and
+//! compare against what the day produced.
 //!
-//! Two things follow, and they are the point of the ledger:
+//! - **A miss is answered.** One → hold the load. Two in a row → step *down* the
+//!   owned-weights ladder and rebuild.
+//! - **Persistent misses re-open the measurement.** An estimate that keeps being wrong
+//!   is a wrong estimate rather than a bad day, so the exercise goes back to being
+//!   measured — the rule everywhere in this engine: when it doesn't know, it measures.
 //!
-//! - **A miss is answered.** One → hold the load rather than bump it. Two in a row →
-//!   step *down* the owned-weights ladder and rebuild.
-//! - **Persistent misses re-open the measurement.** If the estimate keeps being
-//!   wrong, it is not a bad day, it is a wrong estimate — so the exercise goes back
-//!   to being *measured* rather than prescribed. That is the same rule as everywhere
-//!   else in this engine: when it doesn't know, it measures.
-//!
-//! It compares **sessions, not sets**. The third set of a session is expected to be
-//! worse than the first — that's fatigue, not a miss — so a day is judged on its best
-//! set, which is what the estimate is a claim about.
+//! ⚠ It compares **sessions, not sets**. A session's third set is expected to be worse
+//! than its first, which is fatigue and not a miss, so a day is judged on its best set —
+//! what the estimate is a claim about.
 
 use crate::prelude::*;
 use alloc::collections::BTreeMap;

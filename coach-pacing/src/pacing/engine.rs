@@ -331,24 +331,22 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<ExerciseId, Vec<f64>>) 
 /// is no way to call this for an exercise the athlete hasn't recently
 /// demonstrated (see [`Known`]).
 ///
-/// Weighted work autoregulates: the working load is derived from the decayed e1RM
-/// so a layoff self-corrects to a lighter start, and the load only steps up when
-/// logged sets raise the estimate past the next owned weight (double progression,
-/// but *earned* and snapped to what you own).
+/// Weighted work autoregulates: the load derives from the decayed e1RM, so a layoff
+/// self-corrects to a lighter start and the load steps up only when logged sets raise
+/// the estimate past the next owned weight — double progression, *earned* and snapped
+/// to what you own.
 ///
-/// Two things hold it back. `advance = false` (low readiness) leaves more in
-/// reserve — keep it light, don't chase a PR. And `feedback`, the prediction-error
-/// ledger, answers a session that actually went badly: **one miss holds** the number
-/// rather than adding to it, and **two in a row step down** a rung of the owned
-/// weights. Without that, ability is a max over decayed sets and a miss pulls
-/// nothing down — the athlete gets handed the same number the sets just
-/// contradicted, which is how you grind someone into a hole.
+/// Two things hold it back. `advance = false` (low readiness) leaves more in reserve.
+/// And `feedback`, the prediction-error ledger, answers a session that went badly:
+/// ⚠ **one miss holds** the number and **two in a row step down** a rung. Without that,
+/// ability is a max over decayed sets and a miss pulls nothing down — the athlete is
+/// handed the number the sets just contradicted, which is how you grind someone into a
+/// hole.
 ///
-/// And asking for *more* is a **probe**, not the default: earned by a session
-/// that beat the estimate, or periodic after enough consolidation
-/// ([`Residual::probe_due`]). Matching your best while failing the ask moves
-/// nothing (ability is a max), so without the cadence the same failing +1 was
-/// re-asked verbatim every session for weeks — the R4-1 simulation finding.
+/// Asking for *more* is a **probe**, not the default: earned by a session that beat the
+/// estimate, or periodic after enough consolidation ([`Residual::probe_due`]). Matching
+/// your best while failing the ask moves nothing, ability being a max, so without the
+/// cadence the same failing +1 was re-asked verbatim every session for weeks (R4-1).
 fn prescribe(
     loaded: &Loaded,
     ability: &Known,
@@ -1368,24 +1366,22 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // How much history there actually *is*, in weeks — not the width of the window
     // we looked through.
     //
-    // Every weekly average below used to divide by a flat `HISTORY_WEEKS`, which is
-    // only your weekly rate if you have been training the whole eight weeks. On a
-    // returning athlete it is nonsense in the most damaging direction: one session
-    // of 14 sets read as 1.75 sets/week, so the day's target *fell* from the
-    // cold-start 6 to the floor of 3. Logging a session made the coach believe he
-    // trained less than logging nothing did — the estimate got worse the more it
-    // knew, which is the one thing an estimator must never do.
+    // ⚠ Every weekly average below used to divide by a flat `HISTORY_WEEKS`, which is
+    // your weekly rate only if you trained the whole eight weeks. On a returning athlete
+    // it fails in the most damaging direction: one session of 14 sets read as 1.75
+    // sets/week, so the day's target *fell* from the cold-start 6 to the floor of 3.
+    // Logging a session made the coach believe he trained less than logging nothing —
+    // the estimate got worse the more it knew, which an estimator must never do.
     //
-    // Not floored at a week: a single day of history is *zero* weeks of evidence,
-    // and the session-size prior below is what keeps that from extrapolating a hard
-    // morning into "98 sets a week". Flooring it at one week instead would treat
-    // today as a whole week already spent, which understates the rate — and that
-    // was still enough to shrink the target the moment a first session landed.
+    // Not floored at a week: one day of history is *zero* weeks of evidence, and the
+    // session-size prior below is what stops that extrapolating a hard morning into "98
+    // sets a week". Flooring at one week would treat today as a whole week already
+    // spent, understating the rate — still enough to shrink the target the moment a
+    // first session landed.
     //
-    // What this buys, exactly: logging a set can only ever *raise* the numerator,
-    // while the denominator moves only with the calendar. So logging never lowers
-    // the day's target. Time passing still can, which is correct — that's
-    // detraining, not a measurement artefact.
+    // What this buys: logging a set can only *raise* the numerator, while the
+    // denominator moves only with the calendar, so logging never lowers the day's
+    // target. Time passing still can, which is detraining rather than an artefact.
     let observed_weeks = first_hist
         .map(|first| ((plan_at - first).num_days() as f64 / 7.0).clamp(0.0, HISTORY_WEEKS as f64))
         .unwrap_or(0.0);
