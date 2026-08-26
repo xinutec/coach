@@ -186,8 +186,11 @@ if n_muscle == 0:
 if prim_bases and n_prim == 0:
     sys.exit("primary muscles mapped but 0 meshes matched — mesh names drifted?")
 if n_head == 0:
-    print("WARNING: no head-region skeleton found — head may still look hollow. "
-          "Did prepare.py keep the Skeletal system?")
+    # Loudly, like its neighbours. This was a warning once, and the headless
+    # render it let through was committed to the catalog and served for weeks —
+    # the muscles were right, so nothing downstream had a reason to look.
+    sys.exit("no head-region skeleton found — the head would render hollow. "
+             "Did prepare.py keep the Skeletal system?")
 
 # Frame the whole figure with an orthographic camera from the requested side.
 mins = mathutils.Vector((1e9,) * 3)
