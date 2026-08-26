@@ -24,8 +24,11 @@ pub async fn get(pool: &MySqlPool, exercise_id: i64) -> Result<Option<ImageBlob>
     }))
 }
 
-/// Seed an image if the exercise doesn't already have one (idempotent).
-pub async fn insert_if_absent(
+/// Seed an exercise's image, replacing whatever is there. Idempotent, and the
+/// caller only reaches it when the bytes differ — but it must *replace*, not
+/// ignore: this was `INSERT IGNORE`, which made the first picture an exercise ever
+/// received permanent, so a corrected render could never reach the app.
+pub async fn upsert(
     pool: &MySqlPool,
     exercise_id: i64,
     content_type: &str,
@@ -33,8 +36,11 @@ pub async fn insert_if_absent(
     etag: &str,
 ) -> Result<()> {
     sqlx::query(
-        "INSERT IGNORE INTO exercise_images (exercise_id, content_type, bytes, byte_size, etag) \
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO exercise_images (exercise_id, content_type, bytes, byte_size, etag) \
+         VALUES (?, ?, ?, ?, ?) \
+         ON DUPLICATE KEY UPDATE \
+           content_type = VALUES(content_type), bytes = VALUES(bytes), \
+           byte_size = VALUES(byte_size), etag = VALUES(etag)",
     )
     .bind(exercise_id)
     .bind(content_type)

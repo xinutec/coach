@@ -38,7 +38,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, MySqlConnection, MySqlPool};
 
-mod render;
+pub mod render;
 
 use crate::exercise::image;
 
@@ -128,24 +128,42 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
     serde_json::from_slice(&bytes).with_context(|| format!("parsing {}", path.display()))
 }
 
-/// Fingerprint the catalog bundle: every `*.json` in the dir, in filename order,
-/// each hashed under its own name. Any edit to any of them changes the digest, so
-/// the seed runs — which is the whole point of the gate. Hashing only
-/// `exercises.json` (what this used to do) meant an edit to `equipment.json` or
-/// the muscle taxonomy left the digest unchanged and was skipped forever.
+/// Fingerprint the catalog bundle: every `*.json` in the dir **and every file in
+/// `images/`**, in path order, each hashed under its own name. Any edit to any of
+/// them changes the digest, so the seed runs — which is the whole point of the
+/// gate. Hashing only `exercises.json` (what this used to do) meant an edit to
+/// `equipment.json` or the muscle taxonomy left the digest unchanged and was
+/// skipped forever.
+///
+/// The images were outside the digest for the same reason, and it cost more: a
+/// re-rendered picture is a *silent* no-op rather than a visible one. The écorché
+/// was re-rendered with a head, committed, and the app kept serving the headless
+/// one, because a changed PNG moved nothing the gate could see.
 fn bundle_hash(dir: &Path) -> Result<String> {
     let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .with_context(|| format!("reading {}", dir.display()))?
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .collect();
+    let images = dir.join("images");
+    if images.is_dir() {
+        files.extend(
+            std::fs::read_dir(&images)
+                .with_context(|| format!("reading {}", images.display()))?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.is_file()),
+        );
+    }
     files.sort();
 
     let mut h = Sha256::new();
     for path in &files {
         let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-        // The name is hashed too, so renaming a file is a change like any other.
-        h.update(path.file_name().unwrap_or_default().as_encoded_bytes());
+        // The path relative to the bundle is hashed too, so renaming or moving a
+        // file is a change like any other. Relative, not absolute, or the digest
+        // would depend on where the checkout lives.
+        let rel = path.strip_prefix(dir).unwrap_or(path);
+        h.update(rel.as_os_str().as_encoded_bytes());
         h.update(&bytes);
     }
     Ok(hex::encode(h.finalize()))
@@ -274,11 +292,14 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         .await?
         .into_iter()
         .collect();
-    // Which exercises already carry a picture — so a *newly added* one lands on a
-    // row that has been there for months, and an existing one isn't re-read off
-    // disk on every catalog change.
-    let has_image: std::collections::HashSet<i64> =
-        sqlx::query_scalar("SELECT exercise_id FROM exercise_images")
+    // What picture each exercise currently carries, by the etag of the bytes the
+    // app is actually serving. Presence alone is not enough: it makes an existing
+    // picture permanent, so re-rendering one is a change that can never land.
+    // Comparing the etag lets a *newly added* picture land on a row that has been
+    // there for months **and** a re-rendered one replace what's there, while an
+    // unchanged bundle still writes nothing.
+    let image_etag: HashMap<i64, String> =
+        sqlx::query_as("SELECT exercise_id, etag FROM exercise_images")
             .fetch_all(pool)
             .await?
             .into_iter()
@@ -360,11 +381,11 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         // existed, so the seed skipped it forever, and the movement stayed
         // illustrated-by-nothing however many images were added to the bundle.
         //
-        // Reading the file only when the row has no image keeps a re-seed from
-        // hauling ~15 MB off disk to `INSERT IGNORE` it away.
-        if let Some(img) = &ex.image
-            && !has_image.contains(&id)
-        {
+        // This does read + render every picture in the bundle, ~15 MB off disk, and
+        // that is the price of a re-render being able to land at all. It is only
+        // paid when the digest moved, which is exactly when a picture may have
+        // changed; an unchanged bundle never reaches this loop.
+        if let Some(img) = &ex.image {
             let path = dir.join("images").join(&img.file);
             let raw =
                 std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
@@ -374,8 +395,10 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             // stored exactly as it came. See seed::render.
             let r = render::render(&raw, &img.content_type, &ex.slug)?;
             let etag = hex::encode(Sha256::digest(&r.bytes));
-            image::insert_if_absent(pool, id, &r.content_type, &r.bytes, &etag).await?;
-            images += 1;
+            if image_etag.get(&id) != Some(&etag) {
+                image::upsert(pool, id, &r.content_type, &r.bytes, &etag).await?;
+                images += 1;
+            }
         }
     }
 

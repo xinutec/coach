@@ -19,6 +19,12 @@
 //! roughly landscape is stored byte-for-byte as it came — 74 of the bundle's 122,
 //! and the cheap path in every sense: it isn't even decoded.
 //!
+//! A shape test cannot see where the head is, though, and three pictures in the
+//! bundle are landscape enough to pass it while being framed tightly enough that
+//! the hero's centre crop takes the head off. Those are named one by one in
+//! `PAD_ALWAYS` — an enumerated list, because the thing that makes them different
+//! is a fact about the photograph, not a fact about its dimensions.
+//!
 //! The shape test is deliberately about the *shape*, not about the alpha: the
 //! second diagram to arrive was an opaque 800×800 JPEG, and squares get their head
 //! and feet cropped off by `cover` exactly like portraits do. Keying the rule on
@@ -49,6 +55,24 @@ const TARGET_W: u32 = 1200;
 /// square, which does not.
 const CROPS_BADLY_BELOW: f64 = 1.2;
 
+/// Pictures the shape rule gets wrong. Each is wide enough to clear
+/// `CROPS_BADLY_BELOW`, and each still loses a head to the hero's centre crop,
+/// because the figure is framed high in the frame rather than centred. Padded
+/// instead, so the whole figure shows.
+///
+/// Enumerated rather than generalised on purpose: the six other pictures in the
+/// same aspect band crop fine, so any rule wide enough to catch these three would
+/// pad them for nothing. Each entry says what the crop does to it, so it can be
+/// checked against the picture instead of taken on trust.
+pub const PAD_ALWAYS: &[(&str, &str)] = &[
+    // 5:4, and the widest counterexample to `CROPS_BADLY_BELOW`'s own comment.
+    ("squat_front_rack_double_kettlebell", "cut across the eyes"),
+    // 4:3, two figures side by side, and the crop takes both at the chin.
+    ("banded_rotation_propulsive", "both figures cut at the chin"),
+    // 4:3. The squatting figure survives it; the one on the box loses its head.
+    ("box_jump", "the landing figure cut at the neck"),
+];
+
 /// The rendered picture, and the content type it is now in.
 pub struct Rendered {
     pub bytes: Vec<u8>,
@@ -58,18 +82,19 @@ pub struct Rendered {
 /// Render `raw` for display. Returns the original bytes untouched when it needs no
 /// rendering — which is the common case, and keeps a re-seed from rewriting every
 /// photograph in the bundle.
-pub fn render(raw: &[u8], content_type: &str, what: &str) -> Result<Rendered> {
+pub fn render(raw: &[u8], content_type: &str, slug: &str) -> Result<Rendered> {
     // Decide from the *header* first. Most of the bundle is landscape photographs
     // with no alpha channel at all, and fully decoding 15 MB of them just to learn
     // that they need nothing done is the difference between a seed that takes a
     // moment and one that takes a minute.
     let decoder = ImageReader::new(Cursor::new(raw))
         .with_guessed_format()
-        .with_context(|| format!("reading {what}"))?
+        .with_context(|| format!("reading {slug}"))?
         .into_decoder()
-        .with_context(|| format!("decoding {what}"))?;
+        .with_context(|| format!("decoding {slug}"))?;
     let (w, h) = decoder.dimensions();
-    let crops_badly = w as f64 / (h.max(1) as f64) < CROPS_BADLY_BELOW;
+    let crops_badly = w as f64 / (h.max(1) as f64) < CROPS_BADLY_BELOW
+        || PAD_ALWAYS.iter().any(|(s, _)| *s == slug);
     let may_be_transparent = decoder.color_type().has_alpha();
     if !crops_badly && !may_be_transparent {
         return Ok(Rendered {
@@ -81,7 +106,7 @@ pub fn render(raw: &[u8], content_type: &str, what: &str) -> Result<Rendered> {
     // It's the right shape *and* it merely has an alpha channel it doesn't use (an
     // RGBA photograph) → still nothing to do. This is the only case that needs the
     // pixels, so it's the only one that pays for them.
-    let img = DynamicImage::from_decoder(decoder).with_context(|| format!("decoding {what}"))?;
+    let img = DynamicImage::from_decoder(decoder).with_context(|| format!("decoding {slug}"))?;
     if !crops_badly && !is_transparent(&img) {
         return Ok(Rendered {
             bytes: raw.to_vec(),
@@ -114,7 +139,7 @@ pub fn render(raw: &[u8], content_type: &str, what: &str) -> Result<Rendered> {
         rgb.height(),
         ExtendedColorType::Rgb8,
     )
-    .with_context(|| format!("encoding {what}"))?;
+    .with_context(|| format!("encoding {slug}"))?;
     Ok(Rendered {
         bytes,
         content_type: "image/png".to_string(),
