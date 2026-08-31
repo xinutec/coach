@@ -152,12 +152,14 @@ in  { name = "coach"
         , name = "frontend deps match the lockfile"
         , cwd = "frontend"
         , argv = G.inDevShell [ "pnpm", "install", "--frozen-lockfile" ]
+        , env = G.nonInteractive
         , timeout_s = 900
         }
       , G.Check::{
         , name = "frontend lint"
         , cwd = "frontend"
         , argv = G.inDevShell [ "pnpm", "run", "lint" ]
+        , env = G.nonInteractive
         , timeout_s = 900
         }
       , {-  The Playwright specs, type-checked. Nothing else reads them:
@@ -174,6 +176,7 @@ in  { name = "coach"
         , name = "frontend e2e specs type-check"
         , cwd = "frontend"
         , argv = G.inDevShell [ "pnpm", "run", "typecheck:e2e" ]
+        , env = G.nonInteractive
         , timeout_s = 900
         }
       , {-  `../../dev-lint`, not `../dev-lint`: cwd is `coach/frontend`.
@@ -186,13 +189,14 @@ in  { name = "coach"
               "../../"
               [ "dist/coach-web/browser" ]
               [ "pnpm", "exec", "ng", "build" ]
+        , env = G.nonInteractive
         , timeout_s = 1800
         }
       , G.Check::{
         , name = "frontend unit tests"
         , cwd = "frontend"
         , argv = G.inDevShell [ "pnpm", "test" ]
-        , env = G.oneAngularWorker
+        , env = G.nonInteractive # G.oneAngularWorker
         , timeout_s = 1800
         }
       , {-  The L2 phone-width layout harness: it serves the freshly-built dist
@@ -211,6 +215,7 @@ in  { name = "coach"
         , name = "frontend ui-check (phone-width layout harness)"
         , cwd = "frontend"
         , argv = G.inDevShell [ "pnpm", "run", "ui-check" ]
+        , env = G.nonInteractive
         , timeout_s = 1800
         }
       , {-  The Android app. Toolchain comes from recall's android dev shell,
