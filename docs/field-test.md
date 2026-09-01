@@ -217,9 +217,11 @@ Squat sky reach — 10 slow reps." — and the rest prompt names that item too.
   ending on the Library page). Not reproducible on inspection — the plan list
   re-renders in place and both incidents are consistent with automation tap
   timing rather than a layout fault. Watching, no code change.
-- Triceps extension has no catalog image (placeholder icon). OPEN — needs an
-  actual picture; `scripts/add-image.py <slug> <url-or-file>` seeds it once one
-  is found.
+- Triceps extension has no catalog image (placeholder icon). FIXED —
+  `data/catalog/images/triceps_extension_overhead_dumbbell.jpg` exists and the
+  catalog is 136/136 imaged. This line said OPEN until 2026-09-01, which made
+  the round 1-3 summary read as having an outstanding item when it did not;
+  `scripts/add-image.py <slug> <url-or-file>` is how one is seeded.
 
 ## What round 2 confirmed is right
 
