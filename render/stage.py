@@ -27,11 +27,16 @@ def visible_bounds(bpy):
     return mins, maxs
 
 
-def setup(bpy, view):
-    """Frame the visible figure orthographically from `view` and light it."""
+def setup(bpy, view, bounds=None):
+    """Frame the visible figure orthographically from `view` and light it.
+
+    `bounds` overrides what to frame on. An animation must pass the union across
+    every frame: framing on whichever pose happens to be current leaves the
+    figure drifting in and out of the composition as the rep proceeds.
+    """
     if view not in VIEWS:
         raise SystemExit(f"unknown view {view!r} — expected one of {sorted(VIEWS)}")
-    mins, maxs = visible_bounds(bpy)
+    mins, maxs = bounds if bounds is not None else visible_bounds(bpy)
     center = (mins + maxs) / 2
     size = maxs - mins
 

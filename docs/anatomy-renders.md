@@ -226,8 +226,33 @@ choice, not a global default.
 The one shipped écorché (`heel_toe_rocks`) was rendered under the old exposure
 and has not been re-rendered, so it is a shade brighter than anything new.
 
-**Not yet answered: animation.** One static pose is not a sequence.
-Interpolating between poses, and what the app would store, are both untouched.
+### Animation (2026-09-03)
+
+`render/skin/animate.py` renders an exercise as a seamless loop: keyframe the
+bones through a list of `pose@frame` keys, plant the feet on every frame, frame
+the camera on the union of every frame, render with EEVEE to MP4 through
+Blender's own FFmpeg. A goblet squat comes out as 24 frames at 12fps, 33 KB.
+
+Three things it has to get right that a still does not:
+
+- **Check every frame, not just the keys.** Two legal poses can be joined by an
+  illegal path, and this is not hypothetical: the very first loop attempted was
+  rejected at frame 3 with the fingers of both hands inside both thighs, while
+  `stand` at frame 0 and `squat` at frame 12 each pass on their own. Fixed by a
+  `squat_reach` waypoint that brings the arms forward while the legs are still
+  nearly straight, so the hands travel in front of the thighs rather than
+  through them.
+- **Plant the feet on every frame.** The hips drop through a rep, so one offset
+  would leave the figure sinking and rising.
+- **Frame on the whole rep.** Framing on whichever pose is current leaves the
+  figure drifting in and out of the composition.
+
+`--stills <dir>` writes PNGs of every key and midpoint, because a loop can only
+be judged by looking and not everyone reviewing can open a video in place.
+
+**Still open: what the app stores.** `exercise_images` holds one blob per
+exercise; a loop is a second artifact, and adding it rather than overwriting is
+what keeps a bad loop from regressing the stills.
 
 **Render cost, measured on the Mac at 768px (2026-09-03).** Marginal cost per
 frame within one Blender process, which is what an animation pays:
