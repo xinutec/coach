@@ -40,6 +40,10 @@ BONE = "BONE"
 # 7cm, as in transfer-rig.py: wide enough to cross the skin/muscle gap, narrow
 # enough that a hand does not reach the thigh beside it.
 MAX_DIST = 0.07
+# How far under the skin to look along the normal. Deep enough to cross fat and
+# the fascia we exclude, shallow enough that a ray leaving a limb does not land
+# on the other one.
+RAY_DEPTH = 0.12
 
 with bpy.data.libraries.load(body_blend, link=False) as (src, dst):
     dst.objects = [n for n in src.objects if n.startswith("MBlab")]
@@ -88,6 +92,7 @@ bpy.context.view_layer.update()
 # Measure against the DEFORMED body, but write groups onto the original vertices
 # — the indices are the same, and the arms-down shape is what actually overlaps
 # the écorché. Non-armature modifiers off so the evaluated mesh keeps its count.
+was_on = {m.name: (m.show_viewport, m.show_render) for m in body.modifiers}
 for m in body.modifiers:
     if m.type != "ARMATURE":
         m.show_viewport = m.show_render = False
@@ -186,11 +191,29 @@ print(f"building BVH over {len(tris)} anatomy triangles ({len(verts)} vertices) 
 bvh = BVHTree.FromPolygons(verts, tris, all_triangles=True)
 del verts, tris
 
+# What lies UNDER this patch of skin, not what lies nearest to it. A nearest
+# -surface query happily answers with a muscle beside the point rather than
+# beneath it — over the anterior thigh it kept picking the iliotibial tract and
+# the femur, and all four quadriceps together held 192 of 17,996 vertices. A ray
+# straight down the skin normal asks the question anatomy actually poses, and
+# nearest-surface stays as the fallback for where the ray leaves the body.
+bev = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+bmesh_eval = bev.to_mesh()
+nm = bev.matrix_world.to_3x3().inverted_safe().transposed()
+normals = [(nm @ v.normal).normalized() for v in bmesh_eval.vertices]
+
 groups = {}
 unlabelled = 0
 tally = {}
+by_ray = 0
 for vi, co in enumerate(posed):
-    _, _, idx, dist = bvh.find_nearest(co, MAX_DIST)
+    idx = None
+    hit = bvh.ray_cast(co - normals[vi] * 0.001, -normals[vi], RAY_DEPTH)
+    if hit[2] is not None:
+        idx = hit[2]
+        by_ray += 1
+    else:
+        _, _, idx, dist = bvh.find_nearest(co, MAX_DIST)
     if idx is None:
         unlabelled += 1
         continue
@@ -201,12 +224,28 @@ for vi, co in enumerate(posed):
     tally[name] = tally.get(name, 0) + 1
 
 muscle_verts = sum(n for k, n in tally.items() if k != BONE)
+print(f"  {by_ray} labelled by ray, {len(posed) - unlabelled - by_ray} by nearest surface")
 print(f"labelled {len(posed) - unlabelled}/{len(posed)} body vertices "
       f"across {len(tally)} regions ({muscle_verts} muscle, "
       f"{tally.get(BONE, 0)} bone, {unlabelled} unlabelled)")
 print("largest regions:", sorted(tally.items(), key=lambda kv: -kv[1])[:8])
 if muscle_verts == 0:
     sys.exit("every body vertex resolved to bone — is the alignment inverted?")
+
+# Put the deformation stack back before saving. It is switched off above only
+# so the evaluated mesh keeps its vertex count while distances are measured —
+# leaving it off ships a raw 18k cage with no subdivision and no corrective
+# smoothing, which is what "the flesh does not move like flesh" looks like.
+for m in body.modifiers:
+    if m.name in was_on:
+        m.show_viewport, m.show_render = was_on[m.name]
+# Dual-quaternion skinning. Linear blend collapses a bent hip or knee inward and
+# twists a forearm into a candy wrapper; both are joints every exercise uses.
+for m in body.modifiers:
+    if m.type == "ARMATURE":
+        m.use_deform_preserve_volume = True
+print("deformation stack restored:",
+      [(m.type, m.show_render) for m in body.modifiers])
 
 bpy.ops.wm.save_as_mainfile(filepath=out_blend, compress=True)
 print(f"WROTE {out_blend}")

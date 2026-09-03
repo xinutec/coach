@@ -149,6 +149,45 @@ position.
 left the rig inconsistent — bones arms-down, mesh still in its authored T — and
 the body then rendered in a T-pose whatever its bones said.
 
+### Making the flesh move like flesh (2026-09-03)
+
+MB-Lab's body ships a deformation stack — corrective smooth, subdivision at
+render level 3, a displacement texture — and `label-body.py` switches all of it
+off so the evaluated mesh keeps its vertex count while distances are measured.
+It then saved the blend that way, so every render was the raw 18k cage under
+plain linear-blend skinning. The stack is restored before saving now, and the
+armature deforms with **preserve volume** (dual quaternion): linear blend
+collapses a bent hip or knee inward and twists a forearm, and those are joints
+every exercise uses. Subdivision also interpolates the colour attribute, which
+is what smoothed the ragged region boundaries.
+
+Two lighting faults, both of which read as rendering bugs rather than as light:
+
+- **Exposure.** A key sun of 4.0 on a 0.80-albedo surface clips to white. The
+  figure had no form at all — a plaster cast. Key 2.1, fill 0.7, ambient 0.15.
+- **Shadow hardness.** Blender's sun defaults to a 0.526° disc. An arm held
+  towards the camera laid a hard-edged wedge across the torso that looked like
+  a second translucent body; deleting the écorché entirely did not remove it.
+  The suns subtend 12° now, so shadows have a penumbra.
+
+Labels come from a ray cast along the skin normal, with nearest-surface as the
+fallback where the ray leaves the body — 11,900 of 17,349 by ray. This is the
+anatomically meaningful question, though it barely moved the region sizes.
+
+⚠ **Region coverage is still thin and the cause is not yet found.** All four
+quadriceps together hold 217 of 17,996 vertices, and pectoralis major 32, so the
+red describes a band across the thigh rather than the muscle's mass. It is not
+the query method — nearest-surface and inward-ray agree to within a few dozen
+vertices. The iliotibial tract holding 370 suggests the atlas's superficial
+structures win over the muscle beneath them, but that is a hypothesis.
+
+⚠ **A pose has a view that suits it.** Arms held forward foreshorten into stubs
+from the front; the squat only reads from the side. View is a per-exercise
+choice, not a global default.
+
+The one shipped écorché (`heel_toe_rocks`) was rendered under the old exposure
+and has not been re-rendered, so it is a shade brighter than anything new.
+
 **Not yet answered: animation.** One static pose is not a sequence.
 Interpolating between poses, and what the app would store, are both untouched.
 

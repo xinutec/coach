@@ -7,6 +7,8 @@ Suns are aimed RELATIVE TO THE CAMERA so the surface facing us is always lit
 obliquely, which is what reveals relief. Aiming them in world space lit the far
 side on a back view and came out flat.
 """
+import math
+
 import mathutils
 
 VIEWS = {"front": (0, -1, 0), "back": (0, 1, 0), "left": (-1, 0, 0), "right": (1, 0, 0)}
@@ -47,7 +49,7 @@ def setup(bpy, view):
     world = bpy.data.worlds.new("w")
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs[0].default_value = (1, 1, 1, 1)
-    world.node_tree.nodes["Background"].inputs[1].default_value = 0.25
+    world.node_tree.nodes["Background"].inputs[1].default_value = 0.15
     bpy.context.scene.world = world
 
     cam_dir = (center - cam.location).normalized()  # into the scene, away from camera
@@ -57,14 +59,22 @@ def setup(bpy, view):
     def add_sun(name, energy, travel):
         light = bpy.data.lights.new(name, "SUN")
         light.energy = energy
+        # Blender's sun defaults to a 0.526° disc, which casts a razor edge. An
+        # arm held towards the camera then lays a hard-edged wedge across the
+        # torso that reads as a rendering fault rather than as shadow. Widen the
+        # source so the shadow has a penumbra.
+        light.angle = math.radians(12.0)
         o = bpy.data.objects.new(name, light)
         bpy.context.scene.collection.objects.link(o)
         # 'travel' is the direction the light moves, so an upper-left source
         # travels down-right-forward.
         o.rotation_euler = travel.normalized().to_track_quat("-Z", "Y").to_euler()
 
-    add_sun("key", 4.0, cam_dir - up * 0.5 + right * 0.5)
-    add_sun("fill", 1.3, cam_dir + up * 0.3 - right * 0.5)
+    # A key of 4.0 on a 0.80-albedo surface clips to white: the figure lost all
+    # its form and read as a plaster cast. Keep the midtones off the ceiling so
+    # shading can describe the shape.
+    add_sun("key", 2.1, cam_dir - up * 0.5 + right * 0.5)
+    add_sun("fill", 0.7, cam_dir + up * 0.3 - right * 0.5)
 
 
 def render_png(bpy, out_png, res=768):
