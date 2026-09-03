@@ -1,0 +1,93 @@
+{
+  "_comment": "Per-bone XYZ euler rotations in degrees on the MB-Lab rig. The rig's rest is a T-pose, so every pose states its own arms. Figure faces -Y. Measured on this rig: upperarm_L -Z / upperarm_R +Z brings the arm down to the side, upperarm X swings it forward, lowerarm Z is elbow flexion; thigh_* +X is hip flexion and calf_* -X is knee flexion. The renderer stands the figure on the floor itself, so no pose needs a root offset.",
+  "tpose": {},
+  "stand": {
+    "upperarm_L": [
+      0,
+      0,
+      -72
+    ],
+    "upperarm_R": [
+      0,
+      0,
+      72
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -8
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      8
+    ]
+  },
+  "squat": {
+    "thigh_L": [
+      100,
+      0,
+      6
+    ],
+    "thigh_R": [
+      100,
+      0,
+      -6
+    ],
+    "calf_L": [
+      -115,
+      0,
+      0
+    ],
+    "calf_R": [
+      -115,
+      0,
+      0
+    ],
+    "foot_L": [
+      22,
+      0,
+      0
+    ],
+    "foot_R": [
+      22,
+      0,
+      0
+    ],
+    "spine01": [
+      20,
+      0,
+      0
+    ],
+    "spine02": [
+      8,
+      0,
+      0
+    ],
+    "neck": [
+      -16,
+      0,
+      0
+    ],
+    "upperarm_L": [
+      78,
+      0,
+      -85
+    ],
+    "upperarm_R": [
+      78,
+      0,
+      85
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -12
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      12
+    ]
+  }
+}

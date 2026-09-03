@@ -146,11 +146,17 @@ if depth_off > 0.02:
     sys.exit(f"registration did not take: {depth_off * 100:.1f}cm out in depth, "
              "so the front of the body is not over the front of the écorché")
 
-# Bake arms-down as the rest pose, so the saved body is the one that was measured.
+# Leave the rest pose alone and drop the arms-down pose now it has been
+# measured. Baking it as the new rest leaves the rig inconsistent — bones
+# arms-down, mesh still in the T it was authored in — and the body then renders
+# in a T-pose whatever its bones say. Labels are per-vertex-index, so they do
+# not care which pose the body was measured in; the rig has to stay poseable.
 bpy.context.view_layer.objects.active = barm
 bpy.ops.object.mode_set(mode="POSE")
-bpy.ops.pose.armature_apply()
+for pb in barm.pose.bones:
+    pb.matrix_basis.identity()
 bpy.ops.object.mode_set(mode="OBJECT")
+bpy.context.view_layer.update()
 
 # Nearest SURFACE, not nearest vertex. The atlas models muscles at very
 # different resolutions, so a vertex lookup lets a densely-modelled muscle win

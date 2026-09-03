@@ -124,12 +124,35 @@ and red calves as before.
 both quadriceps and neutral flesh everywhere else, from the catalog, on a figure
 with skin and a face. That is the reference look the écorché cannot reach.
 
-**What it does not:** the figure is in the MB-Lab T-pose — this says nothing
-about posing or motion, which is the next question and the one that killed M2
-for the écorché. Region boundaries are ragged, because assignment is per-vertex
-and hard on a 17,996-vertex body. 4,095 of those vertices resolve to bone rather
-than to any muscle, the skin and the atlas figure being different builds that
-height registration alone does not reconcile.
+**What it does not:** region boundaries are ragged, because assignment is
+per-vertex and hard on a 17,996-vertex body. 4,095 of those vertices resolve to
+bone rather than to any muscle, the skin and the atlas figure being different
+builds that height registration alone does not reconcile.
+
+### Posing (2026-09-03)
+
+**The body poses without tearing**, which is the structural failure that ended
+M2 for the écorché. A squat bends hip, knee, ankle, spine, shoulder and elbow
+with no interpenetration and no non-human shapes: one continuous skinned mesh
+deforms where dozens of separate muscle shells could not. The muscle colours
+travel with the deformation, because a label is a vertex index rather than a
+position.
+
+- `render/skin/poses.json` — named poses as per-bone XYZ euler degrees, with the
+  rig's measured axis conventions written down in the file.
+- `render-skin.py` takes a pose name as its fourth argument, and **stands the
+  figure on the floor itself**: bending the hips and knees moves the feet but not
+  the root, so a posed figure otherwise hangs in the air at whatever height its
+  rest pose left it.
+
+`label-body.py` no longer bakes the arms-down measuring pose as the rest. That
+left the rig inconsistent — bones arms-down, mesh still in its authored T — and
+the body then rendered in a T-pose whatever its bones said.
+
+**Not yet answered: animation.** One static pose is not a sequence. Interpolating
+between poses, whether Cycles is affordable per frame at all, and what the app
+would store are all untouched. The render engine is the known risk: a still
+frame is ~25s on the Mac.
 
 ### Four faults, each of which produced a plausible wrong answer
 

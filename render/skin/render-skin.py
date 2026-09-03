@@ -6,11 +6,13 @@ the écorché, per-vertex regions here (see label-body.py for where the regions
 come from). An unmapped primary or secondary is a hard error in both, because a
 picture that silently under-colours disagrees with the muscle model.
 
-    blender -b <labelled.blend> --python render-skin.py -- <slug> <view> <out.png>
+    blender -b <labelled.blend> --python render-skin.py -- <slug> <view> <out.png> [pose]
       view: front | back | left | right
+      pose: a key in poses.json (default "stand")
 """
 import bpy
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -20,6 +22,7 @@ import stage  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_png = argv[0], argv[1], argv[2]
+pose_name = argv[3] if len(argv) > 3 else "stand"
 
 RENDER = Path(__file__).resolve().parent.parent
 REPO = RENDER.parent
@@ -42,6 +45,11 @@ print(f"{slug}: primary bases={sorted(prim_bases)} secondary bases={sorted(sec_b
 
 stage.unstyle(bpy)
 
+poses = json.loads((Path(__file__).resolve().parent / "poses.json").read_text())
+if pose_name not in poses:
+    sys.exit(f"no pose {pose_name!r} in poses.json — have "
+             f"{sorted(k for k in poses if not k.startswith('_'))}")
+
 body = next((o for o in bpy.data.objects
              if o.type == "MESH" and o.name.startswith("MBlab")), None)
 if body is None:
@@ -53,6 +61,44 @@ for o in bpy.data.objects:
     if o.type == "MESH":
         o.hide_render = o.hide_viewport = o is not body
 body.hide_render = body.hide_viewport = False
+
+arm = next((o for o in bpy.data.objects if o.type == "ARMATURE"), None)
+if arm is None:
+    sys.exit("no armature — the body cannot be posed")
+# The floor is wherever the unposed body's feet are: label-body.py registered it
+# onto the écorché, so that height is the atlas figure's ground, not an
+# arbitrary zero.
+FLOOR_Z = min((body.matrix_world @ v.co).z for v in body.data.vertices)
+bpy.context.view_layer.objects.active = arm
+bpy.ops.object.mode_set(mode="POSE")
+for pb in arm.pose.bones:
+    pb.matrix_basis.identity()
+missing = [b for b in poses[pose_name] if b not in arm.pose.bones]
+if missing:
+    sys.exit(f"pose {pose_name!r} names bones this rig does not have: {missing}")
+for bone, xyz in poses[pose_name].items():
+    pb = arm.pose.bones[bone]
+    pb.rotation_mode = "XYZ"
+    pb.rotation_euler = tuple(math.radians(a) for a in xyz)
+bpy.ops.object.mode_set(mode="OBJECT")
+bpy.context.view_layer.update()
+
+
+def lowest(ob):
+    ev = ob.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    return min((ev.matrix_world @ v.co).z for v in ev.to_mesh().vertices)
+
+
+# Stand the figure on the floor. Bending the hips and knees moves the feet but
+# not the root, so a posed figure hangs in the air at whatever height its rest
+# pose left it — visible immediately, and tedious to correct by hand-tuning a
+# root offset per pose. Measure the lowest vertex and drop the rig onto the
+# floor the rest pose defined.
+floor = lowest(body)
+arm.location.z += FLOOR_Z - floor
+bpy.context.view_layer.update()
+print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, "
+      f"dropped {(FLOOR_Z - floor) * 100:+.1f}cm onto the floor")
 
 # Region name -> colour, resolved once. A vertex in no region (BONE, or too far
 # from any anatomy to be named) keeps the neutral flesh.
