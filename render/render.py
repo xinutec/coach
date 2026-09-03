@@ -15,12 +15,14 @@ kept (painted neutral flesh) to give the figure a proper solid head.
 """
 import bpy
 import json
-import math
-import re
 import sys
 from pathlib import Path
 
 import mathutils
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import za  # noqa: E402
+import stage  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_png = argv[0], argv[1], argv[2]
@@ -45,26 +47,11 @@ for m in ex.get("muscles", []):
 
 print(f"{slug}: primary bases={sorted(prim_bases)} secondary bases={sorted(sec_bases)}")
 
-# Neutralise Z-Anatomy's stylised render settings. The atlas ships a compositor
-# node-tree and Freestyle that post-process every render into a sepia "sketch"
-# look — which overrode all our materials and lighting (identical output across
-# material changes was the tell). Strip them so a plain lit render comes through.
-scene = bpy.context.scene
-print("DIAG use_nodes(compositor)=", scene.use_nodes,
-      "use_freestyle=", scene.render.use_freestyle)
-for vl in scene.view_layers:
-    print("DIAG view_layer", vl.name, "material_override=",
-          vl.material_override.name if vl.material_override else None,
-          "freestyle=", vl.use_freestyle)
-    vl.material_override = None
-    vl.use_freestyle = False
-scene.use_nodes = False           # drop the compositor sketch filter
-scene.render.use_freestyle = False
+# Z-Anatomy bakes a sepia "sketch" filter over every render; strip it.
+stage.unstyle(bpy)
 
 
-def base(name: str) -> str:
-    # strip side/variant/label suffixes: .l .r .ol .or .el .er .j .t .i .s .g
-    return re.sub(r"\.(o?l|o?r|e?l|e?r|j|t|i|s|g)$", "", name).strip()
+base = za.base
 
 
 def material(name, rgb):
@@ -76,9 +63,9 @@ def material(name, rgb):
     return m
 
 
-M_BASE = material("m_base", (0.80, 0.62, 0.55))  # muted flesh — non-target muscle
-M_PRIM = material("m_prim", (0.62, 0.03, 0.03))
-M_SEC = material("m_sec", (0.90, 0.34, 0.30))
+M_BASE = material("m_base", za.RGB_BASE)  # muted flesh — non-target muscle
+M_PRIM = material("m_prim", za.RGB_PRIM)
+M_SEC = material("m_sec", za.RGB_SEC)
 
 
 def paint(o, mat):
@@ -100,29 +87,8 @@ for c in bpy.data.collections:
     if "keletal" in c.name:
         skel_names |= {o.name for o in c.objects}
 
-def is_label(name: str) -> bool:
-    # Z-Anatomy carries text/guide meshes in the anatomy collections (e.g. the
-    # "Muscular system" title card, `.g` guide markers). They are not anatomy.
-    b = base(name)
-    return (
-        name.endswith(".g")
-        or b in ("Muscular system", "Skeletal system")
-        or b.isupper()
-    )
-
-
-# Connective-tissue sheets that wrap the muscles as a smooth outer envelope
-# (fascia lata, investing abdominal fascia, aponeuroses, retinacula). They
-# occlude the muscles beneath — the "featureless body silhouette, no visible
-# muscle" symptom — so they are hidden for the écorché.
-_ENVELOPE = ("fascia", "aponeurosis", "retinaculum", "sheath", "membrane")
-
-
-def is_envelope(name: str) -> bool:
-    low = name.lower()
-    if "tensor fasciae latae" in low:  # a real muscle, not a fascia sheet
-        return False
-    return any(k in low for k in _ENVELOPE)
+is_label = za.is_label
+is_envelope = za.is_envelope
 
 
 # Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
@@ -192,69 +158,5 @@ if n_head == 0:
     sys.exit("no head-region skeleton found — the head would render hollow. "
              "Did prepare.py keep the Skeletal system?")
 
-# Frame the whole figure with an orthographic camera from the requested side.
-mins = mathutils.Vector((1e9,) * 3)
-maxs = mathutils.Vector((-1e9,) * 3)
-for o in bpy.data.objects:
-    if o.type != "MESH" or o.hide_render:
-        continue  # frame the visible muscle figure, not the hidden skeleton
-    for c in o.bound_box:
-        w = o.matrix_world @ mathutils.Vector(c)
-        mins = mathutils.Vector(map(min, mins, w))
-        maxs = mathutils.Vector(map(max, maxs, w))
-center = (mins + maxs) / 2
-size = maxs - mins
-
-cam_data = bpy.data.cameras.new("cam")
-cam_data.type = "ORTHO"
-cam_data.ortho_scale = max(size.x, size.z) * 1.15
-cam = bpy.data.objects.new("cam", cam_data)
-bpy.context.scene.collection.objects.link(cam)
-dirs = {"front": (0, -1, 0), "back": (0, 1, 0), "left": (-1, 0, 0), "right": (1, 0, 0)}
-d = mathutils.Vector(dirs[view])
-cam.location = center + d * max(size) * 3
-cam.rotation_euler = (center - cam.location).normalized().to_track_quat("-Z", "Y").to_euler()
-bpy.context.scene.camera = cam
-
-# Low ambient so directional light — not flat sky — defines the muscle relief.
-# The previous flat look came from a strong even world washing out all shading.
-world = bpy.data.worlds.new("w")
-world.use_nodes = True
-world.node_tree.nodes["Background"].inputs[0].default_value = (1, 1, 1, 1)
-world.node_tree.nodes["Background"].inputs[1].default_value = 0.25
-bpy.context.scene.world = world
-
-# Suns aimed RELATIVE TO THE CAMERA so the surface we see is always lit at an
-# oblique angle (which is what reveals muscle relief), whatever the view. Sun
-# energy is distance-independent, so this is predictable. The old bug was
-# direction: view-flipped angles lit the far side on a back view -> flat.
-cam_dir = (center - cam.location).normalized()  # into the scene, away from camera
-right = cam_dir.cross(mathutils.Vector((0, 0, 1))).normalized()
-up = right.cross(cam_dir).normalized()
-
-
-def add_sun(name, energy, travel):
-    d = bpy.data.lights.new(name, "SUN")
-    d.energy = energy
-    o = bpy.data.objects.new(name, d)
-    bpy.context.scene.collection.objects.link(o)
-    o.rotation_euler = travel.normalized().to_track_quat("-Z", "Y").to_euler()
-    return o
-
-
-# Key from upper-left of camera, fill (softer) from lower-right — 'travel' is the
-# direction the light moves, so an upper-left source travels down-right-forward.
-add_sun("key", 4.0, cam_dir - up * 0.5 + right * 0.5)
-add_sun("fill", 1.3, cam_dir + up * 0.3 - right * 0.5)
-
-scene = bpy.context.scene
-scene.render.engine = "CYCLES"
-scene.cycles.samples = 64
-scene.cycles.use_denoising = True
-scene.cycles.device = "CPU"
-scene.render.resolution_x = 768
-scene.render.resolution_y = 768
-scene.render.image_settings.file_format = "PNG"
-scene.render.filepath = out_png
-bpy.ops.render.render(write_still=True)
-print(f"WROTE {out_png}")
+stage.setup(bpy, view)
+stage.render_png(bpy, out_png)

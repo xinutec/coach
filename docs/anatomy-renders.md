@@ -87,10 +87,76 @@ mesh). Direction is undecided; options in "Decision fork" below.
   one rigged male body (e.g. MakeHuman/SMPL), muscle regions painted as
   vertex-colour/texture, recoloured per exercise from the catalog. Directly gives
   the reference look and rigs trivially (one standard humanoid mesh), but loses
-  per-muscle geometric precision and the colouring is only as good as the paint
-  map.
+  per-muscle geometric precision. **The paint map does not have to be painted** —
+  see "Fork C: the derived paint map" below.
 - **D — pause.** 134/136 exercises already have sourced images; the marginal
   value is consistency, not coverage. Keep the M1 findings and revisit later.
+
+## Fork C: the derived paint map
+
+The objection to C was that hand-painting muscle regions hands the colouring
+back to an artist's opinion, which is the one thing this pipeline exists to
+avoid. It does not have to be painted. Both figures can stand in the same pose
+at the same scale, and each body vertex can take the name of the anatomy whose
+surface is nearest to it. muscle_map.json then resolves a catalog slug onto
+those same Z-Anatomy names, exactly as it does for the écorché meshes, so the
+catalog still decides what is red.
+
+Built (2026-09-03), unposed:
+
+- `render/za.py` — Z-Anatomy naming and the red/flesh palette, shared so the two
+  renderers cannot drift into disagreeing about what a picture means.
+- `render/stage.py` — orthographic camera, sun rig and Cycles settings. An
+  écorché and a skinned body only compare if the light is the same.
+- `render/skin/label-body.py` — registers the MB-Lab body onto the écorché and
+  writes one `mus:`-prefixed vertex group per Z-Anatomy base name.
+- `render/skin/render-skin.py` — the fork-C counterpart of `render.py`: same
+  catalog, same map, same light, colour carried per vertex instead of per mesh.
+- `render/skin/debug-regions.py` — colours each region distinctly so the
+  transfer can be looked at rather than inferred from a tally.
+
+`render.py` now shares `za.py` and `stage.py`. Excluding annotation meshes (see
+below) moves its counts — visible muscle meshes 666 -> 581, head-fill bones
+324 -> 87 — with no visible change: heel_toe_rocks re-renders with a solid head
+and red calves as before.
+
+**What it establishes:** a goblet-squat render on the skinned body puts red on
+both quadriceps and neutral flesh everywhere else, from the catalog, on a figure
+with skin and a face. That is the reference look the écorché cannot reach.
+
+**What it does not:** the figure is in the MB-Lab T-pose — this says nothing
+about posing or motion, which is the next question and the one that killed M2
+for the écorché. Region boundaries are ragged, because assignment is per-vertex
+and hard on a 17,996-vertex body. 4,095 of those vertices resolve to bone rather
+than to any muscle, the skin and the atlas figure being different builds that
+height registration alone does not reconcile.
+
+### Four faults, each of which produced a plausible wrong answer
+
+Worth recording because every one of them looked like a result:
+
+1. **`.j` and `.i` are annotation meshes** — 1,051 of them, 822 zero-thickness
+   planes, many well off the figure's axis. `is_label` tested only `.g`. They
+   are invisible in a lit render, which is why they went unnoticed for a year,
+   but they are ordinary surfaces to a nearest-surface query and they wreck a
+   bounding box.
+2. **`bound_box` measured geometry that was not the geometry queried** — the
+   pre-modifier box of a T-pose whose arms had yet to be brought down. Register
+   from the actual posed vertices instead.
+3. **MB-Lab parents the body mesh to its armature**, so transforming both
+   compounds the scale. The body came out 9% short and sunk into the écorché;
+   every lookup then answered with deep tissue, and neck skin resolved to the
+   sternothyroid while thigh skin resolved to the iliotibial tract. The
+   registration is checked afterwards now, and refuses rather than proceeding.
+4. **The debug render used the lit rig**, which washes a saturated colour to
+   white. It showed a blank grey body while 12,144 vertices were in fact
+   labelled. A segmentation has to be read off an unlit surface.
+
+Faults 1-3 each produced a *contiguous, symmetric, anatomically plausible*
+segmentation. What exposed them was checking which muscles were named, not
+whether the picture looked like a body: pectoralis major, biceps brachii and
+sartorius were absent entirely while a deep neck strap muscle held 2,798
+vertices.
 
 ## Pipeline shape
 
