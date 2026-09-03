@@ -174,12 +174,21 @@ Labels come from a ray cast along the skin normal, with nearest-surface as the
 fallback where the ray leaves the body — 11,900 of 17,349 by ray. This is the
 anatomically meaningful question, though it barely moved the region sizes.
 
-⚠ **Region coverage is still thin and the cause is not yet found.** All four
-quadriceps together hold 217 of 17,996 vertices, and pectoralis major 32, so the
-red describes a band across the thigh rather than the muscle's mass. It is not
-the query method — nearest-surface and inward-ray agree to within a few dozen
-vertices. The iliotibial tract holding 370 suggests the atlas's superficial
-structures win over the muscle beneath them, but that is a hypothesis.
+**Region coverage was a resolution problem, not a labelling one.** All four
+quadriceps together held 217 of 17,996 vertices and the red described a band
+rather than the muscle. Neither the query method nor the registration was at
+fault: tallying the anterior mid-thigh specifically showed it holds **176 skin
+vertices in total**, of which 90 already *were* quadriceps. The labels were
+right and the canvas was too coarse.
+
+`label-body.py` applies the body's subdivision modifier before labelling —
+17,996 -> 276,437 vertices — after clearing MB-Lab's facial expression shape
+keys, which block applying a modifier and which this pipeline does not use.
+Quadriceps go 217 -> 3,357, pectoralis major 32 -> 538, biceps brachii 73 ->
+1,047, and the highlight becomes the muscle's shape.
+
+Renders also got *faster*: 21s against 50s, because 276k of real geometry beats
+18k subdivided to ~1.1M at render time.
 
 ⚠ **A pose has a view that suits it.** Arms held forward foreshorten into stubs
 from the front; the squat only reads from the side. View is a per-exercise

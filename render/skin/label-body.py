@@ -44,6 +44,9 @@ MAX_DIST = 0.07
 # the fascia we exclude, shallow enough that a ray leaving a limb does not land
 # on the other one.
 RAY_DEPTH = 0.12
+# Subdivision level applied to the body before labelling. 2 turns 18k vertices
+# into ~288k, which is ~1,600 on the anterior thigh instead of 176.
+SUBDIVIDE = 2
 
 with bpy.data.libraries.load(body_blend, link=False) as (src, dst):
     dst.objects = [n for n in src.objects if n.startswith("MBlab")]
@@ -52,6 +55,24 @@ for o in dst.objects:
         bpy.context.scene.collection.objects.link(o)
 body = next(o for o in bpy.data.objects if o.type == "MESH" and o.name.startswith("MBlab"))
 barm = next(o for o in bpy.data.objects if o.type == "ARMATURE" and o.name.startswith("MBlab"))
+
+# Subdivide the body BEFORE labelling. A muscle region is painted per vertex,
+# and the anterior mid-thigh of the base mesh holds 176 vertices in total — so
+# all four quadriceps came to 217 of 17,996 and the red described a band rather
+# than the muscle. The labels were never wrong; the canvas was too coarse.
+# Shape keys go first: a modifier cannot be applied to a mesh that has them, and
+# they are MB-Lab's facial expressions, which this pipeline does not use.
+bpy.context.view_layer.objects.active = body
+if body.data.shape_keys:
+    body.shape_key_clear()
+sub = next((m for m in body.modifiers if m.type == "SUBSURF"), None)
+if sub is None:
+    sys.exit("no subdivision modifier on the body — nothing to raise the "
+             "resolution of, and per-vertex labels would stay coarse")
+sub.levels = SUBDIVIDE
+before = len(body.data.vertices)
+bpy.ops.object.modifier_apply(modifier=sub.name)
+print(f"subdivided the body {before} -> {len(body.data.vertices)} vertices")
 
 skel_names = set()
 for c in bpy.data.collections:
