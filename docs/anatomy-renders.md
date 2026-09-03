@@ -149,10 +149,25 @@ position.
 left the rig inconsistent — bones arms-down, mesh still in its authored T — and
 the body then rendered in a T-pose whatever its bones said.
 
-**Not yet answered: animation.** One static pose is not a sequence. Interpolating
-between poses, whether Cycles is affordable per frame at all, and what the app
-would store are all untouched. The render engine is the known risk: a still
-frame is ~25s on the Mac.
+**Not yet answered: animation.** One static pose is not a sequence.
+Interpolating between poses, and what the app would store, are both untouched.
+
+**Render cost, measured on the Mac at 768px (2026-09-03).** Marginal cost per
+frame within one Blender process, which is what an animation pays:
+
+| engine | first frame | steady |
+|---|---|---|
+| Cycles, 64 samples | 13.8s | ~21s/frame |
+| EEVEE Next, 32 samples | 59.1s (GPU context) | **3.9s/frame** |
+
+EEVEE is visually indistinguishable here — the subject is matte diffuse under
+two suns, with no light transport for path tracing to win at — so a 60-frame
+loop is ~5 minutes rather than ~21. `COACH_RENDER_ENGINE=EEVEE` selects it.
+
+⚠ **Measure the marginal frame, not the invocation.** Timing one `blender -b`
+run per engine says EEVEE is *slower* (63s vs 28s), because a single-frame
+invocation is dominated by loading a 54 MB blend and by EEVEE's one-off GPU
+setup — costs an animation pays once across all frames.
 
 ### Four faults, each of which produced a plausible wrong answer
 

@@ -68,11 +68,24 @@ def setup(bpy, view):
 
 
 def render_png(bpy, out_png, res=768):
+    """Render to `out_png`. Cycles unless COACH_RENDER_ENGINE says otherwise.
+
+    Set COACH_RENDER_ENGINE=EEVEE while iterating on a pose or a colour map,
+    where the question is where things are rather than how they are lit. What
+    ships is Cycles; an animation may not be able to afford it, which is a
+    measurement to make rather than a preference to hold.
+    """
+    import os
+
     scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    scene.cycles.samples = 64
-    scene.cycles.use_denoising = True
-    scene.cycles.device = "CPU"
+    if os.environ.get("COACH_RENDER_ENGINE", "").upper().startswith("EEVEE"):
+        scene.render.engine = "BLENDER_EEVEE_NEXT"
+        scene.eevee.taa_render_samples = 32
+    else:
+        scene.render.engine = "CYCLES"
+        scene.cycles.samples = 64
+        scene.cycles.use_denoising = True
+        scene.cycles.device = "CPU"
     scene.render.resolution_x = res
     scene.render.resolution_y = res
     scene.render.image_settings.file_format = "PNG"
