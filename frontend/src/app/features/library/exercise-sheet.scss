@@ -14,6 +14,14 @@
   border: 0;
 }
 
+// The loop follows the still, so it needs its own gap. `contain` rather than
+// the hero's `cover`: a render is framed on the whole rep deliberately, and
+// cropping it would cut the feet off at the bottom of the squat.
+.loop {
+  margin-top: 0.5rem;
+  object-fit: contain;
+}
+
 .player {
   position: relative;
   overflow: hidden;

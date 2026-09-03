@@ -201,6 +201,7 @@ pub struct ExerciseDetail {
     pub summary: Option<String>,
     pub difficulty: Option<i32>,
     pub has_image: bool,
+    pub has_loop: bool,
     pub equipment: Vec<Equipment>,
     pub muscles: Vec<ExerciseMuscle>,
 }
@@ -221,6 +222,7 @@ pub(crate) struct ExerciseDetailRow {
     pub summary: Option<String>,
     pub difficulty: Option<i32>,
     pub has_image: i64,
+    pub has_loop: i64,
 }
 
 /// A muscle link on create/patch: which muscle, in what role.

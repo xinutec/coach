@@ -3,6 +3,7 @@
 //! An exercise carries its muscles and required equipment (M:N); movement
 //! `pattern` doubles as the recovery grouping used by the pacing engine.
 
+pub mod animation;
 pub mod image;
 pub mod repo;
 pub mod types;

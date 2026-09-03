@@ -8,6 +8,7 @@ use axum::response::{IntoResponse, Response};
 use serde::Deserialize;
 
 use crate::error::AppError;
+use crate::exercise::animation;
 use crate::exercise::image;
 use crate::exercise::repo;
 use crate::exercise::types::{Exercise, ExerciseDetail, ExercisePatch, NewExercise};
@@ -42,6 +43,38 @@ pub async fn detail(
         .ok_or(AppError::NotFound)
 }
 
+/// An immutable per-exercise blob with an ETag: a matching one is a 304, and
+/// everything else is cached for a year. Shared by the image and the loop,
+/// which differ only in where the bytes come from.
+fn blob_response(
+    content_type: String,
+    bytes: Vec<u8>,
+    etag: &str,
+    headers: &HeaderMap,
+) -> Response {
+    let etag = format!("\"{etag}\"");
+    if headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == etag)
+    {
+        return (StatusCode::NOT_MODIFIED, [(header::ETAG, etag)]).into_response();
+    }
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::ETAG, etag),
+            (
+                header::CACHE_CONTROL,
+                "public, max-age=31536000, immutable".to_string(),
+            ),
+        ],
+        Body::from(bytes),
+    )
+        .into_response()
+}
+
 /// GET /api/exercises/{id}/image → the demo image blob (immutable; ETag-cached).
 pub async fn image(
     State(app): State<AppState>,
@@ -52,28 +85,33 @@ pub async fn image(
     let Some(img) = image::get(&app.pool, id).await? else {
         return Err(AppError::NotFound);
     };
-    let etag = format!("\"{}\"", img.etag);
-    // Content is immutable per exercise-image; a matching ETag → 304.
-    if headers
-        .get(header::IF_NONE_MATCH)
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v == etag)
-    {
-        return Ok((StatusCode::NOT_MODIFIED, [(header::ETAG, etag)]).into_response());
-    }
-    Ok((
-        StatusCode::OK,
-        [
-            (header::CONTENT_TYPE, img.content_type),
-            (header::ETAG, etag),
-            (
-                header::CACHE_CONTROL,
-                "public, max-age=31536000, immutable".to_string(),
-            ),
-        ],
-        Body::from(img.bytes),
-    )
-        .into_response())
+    Ok(blob_response(
+        img.content_type,
+        img.bytes,
+        &img.etag,
+        &headers,
+    ))
+}
+
+/// GET /api/exercises/{id}/loop → the generated 3D demo loop (immutable).
+///
+/// A 404 here is ordinary: most exercises have a photograph and no loop. The
+/// client asks only when `hasLoop` says there is one.
+pub async fn demo_loop(
+    State(app): State<AppState>,
+    AuthUser(_user): AuthUser,
+    Path(id): Path<i64>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let Some(clip) = animation::get(&app.pool, id).await? else {
+        return Err(AppError::NotFound);
+    };
+    Ok(blob_response(
+        clip.content_type,
+        clip.bytes,
+        &clip.etag,
+        &headers,
+    ))
 }
 
 /// POST /api/exercises → add a custom movement.

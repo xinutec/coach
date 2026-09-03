@@ -69,6 +69,7 @@ pub fn router(state: AppState) -> Router {
             get(exercises::detail).patch(exercises::patch),
         )
         .route("/exercises/{id}/image", get(exercises::image))
+        .route("/exercises/{id}/loop", get(exercises::demo_loop))
         // Reference catalogs
         .route("/equipment", get(equipment::list))
         .route("/muscles", get(muscles::list))

@@ -68,7 +68,8 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
     let Some(row) = sqlx::query_as::<_, ExerciseDetailRow>(
         "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, \
                 e.unilateral, e.is_active, e.cue, e.demo_url, e.summary, e.difficulty, \
-                EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS has_image \
+                EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS has_image, \
+                EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) AS has_loop \
          FROM exercises e WHERE e.id = ?",
     )
     .bind(id)
@@ -127,6 +128,7 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         summary: row.summary,
         difficulty: row.difficulty,
         has_image: row.has_image != 0,
+        has_loop: row.has_loop != 0,
         equipment,
         muscles,
     }))

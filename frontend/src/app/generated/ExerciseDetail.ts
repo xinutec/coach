@@ -8,4 +8,4 @@ import type { Position } from "./Position";
 /**
  * Full exercise view: scalar fields + equipment + muscles.
  */
-export type ExerciseDetail = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, position: Position | null, unilateral: boolean, isActive: boolean, cue: string | null, demoUrl: string | null, summary: string | null, difficulty: number | null, hasImage: boolean, equipment: Array<Equipment>, muscles: Array<ExerciseMuscle>, };
+export type ExerciseDetail = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, position: Position | null, unilateral: boolean, isActive: boolean, cue: string | null, demoUrl: string | null, summary: string | null, difficulty: number | null, hasImage: boolean, hasLoop: boolean, equipment: Array<Equipment>, muscles: Array<ExerciseMuscle>, };

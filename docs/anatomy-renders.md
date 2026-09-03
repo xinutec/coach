@@ -250,9 +250,22 @@ Three things it has to get right that a still does not:
 `--stills <dir>` writes PNGs of every key and midpoint, because a loop can only
 be judged by looking and not everyone reviewing can open a video in place.
 
-**Still open: what the app stores.** `exercise_images` holds one blob per
-exercise; a loop is a second artifact, and adding it rather than overwriting is
-what keeps a bad loop from regressing the stills.
+**What the app stores (decided by Pippijn, 2026-09-03): both.** The photograph
+stays exactly as it is and the loop is added beside it. The sourced pictures
+show what to do and took real work to gather, so a loop that comes out badly
+must not be able to cost us one.
+
+- `exercise_loops` is its own table (migration 0027), so seeding a loop cannot
+  touch `exercise_images`.
+- The seeder finds a loop by convention — `data/catalog/loops/<slug>.mp4` — and
+  etag-compares like images, so an unchanged loop is not rewritten.
+- `GET /api/exercises/{id}/loop`, ETag-cached for a year like the image.
+  `hasLoop` on the detail says whether to ask; a 404 is ordinary.
+- The sheet plays it muted and inline *below* the hero, `object-fit: contain`
+  rather than the hero's `cover`, because the render is framed on the whole rep
+  deliberately and cropping would cut the feet off at the bottom of the squat.
+
+`squat_goblet` is the first and so far only loop in the bundle.
 
 **Render cost, measured on the Mac at 768px (2026-09-03).** Marginal cost per
 frame within one Blender process, which is what an animation pays:

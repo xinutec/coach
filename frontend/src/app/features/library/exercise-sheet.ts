@@ -139,6 +139,9 @@ export class ExerciseSheet {
   imageUrl(id: number): string {
     return this.api.exerciseImageUrl(id);
   }
+  loopUrl(id: number): string {
+    return this.api.exerciseLoopUrl(id);
+  }
   displayName(d: ExerciseDetail): string {
     return d.variation ? `${d.name} (${d.variation})` : d.name;
   }

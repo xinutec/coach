@@ -64,6 +64,11 @@ export class CoachApi {
   exerciseImageUrl(id: number): string {
     return `/api/exercises/${id}/image`;
   }
+  /** The generated 3D demo loop. Only ask when `hasLoop` says there is one:
+   *  most exercises have a photograph and no loop, and a 404 here is ordinary. */
+  exerciseLoopUrl(id: number): string {
+    return `/api/exercises/${id}/loop`;
+  }
 
   // Reference catalogs
   equipment(): Observable<Equipment[]> {

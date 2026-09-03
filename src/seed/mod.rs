@@ -40,6 +40,7 @@ use sqlx::{Connection, MySqlConnection, MySqlPool};
 
 pub mod render;
 
+use crate::exercise::animation;
 use crate::exercise::image;
 
 #[derive(Deserialize)]
@@ -145,14 +146,16 @@ fn bundle_hash(dir: &Path) -> Result<String> {
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .collect();
-    let images = dir.join("images");
-    if images.is_dir() {
-        files.extend(
-            std::fs::read_dir(&images)
-                .with_context(|| format!("reading {}", images.display()))?
-                .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| p.is_file()),
-        );
+    for sub in ["images", "loops"] {
+        let images = dir.join(sub);
+        if images.is_dir() {
+            files.extend(
+                std::fs::read_dir(&images)
+                    .with_context(|| format!("reading {}", images.display()))?
+                    .filter_map(|e| e.ok().map(|e| e.path()))
+                    .filter(|p| p.is_file()),
+            );
+        }
     }
     files.sort();
 
@@ -298,6 +301,12 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     // Comparing the etag lets a *newly added* picture land on a row that has been
     // there for months **and** a re-rendered one replace what's there, while an
     // unchanged bundle still writes nothing.
+    let loop_etag: HashMap<i64, String> =
+        sqlx::query_as("SELECT exercise_id, etag FROM exercise_loops")
+            .fetch_all(pool)
+            .await?
+            .into_iter()
+            .collect();
     let image_etag: HashMap<i64, String> =
         sqlx::query_as("SELECT exercise_id, etag FROM exercise_images")
             .fetch_all(pool)
@@ -310,6 +319,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let mut inserted = 0usize;
     let mut reconciled = 0usize;
     let mut images = 0usize;
+    let mut loops = 0usize;
     // One connection held for the whole catalog pass — see `relink`.
     let mut link_conn = pool.acquire().await?;
     for ex in &exercises {
@@ -400,6 +410,21 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 images += 1;
             }
         }
+
+        // A loop is found by convention rather than declared in the catalog
+        // JSON: data/catalog/loops/<slug>.mp4 if it exists. It sits BESIDE the
+        // photograph — nothing here touches exercise_images — so a loop that
+        // renders badly cannot cost an exercise the picture it already had.
+        let clip = dir.join("loops").join(format!("{}.mp4", ex.slug));
+        if clip.is_file() {
+            let bytes =
+                std::fs::read(&clip).with_context(|| format!("reading {}", clip.display()))?;
+            let etag = hex::encode(Sha256::digest(&bytes));
+            if loop_etag.get(&id) != Some(&etag) {
+                animation::upsert(pool, id, "video/mp4", &bytes, &etag).await?;
+                loops += 1;
+            }
+        }
     }
 
     // Record the fingerprint so the next unchanged boot short-circuits.
@@ -411,9 +436,10 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     .execute(pool)
     .await?;
 
-    if inserted > 0 || reconciled > 0 || images > 0 {
+    if inserted > 0 || reconciled > 0 || images > 0 || loops > 0 {
         tracing::info!(
-            "catalog seed: {inserted} inserted, {reconciled} reconciled, {images} image(s) added"
+            "catalog seed: {inserted} inserted, {reconciled} reconciled, \
+             {images} image(s) and {loops} loop(s) added"
         );
     }
     Ok(())

@@ -57,6 +57,21 @@
       <span>No picture yet</span>
     </div>
   }
+  <!-- The generated 3D loop sits BESIDE the photograph, never in place of it:
+       the sourced pictures show what to do and took real work to gather, and a
+       loop that comes out badly must not be able to cost us one. Muted and
+       inline so it cannot take over the screen or make noise. -->
+  @if (d.hasLoop) {
+    <video
+      class="hero loop"
+      [src]="loopUrl(d.id)"
+      autoplay
+      loop
+      muted
+      playsinline
+      [attr.aria-label]="'Animated demonstration of ' + d.name"
+    ></video>
+  }
   <div class="head">
     <span class="pill accent">{{ patternLabel(d.pattern) }}</span>
     <h2>{{ displayName(d) }}</h2>

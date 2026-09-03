@@ -41,6 +41,7 @@ function detail(over: Partial<ExerciseDetail> = {}): ExerciseDetail {
 		summary: null,
 		difficulty: 3,
 		hasImage: true,
+		hasLoop: false,
 		equipment: [],
 		muscles: [],
 		...over,
@@ -99,6 +100,7 @@ function sheet(d: ExerciseDetail | null = detail()) {
 				useValue: {
 					exercise: () => of(d),
 					exerciseImageUrl: (id: number) => `/api/exercises/${id}/image`,
+					exerciseLoopUrl: (id: number) => `/api/exercises/${id}/loop`,
 				},
 			},
 		],
@@ -318,6 +320,26 @@ describe("what the sheet says about a movement", () => {
 	it("capitalises the pattern for display", () => {
 		const page = sheet().componentInstance;
 		expect(page.patternLabel("pull")).toBe("Pull");
+	});
+
+	it("shows no loop when the exercise has none", () => {
+		sheet(detail({ hasLoop: false }));
+		// Queried off `document`, as the fullscreen panes above are: the
+		// fixture's own `nativeElement` is `any` and every query through it
+		// trips the unsafe-any lint.
+		expect(document.querySelector("video.loop")).toBeNull();
+	});
+
+	it("plays the loop beside the picture, not instead of it", () => {
+		sheet(detail({ hasImage: true, hasLoop: true }));
+		expect(document.querySelector("video.loop")?.getAttribute("src")).toBe(
+			"/api/exercises/7/loop",
+		);
+		// The whole point of the decision: a loop must never cost us the photo.
+		// Not `img.hero` — with a demo video the still sits inside the play
+		// button and carries no class of its own. The claim is that the
+		// photograph is still on screen, wherever the hero puts it.
+		expect(document.querySelector('img[src="/api/exercises/7/image"]')).not.toBeNull();
 	});
 
 	it("points the picture at the exercise's own image", () => {
