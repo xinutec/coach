@@ -1,26 +1,26 @@
 {
-  "_comment": "Per-bone XYZ euler rotations in degrees on the MB-Lab rig. The rig's rest is a T-pose, so every pose states its own arms. Figure faces -Y. Measured on this rig: upperarm_L -Z / upperarm_R +Z brings the arm down to the side, upperarm X swings it forward, lowerarm Z is elbow flexion; thigh_* +X is hip flexion and calf_* -X is knee flexion. The renderer stands the figure on the floor itself, so no pose needs a root offset.",
+  "_comment": "Per-bone XYZ euler rotations in degrees on the MB-Lab rig. The rig's rest is a T-pose, so every pose states its own arms. Figure faces -Y. Measured on this rig: upperarm_L -Z / upperarm_R +Z brings the arm down to the side, upperarm X swings it forward, lowerarm Z is elbow flexion; thigh_* +X is hip flexion and calf_* -X is knee flexion. The renderer stands the figure on the floor itself, so no pose needs a root offset. upperarm Z past about -50 swings the hand inward as it descends rather than straight down, so arms-at-sides is not reachable on Z alone and 'stand' is an A-pose, as the \u00e9corch\u00e9 is. check-pose.py rejects anything that collides.",
   "tpose": {},
   "stand": {
     "upperarm_L": [
+      -12,
       0,
-      0,
-      -72
+      -46
     ],
     "upperarm_R": [
+      -12,
       0,
-      0,
-      72
+      46
     ],
     "lowerarm_L": [
       0,
       0,
-      -8
+      -6
     ],
     "lowerarm_R": [
       0,
       0,
-      8
+      6
     ]
   },
   "squat": {

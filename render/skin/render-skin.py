@@ -16,9 +16,11 @@ import math
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import za  # noqa: E402
 import stage  # noqa: E402
+import collide  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_png = argv[0], argv[1], argv[2]
@@ -99,6 +101,15 @@ arm.location.z += FLOOR_Z - floor
 bpy.context.view_layer.update()
 print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, "
       f"dropped {(FLOOR_Z - floor) * 100:+.1f}cm onto the floor")
+
+# Refuse a pose the body cannot hold. Posing has no collision, so a limb swung
+# into the torso renders as a limb inside the torso — a picture that is wrong
+# in a way no downstream step can notice, exactly like the headless écorché.
+faults, _pairs = collide.find_faults(bpy, body, arm)
+if faults:
+    sys.exit(f"pose {pose_name!r} is physically impossible — "
+             f"{len(faults)} region pair(s) share space:\n"
+             + collide.describe(faults))
 
 # Region name -> colour, resolved once. A vertex in no region (BONE, or too far
 # from any anatomy to be named) keeps the neutral flesh.

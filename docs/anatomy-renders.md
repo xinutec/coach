@@ -190,6 +190,35 @@ Quadriceps go 217 -> 3,357, pectoralis major 32 -> 538, biceps brachii 73 ->
 Renders also got *faster*: 21s against 50s, because 276k of real geometry beats
 18k subdivided to ~1.1M at render time.
 
+### Detecting a body that passes through itself
+
+Posing has no collision: bones rotate, skin follows, and a limb swung into the
+torso simply occupies the same space as it. The `stand` pose shipped with the
+hands inside the pelvis and emerging at the crotch, and with the two hands
+inside each other — obvious once seen, and invisible to every check we had.
+
+`render/skin/collide.py` intersects the posed skin with itself and attributes
+each intersecting triangle to the bone that drives it, then measures how far
+apart those two bones are along the skeleton. **The test is not whether surfaces
+intersect but which ones do**: a deep squat legitimately presses hamstring
+against calf and folds skin at a closed hip, so `squat` has 16,436
+self-intersecting triangle pairs and is fine. A hand seven joints from the
+pelvis sharing space with it is not. Thresholds: 5 joints apart, 40 triangles.
+
+- `render/skin/check-pose.py` reports every pose, non-zero if any is impossible.
+- `render-skin.py` refuses to render one, so an impossible pose cannot reach the
+  catalog the way the headless écorché did.
+
+Verified in both directions: the three real poses pass, and a deliberately
+folded-arms pose is rejected with `lowerarm_L through lowerarm_R: 431 triangles`
+and no image written.
+
+⚠ **`stand` is an A-pose, not arms-at-sides.** Rotating `upperarm` past about
+-50° on Z swings the hand *inward* as it descends rather than straight down —
+the bone's local axis is not the anatomical one — so arms-at-sides is not
+reachable on Z alone, and every angle that approached it collided with the hip.
+The écorché stands the same way, so the two styles agree.
+
 ⚠ **A pose has a view that suits it.** Arms held forward foreshorten into stubs
 from the front; the squat only reads from the side. View is a per-exercise
 choice, not a global default.
