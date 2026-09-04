@@ -83,6 +83,7 @@ in  { name = "coach"
             G.clippyTarget
         , timeout_s = 1800
         }
+      , G.cargoDoc
       , {-  The pacing core must compile #![no_std]. This is the purity guarantee
             made legible: with std out of scope, a std::fs / SystemTime::now() /
             thread::spawn / global mutable state in coach-pacing is not a lint to
