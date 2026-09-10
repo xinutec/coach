@@ -155,11 +155,14 @@ for f in range(scene.frame_start, last + 1):
 print(f"planted {last - scene.frame_start + 1} frames on the floor")
 
 if do_check:
+    # A frame between two keys is not a named pose, so it inherits the
+    # contacts every key of this sequence vouched for.
+    allow = collide.allowed_pairs(poses, [n for _, n in keys], arm)
     worst = 0
     for f in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(f)
         bpy.context.view_layer.update()
-        faults, _ = collide.find_faults(bpy, body, arm)
+        faults, _ = collide.find_faults(bpy, body, arm, allow=allow)
         if faults:
             sys.exit(f"frame {f} is physically impossible — the poses at each "
                      f"end are legal but the path between them is not:\n"

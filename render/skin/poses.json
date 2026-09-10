@@ -657,5 +657,58 @@
       0,
       -14
     ]
+  },
+  "cross_open": {
+    "upperarm_L": [
+      10,
+      0,
+      -10
+    ],
+    "upperarm_R": [
+      10,
+      0,
+      10
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ]
+  },
+  "cross_in": {
+    "upperarm_L": [
+      88,
+      0,
+      -110
+    ],
+    "upperarm_R": [
+      62,
+      0,
+      110
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -80
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      80
+    ]
+  },
+  "_contact": {
+    "cross_in": [
+      [
+        "LIMB:clavicle_L",
+        "LIMB:clavicle_R",
+        "the two arms cross and rest against each other, which IS the movement; no depth threshold can admit this and still reject a hand inside a thigh (see docs/anatomy-renders.md), so it is vouched for by name"
+      ]
+    ]
   }
 }

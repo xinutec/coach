@@ -39,7 +39,9 @@ for name in wanted:
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
 
-    faults, pairs = collide.find_faults(bpy, body, arm)
+    faults, pairs = collide.find_faults(
+        bpy, body, arm, allow=collide.allowed_pairs(poses, [name], arm)
+    )
     if faults:
         bad = True
         print(f"IMPOSSIBLE {name}: {len(faults)} region pair(s) share space")

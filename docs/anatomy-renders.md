@@ -237,6 +237,25 @@ named, per-pose exemption that records what was allowed and why — auditable,
 and leaving the rule at full strength for every other pose. Loosening the
 threshold would trade four caught faults for one authored pose.
 
+That is the `_contact` table in poses.json. An entry names the pose, the two
+things allowed to touch, and the reason, and applies to the interpolated frames
+of any sequence whose keys include that pose.
+
+⚠ **State it at LIMB level, not bone by bone.** The first attempt vouched for
+`lowerarm_twist_L`/`lowerarm_twist_R` — the pair the static pose reported — and
+the animation then failed at a different frame on `lowerarm_L`/`lowerarm_twist_R`,
+because which pair meets first moves as the arms do. A `LIMB:clavicle_L` token
+expands through the skeleton's own child links, so the exemption says the thing
+that is actually true — *these two arms touch* — instead of a list that goes
+stale.
+
+⚠ **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
+the render IS the only remaining check for that pose, so it has to be looked at.
+Doing so is what caught the first version: the arms were posed symmetrically,
+so the hands met head-on at mid-swing instead of passing. That was an authoring
+error the guard correctly reported, not a case for exemption — one arm crosses
+in FRONT of the other.
+
 - `render/skin/check-pose.py` reports every pose, non-zero if any is impossible.
 - `render-skin.py` refuses to render one, so an impossible pose cannot reach the
   catalog the way the headless écorché did.

@@ -42,7 +42,49 @@ def _hop_table(armature):
     return table
 
 
-def find_faults(bpy, body, armature, min_hops=MIN_HOPS, min_triangles=MIN_TRIANGLES):
+def _limb(armature, root):
+    """Every bone from `root` outward — a whole arm or leg, from the skeleton
+    itself rather than from a name pattern."""
+    out, stack = set(), [root]
+    while stack:
+        cur = stack.pop()
+        if cur in out:
+            continue
+        out.add(cur)
+        bone = armature.data.bones.get(cur)
+        if bone:
+            stack.extend(c.name for c in bone.children)
+    return out
+
+
+def allowed_pairs(poses, names, armature=None):
+    """The contacts named as deliberate across `names`, as a set of bone pairs.
+
+    A pose whose whole point is limbs touching cannot be admitted by any
+    threshold — see docs/anatomy-renders.md: crossed forearms rest 2.7cm into
+    each other, deeper than several contacts that are genuinely wrong, because a
+    rigidly skinned mesh has no flesh compression. So the exemption is written
+    down per pose, with its reason, and stays visible in review; the rule keeps
+    full strength for every pair nobody has vouched for.
+    """
+    table = poses.get("_contact", {})
+    out = set()
+    for name in names:
+        for a, b, _why in table.get(name, []):
+            # A token like LIMB:clavicle_L stands for that whole limb. Naming a
+            # dozen bone pairs to say "the two arms touch" is neither honest nor
+            # readable, and it goes stale the moment the motion shifts which
+            # pair happens to meet first.
+            sa = _limb(armature, a[5:]) if a.startswith("LIMB:") and armature else {a}
+            sb = _limb(armature, b[5:]) if b.startswith("LIMB:") and armature else {b}
+            for x in sa:
+                for y in sb:
+                    out.add(tuple(sorted((x, y))))
+    return out
+
+
+def find_faults(bpy, body, armature, min_hops=MIN_HOPS, min_triangles=MIN_TRIANGLES,
+                allow=()):
     """Return [(bone_a, bone_b, triangles, hops)], worst first, and the pair count."""
     hops = _hop_table(armature)
     bone_of_group = {g.index: g.name for g in body.vertex_groups if g.name in hops}
@@ -73,7 +115,10 @@ def find_faults(bpy, body, armature, min_hops=MIN_HOPS, min_triangles=MIN_TRIANG
             continue
         if hops[a].get(b, 99) < min_hops:
             continue  # neighbouring parts: a crease, not a collision
-        guilty[tuple(sorted((a, b)))] |= {i, j}
+        pair = tuple(sorted((a, b)))
+        if pair in allow:
+            continue  # vouched for by name in poses.json `_contact`
+        guilty[pair] |= {i, j}
     ev.to_mesh_clear()
 
     faults = [(a, b, len(t), hops[a][b]) for (a, b), t in guilty.items()

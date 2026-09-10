@@ -105,7 +105,9 @@ print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, "
 # Refuse a pose the body cannot hold. Posing has no collision, so a limb swung
 # into the torso renders as a limb inside the torso — a picture that is wrong
 # in a way no downstream step can notice, exactly like the headless écorché.
-faults, _pairs = collide.find_faults(bpy, body, arm)
+faults, _pairs = collide.find_faults(
+    bpy, body, arm, allow=collide.allowed_pairs(poses, [pose_name], arm)
+)
 if faults:
     sys.exit(f"pose {pose_name!r} is physically impossible — "
              f"{len(faults)} region pair(s) share space:\n"
