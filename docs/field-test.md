@@ -159,7 +159,7 @@ cards can never both read "loosen up Obliques"). The catalog gaps (no drill at
 all for Chest/Lats/Triceps/Hamstrings/…) were closed after round 3: every
 muscle group now has at least one equipment-free drill, so the "I don't know a
 warm-up for X" fallback can no longer fire. The new drills await pictures and
-demos ([todo](todo.md)).
+demos; `coachctl todo` is the live list.
 
 ## R2-4. Isolations are programmed before the compounds they sabotage — FIXED
 
@@ -393,8 +393,9 @@ the fix was a workaround.
   heaviest bell" would be a better sentence. Kit-limit notices are future
   work (G9 territory).
 - **`difficulty` is now load-bearing.** The ladder reads it, so a wrong rung
-  is a wrong step-up; the values deserve an authoring pass per pattern +
-  primary group (see [todo](todo.md)).
+  is a wrong step-up; the values were reviewed 2026-09-10 and read as
+  coherent ladders; what was wrong was the *pattern* on nine movements, not
+  the ranking (see trainer.md).
 
 # Round 5 — the coach marking its own easing as your failure
 

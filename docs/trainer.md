@@ -145,7 +145,16 @@ a weighted lift must have registered weights at this location. A lift dropped fo
 want of weights is **named in a notice**, not silently omitted.
 
 **The variation ladder.** `difficulty` (1–5, relative within a pattern + primary
-group) ranks a movement's variations. A movement the athlete has **topped out** (the
+group) ranks a movement's variations.
+
+⚠ **A prime mover split across two patterns is a ladder split in two**, because
+the ladder only looks within one pattern. That is worth more attention than the
+numbers: reviewed 2026-09-10, the difficulty values read as coherent ladders,
+and a tie between two movements is frequently a real judgement rather than an
+undecided one. What the same review found was nine movements filed under `core`
+whose prime movers are limbs — so the pistol squat sat at 5 on a ladder the app
+could never reach from a squat, which topped out at 3. Re-file the pattern
+before re-ranking the numbers. A movement the athlete has **topped out** (the
 rep range's ceiling, at `High` confidence — the ask is clamped there, so "keep doing
 12s" would be forever) or **plateaued** on (a month of sessions with nothing beaten)
 has stopped producing progress; while a harder doable variation of the same pattern
