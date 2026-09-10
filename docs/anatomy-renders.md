@@ -265,10 +265,18 @@ must not be able to cost us one.
   rather than the hero's `cover`, because the render is framed on the whole rep
   deliberately and cropping would cut the feet off at the bottom of the squat.
 
-Eight loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
+Twelve loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
 `good_morning_dumbbell`, `curl_biceps_dumbbell_standing`,
 `curl_biceps_dumbbell_alternating`, `heel_toe_rocks`,
-`leg_swings_front_to_back`, `leg_swings_side_to_side`.
+`leg_swings_front_to_back`, `leg_swings_side_to_side`,
+`triceps_extension_overhead_dumbbell`, `triceps_stretch_overhead`,
+`biceps_wall_stretch`, `scapular_squeeze`.
+
+Measured for the overhead group: `upperarm` +Z raises the arm laterally, and
++85° clears the head; +78° with the elbow at -100° is hands-behind-head. Rolling
+the shoulders forward (the clavicles, for a scapular squeeze) carries the hands
+inward onto the thighs, so that pose widens the arms — but only to -38°, since
+past about -44° they swing back in again.
 
 ⚠ **`squat_front_rack_double_kettlebell` cannot be posed on this body.** A front
 rack carries both hands at the shoulders, and every combination swept — upper
