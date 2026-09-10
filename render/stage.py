@@ -42,7 +42,13 @@ def setup(bpy, view, bounds=None):
 
     cam_data = bpy.data.cameras.new("cam")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = max(size.x, size.z) * 1.15
+    # Frame on the two axes ACROSS the view, not always on x and z. A left or
+    # right view looks along x, so its width is the figure's y extent; sizing on
+    # x there measures the depth of a body seen side-on. A standing figure hid
+    # this because its height dominated either way — a hinge lying along y did
+    # not, and came out cropped to an arm.
+    across = size.y if view in ("left", "right") else size.x
+    cam_data.ortho_scale = max(across, size.z) * 1.15
     cam = bpy.data.objects.new("cam", cam_data)
     bpy.context.scene.collection.objects.link(cam)
     d = mathutils.Vector(VIEWS[view])

@@ -265,7 +265,35 @@ must not be able to cost us one.
   rather than the hero's `cover`, because the render is framed on the whole rep
   deliberately and cropping would cut the feet off at the bottom of the squat.
 
-`squat_goblet` is the first and so far only loop in the bundle.
+Four loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
+`good_morning_dumbbell`, `curl_biceps_dumbbell_standing`.
+
+### What a movement costs to author (measured, 2026-09-10)
+
+**A new shape: about half an hour.** The RDL took two numeric probes and four
+renders. **A shape already authored: minutes.** `good_morning_dumbbell` reuses
+the hinge exactly and cost one render and no pose work at all — the catalog
+supplies different muscles, so the same motion comes out coloured differently.
+That is the ratio that makes the remaining movements tractable: they fall into a
+few shapes, not seventeen.
+
+**Probe the rig, do not guess at it.** Both sign errors that cost renders were
+axis assumptions. A hinge tips the pelvis forward and counter-rotates the thighs
+to keep the legs under it, and that counter-rotation has the SAME sign as the
+pelvis — `pelvis +62` wants `thigh +65`, because the thigh's local X runs
+opposite to the pelvis's. Guessing the sign gives a figure lying flat in mid-air.
+Sweeping the angle and printing where the ankle lands settles it in one run.
+
+⚠ **This body cannot reach full elbow flexion.** Every curl past about 90° drives
+the hand into the torso, and the collision check refuses all of them. The curl
+shows a 90° flexion with the upper arm swung forward, which is as much as the
+build allows.
+
+⚠ **`stage.setup` framed on the wrong axis for side views** until this pass: it
+sized the camera on `size.x` and `size.z` whatever the view, but a left or right
+view looks along x, so its width is the figure's y extent. A standing figure hid
+it because height dominated either way; the first hinge came out cropped to an
+arm.
 
 **Render cost, measured on the Mac at 768px (2026-09-03).** Marginal cost per
 frame within one Blender process, which is what an animation pays:
