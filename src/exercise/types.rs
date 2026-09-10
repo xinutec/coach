@@ -108,7 +108,9 @@ pub(crate) struct ExerciseListRow {
     pub warmup: bool,
     pub power: bool,
     pub implements: i32,
-    pub difficulty: Option<i32>,
+    /// `tinyint(4)`, so `i8` here and widened on the way out — see the note on
+    /// `ExerciseDetailRow::difficulty`.
+    pub difficulty: Option<i8>,
     pub is_active: bool,
     pub equipment_csv: Option<String>,
     pub has_image: i64,
@@ -131,7 +133,7 @@ impl TryFrom<ExerciseListRow> for Exercise {
             warmup: r.warmup,
             power: r.power,
             implements: r.implements,
-            difficulty: r.difficulty,
+            difficulty: r.difficulty.map(i32::from),
             is_active: r.is_active,
             equipment: r
                 .equipment_csv

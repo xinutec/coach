@@ -165,6 +165,65 @@ async fn every_exercise_detail_loads() {
     );
 }
 
+/// The three list-shaped queries must describe the same exercise.
+///
+/// `list_cols!` used to guarantee this by construction — one column list, three
+/// queries — and that macro was itself the fix after `EquipmentRow` drifted and
+/// 500'd on 82 exercises in the gym. A compile-time-checked query takes only a
+/// string literal, so the list is written out three times now and the guarantee
+/// has to come from somewhere else.
+///
+/// The compiler covers most of it: all three fill one `ExerciseListRow`, so a
+/// column added to one copy and not the others fails the build. What it cannot
+/// see is a copy whose expression changes while its alias and type do not — an
+/// `EXISTS` re-pointed at `exercise_loops` is still an `i64` called `has_image`,
+/// and it would compile, and it would be wrong on every row.
+///
+/// So this compares the VALUES, not the SQL. Debug strings rather than field
+/// equality on purpose: a field added to `Exercise` later is covered without
+/// anyone remembering to extend this test, which is exactly the failure being
+/// guarded against.
+#[tokio::test]
+async fn every_read_path_agrees() {
+    let pool = &fresh("agree").await;
+    let all = ex_repo::list(pool, true).await.expect("listing exercises");
+    assert!(
+        all.len() >= 119,
+        "catalog looks unseeded: {} rows",
+        all.len()
+    );
+    let active = ex_repo::list(pool, false).await.expect("listing active");
+
+    let mut compared_active = 0;
+    for ex in &all {
+        let one = ex_repo::get(pool, ex.id)
+            .await
+            .unwrap_or_else(|e| panic!("get({}) — {} — failed: {e}", ex.id, ex.slug))
+            .unwrap_or_else(|| panic!("get({}) — {} — vanished", ex.id, ex.slug));
+        assert_eq!(
+            format!("{ex:?}"),
+            format!("{one:?}"),
+            "list(all) and get() disagree about {}",
+            ex.slug
+        );
+        if let Some(from_active) = active.iter().find(|a| a.id == ex.id) {
+            assert_eq!(
+                format!("{ex:?}"),
+                format!("{from_active:?}"),
+                "list(all) and list(active) disagree about {}",
+                ex.slug
+            );
+            compared_active += 1;
+        }
+    }
+    // A run where the active list came back empty would pass while comparing
+    // nothing, which is the shape of guard this test exists to distrust.
+    assert!(
+        compared_active >= 100,
+        "only {compared_active} exercises were on the active path"
+    );
+}
+
 /// Every other read path, executed once against the real schema. Cheap, and it
 /// closes the same class of bug for the queries that didn't happen to break.
 #[tokio::test]

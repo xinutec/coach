@@ -18,46 +18,65 @@ use crate::muscle::types::MuscleRole;
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId};
 
 // Equipment slugs (comma-joined) + image presence, as correlated subqueries so
-// the list stays one row per exercise without a GROUP BY. A macro (not a const)
-// so `concat!` can fold it into the `&'static str` queries below.
-macro_rules! list_cols {
-    () => {
-        "e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral, e.skill, e.warmup, e.power, e.implements, e.difficulty, e.is_active, \
+// the list stays one row per exercise without a GROUP BY.
+//
+// This column list was a `list_cols!` macro shared by the three queries below,
+// which is what stopped it drifting after `EquipmentRow` cost us 82 exercises in
+// the gym (see tests/db.rs). A checked query takes only a string literal, so
+// sharing and checking cannot both be had, and the list is written out three
+// times now. What replaces the macro is NOT the compiler alone: it catches a
+// column added or dropped in one copy, because all three fill one
+// `ExerciseListRow`, but NOT a copy whose expression changes while its alias and
+// type stay put — an EXISTS re-pointed at another table is the same `i64` called
+// `has_image`. `every_read_path_agrees` in tests/db.rs is the guard for that:
+// the same exercise, fetched three ways, must come back identical.
+
+pub async fn list(pool: &MySqlPool, include_inactive: bool) -> Result<Vec<Exercise>> {
+    let rows = if include_inactive {
+        sqlx::query_as!(
+            ExerciseListRow,
+            "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, \
+         e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, \
+         e.implements, e.difficulty, e.is_active as `is_active!: bool`, \
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
             WHERE xe.exercise_id = e.id) AS equipment_csv, \
-         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS has_image"
-    };
-}
-
-pub async fn list(pool: &MySqlPool, include_inactive: bool) -> Result<Vec<Exercise>> {
-    let q = if include_inactive {
-        sqlx::query_as::<_, ExerciseListRow>(concat!(
-            "SELECT ",
-            list_cols!(),
-            " FROM exercises e ORDER BY e.pattern, e.name, e.variation"
-        ))
-    } else {
-        sqlx::query_as::<_, ExerciseListRow>(concat!(
-            "SELECT ",
-            list_cols!(),
-            " FROM exercises e WHERE e.is_active = 1 ORDER BY e.pattern, e.name, e.variation"
-        ))
-    };
-    q.fetch_all(pool)
+         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` \
+             FROM exercises e ORDER BY e.pattern, e.name, e.variation"
+        )
+        .fetch_all(pool)
         .await?
-        .into_iter()
-        .map(Exercise::try_from)
-        .collect()
+    } else {
+        sqlx::query_as!(
+            ExerciseListRow,
+            "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, \
+         e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, \
+         e.implements, e.difficulty, e.is_active as `is_active!: bool`, \
+         (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
+            FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
+            WHERE xe.exercise_id = e.id) AS equipment_csv, \
+         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` \
+             FROM exercises e WHERE e.is_active = 1 \
+             ORDER BY e.pattern, e.name, e.variation"
+        )
+        .fetch_all(pool)
+        .await?
+    };
+    rows.into_iter().map(Exercise::try_from).collect()
 }
 
 pub async fn get(pool: &MySqlPool, id: i64) -> Result<Option<Exercise>> {
-    sqlx::query_as::<_, ExerciseListRow>(concat!(
-        "SELECT ",
-        list_cols!(),
-        " FROM exercises e WHERE e.id = ?"
-    ))
-    .bind(id)
+    sqlx::query_as!(
+        ExerciseListRow,
+        "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, \
+         e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, \
+         e.implements, e.difficulty, e.is_active as `is_active!: bool`, \
+         (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
+            FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
+            WHERE xe.exercise_id = e.id) AS equipment_csv, \
+         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` FROM exercises e WHERE e.id = ?",
+        id
+    )
     .fetch_optional(pool)
     .await?
     .map(Exercise::try_from)
