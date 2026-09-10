@@ -220,7 +220,10 @@ pub(crate) struct ExerciseDetailRow {
     pub cue: Option<String>,
     pub demo_url: Option<String>,
     pub summary: Option<String>,
-    pub difficulty: Option<i32>,
+    /// `tinyint(4)` in the schema, so `i8` here and widened on the way out. The
+    /// runtime query path silently widened it, which is what a checked query
+    /// stops: the row type now says what the column actually is.
+    pub difficulty: Option<i8>,
     pub has_image: i64,
     pub has_loop: i64,
 }

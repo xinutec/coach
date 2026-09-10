@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO exercise_images (exercise_id, content_type, bytes, byte_size, etag) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE content_type = VALUES(content_type), bytes = VALUES(bytes), byte_size = VALUES(byte_size), etag = VALUES(etag)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "be844ac6c15b8db6697a8840a6007a81e7c9fd59a960d1f82f00aee442407301"
+}

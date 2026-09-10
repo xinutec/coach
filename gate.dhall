@@ -129,6 +129,34 @@ in  { name = "coach"
               ]
         , timeout_s = 1800
         }
+      , {-  Query-cache drift. The .sqlx cache is what lets a checked query
+            compile with no database, in CI and in the nix sandbox — but it is a
+            snapshot, and a migration can age it while every query still matches
+            its own cache key and builds green. This applies the migrations to an
+            ephemeral server and asks sqlx whether the cache still describes it.
+
+            Port 3320: the test row takes 3319, and the two can run at once.
+        -}
+        G.Check::{
+        , name = "the query cache matches the schema"
+        , argv =
+              G.inDevShell
+                [ "nix", "run", "../dev-lint#with-test-db", "--" ]
+            # [ "--database"
+              , "coach"
+              , "--user"
+              , "coach"
+              , "--password"
+              , "coach"
+              , "--port"
+              , "3320"
+              , "--url-env"
+              , "DATABASE_URL"
+              , "--"
+              , "scripts/check-query-cache.sh"
+              ]
+        , timeout_s = 900
+        }
       , {-  Generated-types drift: regenerate the ts-rs bindings and fail if the
             committed frontend output moved. Catches a Rust API-type edit that
             was not regenerated and committed.

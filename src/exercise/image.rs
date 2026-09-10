@@ -11,16 +11,16 @@ pub struct ImageBlob {
 }
 
 pub async fn get(pool: &MySqlPool, exercise_id: i64) -> Result<Option<ImageBlob>> {
-    let row: Option<(String, Vec<u8>, String)> = sqlx::query_as(
+    let row = sqlx::query!(
         "SELECT content_type, bytes, etag FROM exercise_images WHERE exercise_id = ?",
+        exercise_id
     )
-    .bind(exercise_id)
     .fetch_optional(pool)
     .await?;
-    Ok(row.map(|(content_type, bytes, etag)| ImageBlob {
-        content_type,
-        bytes,
-        etag,
+    Ok(row.map(|r| ImageBlob {
+        content_type: r.content_type,
+        bytes: r.bytes,
+        etag: r.etag,
     }))
 }
 
@@ -35,18 +35,18 @@ pub async fn upsert(
     bytes: &[u8],
     etag: &str,
 ) -> Result<()> {
-    sqlx::query(
+    sqlx::query!(
         "INSERT INTO exercise_images (exercise_id, content_type, bytes, byte_size, etag) \
          VALUES (?, ?, ?, ?, ?) \
          ON DUPLICATE KEY UPDATE \
            content_type = VALUES(content_type), bytes = VALUES(bytes), \
            byte_size = VALUES(byte_size), etag = VALUES(etag)",
+        exercise_id,
+        content_type,
+        bytes,
+        bytes.len() as i32,
+        etag
     )
-    .bind(exercise_id)
-    .bind(content_type)
-    .bind(bytes)
-    .bind(bytes.len() as i32)
-    .bind(etag)
     .execute(pool)
     .await?;
     Ok(())

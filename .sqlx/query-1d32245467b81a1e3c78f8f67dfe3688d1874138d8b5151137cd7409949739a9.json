@@ -1,0 +1,65 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT content_type, bytes, etag FROM exercise_images WHERE exercise_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "content_type",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "collation": 45,
+          "max_size": 256
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercise_images",
+            "name": "content_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "bytes",
+        "type_info": {
+          "type": "Blob",
+          "flags": "NOT_NULL | BLOB | BINARY | NO_DEFAULT_VALUE",
+          "collation": 63,
+          "max_size": 16777215
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercise_images",
+            "name": "bytes"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "etag",
+        "type_info": {
+          "type": "String",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "collation": 45,
+          "max_size": 256
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercise_images",
+            "name": "etag"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1d32245467b81a1e3c78f8f67dfe3688d1874138d8b5151137cd7409949739a9"
+}

@@ -65,14 +65,18 @@ pub async fn get(pool: &MySqlPool, id: i64) -> Result<Option<Exercise>> {
 }
 
 pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>> {
-    let Some(row) = sqlx::query_as::<_, ExerciseDetailRow>(
+    let Some(row) = sqlx::query_as!(
+        ExerciseDetailRow,
         "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, \
-                e.unilateral, e.is_active, e.cue, e.demo_url, e.summary, e.difficulty, \
-                EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS has_image, \
-                EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) AS has_loop \
+                e.unilateral as `unilateral!: bool`, e.is_active as `is_active!: bool`, \
+                e.cue, e.demo_url, e.summary, e.difficulty, \
+                EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) \
+                  AS `has_image!: i64`, \
+                EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) \
+                  AS `has_loop!: i64` \
          FROM exercises e WHERE e.id = ?",
+        id
     )
-    .bind(id)
     .fetch_optional(pool)
     .await?
     else {
@@ -126,7 +130,7 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         cue: row.cue,
         demo_url: row.demo_url,
         summary: row.summary,
-        difficulty: row.difficulty,
+        difficulty: row.difficulty.map(i32::from),
         has_image: row.has_image != 0,
         has_loop: row.has_loop != 0,
         equipment,
