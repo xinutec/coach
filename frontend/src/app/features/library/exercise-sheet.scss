@@ -14,11 +14,14 @@
   border: 0;
 }
 
-// The loop follows the still, so it needs its own gap. `contain` rather than
-// the hero's `cover`: a render is framed on the whole rep deliberately, and
-// cropping it would cut the feet off at the bottom of the squat.
+// The loop follows the still, so it needs its own gap. It is SQUARE, not the
+// hero's 16:9: a standing figure is tall and narrow, and letterboxing one into
+// a landscape box left half the width empty. Capped and centred so a full-width
+// square does not shove the rest of the sheet off the screen.
 .loop {
-  margin-top: 0.5rem;
+  margin: 0.5rem auto 0;
+  aspect-ratio: 1;
+  width: min(100%, 20rem);
   object-fit: contain;
 }
 
