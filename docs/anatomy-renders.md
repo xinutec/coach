@@ -205,6 +205,38 @@ against calf and folds skin at a closed hip, so `squat` has 16,436
 self-intersecting triangle pairs and is fine. A hand seven joints from the
 pelvis sharing space with it is not. Thresholds: 5 joints apart, 40 triangles.
 
+#### Why the threshold is a triangle count and not a depth
+
+A crossover swings the arms until the forearms rest against each other, and the
+check refuses it — 582 triangles, more than a hand buried in a thigh. The
+obvious reading is that counting triangles confuses a long band of CONTACT with
+deep PENETRATION, and that measuring depth instead would fix the rule for every
+pose rather than exempting one. A render confirms the pose is fine: the forearms
+cross in a natural X.
+
+**Measured, and it does not work.** Signed distance to the other region's
+surface, over whole regions (measuring only the intersecting triangles
+under-reads badly — it passed a hand inside a pelvis as shallow):
+
+| pose | deepest contact |
+|---|---|
+| crossed forearms, correct | **2.7cm** |
+| hands inside the pelvis, wrong | 7.9cm, down to **1.5cm** for the shallowest pair |
+
+The ranges OVERLAP. Legitimate contact is deeper than several illegitimate ones,
+so no threshold admits the first and rejects the second.
+
+The reason is structural: **a rigidly skinned mesh has no flesh compression.**
+Two forearms resting against each other must interpenetrate by about as much as
+real tissue would squash, so the very property that separates contact from
+penetration in a body is the one not modelled. No geometric measure available
+here can make this call.
+
+So the call is a judgement, and the honest form for a judgement is an explicit,
+named, per-pose exemption that records what was allowed and why — auditable,
+and leaving the rule at full strength for every other pose. Loosening the
+threshold would trade four caught faults for one authored pose.
+
 - `render/skin/check-pose.py` reports every pose, non-zero if any is impossible.
 - `render-skin.py` refuses to render one, so an impossible pose cannot reach the
   catalog the way the headless écorché did.
