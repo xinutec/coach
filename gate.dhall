@@ -129,6 +129,20 @@ in  { name = "coach"
               ]
         , timeout_s = 1800
         }
+      , {-  The gate builds from the working tree, where every file exists; the
+            image gets what its COPY lines name and nothing else. A file the
+            build needs but no COPY mentions passes here and fails in CI, which
+            is how .sqlx went in — the offline build was verified inside the
+            repo, where the directory is obviously present.
+
+            So compile from a tree assembled out of the Dockerfile's own COPY
+            lines, with no database, the way the image does.
+        -}
+        G.Check::{
+        , name = "the backend builds from the image's file set"
+        , argv = G.inDevShell [ "scripts/check-image-sources.sh" ]
+        , timeout_s = 900
+        }
       , {-  Query-cache drift. The .sqlx cache is what lets a checked query
             compile with no database, in CI and in the nix sandbox — but it is a
             snapshot, and a migration can age it while every query still matches

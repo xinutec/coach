@@ -43,6 +43,12 @@ RUN mkdir -p src coach-pacing/src \
 COPY src/ src/
 COPY coach-pacing/src/ coach-pacing/src/
 COPY migrations/ migrations/
+# The offline query cache. Checked queries are verified against the schema at
+# COMPILE time, and this image has no database — without .sqlx every one of them
+# fails with "set DATABASE_URL to use query macros online". Testing the offline
+# build inside the repo does not catch its absence here, because the repo has the
+# directory and the image only has what is copied into it.
+COPY .sqlx/ .sqlx/
 RUN touch src/main.rs src/lib.rs coach-pacing/src/lib.rs && cargo build --release
 
 # --- runtime ---

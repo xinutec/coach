@@ -107,6 +107,19 @@
         "develop",
         "--no-warn-dirty",
         "--command",
+        "scripts/check-image-sources.sh"
+      ],
+      "cwd": ".",
+      "env": {},
+      "name": "the backend builds from the image's file set",
+      "timeout_s": 900
+    },
+    {
+      "argv": [
+        "nix",
+        "develop",
+        "--no-warn-dirty",
+        "--command",
         "nix",
         "run",
         "../dev-lint#with-test-db",
