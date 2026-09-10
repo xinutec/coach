@@ -11,16 +11,15 @@ data only Pippijn can supply.
   catalog notes in trainer.md), but a missing demo shouldn't become permanent.
   A generated 3D loop now covers some of these without a video; a real one is
   still better where you have it.
-- **The cable stack's pin ladder** at the office. The kit is registered but has no
-  weights, so the coach drops all five cable movements and says so. One line of
-  `coachctl weights` fixes it.
-- **An authoring pass over `difficulty`**, per pattern and primary muscle group.
-  All 136 catalog exercises carry a value, but they were authored before round 4
-  made the variation ladder read it. The ladder picks "the harder version of
-  this" by pattern + shared prime mover + next difficulty, so two movements
-  mis-ranked against each other now send the athlete a step they aren't ready
-  for. Judgement about real movements, not something the code can settle —
-  [field-test.md](field-test.md) flags it under round 4.
+- **An authoring pass over `difficulty`** — REVIEWED 2026-09-10 and mostly fine.
+  Read as ladders rather than as a list of numbers, the values are coherent
+  (seated -> kneeling -> standing -> single-arm -> pike -> planche; rows ->
+  pull-ups -> rings -> typewriter). Ties are frequently a real answer, not an
+  undecided one. What the review DID find was a patterning fault, now fixed:
+  nine movements filed under `core` whose prime movers are limbs, which split a
+  ladder in two — the pistol squat was on a different ladder from the squat and
+  so unreachable. Nothing outstanding unless a specific pairing feels wrong in
+  use.
 - **One tap on "Set home here & turn on"**, in the installed app, to confirm the
   status line flips to **On** by itself. The reminders card renders and the
   permissions are granted, which proves the message port is injected and the
