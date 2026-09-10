@@ -289,5 +289,221 @@
       0,
       6
     ]
+  },
+  "rock_toes": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "foot_L": [
+      -32,
+      0,
+      0
+    ],
+    "foot_R": [
+      -32,
+      0,
+      0
+    ]
+  },
+  "rock_heels": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "foot_L": [
+      26,
+      0,
+      0
+    ],
+    "foot_R": [
+      26,
+      0,
+      0
+    ]
+  },
+  "curl_up_r": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      55,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      90
+    ]
+  },
+  "curl_mid_r": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      55,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ]
+  },
+  "swing_fwd": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "thigh_L": [
+      42,
+      0,
+      0
+    ]
+  },
+  "swing_back": {
+    "upperarm_L": [
+      -12,
+      0,
+      -46
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "thigh_L": [
+      -26,
+      0,
+      0
+    ]
+  },
+  "swing_out": {
+    "upperarm_L": [
+      -12,
+      0,
+      -26
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "thigh_L": [
+      0,
+      0,
+      34
+    ]
+  },
+  "swing_in": {
+    "upperarm_L": [
+      -12,
+      0,
+      -26
+    ],
+    "upperarm_R": [
+      -12,
+      0,
+      46
+    ],
+    "lowerarm_L": [
+      0,
+      0,
+      -6
+    ],
+    "lowerarm_R": [
+      0,
+      0,
+      6
+    ],
+    "thigh_L": [
+      0,
+      0,
+      -6
+    ]
   }
 }

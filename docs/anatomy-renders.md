@@ -265,8 +265,21 @@ must not be able to cost us one.
   rather than the hero's `cover`, because the render is framed on the whole rep
   deliberately and cropping would cut the feet off at the bottom of the squat.
 
-Four loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
-`good_morning_dumbbell`, `curl_biceps_dumbbell_standing`.
+Eight loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
+`good_morning_dumbbell`, `curl_biceps_dumbbell_standing`,
+`curl_biceps_dumbbell_alternating`, `heel_toe_rocks`,
+`leg_swings_front_to_back`, `leg_swings_side_to_side`.
+
+⚠ **`squat_front_rack_double_kettlebell` cannot be posed on this body.** A front
+rack carries both hands at the shoulders, and every combination swept — upper
+arm 60/72/84°, elbow 70/85° — puts the two forearms in the same space, worst
+case 503 triangles. Left out rather than shown as a plain squat, which would
+misrepresent where the load sits. Same underlying limit as the elbow: this build
+is too bulky for a pose that brings the forearms together.
+
+⚠ **Mirroring a pose is not a sign flip.** The right-arm curl collided at the
+angles that worked on the left and needed its own sweep (`ua_x=55` where the
+left wanted 40). Author each side against the checker rather than negating.
 
 ### What a movement costs to author (measured, 2026-09-10)
 
