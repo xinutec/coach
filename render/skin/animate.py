@@ -159,6 +159,16 @@ bpy.ops.object.mode_set(mode="OBJECT")
 scene = bpy.context.scene
 scene.frame_start, scene.frame_end = keys[0][0], last - 1  # last == first: drop it
 scene.render.fps = 12
+# ⚠ EVERY frame. The blend this pipeline loads carries `frame_step = 2` from the
+# asset it descends from, so the encoder silently wrote every OTHER frame: a
+# 24-frame rep shipped as 12, one second instead of two, at double speed with
+# half the smoothness. Every loop had it from the first one on 2026-09-03.
+#
+# Nothing upstream could see it. The collision and floor checks walk all 24
+# frames and pass honestly; the loss happens afterwards, in the render loop.
+# The tell is in Blender's own output — "Append frame 0 / 2 / 4" — which reads
+# as ordinary progress unless you are counting.
+scene.frame_step = 1
 
 
 # What the rep rests on. Every key must agree: a rep that changes its contacts
