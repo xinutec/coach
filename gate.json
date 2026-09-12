@@ -286,7 +286,7 @@
       "argv": [
         "nix",
         "develop",
-        "../../recall#android",
+        "git+file:../../recall?ref=HEAD#android",
         "--command",
         "./gradlew",
         "--console=plain",
@@ -302,7 +302,7 @@
       "argv": [
         "nix",
         "develop",
-        "../../recall#android",
+        "git+file:../../recall?ref=HEAD#android",
         "--command",
         "./gradlew",
         "--console=plain",
