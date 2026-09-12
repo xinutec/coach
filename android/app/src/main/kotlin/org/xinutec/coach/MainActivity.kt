@@ -45,6 +45,7 @@ class MainActivity : WebShellActivity() {
     // location fetch and the permission-result callbacks.
     private var setupInProgress = false
     private var notifAsked = false
+    private var homeCaptured = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,49 +145,64 @@ class MainActivity : WebShellActivity() {
     private fun beginSetup() {
         setupInProgress = true
         notifAsked = false
+        homeCaptured = false
         continueSetup()
     }
 
     // Walk the prerequisites in order; each missing one is requested and the flow
-    // resumes from onRequestPermissionsResult (or captureHome's callback).
+    // resumes from onRequestPermissionsResult (or captureHome's callback). Which
+    // one is next is [SetupFlow]'s decision, so that the ordering is testable
+    // without a location client; this half is only the doing.
     private fun continueSetup() {
         if (!setupInProgress) return
-        if (!hasPerm(Manifest.permission.ACCESS_FINE_LOCATION)) {
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_FINE)
-            return
-        }
-        // Always re-capture home on setup (the user may be setting it fresh).
-        if (!Prefs(this).hasHome) {
-            captureHome()
-            return
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            !hasPerm(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-        ) {
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), REQ_BG)
-            return
-        }
-        // Notifications: nice-to-have — if denied we still arm (the nudge just
-        // won't show until enabled in settings), so ask at most once.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !hasPerm(Manifest.permission.POST_NOTIFICATIONS) &&
-            !notifAsked
-        ) {
-            notifAsked = true
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
-            return
-        }
+        val step =
+            SetupFlow.next(
+                hasFine = hasPerm(Manifest.permission.ACCESS_FINE_LOCATION),
+                homeCaptured = homeCaptured,
+                hasBackground =
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                        hasPerm(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                hasNotifications =
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                        hasPerm(Manifest.permission.POST_NOTIFICATIONS),
+                notificationsAsked = notifAsked,
+            )
+        // Exhaustive on the enum: a step added to the flow cannot silently do
+        // nothing here.
+        when (step) {
+            SetupStep.ASK_FINE -> {
+                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQ_FINE)
+            }
 
-        val prefs = Prefs(this)
-        prefs.armed = true
-        val ok = Geofencing.arm(this)
-        settle(
-            if (ok) {
-                "Reminders on — I'll nudge you when you're home."
-            } else {
-                "Couldn't arm the geofence."
-            },
-        )
+            SetupStep.CAPTURE_HOME -> {
+                homeCaptured = true
+                captureHome()
+            }
+
+            SetupStep.ASK_BACKGROUND -> {
+                requestPermissions(
+                    arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                    REQ_BG,
+                )
+            }
+
+            SetupStep.ASK_NOTIFICATIONS -> {
+                notifAsked = true
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+            }
+
+            SetupStep.ARM -> {
+                Prefs(this).armed = true
+                val ok = Geofencing.arm(this)
+                settle(
+                    if (ok) {
+                        "Reminders on — I'll nudge you when you're home."
+                    } else {
+                        "Couldn't arm the geofence."
+                    },
+                )
+            }
+        }
     }
 
     /**
@@ -217,11 +233,32 @@ class MainActivity : WebShellActivity() {
                     toast("Home set to here.")
                     continueSetup()
                 } else {
-                    settle("Couldn't get a location fix — try again near a window.")
+                    noFix("Couldn't get a location fix — try again near a window.")
                 }
             }.addOnFailureListener {
-                settle("Location unavailable.")
+                noFix("Location unavailable.")
             }
+    }
+
+    /**
+     * A capture that produced nothing, which is not the same as a flow that has
+     * to stop.
+     *
+     * Now that setup re-captures on every run, a first-time user and a returning
+     * one fail here differently: the first has no home to fall back on and the
+     * flow is over, but the second only failed to *move* a home that is still
+     * perfectly good, and refusing to arm would make re-enabling reminders
+     * depend on getting a fix indoors. So we carry on with the stored one — and
+     * say which happened, because silently keeping the old home is exactly the
+     * thing that let it go stale for two months.
+     */
+    private fun noFix(why: String) {
+        if (Prefs(this).hasHome) {
+            toast("$why Keeping your previous home.")
+            continueSetup()
+        } else {
+            settle(why)
+        }
     }
 
     // Still the request-code API rather than the Activity Result one: the flow is
