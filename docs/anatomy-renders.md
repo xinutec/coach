@@ -1,41 +1,38 @@
 # Anatomy renders
 
 Generate the exercise illustrations ourselves from a 3D anatomical model instead
-of sourcing them one by one: an écorché figure per exercise, primary muscles dark
-red, secondaries lighter red, consistent style — and the colouring **derived from
-the same catalog data the engine uses**, so it cannot be an artist's opinion.
+of sourcing them one by one: a figure per exercise, primary muscles dark red,
+secondaries lighter red, consistent style, and the colouring **derived from the
+same catalog data the engine uses** so it is never an artist's opinion.
 
-⚠ **"So an image can never disagree with the muscle model" used to stand here and
-is not true.** The colouring is derived from the catalog, which stops it being
-INVENTED; it does not make it COMPLETE. A muscle lying under another is barely
-reachable by the labelling, so several exercises colour a primary faintly or not
-at all — measured and tracked, with the mechanism in its own task.
+Two artifacts per exercise, and they are independent:
 
-**Decision (Pippijn, 2026-09-12): a demo loop ships on the strength of its
-MOVEMENT.** The still photograph beside it already carries the exercise, and the
-loop's job is to show what the movement is; weak muscle colouring is a known
-deficiency rather than a reason to withhold a working demo. Showing muscle areas
-properly is a separate job to be done another way, later — not by improving this
-path under a deadline.
+- a **still**, which every one of the 136 has;
+- a **demo loop**, which some have. `data/catalog/loops/` is the set.
 
-Status (2026-09-12): **shipping on two tracks.** All 136 exercises carry a still
-image, and some of them also carry an animated demo loop — a posed, moving,
-catalog-coloured figure. (`data/catalog/loops/` is the set; a count written here
-would be wrong by the next one.) The loop sits beside the photograph and never replaces
-it, so a bad loop cannot cost an existing picture.
+A loop sits beside the photograph rather than replacing it, in its own table and
+found by convention, so a bad loop cannot cost an exercise the picture it already
+had. The seeder says so on every boot: `N loop(s) added, 0 image(s)`.
 
-⚠ **The paragraph that used to be here said posing was abandoned and there was
-"nothing further to build".** That was true of the ÉCORCHÉ and is recorded under
-M2: it is dozens of separate muscle shells, so every bent joint tears and
-interpenetrates them, and no amount of weight tuning fixes a mesh that is not
-continuous. What changed is the figure, not the verdict — **fork C** poses a
-single skinned MB-Lab body and *derives* its muscle regions from the écorché by
-registration, so the catalog still decides what is red while the thing that
-bends is one continuous surface. That is what the loops are rendered from.
+**What the colouring guarantees, exactly.** It comes from the catalog, so it is
+never invented. It is not complete: the labelling gives a body vertex the muscle
+its inward ray reaches first, so a muscle lying under another is barely carried,
+and several exercises colour a primary faintly or not at all. A loop therefore
+ships on the strength of its MOVEMENT — the photograph beside it carries the
+exercise, and showing muscle areas properly is a separate job for another time
+(Pippijn, 2026-09-12).
 
-Still open: **three floor loops** — cat-cow, scapular push-up, kneeling lat
-reach. The glute bridge was the fourth and it shipped, which is what proved the
-approach; see "Standing on two contacts" below.
+**The figure is a single skinned body, not the écorché.** The écorché is dozens
+of separate muscle shells, so every bent joint tears and interpenetrates them —
+structural, and no weighting fixes a mesh that is not continuous. It is never
+posed. Fork C poses an MB-Lab body instead and *derives* its muscle regions from
+the écorché by registration, so the catalog still decides what is red while the
+thing that bends is one continuous surface. Everything posed or animated comes
+from that body; the écorché survives as the source of the region names and as the
+neutral "muscles worked" still.
+
+Open: **three floor loops** — cat-cow, scapular push-up, kneeling lat reach. The
+approach is proved; see "Standing on two contacts".
 
 ## Why
 
@@ -272,11 +269,10 @@ that is actually true — *these two arms touch* — instead of a list that goes
 stale.
 
 ⚠ **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
-the render IS the only remaining check for that pose, so it has to be looked at.
-Doing so is what caught the first version: the arms were posed symmetrically,
-so the hands met head-on at mid-swing instead of passing. That was an authoring
-error the guard correctly reported, not a case for exemption — one arm crosses
-in FRONT of the other.
+the render IS the only remaining check for that pose. The failure it has to
+catch: arms posed symmetrically put the hands head-on at mid-swing instead of
+passing, which the guard reports as a collision and which is an authoring error,
+not a case for exemption. One arm crosses in FRONT of the other.
 
 - `render/skin/check-pose.py` reports every pose, non-zero if any is impossible.
 - `render-skin.py` refuses to render one, so an impossible pose cannot reach the
@@ -360,21 +356,19 @@ entry would be worse than an absent one**: the file exists to be trusted, so eac
 of the thirteen has to be re-derived and actually rendered before it is added.
 Tracked as its own task.
 
-⚠⚠ **AND A LOOP `.mp4` CANNOT BE COMPARED BY BYTES AT ALL — IT CARRIES A
-TIMESTAMP.** The container embeds the wall-clock time of the render, so two runs
-of the SAME code differ:
+⚠⚠ **A LOOP `.mp4` CANNOT BE COMPARED BY BYTES — IT CARRIES A TIMESTAMP.** The
+container embeds the wall-clock time of the render, so two runs of identical code
+differ by a few bytes inside the time string near the end of the file:
 
 ```
-OLD   12 12:43:53 ... Lavf60.16.100      <- old code
-OLD2  12 12:46:50 ... Lavf60.16.100      <- old code again: 2 bytes differ
-NEW   12 12:45:20 ... Lavf60.16.100      <- new code: 3 bytes differ
+12 12:43:53 ... Lavf60.16.100      run A
+12 12:46:50 ... Lavf60.16.100      run B, same code: 2 bytes differ
 ```
 
-All three are 22,044 bytes and every differing byte is inside the time string at
-offset ~22004. **Run the control before believing a byte diff**: without the
-second old-code run, "old and new hash differently" reads as a regression, and
-the doc's own claim that re-rendering is deterministic would have backed that
-reading up.
+**So run a control before believing a byte diff.** Without a same-code pair to
+compare against, "old and new hash differently" reads as a regression — and
+determinism is claimed elsewhere in this document for the POSE, which makes that
+misreading easy to believe.
 
 What IS a valid regression test is the REPORTED MEASUREMENTS — planting, the
 per-frame checks, the framing bounds. For `scapular_squeeze` under old and new
@@ -535,26 +529,27 @@ Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
 versioned pose files — re-rendering an unchanged pose yields the same image, so
 image diffs mean something, like the back-test.
 
-## Standing on two contacts (2026-09-12)
+## Standing on two contacts
 
-A standing figure meets the floor at one place, so the plant is one line:
-measure the lowest vertex and drop the rig until it touches. Everything shipped
-so far is that case.
+A standing figure meets the floor in one place, so the plant is one line: measure
+the lowest vertex and drop the rig until it touches.
 
-A floor pose is not. A glute bridge rests on the shoulders **and** the feet while
-the middle rises, and a single-point drop lands whichever is lower and leaves the
-other in the air. Two attempts failed before the cause was clear, and both are
-worth keeping because they fail in ways that look like success:
+A floor pose rests on two or more. A glute bridge is on the shoulders **and** the
+feet while the middle rises; all fours is on two hands and two knees. A
+single-point drop lands whichever contact is lowest and leaves the rest in the
+air.
 
-1. **Tuning the pose until the numbers read right.** Hips 25cm above the
-   shoulders, feet within 1cm of shoulder height — all true, and the render was a
-   straight diagonal plank with the feet highest. **A body rotating as a whole
-   satisfies those numbers exactly as well as a bridge does.**
-2. **An auto-leveller** that rotated the rig until the two ends of the body sat
-   at the same height. It under-corrected (8.8 deg against a visible ~30), and it
-   would have rotated a squat by 27.9 deg and a hinge by 40.2 deg, silently
-   breaking all thirteen shipped loops. The axis is pose-dependent: "along the
-   body" is y lying down and z standing, and treating it as fixed is the bug.
+**Two things that look like solutions and are not:**
+
+- **Tuning a pose until the heights read right.** Hip, shoulder and foot heights
+  are all satisfied by a body that has simply rotated as a whole — which renders
+  as a straight diagonal plank, feet highest, with every number correct. Height
+  measurements cannot distinguish a bridge from a ramp.
+- **Levelling by a closed form.** Rotating the rig until the two ends of the body
+  sit at the same height requires choosing the axis "along the body", and that
+  axis is z standing and y lying down. Treating it as fixed rotates a squat by
+  27.9 deg and a hinge by 40.2 deg — silently, since those poses look plausible
+  at any angle.
 
 ### What works: the pose says what it rests on
 
@@ -565,9 +560,9 @@ load-bearing contact from an incidentally low one.
 
 With the contacts named, one angle is left free — how far the figure tips along
 its own length — and it is found by **search, not a formula**. A closed form has
-to pick the axis, which is the thing attempt 2 got wrong; a search over the
-`root` bone measures the actual skinned, corrective-smoothed mesh and needs no
-opinion about which way the body is lying.
+to pick the axis "along the body", which is the mistake described above; a search
+over the `root` bone measures the actual skinned, corrective-smoothed mesh and
+needs no opinion about which way the body is lying.
 
 ⚠ **A pose that declares nothing takes the old path untouched.** That is the
 whole safety argument: `stand`, `squat` and `hinge_bottom` cannot be reached by
@@ -587,12 +582,11 @@ not the movement.
   ground" sends you looking at the whole figure; "head is 9cm under the ground"
   is the answer. Each vertex's dominant deform bone is resolved once.
 
-### The rig cannot lift a hip, and measuring said so in one run
+### The rig cannot lift a hip with one bone
 
-Three sign guesses in a row were wrong, each costing a six-render sweep, before
-the obvious move: perturb one bone at a time and read what actually moves. Eight
-pose evaluations, no renders, and it settled every sign at once — the same
-one-input-at-a-time discipline that applies to any borrowed system.
+⚠ **Measure this rig; do not reason about it.** The euler conventions are
+borrowed and not guessable — a sign guess costs a render sweep, and perturbing
+one bone at a time costs eight pose evaluations and no renders.
 
 The hierarchy is `root -> pelvis -> {thigh, spine01} -> spine02 -> spine03 ->
 neck -> head`, and the measured response of each contact to +10 deg of X is:
@@ -611,8 +605,8 @@ neck -> head`, and the measured response of each contact to +10 deg of X is:
 shoulders MORE.** Every spine bone moves it by zero. That is structural, not a
 tuning problem: the pelvis is upstream of the spine, so no rotation anywhere
 raises the hips relative to the shoulders. **A glute bridge is not reachable by
-turning one dial**, which is why every attempt that tried produced a body
-rotating as a whole — the only thing one dial can do.
+turning one dial**: rotating as a whole is the only thing one dial can do, so
+that is what any single-bone attempt produces.
 
 The table also gives the answer. Hold the shoulder contact still with
 `spine01 = -4.685 x root`; the pelvis then rises 16.5cm per 10 deg of root while
@@ -622,9 +616,8 @@ back. Four bones, one linear solve, no guessing.
 
 ⚠ **Watch the units when reading a hip height.** "Hips 14.1cm" in a pose with the
 hips flat on the ground is not a lift — it is the mean pelvis vertex of a body
-that is simply thick. Lift is a DIFFERENCE between two poses, and reading the
-absolute number as the lift made an early attempt look far more wrong than it
-was.
+that is simply thick. Lift is a DIFFERENCE between two poses; the absolute number
+is about 14cm before anything has moved.
 
 ### ⚠⚠ Blender exits 0 when the script CRASHES
 

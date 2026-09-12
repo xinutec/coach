@@ -18,10 +18,10 @@ knows: `spine03, foot_L, foot_R` is a bridge and `foot_L, foot_R` is standing, a
 the geometry alone cannot tell you which contact is meant to be load-bearing and
 which is incidentally low. With the contacts named, one angle is left free — how
 far the figure tips along its own length — and that is solved here by search
-rather than by the closed-form levelling that an earlier attempt got wrong. A
-closed form has to decide WHICH axis "along the body" is, and that axis is z when
-standing and y when lying down; treating it as fixed is what silently rotated a
-squat by 27.9 degrees.
+rather than by closed-form levelling. A closed form has to decide WHICH axis
+"along the body" is, and that axis is z when standing and y when lying down;
+treating it as fixed rotates a squat by 27.9 degrees, silently, because a squat
+looks plausible at any angle.
 
 ⚠ A pose that declares no contacts takes exactly the old path. That is the whole
 safety argument for this file: `stand`, `squat` and `hinge_bottom` cannot be

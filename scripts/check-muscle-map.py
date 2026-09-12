@@ -2,16 +2,15 @@
 
     blender -b render/slim.blend --python scripts/check-muscle-map.py
 
-A name that matches nothing colours nothing, silently. muscle_map.json's own
-comment used to call that harmless; it is how `erector_spinae` came to point at
-"Erector spinae" — which Z-Anatomy models only as a two-vertex ANNOTATION, so
-eight exercises coloured nothing for a PRIMARY muscle and one of them shipped a
-loop that way, live, for nine days.
+A name that matches nothing colours nothing, and says nothing about it. The
+renderers cannot catch that: they fail only when a slug matches ZERO meshes in
+total, so a slug naming two primaries hides a broken name behind a working one.
+This check is per NAME, which is the level the mistake happens at.
 
-The renderers cannot catch it. They fail when a slug matches ZERO meshes in
-total, so a slug naming two primaries hides a broken name behind a working one —
-which is exactly what cat_cow does. This check is per NAME, which is the level
-the mistake happens at.
+Two ways a plausible name matches nothing. A functional GROUP is often only an
+annotation — `Erector spinae` is a two-vertex label, and the muscles are
+Iliocostalis/Longissimus/Spinalis by region. And many names carry a ` muscle`
+suffix that is easy to drop.
 
 ⚠ Runs against slim.blend, the stripped atlas the renderers use — not the full
 one. A name that exists only in a mesh prepare.py discards is still broken here,
