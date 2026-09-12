@@ -26,6 +26,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import za  # noqa: E402
 import stage  # noqa: E402
 import collide  # noqa: E402
+import plant  # noqa: E402
+import floor as floormod  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_path, spec = argv[0], argv[1], argv[2], argv[3]
@@ -138,6 +140,43 @@ scene.frame_start, scene.frame_end = keys[0][0], last - 1  # last == first: drop
 scene.render.fps = 12
 
 
+# What the rep rests on. Every key must agree: a rep that changes its contacts
+# partway is a different movement, and a frame interpolated between two contact
+# sets would rest on neither.
+floor_sets = {tuple(plant.contacts(poses, n)) for _, n in keys}
+if len(floor_sets) > 1:
+    sys.exit("the keys of this loop declare different floor contacts "
+             f"({sorted(floor_sets)}) — a rep rests on one set throughout")
+floor_bones = floor_sets.pop()
+
+# ⚠ SOLVE AT THE KEYS, VERIFY EVERY FRAME.
+#
+# Levelling is a search, around 130 pose evaluations, so solving it per frame
+# would cost more than the render does. Solving at the keys and letting the
+# F-curve interpolate the correction is cheap, and it is also the more honest
+# shape: the tip belongs to the pose, and one re-solved per frame would wander
+# by a fraction of a degree each time and read as a wobble nobody authored.
+#
+# What every frame gets instead is a CHECK at one evaluation each, below. An
+# interpolated frame is exactly as capable of floating or sinking as an authored
+# one — the same argument that already makes every frame collision-checked.
+if floor_bones:
+    print(f"resting on {', '.join(floor_bones)}")
+    bpy.context.view_layer.objects.active = arm
+    root = arm.pose.bones["root"]
+    root.rotation_mode = "XYZ"
+    for frame, name in keys:
+        scene.frame_set(frame)
+        bpy.context.view_layer.update()
+        tilt, _before, spread = plant.solve_tilt(bpy, body, arm, floor_bones)
+        verdict = plant.fault(name, tilt, spread, 0.0, "")
+        if verdict:
+            sys.exit(verdict)
+        root.keyframe_insert("rotation_euler", index=0, frame=frame)
+        print(f"  key {frame} ({name}): levelled {tilt:+.2f} deg, "
+              f"contacts within {spread * 1000:.1f}mm")
+
+
 def lowest():
     ev = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
     return min((ev.matrix_world @ v.co).z for v in ev.to_mesh().vertices)
@@ -145,14 +184,43 @@ def lowest():
 
 # Stand the figure on the floor on every frame, not once: the hips drop through
 # the rep, and a single offset would leave it sinking and then rising again.
+# With declared contacts it is the lowest CONTACT that lands, so a hand hanging
+# below a shoulder cannot lever the figure up off what it is resting on.
 base_z = arm.location.z
 for f in range(scene.frame_start, last + 1):
     scene.frame_set(f)
     arm.location.z = base_z
     bpy.context.view_layer.update()
-    arm.location.z = base_z + (FLOOR_Z - lowest())
+    if floor_bones:
+        mat, me = plant.evaluated(bpy, body)
+        low = min(plant.contact_heights(body, mat, me, floor_bones))
+    else:
+        low = lowest()
+    arm.location.z = base_z + (FLOOR_Z - low)
     arm.keyframe_insert("location", index=2, frame=f)
 print(f"planted {last - scene.frame_start + 1} frames on the floor")
+
+if do_check and floor_bones:
+    # The keys were solved; these are the frames nobody authored. One evaluation
+    # each, which is why this can run over every frame at all.
+    worst_spread = worst_sink = 0.0
+    worst_f = worst_who = None
+    for f in range(scene.frame_start, scene.frame_end + 1):
+        scene.frame_set(f)
+        bpy.context.view_layer.update()
+        _zs, spread = plant.measure(bpy, body, floor_bones)
+        sink, who = plant.sunk(bpy, body, FLOOR_Z)
+        if spread > worst_spread or sink > worst_sink:
+            worst_f, worst_who = f, who
+        worst_spread = max(worst_spread, spread)
+        worst_sink = max(worst_sink, sink)
+    if worst_spread > plant.TOLERANCE or worst_sink > 0:
+        sys.exit(f"frame {worst_f} does not rest on the floor: its contacts are "
+                 f"{worst_spread * 100:.1f}cm apart and {worst_who} is "
+                 f"{worst_sink * 100:.1f}cm through it — the keys plant, the path "
+                 "between them does not")
+    print(f"checked {scene.frame_end - scene.frame_start + 1} frames on the floor: "
+          f"contacts within {worst_spread * 1000:.1f}mm, nothing through it")
 
 if do_check:
     # A frame between two keys is not a named pose, so it inherits the
@@ -183,6 +251,11 @@ for f in range(scene.frame_start, last + 1):
     umin = mathutils.Vector(map(min, umin, fmin))
     umax = mathutils.Vector(map(max, umax, fmax))
 print(f"framed on the whole rep: {(umax - umin).x:.2f} x {(umax - umin).z:.2f} m")
+# After the bounds, never before: a 12m slab in visible_bounds would zoom the
+# camera out until the figure was a speck.
+if floor_bones:
+    floormod.add(bpy, FLOOR_Z)
+    print("added the ground — this rep rests on it")
 stage.setup(bpy, view, bounds=(umin, umax))
 
 
@@ -211,10 +284,12 @@ if out_dir:
     scene.render.image_settings.file_format = "PNG"
     marks = sorted({f for f, _ in keys} |
                    {(a + b) // 2 for (a, _), (b, _) in zip(keys, keys[1:])})
+    written = 0
     for f in marks:
         if f > scene.frame_end:
-            continue
+            continue  # the closing key repeats the first and is not rendered
         scene.frame_set(f)
         scene.render.filepath = f"{out_dir}/frame_{f:03d}"
         bpy.ops.render.render(write_still=True)
-    print(f"WROTE {len(marks)} stills to {out_dir}")
+        written += 1
+    print(f"WROTE {written} stills to {out_dir}")

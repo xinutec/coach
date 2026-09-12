@@ -332,6 +332,36 @@ Twelve loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
 `triceps_extension_overhead_dumbbell`, `triceps_stretch_overhead`,
 `biceps_wall_stretch`, `scapular_squeeze`.
 
+⚠ **The `pose@frame` spec each loop was rendered from is NOT recorded anywhere**,
+so a shipped loop cannot be reproduced without re-deriving it. Guessing one for
+`squat_goblet` was rejected at frame 4 with the fingers of both hands through
+each other, which is how the gap surfaced. Worth fixing by writing the spec
+beside the file.
+
+⚠⚠ **AND A LOOP `.mp4` CANNOT BE COMPARED BY BYTES AT ALL — IT CARRIES A
+TIMESTAMP.** The container embeds the wall-clock time of the render, so two runs
+of the SAME code differ:
+
+```
+OLD   12 12:43:53 ... Lavf60.16.100      <- old code
+OLD2  12 12:46:50 ... Lavf60.16.100      <- old code again: 2 bytes differ
+NEW   12 12:45:20 ... Lavf60.16.100      <- new code: 3 bytes differ
+```
+
+All three are 22,044 bytes and every differing byte is inside the time string at
+offset ~22004. **Run the control before believing a byte diff**: without the
+second old-code run, "old and new hash differently" reads as a regression, and
+the doc's own claim that re-rendering is deterministic would have backed that
+reading up.
+
+What IS a valid regression test is the REPORTED MEASUREMENTS — planting, the
+per-frame checks, the framing bounds. For `scapular_squeeze` under old and new
+code those were identical line for line (`planted 25 frames`, `checked 24
+frames: nothing passes through anything`, `framed on the whole rep: 0.98 x 1.67
+m`), with only the output filename differing. That is what says the geometry did
+not move. A `git worktree` at HEAD renders the old side, pointed at the same
+blend.
+
 Measured for the overhead group: `upperarm` +Z raises the arm laterally, and
 +85° clears the head; +78° with the elbow at -100° is hands-behind-head. Rolling
 the shoulders forward (the clavicles, for a scapular squeeze) carries the hands

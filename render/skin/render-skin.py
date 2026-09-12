@@ -21,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import za  # noqa: E402
 import stage  # noqa: E402
 import collide  # noqa: E402
+import plant  # noqa: E402
+import floor as floormod  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_png = argv[0], argv[1], argv[2]
@@ -96,11 +98,28 @@ def lowest(ob):
 # pose left it — visible immediately, and tedious to correct by hand-tuning a
 # root offset per pose. Measure the lowest vertex and drop the rig onto the
 # floor the rest pose defined.
-floor = lowest(body)
-arm.location.z += FLOOR_Z - floor
-bpy.context.view_layer.update()
-print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, "
-      f"dropped {(FLOOR_Z - floor) * 100:+.1f}cm onto the floor")
+#
+# A pose that DECLARES what it rests on is planted on those contacts instead,
+# after levelling them — a bridge rests on the shoulders and the feet at once,
+# and the lowest vertex is neither. A pose that declares nothing takes the line
+# below exactly as it always has.
+floor_bones = plant.contacts(poses, pose_name)
+if floor_bones:
+    tilt, _before, spread = plant.solve_tilt(bpy, body, arm, floor_bones)
+    plant.drop(bpy, body, arm, FLOOR_Z, floor_bones)
+    sink, who = plant.sunk(bpy, body, FLOOR_Z)
+    verdict = plant.fault(pose_name, tilt, spread, sink, who)
+    if verdict:
+        sys.exit(verdict)
+    print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, resting on "
+          f"{', '.join(floor_bones)} (levelled {tilt:+.2f} deg, contacts within "
+          f"{spread * 1000:.1f}mm)")
+else:
+    floor = lowest(body)
+    arm.location.z += FLOOR_Z - floor
+    bpy.context.view_layer.update()
+    print(f"posed {pose_name!r}: {len(poses[pose_name])} bones, "
+          f"dropped {(FLOOR_Z - floor) * 100:+.1f}cm onto the floor")
 
 # Refuse a pose the body cannot hold. Posing has no collision, so a limb swung
 # into the torso renders as a limb inside the torso — a picture that is wrong
@@ -168,5 +187,13 @@ for slot in body.material_slots:
 for poly in mesh.polygons:
     poly.material_index = 0
 
-stage.setup(bpy, view)
+# A still of a floor pose needs the ground for the same reason a loop does: a
+# supine figure with nothing under it reads as floating. Bounds first — a 12m
+# slab in visible_bounds would zoom the camera out until the figure was a speck.
+if plant.contacts(poses, pose_name):
+    bounds = stage.visible_bounds(bpy)
+    floormod.add(bpy, FLOOR_Z)
+    stage.setup(bpy, view, bounds=bounds)
+else:
+    stage.setup(bpy, view)
 stage.render_png(bpy, out_png)

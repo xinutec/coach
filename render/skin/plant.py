@@ -77,7 +77,7 @@ def check_contacts(poses, body):
     return bad
 
 
-def _evaluated(bpy, body):
+def evaluated(bpy, body):
     """The posed mesh and its world matrix.
 
     Returned rather than flattened to world coordinates because the solver wants
@@ -124,7 +124,7 @@ def _contact_verts(body, bone):
     return _VERTS[key]
 
 
-def _contact_heights(body, mat, me, bones):
+def contact_heights(body, mat, me, bones):
     """The lowest skin height under each contact bone, in the order given."""
     verts = me.vertices
     return [min((mat @ verts[i].co).z for i in _contact_verts(body, bone))
@@ -133,8 +133,8 @@ def _contact_heights(body, mat, me, bones):
 
 def measure(bpy, body, bones):
     """Contact heights, and how far apart the highest and lowest are."""
-    mat, me = _evaluated(bpy, body)
-    zs = _contact_heights(body, mat, me, bones)
+    mat, me = evaluated(bpy, body)
+    zs = contact_heights(body, mat, me, bones)
     return zs, max(zs) - min(zs)
 
 
@@ -206,9 +206,9 @@ def drop(bpy, body, arm, floor_z, bones=()):
     lowest DECLARED contact that meets it — so a fingertip hanging below a
     shoulder cannot push the whole figure up off what it is resting on.
     """
-    mat, me = _evaluated(bpy, body)
+    mat, me = evaluated(bpy, body)
     if bones:
-        z = min(_contact_heights(body, mat, me, bones))
+        z = min(contact_heights(body, mat, me, bones))
     else:
         z = min((mat @ v.co).z for v in me.vertices)
     arm.location.z += floor_z - z
@@ -250,7 +250,7 @@ def sunk(bpy, body, floor_z, margin=0.01):
     declared, with a head or an elbow passing through the ground behind it. The
     margin absorbs the millimetre the skin's own detail puts under a sole.
     """
-    mat, me = _evaluated(bpy, body)
+    mat, me = evaluated(bpy, body)
     own = _owner(body)
     low, who = None, None
     for v in me.vertices:
