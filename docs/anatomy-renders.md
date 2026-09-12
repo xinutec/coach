@@ -332,11 +332,23 @@ Twelve loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
 `triceps_extension_overhead_dumbbell`, `triceps_stretch_overhead`,
 `biceps_wall_stretch`, `scapular_squeeze`.
 
-⚠ **The `pose@frame` spec each loop was rendered from is NOT recorded anywhere**,
-so a shipped loop cannot be reproduced without re-deriving it. Guessing one for
-`squat_goblet` was rejected at frame 4 with the fingers of both hands through
-each other, which is how the gap surfaced. Worth fixing by writing the spec
-beside the file.
+**How a loop is built is recorded in `render/skin/loops.json`**, and `animate.py`
+reads it:
+
+```
+blender -b <blend> --python animate.py -- glute_bridge out/bridge.mp4
+```
+
+Verified by re-making the shipped bridge from the manifest alone: identical
+measurements, identical size, five bytes apart — all of them inside the
+timestamp.
+
+⚠ **Only `glute_bridge` is in it.** The thirteen loops that shipped first were
+rendered from specs nobody wrote down, and a guessed one for `squat_goblet` was
+rejected at frame 4 with the fingers of both hands through each other. **A wrong
+entry would be worse than an absent one**: the file exists to be trusted, so each
+of the thirteen has to be re-derived and actually rendered before it is added.
+Tracked as its own task.
 
 ⚠⚠ **AND A LOOP `.mp4` CANNOT BE COMPARED BY BYTES AT ALL — IT CARRIES A
 TIMESTAMP.** The container embeds the wall-clock time of the render, so two runs

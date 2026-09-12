@@ -12,8 +12,14 @@ while iterating on timing, never for anything that ships.
 
     blender -b <labelled.blend> --python animate.py -- \\
         <slug> <view> <out.mp4> <pose@frame,...> [--no-check]
+    blender -b <labelled.blend> --python animate.py -- <slug> <out.mp4>
 
 e.g.  squat_goblet left out/squat.mp4 stand@0,squat@12,stand@24
+      glute_bridge out/bridge.mp4          (view and keys from loops.json)
+
+The short form is how a shipped loop is RE-MADE; the long form is how a new one
+is found. Whatever the long form is finally happy with belongs in loops.json, or
+the loop joins the thirteen that cannot be reproduced.
 """
 import bpy
 import json
@@ -30,10 +36,25 @@ import plant  # noqa: E402
 import floor as floormod  # noqa: E402
 
 argv = sys.argv[sys.argv.index("--") + 1:]
-slug, view, out_path, spec = argv[0], argv[1], argv[2], argv[3]
+positional = [a for a in argv if not a.startswith("--")]
 do_check = "--no-check" not in argv
 
 HERE = Path(__file__).resolve().parent
+if len(positional) >= 4:
+    slug, view, out_path, spec = positional[0], positional[1], positional[2], positional[3]
+elif len(positional) == 2:
+    # Re-making a recorded loop: the manifest is the only place its view and keys
+    # exist, so a missing entry is an error rather than a default.
+    slug, out_path = positional
+    recorded = json.loads((HERE / "loops.json").read_text())
+    if slug not in recorded:
+        sys.exit(f"loops.json has no entry for {slug!r} — it is one of the loops "
+                 "whose spec was never recorded. Render it with the long form "
+                 "until it passes, then add what worked.")
+    view, spec = recorded[slug]["view"], recorded[slug]["spec"]
+    print(f"{slug}: {view}, {spec} (from loops.json)")
+else:
+    sys.exit("usage: <slug> <view> <out.mp4> <pose@frame,...>  |  <slug> <out.mp4>")
 RENDER = HERE.parent
 REPO = RENDER.parent
 poses = json.loads((HERE / "poses.json").read_text())
