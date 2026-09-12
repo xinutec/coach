@@ -3,8 +3,20 @@
 Generate the exercise illustrations ourselves from a 3D anatomical model instead
 of sourcing them one by one: an écorché figure per exercise, primary muscles dark
 red, secondaries lighter red, consistent style — and the colouring **derived from
-the same catalog data the engine uses**, so an image can never disagree with the
-muscle model.
+the same catalog data the engine uses**, so it cannot be an artist's opinion.
+
+⚠ **"So an image can never disagree with the muscle model" used to stand here and
+is not true.** The colouring is derived from the catalog, which stops it being
+INVENTED; it does not make it COMPLETE. A muscle lying under another is barely
+reachable by the labelling, so several exercises colour a primary faintly or not
+at all — measured and tracked, with the mechanism in its own task.
+
+**Decision (Pippijn, 2026-09-12): a demo loop ships on the strength of its
+MOVEMENT.** The still photograph beside it already carries the exercise, and the
+loop's job is to show what the movement is; weak muscle colouring is a known
+deficiency rather than a reason to withhold a working demo. Showing muscle areas
+properly is a separate job to be done another way, later — not by improving this
+path under a deadline.
 
 Status (2026-09-12): **shipping on two tracks.** All 136 exercises carry a still
 image, and some of them also carry an animated demo loop — a posed, moving,
@@ -613,6 +625,22 @@ hips flat on the ground is not a lift — it is the mean pelvis vertex of a body
 that is simply thick. Lift is a DIFFERENCE between two poses, and reading the
 absolute number as the lift made an early attempt look far more wrong than it
 was.
+
+### ⚠⚠ Blender exits 0 when the script CRASHES
+
+Measured 2026-09-12: `blender -b --python x.py` where `x.py` raises returns **0**.
+The traceback is printed and the status says success. An explicit `sys.exit(1)`
+IS honoured — so a script that decides something is wrong can report it, and a
+script that breaks cannot.
+
+Every check in this pipeline runs that way, so a green exit code means "blender
+ran", never "the check passed". It bit immediately: a sweep reported `rc=0`
+having produced no measurements at all, because the script had died on a
+NameError in a branch added minutes earlier.
+
+**Assert on the OUTPUT, not the status.** These scripts print one line per
+candidate or per pose; count them, or grep the log for `Traceback`. Absence of a
+result is the signal, and it looks exactly like success if you only read `$?`.
 
 ### Look at it against a floor, or do not look at all
 

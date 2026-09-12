@@ -4,7 +4,14 @@ The authoring loop for a floor pose, in one place, because doing it by hand cost
 a wasted render sweep three times over.
 
     blender -b <labelled.blend> --python try-pose.py -- <candidates.json> \\
-        [--render <dir>] [--view left]
+        [--render <dir>] [--view left] [--no-solve]
+
+`--no-solve` skips the levelling search, which is ~130 mesh evaluations per
+candidate — fine for verifying a handful, useless for a grid. Sweep with it to
+find candidates whose contacts are nearly level already, then verify those
+without it. As a rule of thumb measured on the cat-cow poses, the search buys
+about 0.9cm of spread per degree of tip, so with the 5 degree cap anything past
+roughly 4cm of raw spread cannot be rescued.
 
 `candidates.json` is `{name: {bone: [x,y,z], ..., "_floor": [bone, ...]}}` — the
 same shape as an entry in poses.json plus the contacts it rests on. Nothing is
@@ -82,14 +89,20 @@ for name, spec in candidates.items():
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
 
+    tilt = before = spread = sink = 0.0
+    who, verdict = "", None
     if contacts:
-        tilt, before, spread = plant.solve_tilt(bpy, body, arm, contacts)
+        if "--no-solve" in argv:
+            _zs, before = plant.measure(bpy, body, contacts)
+            spread = before
+        else:
+            tilt, before, spread = plant.solve_tilt(bpy, body, arm, contacts)
         plant.drop(bpy, body, arm, FLOOR_Z, contacts)
         sink, who = plant.sunk(bpy, body, FLOOR_Z)
-        verdict = plant.fault(name, tilt, spread, sink, who)
-    else:
-        tilt = before = spread = sink = 0.0
-        who, verdict = "", None
+        # Without the search, "needs too much tip" is not a verdict this run can
+        # reach; only the raw spread and what is through the floor mean anything.
+        if "--no-solve" not in argv:
+            verdict = plant.fault(name, tilt, spread, sink, who)
     faults, _pairs = collide.find_faults(bpy, body, arm, allow=set())
     line = (f"[{name}] tilt {tilt:+6.2f}  spread {before * 100:6.1f}->"
             f"{spread * 100:5.2f}cm  through {sink * 100:5.2f}cm({who})  "
