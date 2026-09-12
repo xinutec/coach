@@ -110,9 +110,9 @@ in  { name = "coach"
         G.Check::{
         , name = "tests (against a real MariaDB)"
         , argv =
-              G.inDevShell
-                [ "nix", "run", "../dev-lint#with-test-db", "--" ]
-            # [ "--database"
+            G.withTestDb
+              "../"
+              [ "--database"
               , "coach"
               , "--user"
               , "coach"
@@ -154,9 +154,9 @@ in  { name = "coach"
         G.Check::{
         , name = "the query cache matches the schema"
         , argv =
-              G.inDevShell
-                [ "nix", "run", "../dev-lint#with-test-db", "--" ]
-            # [ "--database"
+            G.withTestDb
+              "../"
+              [ "--database"
               , "coach"
               , "--user"
               , "coach"
