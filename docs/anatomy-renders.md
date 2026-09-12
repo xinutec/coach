@@ -6,14 +6,23 @@ red, secondaries lighter red, consistent style — and the colouring **derived f
 the same catalog data the engine uses**, so an image can never disagree with the
 muscle model.
 
-Status (2026-07-19): **M1/M3 done and shipped** — the CI pipeline renders a
-shaded, catalog-coloured, *unposed* écorché and all 136 exercises carry images.
-**M2 (posing) is abandoned** — a borrowed rig *can* move the figure, but the
-écorché is dozens of separate muscle shells, not one skinned mesh, so any joint
-bend tears and interpenetrates them into non-human shapes (see M2). Decision
-(Pippijn, 2026-07-19): **use the écorché only for muscle colouring in the neutral
-pose; no posing/animation.** That is exactly what ships today — nothing further
-to build.
+Status (2026-09-12): **shipping on two tracks.** All 136 exercises carry a still
+image, and **13 of them also carry an animated demo loop** — a posed, moving,
+catalog-coloured figure. The loop sits beside the photograph and never replaces
+it, so a bad loop cannot cost an existing picture.
+
+⚠ **The paragraph that used to be here said posing was abandoned and there was
+"nothing further to build".** That was true of the ÉCORCHÉ and is recorded under
+M2: it is dozens of separate muscle shells, so every bent joint tears and
+interpenetrates them, and no amount of weight tuning fixes a mesh that is not
+continuous. What changed is the figure, not the verdict — **fork C** poses a
+single skinned MB-Lab body and *derives* its muscle regions from the écorché by
+registration, so the catalog still decides what is red while the thing that
+bends is one continuous surface. That is what the loops are rendered from.
+
+Still open: **four floor loops** (glute bridge, cat-cow, scapular push-up,
+kneeling lat reach). They are blocked on ground contact, not on pose authoring —
+see "Standing on two contacts" below.
 
 ## Why
 
@@ -463,6 +472,109 @@ in [[reference_isis_render_memory_cap]] as the reason CI is the host.
 Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
 versioned pose files — re-rendering an unchanged pose yields the same image, so
 image diffs mean something, like the back-test.
+
+## Standing on two contacts (2026-09-12)
+
+A standing figure meets the floor at one place, so the plant is one line:
+measure the lowest vertex and drop the rig until it touches. Everything shipped
+so far is that case.
+
+A floor pose is not. A glute bridge rests on the shoulders **and** the feet while
+the middle rises, and a single-point drop lands whichever is lower and leaves the
+other in the air. Two attempts failed before the cause was clear, and both are
+worth keeping because they fail in ways that look like success:
+
+1. **Tuning the pose until the numbers read right.** Hips 25cm above the
+   shoulders, feet within 1cm of shoulder height — all true, and the render was a
+   straight diagonal plank with the feet highest. **A body rotating as a whole
+   satisfies those numbers exactly as well as a bridge does.**
+2. **An auto-leveller** that rotated the rig until the two ends of the body sat
+   at the same height. It under-corrected (8.8 deg against a visible ~30), and it
+   would have rotated a squat by 27.9 deg and a hinge by 40.2 deg, silently
+   breaking all thirteen shipped loops. The axis is pose-dependent: "along the
+   body" is y lying down and z standing, and treating it as fixed is the bug.
+
+### What works: the pose says what it rests on
+
+`render/skin/plant.py`. A pose declares its floor contacts in a `_floor` table
+beside `_contact`, as bone names — `spine03, foot_L, foot_R` is a bridge,
+`foot_L, foot_R` is standing. Nothing else knows: the geometry cannot tell a
+load-bearing contact from an incidentally low one.
+
+With the contacts named, one angle is left free — how far the figure tips along
+its own length — and it is found by **search, not a formula**. A closed form has
+to pick the axis, which is the thing attempt 2 got wrong; a search over the
+`root` bone measures the actual skinned, corrective-smoothed mesh and needs no
+opinion about which way the body is lying.
+
+⚠ **A pose that declares nothing takes the old path untouched.** That is the
+whole safety argument: `stand`, `squat` and `hinge_bottom` cannot be reached by
+this code.
+
+### Two guards, because levelling is not enough
+
+Levelling alone reproduces failure 1 exactly. Measured while authoring the
+bridge: a pose with a wrong torso needed **+15.9 deg** of tip, achieved a contact
+spread of 0.00cm, and put **the head 9cm underground**. Perfectly level, plainly
+not the movement.
+
+- **A tilt cap (5 deg).** A correct pose needs well under a degree. Past the cap
+  the tip is not a correction, it is the figure rotating as a whole, and it is
+  reported as a fault in the POSE rather than absorbed.
+- **A through-floor check that NAMES the part.** "Something is 9cm under the
+  ground" sends you looking at the whole figure; "head is 9cm under the ground"
+  is the answer. Each vertex's dominant deform bone is resolved once.
+
+### The rig cannot lift a hip, and measuring said so in one run
+
+Three sign guesses in a row were wrong, each costing a six-render sweep, before
+the obvious move: perturb one bone at a time and read what actually moves. Eight
+pose evaluations, no renders, and it settled every sign at once — the same
+one-input-at-a-time discipline that applies to any borrowed system.
+
+The hierarchy is `root -> pelvis -> {thigh, spine01} -> spine02 -> spine03 ->
+neck -> head`, and the measured response of each contact to +10 deg of X is:
+
+| bone | head | spine03 | pelvis | foot |
+|---|---|---|---|---|
+| root | +26.5 | +20.8 | **+14.7** | +5.0 |
+| pelvis | +13.5 | +7.7 | +1.7 | −8.1 |
+| spine01 | +10.2 | +4.4 | −0.4 | 0 |
+| spine02 | +8.9 | +3.2 | 0 | 0 |
+| spine03 | +6.7 | +0.6 | 0 | 0 |
+| neck | +2.8 | 0 | 0 | 0 |
+| thigh | 0 | 0 | 0 | +10.0 |
+
+⚠ **Read the pelvis column. Only `root` moves the pelvis, and it moves the
+shoulders MORE.** Every spine bone moves it by zero. That is structural, not a
+tuning problem: the pelvis is upstream of the spine, so no rotation anywhere
+raises the hips relative to the shoulders. **A glute bridge is not reachable by
+turning one dial**, which is why every attempt that tried produced a body
+rotating as a whole — the only thing one dial can do.
+
+The table also gives the answer. Hold the shoulder contact still with
+`spine01 = -4.685 x root`; the pelvis then rises 16.5cm per 10 deg of root while
+the head falls 21.2cm — and `spine03` and `neck` move the head without touching
+the shoulder contact at all (+6.7 and +2.8 against +0.6 and 0), so they put it
+back. Four bones, one linear solve, no guessing.
+
+⚠ **Watch the units when reading a hip height.** "Hips 14.1cm" in a pose with the
+hips flat on the ground is not a lift — it is the mean pelvis vertex of a body
+that is simply thick. Lift is a DIFFERENCE between two poses, and reading the
+absolute number as the lift made an early attempt look far more wrong than it
+was.
+
+### Look at it against a floor, or do not look at all
+
+The stage has no ground plane — a standing figure needs none. For authoring a
+floor pose that is the wrong instrument: against plain grey, a body resting on
+the ground and one hovering 15cm above it are **the same picture**, which is how
+the plank survived being looked at.
+
+⚠ And a floor *plane* is not enough either. The authoring views are orthographic
+and horizontal, so a flat plane renders edge-on as a one-pixel line: in the
+scene, invisible in the frame, which is worse than nothing because it looks like
+the check was done. Use a slab with thickness.
 
 ## The hard part: rig and poses
 
