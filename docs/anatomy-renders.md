@@ -7,8 +7,9 @@ the same catalog data the engine uses**, so an image can never disagree with the
 muscle model.
 
 Status (2026-09-12): **shipping on two tracks.** All 136 exercises carry a still
-image, and **13 of them also carry an animated demo loop** — a posed, moving,
-catalog-coloured figure. The loop sits beside the photograph and never replaces
+image, and some of them also carry an animated demo loop — a posed, moving,
+catalog-coloured figure. (`data/catalog/loops/` is the set; a count written here
+would be wrong by the next one.) The loop sits beside the photograph and never replaces
 it, so a bad loop cannot cost an existing picture.
 
 ⚠ **The paragraph that used to be here said posing was abandoned and there was
@@ -20,9 +21,9 @@ single skinned MB-Lab body and *derives* its muscle regions from the écorché b
 registration, so the catalog still decides what is red while the thing that
 bends is one continuous surface. That is what the loops are rendered from.
 
-Still open: **four floor loops** (glute bridge, cat-cow, scapular push-up,
-kneeling lat reach). They are blocked on ground contact, not on pose authoring —
-see "Standing on two contacts" below.
+Still open: **three floor loops** — cat-cow, scapular push-up, kneeling lat
+reach. The glute bridge was the fourth and it shipped, which is what proved the
+approach; see "Standing on two contacts" below.
 
 ## Why
 
@@ -325,12 +326,9 @@ must not be able to cost us one.
   rather than the hero's `cover`, because the render is framed on the whole rep
   deliberately and cropping would cut the feet off at the bottom of the squat.
 
-Twelve loops are in the bundle: `squat_goblet`, `rdl_dumbbell`,
-`good_morning_dumbbell`, `curl_biceps_dumbbell_standing`,
-`curl_biceps_dumbbell_alternating`, `heel_toe_rocks`,
-`leg_swings_front_to_back`, `leg_swings_side_to_side`,
-`triceps_extension_overhead_dumbbell`, `triceps_stretch_overhead`,
-`biceps_wall_stretch`, `scapular_squeeze`.
+Which exercises have one is `data/catalog/loops/`. It was enumerated here once
+and the list went stale twice before anyone noticed — the directory is the
+answer and cannot disagree with itself.
 
 **How a loop is built is recorded in `render/skin/loops.json`**, and `animate.py`
 reads it:
@@ -486,11 +484,21 @@ Built (2026-07-18):
   `exercises`, `view`); installs pinned Blender, runs the three scripts, uploads
   PNGs as an artifact.
 
-Not yet built: `render/poses/<slug>.json` (armature pose per exercise) and
-`render/props.py` (procedural dumbbell/barbell/bench). Both are M2+.
+`render/props.py` (procedural dumbbell/barbell/bench) is still not built — M4.
 
-**Render host: a GitHub Actions job, never a server we run.** The Mac can't
-build Blender (link error, aarch64-darwin, blender 5.1.2), and isis is
+⚠ `render/poses/<slug>.json`, a pose file per exercise, was never built and is
+not wanted: poses turned out to be SHARED (a squat is a squat whoever is
+holding what), so they live as named entries in `render/skin/poses.json` and a
+slug maps onto them through `loops.json`. Planned per-slug, built per-pose.
+
+**Render host — and ⚠ this describes the ÉCORCHÉ stills only.** The fork-C skin
+pipeline (`render/skin/`) has no CI job and is run by hand against a Blender
+downloaded to `~/Applications` — 4.2.3, pinned to the same version the workflow
+installs. "The Mac can't build Blender" is still true and is not the same claim:
+it cannot build one from nixpkgs, and it runs a downloaded one fine. Everything
+below is about the workflow that renders the atlas.
+
+The Mac can't build Blender (link error, aarch64-darwin, blender 5.1.2), and isis is
 production — rendering the full atlas there once exhausted its 16 GB, hard-wedged
 the box, and forced an unclean reboot (~47 min downtime, 2026-07-18). The fix is
 not to render on our machines at all: a dedicated **`workflow_dispatch`**
@@ -699,6 +707,12 @@ flat.
   a tuning problem. **Verdict: posing/animation is off the table; the écorché is
   a neutral-pose "muscles worked" illustration only.** The `render/rigging/`
   scripts stay as a record of what was tried and why it doesn't generalise.
+
+  ⚠ **That verdict still holds for the ÉCORCHÉ and was overtaken for the APP.**
+  What changed is the figure, not the reasoning: fork C poses a single skinned
+  body and derives its muscle regions from the écorché, so the thing that bends
+  is one continuous surface. Loops ship from that. Read this entry as the reason
+  the écorché itself is never posed, not as the state of the pipeline.
 - **M3 — unposed écorché shipped to the catalog (2026-07-18).** Full 42-slug
   muscle-map authored (`render/muscle_map.json`) and validated across muscle
   groups/views (push-up→pecs, squat→quads, curl→biceps, row→upper back,
@@ -713,15 +727,16 @@ flat.
   on the same ground as below: it says which muscle, not what to do. Worth
   weighing when M5 decides replace vs supplement.
 
-  Remaining choice for a wider rollout: **replace vs supplement** — an
-  unposed écorché is a "muscles worked" view, not a how-to demo, so overwriting
-  the sourced demo photos for the other 134 would trade movement info for muscle
-  info. That is a product decision to make deliberately (a second image field is
-  the supplement option); not done unilaterally.
+  **Replace vs supplement: DECIDED — supplement** (Pippijn, 2026-09-03). The
+  photograph stays exactly as it is and the loop is a second artifact beside it,
+  in its own table, found by convention. So a bad loop can never cost an exercise
+  the picture it already had — which the seeder log states on every boot
+  (`N loop(s) added, 0 image(s)`).
 - **M4 — props + a loaded lift.** Dumbbell RDL: two dumbbells in hands, hinge
   pose. Proves prop parenting and equipment-driven selection.
-- **M5 — scale.** Batch pose authoring, review loop, progressive replacement of
-  sourced images. Full muscle-map authored (every catalog slug).
+- **M5 — scale.** Batch pose authoring and a review loop. NOT replacement of the
+  sourced images: that question is settled above, and a loop supplements rather
+  than overwrites.
 
 ## Attribution
 
