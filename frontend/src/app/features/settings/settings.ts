@@ -183,12 +183,18 @@ export class SettingsPage {
 
 	async checkUpdates(): Promise<void> {
 		const r = await this.swUpdates.checkNow();
+		// ⚠ `failed` is its own answer, not the `else`. The shared policy reports a
+		// check that could not complete — offline, or activation refused — and
+		// folding it into the dev-build branch told the user "No service worker"
+		// when the app has one and simply could not reach the server.
 		this.updateMsg.set(
 			r === "current"
 				? "Up to date."
 				: r === "updating"
 					? "Updating…"
-					: "No service worker (dev build).",
+					: r === "failed"
+						? "Could not check — try again."
+						: "No service worker (dev build).",
 		);
 	}
 }

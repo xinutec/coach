@@ -1,19 +1,32 @@
 import { TestBed } from '@angular/core/testing';
-import { SwUpdate, VersionEvent } from '@angular/service-worker';
+import { SwUpdate, UnrecoverableStateEvent, VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SwUpdates } from './sw-updates';
 
+// ⚠ These assert on `activateUpdate` rather than on a spied `applyUpdate`. The
+// rules moved to `@xinutec/ui-harness/sw-updates` on 2026-09-13 and this file is
+// the adapter, so there is no internal seam left to spy on — and that is an
+// improvement: only the NAVIGATION is stubbed now, so applyUpdate() runs for
+// real, including its failure path, which is where the interesting behaviour is.
 function setup(isEnabled: boolean) {
   const versionUpdates = new Subject<VersionEvent>();
+  const unrecoverable = new Subject<UnrecoverableStateEvent>();
   const checkForUpdate = vi.fn().mockResolvedValue(false);
+  const activateUpdate = vi.fn().mockResolvedValue(true);
   TestBed.configureTestingModule({
-    providers: [SwUpdates, { provide: SwUpdate, useValue: { isEnabled, versionUpdates, checkForUpdate } }],
+    providers: [
+      SwUpdates,
+      {
+        provide: SwUpdate,
+        useValue: { isEnabled, versionUpdates, unrecoverable, checkForUpdate, activateUpdate },
+      },
+    ],
   });
   const svc = TestBed.inject(SwUpdates);
-  const apply = vi.spyOn(svc, 'applyUpdate').mockImplementation(() => {});
-  return { svc, versionUpdates, checkForUpdate, apply };
+  const reload = vi.spyOn(svc, 'reload').mockImplementation(() => {});
+  return { svc, versionUpdates, unrecoverable, checkForUpdate, activateUpdate, reload };
 }
 
 // Built whole rather than asserted from a `{ type }` stub: `as VersionEvent`
@@ -36,32 +49,33 @@ function setVisibility(state: 'visible' | 'hidden') {
 describe('SwUpdates', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    sessionStorage.clear(); // the one-shot recovery marker lives here
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
   });
   afterEach(() => vi.useRealTimers());
 
   it('checks at startup and reloads when a new version is ready right away', () => {
-    const { svc, versionUpdates, checkForUpdate, apply } = setup(true);
+    const { svc, versionUpdates, checkForUpdate, activateUpdate } = setup(true);
     svc.start();
     expect(checkForUpdate).toHaveBeenCalledOnce();
     versionUpdates.next(ready);
-    expect(apply).toHaveBeenCalledOnce();
+    expect(activateUpdate).toHaveBeenCalledOnce();
   });
 
   it('does nothing when the service worker is disabled (dev build)', () => {
-    const { svc, versionUpdates, checkForUpdate, apply } = setup(false);
+    const { svc, versionUpdates, checkForUpdate, activateUpdate } = setup(false);
     svc.start();
     expect(checkForUpdate).not.toHaveBeenCalled();
     versionUpdates.next(ready);
-    expect(apply).not.toHaveBeenCalled();
+    expect(activateUpdate).not.toHaveBeenCalled();
   });
 
   it('ignores version events other than VERSION_READY', () => {
-    const { svc, versionUpdates, apply } = setup(true);
+    const { svc, versionUpdates, activateUpdate } = setup(true);
     svc.start();
     versionUpdates.next(detected);
     versionUpdates.next(noUpdate);
-    expect(apply).not.toHaveBeenCalled();
+    expect(activateUpdate).not.toHaveBeenCalled();
   });
 
   it('re-checks for updates when the app becomes visible again (stale tab)', () => {
@@ -75,32 +89,32 @@ describe('SwUpdates', () => {
   });
 
   it('defers a mid-session update to the next backgrounding, not mid-use', () => {
-    const { svc, versionUpdates, apply } = setup(true);
+    const { svc, versionUpdates, activateUpdate } = setup(true);
     svc.start();
     vi.advanceTimersByTime(60_000); // long past the startup window
     versionUpdates.next(ready);
-    expect(apply).not.toHaveBeenCalled(); // user may be mid-edit
+    expect(activateUpdate).not.toHaveBeenCalled(); // user may be mid-edit
     setVisibility('hidden');
-    expect(apply).toHaveBeenCalledOnce(); // reloads invisibly once backgrounded
+    expect(activateUpdate).toHaveBeenCalledOnce(); // reloads invisibly once backgrounded
   });
 
   it('applies a mid-session update immediately when the app is hidden', () => {
-    const { svc, versionUpdates, apply } = setup(true);
+    const { svc, versionUpdates, activateUpdate } = setup(true);
     svc.start();
     vi.advanceTimersByTime(60_000);
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     versionUpdates.next(ready);
-    expect(apply).toHaveBeenCalledOnce();
+    expect(activateUpdate).toHaveBeenCalledOnce();
   });
 
   it('checkNow applies immediately — the user explicitly asked', async () => {
-    const { svc, versionUpdates, checkForUpdate, apply } = setup(true);
+    const { svc, versionUpdates, checkForUpdate, activateUpdate } = setup(true);
     svc.start();
     vi.advanceTimersByTime(60_000);
     checkForUpdate.mockResolvedValueOnce(true);
     await expect(svc.checkNow()).resolves.toBe('updating');
     versionUpdates.next(ready);
-    expect(apply).toHaveBeenCalledOnce(); // no deferral on a manual check
+    expect(activateUpdate).toHaveBeenCalledOnce(); // no deferral on a manual check
   });
 
   it('checkNow reports current when no update was found', async () => {
