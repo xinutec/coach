@@ -15,10 +15,7 @@ import {
  * overflow, and OCCLUDED controls (a tappable control drawn under a fixed bar).
  * The occlusion check runs at a wide viewport too: the log-a-set FAB sinks behind
  * the bottom nav at ≥768px — invisible at phone width.
- *
- * The service worker is blocked: SW-controlled fetches bypass page.route.
  */
-test.use({ serviceWorkers: "block" });
 
 /**
  * Raw values that reached the screen instead of being turned into something a
