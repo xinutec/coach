@@ -25,3 +25,6 @@ ts-rs = { version = "12", optional = true, features = [
     "chrono-impl",
     "serde-json-impl",
 ] }
+
+[lints]
+workspace = true

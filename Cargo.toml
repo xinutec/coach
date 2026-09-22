@@ -82,3 +82,17 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 # Property tests: engine invariants that must hold for *every* input.
 proptest = "1"
+
+# The fleet's `[lints]` baseline (dev-lint docs/standards.md §7): every member
+# takes it with `lints.workspace = true`, so clippy is no weaker here than
+# anywhere else. Extensions are argued per repository, in this file.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[lints]
+workspace = true
