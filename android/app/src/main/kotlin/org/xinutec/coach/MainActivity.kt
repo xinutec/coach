@@ -69,7 +69,7 @@ class MainActivity : WebShellActivity() {
      *
      * `addWebMessageListener` is the origin-scoped replacement: the WebView
      * itself guarantees the object is only injected into frames matching
-     * [ALLOWED_ORIGINS]. The `sourceOrigin` and `isMainFrame` checks below are
+     * [Bridge.ALLOWED_ORIGINS]. The `sourceOrigin` and `isMainFrame` checks below are
      * belt and braces on top of that, which is what Android's own guidance
      * recommends rather than trusting the rules alone.
      *
