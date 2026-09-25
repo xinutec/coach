@@ -409,5 +409,6 @@ Renders derive from Z-Anatomy (CC-BY-SA 4.0, github.com/Z-Anatomy), itself based
 on BodyParts3D / Anatomography (CC-BY-SA 2.1 JP). The male figure lives in the
 `Models-of-human-anatomy` repo; the atlas template in `The-blend`.
 
-⚠ **The app does not show this attribution yet.** CC-BY-SA requires it wherever
-a derived render or loop is displayed.
+The exercise sheet credits it in a line under every loop. CC-BY-SA requires the
+credit wherever a derived work is shown, so a new place that shows a render needs
+one too.

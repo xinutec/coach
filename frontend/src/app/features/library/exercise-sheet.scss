@@ -25,6 +25,17 @@
   object-fit: contain;
 }
 
+.loop-credit {
+  margin: 0.25rem 0 0;
+  text-align: center;
+  font: var(--mat-sys-label-small);
+  color: var(--mat-sys-on-surface-variant);
+
+  a {
+    color: inherit;
+  }
+}
+
 .player {
   position: relative;
   overflow: hidden;

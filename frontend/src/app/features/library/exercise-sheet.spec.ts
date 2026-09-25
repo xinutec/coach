@@ -342,6 +342,22 @@ describe("what the sheet says about a movement", () => {
 		expect(document.querySelector('img[src="/api/exercises/7/image"]')).not.toBeNull();
 	});
 
+	/** CC-BY-SA: a render derived from Z-Anatomy must say so wherever it shows. */
+	it("credits the anatomy the loop is rendered from", () => {
+		sheet(detail({ hasLoop: true }));
+		const credit = document.querySelector(".loop-credit");
+		expect(credit?.textContent).toContain("Z-Anatomy");
+		expect(credit?.textContent).toContain("CC BY-SA 4.0");
+		expect(credit?.querySelector("a")?.getAttribute("href")).toBe(
+			"https://github.com/Z-Anatomy",
+		);
+	});
+
+	it("credits nothing when there is no loop", () => {
+		sheet(detail({ hasLoop: false }));
+		expect(document.querySelector(".loop-credit")).toBeNull();
+	});
+
 	it("points the picture at the exercise's own image", () => {
 		const page = sheet().componentInstance;
 		expect(page.imageUrl(7)).toBe("/api/exercises/7/image");

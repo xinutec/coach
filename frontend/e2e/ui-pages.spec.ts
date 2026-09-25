@@ -399,6 +399,20 @@ test("exercise sheet — the library detail renders clean @ phone", async ({
 	await expectNoHorizontalOverflow(page, testInfo, SHEET);
 });
 
+test("exercise sheet — a loop and its credit line render clean @ phone", async ({
+	page,
+}, testInfo) => {
+	await mockApi(page);
+	await page.route("**/api/exercises/6", (r) =>
+		r.fulfill({ json: { ...DETAIL, hasLoop: true } }),
+	);
+	await page.goto("/library");
+	await page.getByText("Ring dip").click();
+	await page.locator(".loop-credit").waitFor();
+	await expectNoTextOverlaps(page, testInfo, SHEET);
+	await expectNoHorizontalOverflow(page, testInfo, SHEET);
+});
+
 test("locations — location card + kit chips render clean @ phone", async ({
 	page,
 }, testInfo) => {
