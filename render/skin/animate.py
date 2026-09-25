@@ -19,7 +19,7 @@ e.g.  squat_goblet left out/squat.mp4 stand@0,squat@12,stand@24
 
 The short form is how a shipped loop is RE-MADE; the long form is how a new one
 is found. Whatever the long form is finally happy with belongs in loops.json, or
-the loop joins the thirteen that cannot be reproduced.
+the loop cannot be reproduced.
 """
 import bpy
 import json
@@ -160,14 +160,12 @@ scene = bpy.context.scene
 scene.frame_start, scene.frame_end = keys[0][0], last - 1  # last == first: drop it
 scene.render.fps = 12
 # ⚠ EVERY frame. The blend this pipeline loads carries `frame_step = 2` from the
-# asset it descends from, so the encoder silently wrote every OTHER frame: a
-# 24-frame rep shipped as 12, one second instead of two, at double speed with
-# half the smoothness. Every loop had it from the first one on 2026-09-03.
+# asset it descends from, and the encoder then silently writes every OTHER frame:
+# a 24-frame rep comes out as 12, at double speed with half the smoothness.
 #
-# Nothing upstream could see it. The collision and floor checks walk all 24
-# frames and pass honestly; the loss happens afterwards, in the render loop.
-# The tell is in Blender's own output — "Append frame 0 / 2 / 4" — which reads
-# as ordinary progress unless you are counting.
+# Nothing upstream can see it. The collision and floor checks walk all 24 frames
+# and pass honestly; the loss happens afterwards, in the render loop. The tell is
+# Blender's own "Append frame 0 / 2 / 4", which reads as ordinary progress.
 scene.frame_step = 1
 
 

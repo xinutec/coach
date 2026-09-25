@@ -3,9 +3,7 @@
 /**
  * Where the moment sits relative to the athlete's training window.
  *
- * This was `within_window: bool` beside `after_window: bool` — four states for
- * three real ones, with "both true" meaningless and readers spelling "before"
- * as `!within_window && !after_window`. A clock is somewhere on a line, so it
- * is one value.
+ * One value, not two booleans: a clock is somewhere on a line, and two flags
+ * would give four states for three real ones.
  */
 export type WindowState = "before" | "within" | "after";

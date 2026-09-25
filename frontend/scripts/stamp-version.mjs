@@ -4,9 +4,8 @@
 // is the whole point — it lets you spot a stale cache instead of being reassured
 // by the server's current version. The generated file is gitignored.
 //
-// Mirrors recall's scripts/stamp-version.mjs, adapted for a Docker build with no
-// .git in context: the CI passes the commit as GIT_SHA (see Dockerfile +
-// .github/workflows/docker.yml); local dev falls back to `git`.
+// The Docker build has no .git in context, so CI passes the commit as GIT_SHA
+// (see Dockerfile + .github/workflows/build.yml); local dev falls back to `git`.
 import { execSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

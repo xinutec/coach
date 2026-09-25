@@ -46,10 +46,8 @@ SEARCH_STEPS = 90
 #
 # The search will happily level any two contacts by rotating the whole figure,
 # and a body rotated as a rigid whole satisfies "both contacts on the floor" just
-# as well as one actually resting on them. Measured while authoring the bridge:
-# a pose whose torso was wrong needed +15.9 degrees, and the result was a
-# straight ramp with the head 9cm underground — contacts perfectly level, the
-# picture plainly not the movement. A pose that is right needs well under a
+# as well as one actually resting on them: a bridge with a wrong torso levels at
+# +15.9 degrees into a straight ramp with the head 9cm underground. A pose that is right needs well under a
 # degree, so anything past this is reported as a fault in the POSE.
 MAX_TILT_DEG = 5.0
 

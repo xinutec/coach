@@ -1,16 +1,14 @@
 """Rig the Z-Anatomy écorché by transferring weights from an MB-Lab donor body.
 
-ABANDONED (2026-07-19). This is the most complete attempt and it works
-MECHANICALLY — 666/666 muscles take weights, the figure poses — but the écorché
-is dozens of SEPARATE muscle shells, not one skinned mesh, so any bent joint
-tears and interpenetrates the shells into non-human shapes. Structural, not a
-tuning problem. Kept as a record; posing is off the table (the écorché is used
-only for neutral-pose muscle colouring, M1/M3). See docs/anatomy-renders.md (M2)
-and memory project_coach_anatomy_posing.
+ABANDONED, kept as a record. It works MECHANICALLY — every muscle takes weights,
+the figure poses — but the écorché is dozens of SEPARATE muscle shells, not one
+skinned mesh, so any bent joint tears and interpenetrates the shells into
+non-human shapes. Structural, not a tuning problem. The écorché is used only for
+neutral-pose muscle colouring. See docs/anatomy-renders.md.
 
-Method — bake arms-down as the armature REST BEFORE the écorché binds. transfer5
-regressed by calling pose.armature_apply AFTER attaching the écorché Armature
-modifiers -> double deform. Correct order:
+Method — bake arms-down as the armature REST BEFORE the écorché binds; calling
+pose.armature_apply AFTER attaching the écorché Armature modifiers double-deforms.
+Correct order:
   align -> pose body arms down -> snapshot deformed body (arms-down) for the KDTree
   -> armature_apply (bakes arms-down rest, zeroes pose) -> transfer weights from the
   snapshot -> add écorché modifiers (bind at identity) -> pose legs only.

@@ -11,21 +11,14 @@ internal enum class SetupStep {
 
 /**
  * Which step of the permission → set-home → arm flow still has to happen.
+ * Separate from [MainActivity] so the ordering can be tested without a location
+ * client or permission dialogs.
  *
- * Lifted out of [MainActivity] because the activity's copy needed a live
- * location client and two permission dialogs to reach, so the ordering — the
- * part that can be wrong — was the part nothing could exercise.
- *
- * ⚠ **[next] deliberately cannot see whether a home is already stored.** It used
- * to: the capture was guarded on `!prefs.hasHome`, which meant that once a home
- * existed it could never be replaced, while the button went on offering "Update
- * home & turn on" and the toast went on saying it had worked. Home on the Pixel 9
- * sat unchanged from 2026-07-04 to 2026-09-12 because of it. The capture is now
- * latched per run instead, like [SetupStep.ASK_NOTIFICATIONS] beside it, so
- * re-running setup always re-reads where you are and the loop still terminates.
- *
- * Keeping `hasHome` out of the signature is the fix: the old condition is not
- * merely corrected, it is no longer expressible here.
+ * ⚠ **[next] deliberately cannot see whether a home is already stored.** Every
+ * run of setup ("Update home & turn on") must re-read where you are; guarding
+ * the capture on a stored home would make the first home permanent while the
+ * UI reported an update. The capture is latched per run instead, like
+ * [SetupStep.ASK_NOTIFICATIONS], so the loop still terminates.
  */
 internal object SetupFlow {
     /**

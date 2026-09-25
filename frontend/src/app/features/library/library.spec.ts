@@ -135,10 +135,8 @@ describe("searching", () => {
 		expect(names(page)).toEqual(["Pull-up (bar)", "Pull-up (L-sit)"]);
 	});
 
-	/** The name on the card was once the one string that found nothing: the
-	 *  haystack was `name + " " + variation` while the label is
-	 *  `name (variation)`, so reading a movement off the screen and typing it
-	 *  back returned an empty library. Both spellings match now. */
+	/** Reading a movement off the card (`name (variation)`) and typing it back
+	 *  must find it, as must the unbracketed spelling. */
 	it("matches the name exactly as the card spells it, brackets and all", () => {
 		const { page } = library();
 		page.search.set("Pull-up (L-sit)");

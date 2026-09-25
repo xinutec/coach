@@ -65,8 +65,7 @@ async fn fetch_readiness(app: &AppState, user_id: &str) -> Option<Readiness> {
 /// score itself from health's raw streams here, exactly as it does for today —
 /// health stays unopinionated, and there is one definition of readiness.
 ///
-/// Best-effort throughout: an empty map means every day is judged full-effort,
-/// which is what the ledger did before it could ask.
+/// Best-effort throughout: an empty map means every day is judged full-effort.
 async fn fetch_readiness_history(app: &AppState, user_id: &str) -> BTreeMap<NaiveDate, Readiness> {
     let Some((base, token)) = app.cfg.health() else {
         return BTreeMap::new();

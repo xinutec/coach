@@ -54,10 +54,9 @@ function statusOf(err: unknown): number | null {
 /** Fast "log a set" bottom sheet. Fields shown adapt to the exercise's metric.
  *
  *  The sheet stays open across sets: sets come in runs, and a sheet that
- *  dismisses itself after each one swallows the tap meant for it — that's how
- *  a "Log set" tap once landed on the History tab underneath, and a typed
- *  edit was once lost so the *prefilled* value logged silently. Only an
- *  explicit Done (or the backdrop) closes it. */
+ *  dismisses itself after each one swallows the tap meant for it (landing on
+ *  the tab underneath, or losing a typed edit so the *prefilled* value logs).
+ *  Only an explicit Done (or the backdrop) closes it. */
 @Component({
   selector: "app-log-sheet",
   templateUrl: "./log-sheet.html",
@@ -76,8 +75,7 @@ export class LogSheet {
   readonly data = inject<LogSheetData>(MAT_BOTTOM_SHEET_DATA);
 
   /** Planned movements first, in plan order — mid-workout the next exercise is
-   *  almost always one of these — then the rest alphabetically. The raw catalog
-   *  order made the picker a 120-item scroll hunt. */
+   *  almost always one of these — then the rest alphabetically. */
   readonly exercises: Exercise[] = (() => {
     const all = this.data.exercises;
     const planIds = (this.data.planPrefills ?? []).map((p) => p.exerciseId);
@@ -120,9 +118,8 @@ export class LogSheet {
   }
 
   /** Switching movements re-derives every field: the plan's prescription for a
-   *  planned movement, blank otherwise. Nothing survives the switch — a stale
-   *  value behind a *hidden* field once logged "10 reps · 4 kg" against a
-   *  bodyweight drill, invisible at log time (field-test R2-1). */
+   *  planned movement, blank otherwise. Nothing survives the switch: a stale
+   *  value behind a *hidden* field would log invisibly (R2-1). */
   onExercise(id: number): void {
     this.exerciseId.set(id);
     this.error.set(null);

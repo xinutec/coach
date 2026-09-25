@@ -54,9 +54,8 @@ print(f"DIAG regions={len(gname)} of {len(body.vertex_groups)} groups; "
       f"coloured {n_named}/{len(mesh.vertices)} vertices")
 
 # EMISSION, not the lit shader the real renders use. Under stage.py's suns a
-# saturated colour washes out to white and the segmentation is unreadable — the
-# first debug pass looked like a blank body while 12,144 vertices were in fact
-# labelled. An unlit surface shows the label colour verbatim.
+# saturated colour washes out to white and a labelled body looks blank. An unlit
+# surface shows the label colour verbatim.
 mat = bpy.data.materials.new("m_debug")
 mat.use_nodes = True
 nt = mat.node_tree

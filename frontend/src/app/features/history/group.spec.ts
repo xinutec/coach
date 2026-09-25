@@ -60,11 +60,8 @@ describe("summarise", () => {
     expect(summarise([set(1, "2026-07-14T16:00:00", { reps: 3 })], false)).toBe("1 set · 3 reps");
   });
 
-  /** Migration 0024 gave carries their own column so distance would stop living
-   *  as prose in a note — "Distance becomes something coach can say". It was not
-   *  said here: every farmer's walk read as its weight alone, and the metres the
-   *  migration had just rescued were invisible on the one screen that reads the
-   *  log back. */
+  /** A farmer's walk must not read as its weight alone: History is the one
+   *  screen that reads the log back, and the metres are half the set. */
   it("says how far a carry went", () => {
     const sets = [
       set(1, "2026-07-14T16:00:00", { loadKg: 24, distanceM: 10 }),
@@ -81,7 +78,7 @@ describe("summarise", () => {
     expect(summarise(sets, false)).toBe("2 sets · 24 kg · 10–14 m");
   });
 
-  /** The ten carries logged in July 2026 are seconds, deliberately never
+  /** The carries logged before migration 0024 are seconds, deliberately never
    *  converted — nobody recorded a pace, so metres from seconds would be an
    *  invented number. Both units therefore exist in the log at once. */
   it("keeps a timed carry timed and a measured one measured", () => {

@@ -4,8 +4,7 @@ use anyhow::{Result, anyhow};
 use serde::Serialize;
 
 // `Region` and `MuscleRole` live in the pure `coach-pacing` core (the engine
-// reasons over them); re-exported here so `crate::muscle::types::Region` and the
-// `as_db`/`from_db` conversions the DB rows below rely on keep resolving.
+// reasons over them); re-exported for the DB rows below.
 pub use coach_pacing::domain::{MuscleRole, Region};
 
 /// A muscle, with its group + region denormalized for display.

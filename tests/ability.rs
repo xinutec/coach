@@ -159,7 +159,7 @@ fn a_long_break_resets_ability_to_the_recent_block() {
     // from the *return*, not the decayed old PR — prescribing the old load to a
     // weaker (recovering) body would be unsafe. This is the case that matters most.
     let recent_light = e1rm(40.0, 5, None); // ≈ 47, the honest return level
-    let old_pr = e1rm(100.0, 5, None) * DECAY_FLOOR; // the decayed 2024 ghost, far higher
+    let old_pr = e1rm(100.0, 5, None) * DECAY_FLOOR; // the decayed old PR, far higher
     let a = abilities(
         &[
             weighted(1, 400, 100.0, 5, None), // old block, > a year ago
@@ -320,8 +320,8 @@ fn it_names_an_old_set_when_that_is_what_defines_the_estimate() {
 
 /// The other half of the same story: once enough recent sessions disagree with the
 /// outlier, they overrule it — and the number the athlete is shown then comes from
-/// *them*, so that is the set `source` must name. The old slip is no longer worth
-/// pointing at; it has already lost.
+/// *them*, so that is the set `source` must name. The overruled slip is not worth
+/// pointing at.
 #[test]
 fn a_capped_estimate_names_the_recent_set_that_caps_it() {
     let mut h = vec![SetRec {

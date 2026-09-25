@@ -1,15 +1,9 @@
 /**
  * Reading an {@link Ask} — the tagged prescription the verdict carries.
  *
- * The card used to receive `repLow`, `repHigh`, `loadKg` and `holdS` as four
- * independent nullable fields and rebuild the prescription from them by null
- * testing, which is how `assessInstruction` ended up with a `repLow ?? 5`: a
- * fallback for a case the engine cannot produce, invented because the type
- * could not rule it out. The union rules it out.
- *
  * These helpers are *derived* from the variant rather than stored beside it, so
- * unlike the fields they replace they cannot contradict the rest of the ask —
- * there is no weighted lift here that has lost its load. Prefer switching on
+ * they cannot contradict the rest of the ask — there is no weighted lift here
+ * that has lost its load. Prefer switching on
  * `ask.kind` where the display genuinely differs per variant; reach for these
  * only when a single number is wanted regardless of shape, as when prefilling
  * the log sheet's fields.

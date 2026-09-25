@@ -27,18 +27,11 @@ use crate::state::AppState;
 
 /// How long a static response may be reused without asking again.
 ///
-/// ⚠ **`index.html` MUST REVALIDATE, and shipping it without saying so cost a
-/// deploy nobody could see.** With no `Cache-Control` at all a client falls back
-/// to *heuristic* caching from `Last-Modified`, and is free to keep the document
-/// for as long as it likes without ever asking again. MEASURED on `messages`
-/// 2026-08-14: an Android WebView fetched the whole API — `/api/me`,
-/// `/api/conversations`, a whole thread — and never once requested `main-*.js`.
-/// The phone ran a build several deploys old for hours while the server had been
-/// serving the new one all along.
-///
-/// ⚠ The symptom is "the change did not deploy", which sends you to CI, the
-/// image tag, the rollout and the manifests — all of which are correct. What
-/// identified it was a rendering detail that could only come from old code.
+/// ⚠ **`index.html` MUST REVALIDATE.** With no `Cache-Control` a client falls
+/// back to *heuristic* caching from `Last-Modified` and may keep the document
+/// without ever asking again: an Android WebView will call the new API for hours
+/// while running a build several deploys old. The symptom reads as "the change
+/// did not deploy", while CI, the image and the rollout are all correct.
 ///
 /// `no-cache` rather than `no-store`: it means "ask first", not "never keep", so
 /// the ETag still turns the usual case into a 304 with no body.
@@ -65,7 +58,6 @@ fn cache_control_for(res: &Response<ServeFileSystemResponseBody>) -> Option<Head
 /// ⚠ **A missing FILE must not be handed the page, and the mistake is
 /// invisible**: the wrong answer is a `200`, so a browser that asked for a
 /// woff2 and got HTML renders broken icons and reports nothing anywhere.
-/// Measured 2026-09-08 — `/media/nope.woff2` answered `200 text/html` (#1478).
 ///
 /// The test is a dot in the last path segment. It is a heuristic, and the
 /// alternative — enumerating the bundle's own asset names — would have to be

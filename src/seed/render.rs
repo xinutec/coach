@@ -2,8 +2,8 @@
 //!
 //! The catalog bundle is the **source**: a picture keeps whatever it arrived with,
 //! alpha included, because a source that has already been flattened cannot be
-//! un-flattened. But two kinds of picture live there now, and only one of them is
-//! ready to be shown:
+//! un-flattened. Two kinds of picture live there, and only one of them is ready to
+//! be shown:
 //!
 //! - **Photographs** — a person doing the movement. Opaque, roughly landscape,
 //!   framed. The app crops them to its 16:9 hero and they look right.
@@ -16,21 +16,18 @@
 //!
 //! So: transparency is composited onto white, and a picture whose shape is far from
 //! the hero's is **padded, never cropped**. A picture that is already opaque and
-//! roughly landscape is stored byte-for-byte as it came — 74 of the bundle's 122,
-//! and the cheap path in every sense: it isn't even decoded.
+//! roughly landscape is stored byte-for-byte as it came — most of the bundle, and
+//! the cheap path in every sense: it isn't even decoded.
 //!
-//! A shape test cannot see where the head is, though, and three pictures in the
-//! bundle are landscape enough to pass it while being framed tightly enough that
-//! the hero's centre crop takes the head off. Those are named one by one in
-//! `PAD_ALWAYS` — an enumerated list, because the thing that makes them different
-//! is a fact about the photograph, not a fact about its dimensions.
+//! A shape test cannot see where the head is, though, and a few pictures are
+//! landscape enough to pass it while framed tightly enough that the hero's centre
+//! crop takes the head off. Those are named one by one in `PAD_ALWAYS`, because
+//! what makes them different is a fact about the photograph, not its dimensions.
 //!
-//! The shape test is deliberately about the *shape*, not about the alpha: the
-//! second diagram to arrive was an opaque 800×800 JPEG, and squares get their head
-//! and feet cropped off by `cover` exactly like portraits do. Keying the rule on
-//! transparency would have quietly mangled it. Nor is it about the file type —
-//! several of the "photographs" are palette PNGs carrying real transparency, and
-//! they are rendered like the diagrams, because that is what their pixels say.
+//! The shape test is deliberately about the *shape*, not about the alpha: an
+//! opaque square diagram loses its head and feet to `cover` exactly like a
+//! portrait does. Nor is it about the file type — a palette PNG carrying real
+//! transparency is rendered like a diagram, because that is what its pixels say.
 //!
 //! This lives in the seeder rather than in the import script because it is a
 //! *rendering* decision, and rendering decisions should have one implementation —
@@ -50,9 +47,9 @@ const ASPECT: f64 = 16.0 / 9.0;
 /// Wide enough for a phone at 3× without being a megabyte.
 const TARGET_W: u32 = 1200;
 /// Narrower than this (width ÷ height) and `object-fit: cover` crops enough of the
-/// figure to matter, so the picture is padded to 16:9 instead. Set below the
-/// existing photographs (the flattest is 5:4 = 1.25, and they crop fine) and above
-/// square, which does not.
+/// figure to matter, so the picture is padded to 16:9 instead. Set below 5:4
+/// (1.25), where photographs generally crop fine, and above square, which does
+/// not; the exceptions are [`PAD_ALWAYS`].
 const CROPS_BADLY_BELOW: f64 = 1.2;
 
 /// Pictures the shape rule gets wrong. Each is wide enough to clear
@@ -60,12 +57,12 @@ const CROPS_BADLY_BELOW: f64 = 1.2;
 /// because the figure is framed high in the frame rather than centred. Padded
 /// instead, so the whole figure shows.
 ///
-/// Enumerated rather than generalised on purpose: the six other pictures in the
-/// same aspect band crop fine, so any rule wide enough to catch these three would
-/// pad them for nothing. Each entry says what the crop does to it, so it can be
+/// Enumerated rather than generalised on purpose: the other pictures in the same
+/// aspect band crop fine, so any rule wide enough to catch these would pad them
+/// for nothing. Each entry says what the crop does to it, so it can be
 /// checked against the picture instead of taken on trust.
 pub const PAD_ALWAYS: &[(&str, &str)] = &[
-    // 5:4, and the widest counterexample to `CROPS_BADLY_BELOW`'s own comment.
+    // 5:4.
     ("squat_front_rack_double_kettlebell", "cut across the eyes"),
     // 4:3, two figures side by side, and the crop takes both at the chin.
     ("banded_rotation_propulsive", "both figures cut at the chin"),
@@ -84,7 +81,7 @@ pub struct Rendered {
 /// photograph in the bundle.
 pub fn render(raw: &[u8], content_type: &str, slug: &str) -> Result<Rendered> {
     // Decide from the *header* first. Most of the bundle is landscape photographs
-    // with no alpha channel at all, and fully decoding 15 MB of them just to learn
+    // with no alpha channel at all, and fully decoding all of them just to learn
     // that they need nothing done is the difference between a seed that takes a
     // moment and one that takes a minute.
     let decoder = ImageReader::new(Cursor::new(raw))

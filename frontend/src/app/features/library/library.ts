@@ -45,9 +45,7 @@ export class LibraryPage {
       if (!q) return true;
       // Both spellings of the same movement: the one on the card ("Pull-up
       // (L-sit)") so a name read off the screen finds itself, and the unbracketed
-      // one so typing straight through — "pull-up l-sit" — works too. Matching
-      // only the second made the displayed name the one string that found
-      // nothing.
+      // one so typing straight through — "pull-up l-sit" — works too.
       const shown = displayName(e).toLowerCase();
       const plain = (e.variation ? `${e.name} ${e.variation}` : e.name).toLowerCase();
       return shown.includes(q) || plain.includes(q);

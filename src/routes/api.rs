@@ -1,5 +1,5 @@
-//! Authenticated API surface. Grows the exercise / set-logging and
-//! pacing endpoints later; for now just the identity echo.
+//! The identity echo. The rest of the authenticated API lives in the sibling
+//! route modules.
 
 use axum::Json;
 use axum::extract::State;

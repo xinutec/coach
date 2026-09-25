@@ -2,11 +2,10 @@
 //! the athlete lately.
 //!
 //! Every prescription is a **prediction** — "you can do 8 × 40 kg" — and ability is a
-//! *max* over decayed sets, so a session that went badly pulled nothing down: a bad day
-//! was ignored rather than answered, and the athlete kept being handed a number the sets
-//! had already contradicted.
+//! *max* over decayed sets, so on its own a session that went badly pulls nothing down,
+//! and the athlete keeps being handed a number the sets have already contradicted.
 //!
-//! Nothing is stored to fix that. The residual is **recomputable from history alone**,
+//! Nothing is stored to answer that. The residual is **recomputable from history alone**,
 //! keeping the engine stateless: for each training day, ask what the estimate was
 //! *before* it (the same [`ability::estimate`], over the strictly-earlier sets) and
 //! compare against what the day produced.
@@ -49,9 +48,9 @@ pub const BACK_OFF_AFTER: i32 = 2;
 /// Quiet sessions (nothing beaten) between attempts at more. Asking best+1 is a
 /// **probe**, and a probe is earned: by a session that actually beat the
 /// estimate, or periodically after this much consolidation. Without the cadence
-/// the coach re-asked the same failing +1 every session — the estimate never
+/// the coach would re-ask the same failing +1 every session: the estimate never
 /// moves when the athlete matches their best while failing the ask (ability is
-/// a max), so nothing ever answered it. (R4-1, from the athlete simulation.)
+/// a max). (R4-1.)
 pub const PROBE_EVERY: i32 = 3;
 /// How far back a plateau looks, and the least evidence it needs. A month of
 /// sessions with nothing beaten is a movement that has stopped producing
@@ -116,11 +115,10 @@ impl Residual {
     /// The estimate has been wrong often enough — or wrong *badly* enough once —
     /// that it should be re-measured rather than prescribed from.
     ///
-    /// The count alone was blind to magnitude: a session at a tenth of the ask and
-    /// a session one rep short were the same event, so a new user carrying someone
-    /// else's history (or an athlete who has genuinely lost strength) was asked for
-    /// a weight they could lift *once*, three sessions running, before anything
-    /// re-opened the question. A rout is its own evidence.
+    /// A count alone is blind to magnitude: a session at a tenth of the ask and a
+    /// session one rep short would be the same event, and an athlete who has
+    /// genuinely lost strength would be asked for a weight they can lift *once*,
+    /// three sessions running. A rout is its own evidence.
     pub fn wants_remeasure(&self) -> bool {
         self.consecutive_misses >= REMEASURE_AFTER
             || matches!(self.outcomes.last(), Some((_, Outcome::Rout)))
@@ -269,13 +267,12 @@ fn ledger(
 /// the **ask itself** — that is what "the weight the coach sent you to" means —
 /// and the athlete can push it further only by doing more at that weight.
 ///
-/// The baseline deliberately does not fall when a session comes in short. Letting
-/// it follow the athlete down is what sank the first attempt at R6-1: every
-/// shortfall silently became the next target, so a decline registered one miss and
-/// read as compliance ever after, and `two misses → back off` /
-/// `three → re-measure` became unreachable. Holding it means a short session is
-/// re-asked once (the hold), and a second one steps the rung down — the ladder,
-/// working as designed.
+/// The baseline deliberately does not fall when a session comes in short. If it
+/// followed the athlete down, every shortfall would become the next target, a
+/// decline would register one miss and read as compliance ever after, and
+/// `two misses → back off` / `three → re-measure` would be unreachable (R6-1).
+/// Holding it means a short session is re-asked once (the hold), and a second one
+/// steps the rung down.
 fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode) -> Option<Rung> {
     let range = rep_range(mode, true);
     // What the athlete did *at the weight they were sent to*. Work at some other
@@ -298,13 +295,12 @@ fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode)
 ///
 /// That distinction is the whole point of this function. The engine does not always
 /// ask for everything the estimate supports: whenever the miss-response is holding
-/// or backing off, it deliberately asks for *less* ([`dose::reserve`]). Judging
-/// those sessions against the ceiling scored full compliance as failure — and the
-/// back-off was the worst case, because it fed itself: two real misses eased the
-/// ask, the eased session then read as miss number three, and a perfectly good
-/// estimate was sent back to calibration. "Back off and rebuild" could never
-/// rebuild. So the ask is reconstructed here from the same numbers `prescribe`
-/// used, and the question the ledger answers is "did you do what I asked?".
+/// or backing off, it deliberately asks for *less* ([`dose::reserve`]). Judged
+/// against the ceiling, full compliance would score as failure, and the back-off
+/// would feed itself: the eased session reads as the next miss and a good
+/// estimate is sent back to calibration. So the ask is reconstructed here from
+/// the same numbers `prescribe` used, and the question the ledger answers is
+/// "did you do what I asked?".
 ///
 /// The rack never has to be reconstructed: the athlete's set records the load they
 /// actually used, so the ask is recomputed *at that load*. Which also means an

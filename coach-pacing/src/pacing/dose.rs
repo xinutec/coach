@@ -1,12 +1,11 @@
 //! What to actually do for a chosen exercise — as types that make the wrong
 //! thing unsayable.
 //!
-//! The prescription used to be a `(i32, Option<i32>, Option<i32>, Option<f64>,
-//! Option<i32>)` tuple: five fields, thirty-two representable shapes, about three
-//! legal ones. Every bug in this area lived in the gap — a weighted lift carrying
-//! no load, a load conjured for a lift never performed, a "1 kg overhead press"
-//! that was really the lightest dumbbell in the room standing in for an unknown.
-//! Closing the gap is three types:
+//! A prescription as a tuple of optional fields has dozens of representable
+//! shapes and a handful of legal ones, and the bugs live in the gap: a weighted
+//! lift carrying no load, a load conjured for a lift never performed, the
+//! lightest dumbbell in the room standing in for an unknown. Three types close
+//! the gap:
 //!
 //! - [`Inventory`] — the weights you own here, **non-empty by construction**. So
 //!   [`Inventory::snap`] is total: it always returns a weight you actually own,
@@ -19,8 +18,8 @@
 //! - [`Known`] — an ability estimate the engine trusts. `prescribe` takes one *by
 //!   type*, and the only constructor checks confidence. "When I don't know what
 //!   you can do, I measure instead of guessing" is the safety principle that
-//!   keeps a returning athlete off their pre-illness numbers; it is now enforced
-//!   by the compiler rather than by a code path that a later edit could bypass.
+//!   keeps a returning athlete off their pre-illness numbers, enforced by the
+//!   compiler rather than by a code path that a later edit could bypass.
 
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
@@ -60,10 +59,8 @@ pub const CARRY_TOP_S: i32 = 60;
 /// length he has always walked them, so it is where a fresh carry opens.
 ///
 /// The ceiling is 20 m — three sessions per weight rung (10 → 15 → 20), the same
-/// rhythm as the timed carry's 30 → 60 s. It was 30 m by analogy with the clock,
-/// and the forward simulation showed what that costs: 29 m under a 6 kg bell,
-/// five sessions of walking three times his usual distance before the weight was
-/// allowed to move at all.
+/// rhythm as the timed carry's 30 → 60 s. A higher ceiling keeps the athlete
+/// walking a light bell for many sessions before the weight may move.
 pub const CARRY_BASE_M: i32 = 10;
 pub const CARRY_TOP_M: i32 = 20;
 pub const DISTANCE_STEP_M: i32 = 5;
@@ -116,8 +113,7 @@ pub fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
 /// it lives with the ledger that replays it rather than with the ability estimate.
 /// Deriving the working weight from `e1rm` each session cannot progress at all:
 /// top-of-range reps at load `L` produce exactly the e1RM that prescribes `L`, so
-/// the load is a fixed point of its own prescription (R6-1 — confirmed in the real
-/// back-test, where six consecutive sessions were all asked for `10 × 9 kg`).
+/// the load is a fixed point of its own prescription (R6-1).
 /// Deriving it from the athlete's *latest* session escapes the fixed point but
 /// hands the rung to the athlete: the coach then follows a bad patch — or a
 /// lighter bell picked off the rack — straight down, and the miss ladder stops

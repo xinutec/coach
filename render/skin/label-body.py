@@ -59,7 +59,7 @@ barm = next(o for o in bpy.data.objects if o.type == "ARMATURE" and o.name.start
 # Subdivide the body BEFORE labelling. A muscle region is painted per vertex,
 # and the anterior mid-thigh of the base mesh holds 176 vertices in total — so
 # all four quadriceps came to 217 of 17,996 and the red described a band rather
-# than the muscle. The labels were never wrong; the canvas was too coarse.
+# than the muscle. The labels are right; the canvas is too coarse.
 # Shape keys go first: a modifier cannot be applied to a mesh that has them, and
 # they are MB-Lab's facial expressions, which this pipeline does not use.
 bpy.context.view_layer.objects.active = body

@@ -332,10 +332,8 @@ test("today — busy composition: clean + all controls reachable @ phone", async
 	await expectNoOccludedControls(page, testInfo);
 });
 
-// Regression: an unauthenticated visitor (no session → /api/me 401s) must get a
-// visible way in. The app once swallowed the 401 and rendered empty chrome with
-// no login affordance and no redirect — "where is the login?". Now it shows a
-// sign-in card that links to /login (→ Nextcloud OAuth).
+// An unauthenticated visitor (no session → /api/me 401s) must get a visible way
+// in, not empty chrome: a sign-in card that links to /login (→ Nextcloud OAuth).
 test("signed-out — the sign-in card offers a way in @ phone", async ({
 	page,
 }, testInfo) => {
@@ -462,11 +460,9 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
 	await expectNoHorizontalOverflow(page, testInfo);
 });
 
-// Regression: mid-session the screen must show the work, not the receipts.
-// Every plan card used to be 166px whatever its state, so three finished warm-ups
-// filled 498px of a ~780px viewport and the first unfinished card sat below the
-// fold for the whole session — the page answered "what have I done?" when the
-// question is "what now?". Finished items and warm-ups now render as rows.
+// Mid-session the screen must show the work, not the receipts: finished items and
+// warm-ups render as compact rows, so the first unfinished card is above the fold.
+// The question is "what now?", not "what have I done?".
 test("today — mid-session, the next thing to do is on screen @ phone", async ({
 	page,
 }, testInfo) => {
@@ -479,9 +475,9 @@ test("today — mid-session, the next thing to do is on screen @ phone", async (
 				// page spends most of a session in.
 				plan: PACING.plan.map((s, i) =>
 					i === 0
-						? { ...s, logged: [{ reps: 10, loadKg: null, holdS: null }] }
+						? { ...s, logged: [{ reps: 10, loadKg: null, holdS: null, distanceM: null }] }
 						: i === 1
-							? { ...s, logged: [{ reps: 7, loadKg: null, holdS: null }] }
+							? { ...s, logged: [{ reps: 7, loadKg: null, holdS: null, distanceM: null }] }
 							: s,
 				),
 			},

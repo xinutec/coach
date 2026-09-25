@@ -4,7 +4,7 @@
 //! unit-tested; the service calls it per exercise, so snapping and progression only
 //! ever step through totals the athlete can physically assemble.
 //!
-//! Four physical facts, none of which the old unlimited-plates model captured:
+//! Four physical facts:
 //!
 //! - **Plates load in pairs.** A bar or dumbbell loaded unevenly isn't a lighter
 //!   lift, it's a wrist injury — there's no unbalanced case worth modelling. A
@@ -21,7 +21,7 @@
 //! - **A sleeve has finite space.** Past `slots` discs a side, nothing more fits,
 //!   however many you own.
 //!
-//! `qty: None` / `slots: None` mean "plenty" — a gym rack, the pre-0016 assumption.
+//! `qty: None` / `slots: None` mean "plenty" — a gym rack.
 
 /// A plate size you own, and how many discs of it — *in total*, across all the
 /// implements that share the pool. `None` = plenty (a gym rack).

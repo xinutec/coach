@@ -1,12 +1,12 @@
 //! The ability model: a pure estimate of what the athlete can do *today* per
 //! exercise, derived from logged set history. This is the foundation the
-//! prescription derives from (see `engine`) — replacing "bump the last set",
+//! prescription derives from (see `engine`), rather than "bump the last set",
 //! which is blind to how old that set is and how hard it went.
 //!
 //! Every number is derivable from history by a pure function; no clock is read
 //! (the caller passes `now`), so it's fully unit-testable and back-testable.
 //!
-//! Two ideas do the work:
+//! Three ideas do the work:
 //!   * **RPE-aware e1RM** — a set of `reps` at `load` with `rir` reps in reserve
 //!     is worth an estimated 1-rep-max of `load × (1 + (reps + rir)/30)` (Epley,
 //!     extended for reserve). Missing RPE → `rir = 0` (the set at face value).
@@ -24,8 +24,8 @@
 //!     cap only ever lowers, so both guarantees above survive it.
 //!
 //! Confidence is separate from the estimate: it counts *recent* sessions, and
-//! (in later stages) decides whether the engine prescribes from the estimate or
-//! asks for a fresh assessment.
+//! decides whether the engine prescribes from the estimate or asks for a fresh
+//! assessment.
 
 use crate::prelude::*;
 
@@ -54,7 +54,7 @@ const CONFIDENCE_WEEKS: i64 = 6;
 /// training block. **Only the most-recent block estimates ability** — so after a
 /// real interruption (a long layoff, a health setback), your current level is
 /// read from your *return*, not from a pre-break PR that no longer describes you.
-/// Continuous training leaves everything in one block (the former behaviour). Set
+/// Continuous training leaves everything in one block. Set
 /// beyond normal rotation/rest so an ordinary week off never resets you, but well
 /// under the detraining timescale so a genuine break does.
 const BLOCK_GAP_WEEKS: i64 = 8;
@@ -68,7 +68,7 @@ const MEDIUM_SESSIONS: i32 = 1;
 /// across their last `CAP_SESSIONS` sessions.
 ///
 /// Ability is a **max**, which is what lets a real PR survive a quiet fortnight —
-/// and is also why a genuine decline was otherwise unrepresentable. An injury, an
+/// and is also why, uncapped, a genuine decline is unrepresentable. An injury, an
 /// illness, or simply a worse year produces an honest low measurement, and the max
 /// discards it in favour of a number that no longer describes the athlete. Decay
 /// can't rescue that (it floors at `DECAY_FLOOR`, well above a real setback) and
@@ -143,7 +143,7 @@ pub struct Ability {
     ///
     /// Ability is a max, so a single wrong number lingers: it decays only to
     /// `DECAY_FLOOR`, `BLOCK_GAP_WEEKS` never fires while training continues, and
-    /// an honest re-measurement is *lower* and loses. `CAP_MULTIPLE` now bounds
+    /// an honest re-measurement is *lower* and loses. `CAP_MULTIPLE` bounds
     /// how far it can hold out — but only once `CAP_SESSIONS` sessions have
     /// accumulated to bound it with, and only to within that multiple. The
     /// estimate is properly correctable only if the athlete can be shown which set
@@ -330,9 +330,6 @@ fn under_ceiling(
     }
 }
 
-/// The same ceiling for a carry, applied to each half. Both are capped because
-/// both are prescribed from: a carry held to its recent weight but not its recent
-/// duration would still ask for a walk nobody has taken.
 /// The distance carry's twin of [`carry_under_ceiling`] — the same R6-3 rule, so
 /// a returning athlete's old 30 m cannot be prescribed off a recent 10 m.
 fn carry_m_under_ceiling(
@@ -350,6 +347,9 @@ fn carry_m_under_ceiling(
     }
 }
 
+/// The same ceiling for a carry, applied to each half. Both are capped because
+/// both are prescribed from: a carry held to its recent weight but not its recent
+/// duration would still ask for a walk nobody has taken.
 fn carry_under_ceiling(carry: Option<Carry>, ceiling: Option<Carry>) -> Option<Carry> {
     match (carry, ceiling) {
         (Some(c), Some(k)) => Some(Carry {

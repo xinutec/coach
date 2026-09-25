@@ -40,7 +40,8 @@ pub struct Config {
     /// health-sync integration (optional): the in-cluster base URL of health's
     /// internal API (e.g. `http://health-auth.health.svc.cluster.local:3000`)
     /// and the shared `X-Service-Token`. Both must be set for location
-    /// auto-detection; absent → the feature is simply off (manual selection).
+    /// auto-detection and biometric readiness; absent → both are off (manual
+    /// location selection, volume-based deload).
     pub health_internal_url: Option<String>,
     pub health_service_token: Option<String>,
     /// The commit this image was built from (CI passes it to the Dockerfile, which

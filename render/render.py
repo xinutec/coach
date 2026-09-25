@@ -91,9 +91,9 @@ is_label = za.is_label
 is_envelope = za.is_envelope
 
 
-# Z-Anatomy ships most layers hidden (it opens on the skeleton). The muscles were
-# coloured but never showed because they stayed hide_render — the M1 bug. Reset
-# visibility explicitly, then hide the skeleton so muscle is the subject. Pass 1
+# Z-Anatomy ships most layers hidden (it opens on the skeleton), so muscles can be
+# coloured and still not show because they stay hide_render. Reset visibility
+# explicitly, then hide the skeleton so muscle is the subject. Pass 1
 # also measures the muscle figure's vertical extent, used to locate the head.
 n_prim = n_sec = n_muscle = 0
 sizes = []  # (diagonal, name) — to spot any body-envelope mesh that would occlude
@@ -152,9 +152,8 @@ if n_muscle == 0:
 if prim_bases and n_prim == 0:
     sys.exit("primary muscles mapped but 0 meshes matched — mesh names drifted?")
 if n_head == 0:
-    # Loudly, like its neighbours. This was a warning once, and the headless
-    # render it let through was committed to the catalog and served for weeks —
-    # the muscles were right, so nothing downstream had a reason to look.
+    # Loudly, like its neighbours: a headless render has the right muscles, so
+    # nothing downstream has a reason to look at it.
     sys.exit("no head-region skeleton found — the head would render hollow. "
              "Did prepare.py keep the Skeletal system?")
 

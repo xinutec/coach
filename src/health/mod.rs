@@ -1,6 +1,7 @@
-//! Thin, best-effort client for health-sync's internal place API. Coach uses it
-//! to (a) list the user's detected places for the location-link picker and
-//! (b) find which place the user is in right now, to auto-select a location.
+//! Thin, best-effort client for health-sync's internal API. Coach uses it to
+//! (a) list the user's detected places for the location-link picker, (b) find
+//! which place the user is in right now, to auto-select a location, and (c) read
+//! raw recovery data for the readiness model.
 //!
 //! Every call is best-effort: on any error, timeout, or misconfiguration it
 //! returns empty/`None` and logs at debug — a coach request must never fail
@@ -115,8 +116,7 @@ pub async fn current_place(
 }
 
 /// The user's raw recovery as of each day in `from..=to`, oldest first. Empty on
-/// any failure — the ledger then judges those days as full-effort, which is what it
-/// did before health could answer the question at all.
+/// any failure — the ledger then judges those days as full-effort.
 pub async fn recovery_history(
     http: &reqwest::Client,
     base: &str,

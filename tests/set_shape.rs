@@ -91,8 +91,8 @@ fn partial_data_within_the_metric_is_fine() {
     );
 }
 
-// ---- plausibility bounds (round 3, R3-1): values must describe something a
-// human did. The field test stored a fat-fingered 3 530-second farmers walk.
+// ---- plausibility bounds (R3-1): values must describe something a human did,
+// not a fat-fingered 3 530-second farmers walk.
 
 #[test]
 fn a_fifty_nine_minute_carry_is_not_a_set() {

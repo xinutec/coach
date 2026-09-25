@@ -86,13 +86,10 @@ pub struct PacingSettings {
 
 /// The equipment present where the athlete is training.
 ///
-/// Deliberately *not* an `Option<BTreeSet>` consulted with `is_none_or`: that
-/// spelling made "we don't know the location" mean "everything is doable", so a
-/// missing location silently switched the safety filter off and the coach
-/// cheerfully suggested trap-bar deadlifts in a living room. Absent kit now means
-/// absent kit. Not knowing where you are is a *different* state
-/// ([`PacingInput::kit`] = `None`), and it yields a narrower verdict — no
-/// suggestions at all — rather than a wider one.
+/// Absent kit means absent kit. Not knowing where you are is a *different* state
+/// ([`PacingInput::kit`] = `None`) and yields a narrower verdict, no suggestions
+/// at all, never a wider one: an unknown location must not read as "everything
+/// is doable" and switch the safety filter off.
 #[derive(Clone, Debug, Default)]
 pub struct Kit(pub alloc::collections::BTreeSet<EquipmentId>);
 
@@ -142,11 +139,9 @@ pub struct PacingInput {
     /// have done — keyed by exercise.
     ///
     /// Raw, like `readiness_history`: the engine owns the judgment about what
-    /// counts as neglect. This cannot be derived from `history`, which is by
-    /// construction the record of what *did* happen; "offered twenty times,
-    /// performed zero" is a fact about cards, and R6-4 is the finding that no
-    /// group-level statistic can see it (Pistol squat offered 8, performed 0,
-    /// while Quadriceps was the best-served group in the whole log).
+    /// counts as neglect. This cannot be derived from `history`, which records
+    /// only what *did* happen; "offered twenty times, performed zero" is a fact
+    /// about cards, and no group-level statistic can see it (field-test R6-4).
     pub offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
     /// Readiness as it stood on each past training day, keyed by local date.
     ///
@@ -154,9 +149,8 @@ pub struct PacingInput {
     /// under-recovered morning, so judging that session as though it had been
     /// full-effort records the athlete's compliance as a failure — which then holds
     /// their progression back for having slept badly. A day that's absent (health
-    /// has no data, or is down) is judged full-effort: exactly what the ledger did
-    /// before it could ask the question, so a missing signal never invents an easing
-    /// that didn't happen.
+    /// has no data, or is down) is judged full-effort, so a missing signal never
+    /// invents an easing that didn't happen.
     pub readiness_history: BTreeMap<NaiveDate, Readiness>,
 }
 
@@ -174,11 +168,8 @@ pub enum Band {
 /// The readiness verdict coach computes from health's raw recovery data.
 ///
 /// The fields are private and there is one constructor, because `band` is a pure
-/// function of `score` and a struct that stores both invites them to disagree —
-/// the same defect as a length kept beside the list it counts. Both still cross
-/// the wire: the client should not be re-deriving the thresholds, and when it
-/// tried, the two ended up written down in three places (here, `tests/readiness`
-/// and inline literals in `tests/engine_props`).
+/// function of `score` and a struct that stores both invites them to disagree.
+/// Both still cross the wire, so the client never re-derives the thresholds.
 #[derive(Clone, Copy, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -274,18 +265,11 @@ pub enum SuggestionKind {
 /// [`super::dose::Measure`] (a calibration), which are one type here because a
 /// card shows one or the other and never both.
 ///
-/// It exists because the guarantee `dose` establishes used to stop at
-/// `Serialize`. The verdict carried `rep_low`, `rep_high`, `load_kg` and
-/// `hold_s` as four independent `Option`s — the same "thirty-two representable
-/// shapes, about three legal ones" that `dose`'s own doc comment describes
-/// itself as having removed. Everything downstream then had to guess the shape
-/// back: the engine did it to phrase "do this next", the back-test did it to
-/// recover what the coach had asked, the simulator did it to decide what the
-/// athlete should perform, and the Today card did it twice more in TypeScript.
-/// Six reconstructions of a fact that was known exactly at the point it was
-/// computed, each free to disagree with the others — and the ledger disagreeing
-/// with the coach is the failure this area keeps rediscovering (R4-1, R5-1,
-/// R6-1).
+/// It carries `dose`'s guarantee across `Serialize`: independent `Option`
+/// fields would let every consumer (the engine's phrasing, the back-test, the
+/// simulator, the Today card) reconstruct the shape its own way, and the ledger
+/// disagreeing with the coach is this area's recurring failure (field-test
+/// R4-1, R5-1, R6-1).
 ///
 /// Tagged, so the frontend gets a discriminated union and `@switch` is
 /// exhaustive over it rather than a chain of null tests.
@@ -327,9 +311,7 @@ pub enum Ask {
 
 impl Ask {
     /// The weight this ask names, if it names one. Derived from the variant, so
-    /// unlike the `Option<f64>` field it replaced it cannot disagree with the
-    /// rest of the ask — there is no way to build a weighted lift that has lost
-    /// its load, or a bodyweight one that has acquired a load.
+    /// it cannot disagree with the rest of the ask.
     pub fn load_kg(self) -> Option<f64> {
         match self {
             Ask::Weighted { load_kg, .. }
@@ -531,21 +513,15 @@ pub struct Substitution {
 
 /// One set already logged against a plan item, as the row actually holds it.
 ///
-/// The card used to report progress as a bare count — "1 / 2 sets" — which
-/// answers "how many" and not "what". Standing over the bar on set two, the
-/// question is what you did on set one, and the only place that lived was the
-/// History tab.
+/// Standing over the bar on set two, the question is what you did on set one,
+/// not just how many sets are in.
 ///
-/// Deliberately **not** metric-shaped, unlike [`Ask`] and unlike the validated
-/// [`crate::domain::LoggedSet`] the write path now takes. It reports history,
-/// and history is not clean: 65 of the 357 sets in the log do not fit their
-/// exercise's metric. Nearly all are the 2024 import, which writes its own
-/// INSERT and never saw the shape check; two are mobility drills carrying 4 kg
-/// from the stale-form-field post that prompted the check in the first place.
-/// A sum type here would have to drop those rows or refuse to load them, and
-/// silently under-reporting what the athlete did is worse than reporting it
-/// oddly. Strictness belongs where the row is *created*, which is where it now
-/// is.
+/// Deliberately **not** metric-shaped, unlike [`Ask`] and the validated
+/// [`crate::domain::LoggedSet`] the write path takes. It reports history, and
+/// history holds rows that do not fit their exercise's metric (chiefly the
+/// imported log, which predates the shape check). A sum type would have to drop
+/// or refuse those rows, and under-reporting what the athlete did is worse than
+/// reporting it oddly. Strictness belongs where a row is *created*.
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -554,6 +530,7 @@ pub struct DoneSet {
     pub reps: Option<i32>,
     pub load_kg: Option<f64>,
     pub hold_s: Option<i32>,
+    pub distance_m: Option<i32>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -573,10 +550,6 @@ pub struct Suggestion {
     /// Day-scoped, not session-scoped: the session gap elapses hours before the
     /// day does, and the plan forgetting your morning is not something you should
     /// have to work around.
-    ///
-    /// There used to be a `done: i32` beside this, documented as "always `done`
-    /// entries long" — a length carried twice, which is a length that can
-    /// disagree with itself. It's [`Suggestion::done`] now.
     pub logged: Vec<DoneSet>,
     /// What to actually do: the prescription, or the calibration that stands in
     /// for one when the estimate isn't trusted.
@@ -588,9 +561,8 @@ pub struct Suggestion {
     /// it instead. A swap the athlete can act on ("buy a cable machine", "register
     /// your kettlebell weights") rather than an unexplained substitution.
     ///
-    /// Only ever set when the ideal is *actually* blocked. It used to be set
-    /// whenever the ideal wasn't what the cover picked — which is the normal case,
-    /// and made the card claim kit was missing that was standing right there.
+    /// Only set when the ideal is *actually* blocked, not merely when the cover
+    /// picked something else, which is the normal case.
     pub substituted_for: Option<Substitution>,
     /// Why this was chosen (deficit, recovery, ability, readiness). `None` for
     /// warm-up items, which are prep rather than a reasoned prescription.
@@ -610,10 +582,8 @@ impl Suggestion {
 
 /// Where the moment sits relative to the athlete's training window.
 ///
-/// This was `within_window: bool` beside `after_window: bool` — four states for
-/// three real ones, with "both true" meaningless and readers spelling "before"
-/// as `!within_window && !after_window`. A clock is somewhere on a line, so it
-/// is one value.
+/// One value, not two booleans: a clock is somewhere on a line, and two flags
+/// would give four states for three real ones.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]

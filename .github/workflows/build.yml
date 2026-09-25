@@ -24,9 +24,9 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     container: rust:1-bookworm
-    # tests/db.rs runs the real queries against a real schema — the gate that was
-    # missing when a SELECT drifted from its FromRow struct and 500'd in prod. It
-    # creates its own coach_test_* scratch databases here, and fails loudly rather
+    # tests/db.rs runs the real queries against a real schema: a SELECT that
+    # drifts from its FromRow struct compiles and 500s in prod. It creates its
+    # own coach_test_* scratch databases here, and fails loudly rather
     # than skipping when there's no server, so this service is not optional.
     services:
       mariadb:
@@ -76,13 +76,9 @@ jobs:
       # is needed and this sits before the harness rather than after it.
       - run: pnpm test
       # The harness serves `dist/coach-web/browser` and asserts about painted
-      # pixels, so the bundle has to exist first. `ui-check` used to build it
-      # itself; 9e1ddda moved that into the gate's own `frontend build` row to
-      # stop building twice, and CI — which has no such row — was left running
-      # the harness against a dist that was never made. Its webServer then never
-      # came up and every run since died on the 60 s timeout, which reads as a
-      # flaky harness rather than a missing build. Mirror the gate: build, then
-      # check.
+      # pixels, so the bundle has to exist first: `ui-check` does not build it.
+      # Without the build, its webServer never comes up and the run dies on the
+      # 60 s timeout, which reads as a flaky harness rather than a missing build.
       - run: pnpm exec ng build
       # The shared layout harness (text overlap, horizontal overflow, occluded
       # controls) at phone + wide viewports.

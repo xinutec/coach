@@ -58,25 +58,17 @@ class MainActivity : WebShellActivity() {
      * Expose the reminders bridge to the coach app's own pages, and to nothing
      * else in the WebView.
      *
-     * This was `addJavascriptInterface`, which Android documents as "available to
-     * every frame within the WebView, including iframes. It lacks origin-based
-     * access control." The library sheet embeds a `youtube-nocookie.com` player
-     * so a demo can be watched mid-warm-up without leaving the app — so the
-     * WebView deliberately runs somebody else's code, which is the exact
-     * condition the API's own warning names. That frame could call
-     * `setupReminders()`, and the old main-frame URL check passed, because the
-     * main frame really was coach.
+     * The library sheet embeds a `youtube-nocookie.com` player, so the WebView
+     * runs somebody else's code. `addJavascriptInterface` would hand that frame
+     * the bridge too: Android documents it as "available to every frame within
+     * the WebView, including iframes. It lacks origin-based access control."
+     * `addWebMessageListener` injects only into frames matching
+     * [Bridge.ALLOWED_ORIGINS], and [Bridge.actionFor] re-checks origin and
+     * frame on every message, as Android's guidance recommends.
      *
-     * `addWebMessageListener` is the origin-scoped replacement: the WebView
-     * itself guarantees the object is only injected into frames matching
-     * [Bridge.ALLOWED_ORIGINS]. The `sourceOrigin` and `isMainFrame` checks below are
-     * belt and braces on top of that, which is what Android's own guidance
-     * recommends rather than trusting the rules alone.
-     *
-     * With no [WebViewFeature.WEB_MESSAGE_LISTENER] the bridge is simply absent —
-     * the Settings page then shows no reminders controls, exactly as it does in a
-     * desktop browser. Degrading to `addJavascriptInterface` would be re-opening
-     * the hole on the devices least able to afford it.
+     * With no [WebViewFeature.WEB_MESSAGE_LISTENER] the bridge is absent and the
+     * Settings page shows no reminders controls, as in a desktop browser.
+     * Falling back to `addJavascriptInterface` would reopen the hole.
      */
     override fun onWebViewCreated(web: WebView) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
@@ -206,12 +198,9 @@ class MainActivity : WebShellActivity() {
     }
 
     /**
-     * The flow is over, whichever way it went: say so, and tell the page.
-     *
-     * The page used to re-read the state on a `setTimeout` — 1500 ms after asking
-     * to set up, which is a guess about how long someone takes to answer two
-     * permission dialogs, and wrong in both directions. It settles when it
-     * settles, and now the phone is the one that says so.
+     * The flow is over, whichever way it went: say so, and tell the page. The
+     * phone reports the end because only it knows when the permission dialogs
+     * have been answered; a page-side timer would be a guess.
      */
     private fun settle(message: String) {
         setupInProgress = false
@@ -244,13 +233,9 @@ class MainActivity : WebShellActivity() {
      * A capture that produced nothing, which is not the same as a flow that has
      * to stop.
      *
-     * Now that setup re-captures on every run, a first-time user and a returning
-     * one fail here differently: the first has no home to fall back on and the
-     * flow is over, but the second only failed to *move* a home that is still
-     * perfectly good, and refusing to arm would make re-enabling reminders
-     * depend on getting a fix indoors. So we carry on with the stored one — and
-     * say which happened, because silently keeping the old home is exactly the
-     * thing that let it go stale for two months.
+     * With no stored home the flow is over. With one, only the *move* failed:
+     * arm on the stored home rather than make re-enabling reminders depend on
+     * getting a fix indoors, and say so, so a stale home is never kept silently.
      */
     private fun noFix(why: String) {
         if (Prefs(this).hasHome) {

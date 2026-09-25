@@ -259,9 +259,9 @@ fn estimate_converges_to_true_ability_and_holds() {
 /// RPE reports reserve, which lifts the estimate *above* the load that produced
 /// it, and it is the only reason the estimate there can climb at all. The product
 /// deliberately never collects one — "the athlete reports what happened, not how
-/// it felt" — so the shipped engine always runs the case below, and it used to
-/// stand still forever: top-of-range reps at load `L` produce exactly the e1RM
-/// that prescribes `L`, a fixed point with no exit.
+/// it felt" — so the shipped engine always runs the case below, where
+/// top-of-range reps at load `L` produce exactly the e1RM that prescribes `L`: a
+/// fixed point the progression must escape.
 ///
 /// This athlete is far stronger than the cold start, does **precisely** what the
 /// card asks and not one rep more, and reports nothing. The weight must still go

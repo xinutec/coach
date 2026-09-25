@@ -1,6 +1,5 @@
 //! The pacing engine's HTTP/DB surface. The engine itself and its types live in
-//! the pure `coach-pacing` core (compiled no_std) and are re-exported here so the
-//! rest of coach still says `crate::pacing::engine` / `crate::pacing::types`.
+//! the pure `coach-pacing` core (compiled no_std) and are re-exported here.
 //! `service` is the std shell: it assembles the engine input from the DB and
 //! applies the user's timezone.
 

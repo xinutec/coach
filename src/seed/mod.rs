@@ -1,22 +1,16 @@
 //! Boot-time catalog seeder. Loads the global training library (equipment,
-//! muscle taxonomy, exercises, their M:N links, and image blobs) from the
-//! `data/catalog/` bundle into the DB.
+//! muscle taxonomy, exercises, their M:N links, and image and loop blobs) from
+//! the `data/catalog/` bundle into the DB.
 //!
-//! Hash-gated: the **whole bundle** — every `*.json` in the catalog dir — is
-//! fingerprinted (SHA-256) into `catalog_state`. An unchanged fingerprint
-//! short-circuits the seed (fast normal boots); a changed one re-seeds and
-//! **reconciles**. Gating on `exercises.json` alone made every other file
-//! silently un-editable: a corrected `equipment.json` left the hash untouched, so
-//! the seed short-circuited and the correction never reached the DB — it looked
-//! applied (it was committed, it was in the image) and simply wasn't.
+//! Hash-gated: the **whole bundle** (see `bundle_hash`) is fingerprinted
+//! (SHA-256) into `catalog_state`. An unchanged fingerprint short-circuits the
+//! seed (fast normal boots); a changed one re-seeds and **reconciles**.
 //!
 //! **The catalog is the source of truth for every scalar it carries**, and the
 //! reconcile writes all of them back to already-seeded rows, not just the flags
-//! the engine reads. Reconciling a subset had the same shape of bug: fixing two
-//! broken `demo_url`s in the catalog changed the hash, re-ran the seed, and left
-//! prod's rows exactly as broken, because `demo_url` wasn't in the UPDATE list.
-//! A field the catalog owns but the reconcile skips is a field the catalog only
-//! *appears* to own.
+//! the engine reads. A field the catalog owns but the reconcile skips is a field
+//! the catalog only *appears* to own: the edit changes the hash, re-runs the
+//! seed, and leaves the row as it was.
 //!
 //! `is_active` is the one column the catalog does *not* own: the retired
 //! `*_legacy` rows (migration 0006) are deliberately absent from it, so the
@@ -27,7 +21,7 @@
 //! way in (see [`render`]): the bundle is the source and keeps its alpha, while
 //! what the app is served is what the app can actually display.
 //!
-//! This keeps the exercise catalog and its ~15 MB of images out of SQL migrations
+//! This keeps the exercise catalog and its images out of SQL migrations
 //! while still making any fresh DB (dev or prod) reproduce the full library.
 
 use std::collections::HashMap;
@@ -130,16 +124,10 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
 }
 
 /// Fingerprint the catalog bundle: every `*.json` in the dir **and every file in
-/// `images/`**, in path order, each hashed under its own name. Any edit to any of
+/// `images/` and `loops/`**, in path order, each hashed under its own name. Any edit to any of
 /// them changes the digest, so the seed runs — which is the whole point of the
-/// gate. Hashing only `exercises.json` (what this used to do) meant an edit to
-/// `equipment.json` or the muscle taxonomy left the digest unchanged and was
-/// skipped forever.
-///
-/// The images were outside the digest for the same reason, and it cost more: a
-/// re-rendered picture is a *silent* no-op rather than a visible one. The écorché
-/// was re-rendered with a head, committed, and the app kept serving the headless
-/// one, because a changed PNG moved nothing the gate could see.
+/// gate. A file outside the digest is an edit skipped forever, and for an image
+/// the skip is silent: the app keeps serving the old picture.
 fn bundle_hash(dir: &Path) -> Result<String> {
     let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .with_context(|| format!("reading {}", dir.display()))?
@@ -147,11 +135,11 @@ fn bundle_hash(dir: &Path) -> Result<String> {
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .collect();
     for sub in ["images", "loops"] {
-        let images = dir.join(sub);
-        if images.is_dir() {
+        let sub_dir = dir.join(sub);
+        if sub_dir.is_dir() {
             files.extend(
-                std::fs::read_dir(&images)
-                    .with_context(|| format!("reading {}", images.display()))?
+                std::fs::read_dir(&sub_dir)
+                    .with_context(|| format!("reading {}", sub_dir.display()))?
                     .filter_map(|e| e.ok().map(|e| e.path()))
                     .filter(|p| p.is_file()),
             );
@@ -386,13 +374,11 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
 
         relink(&mut link_conn, ex, id).await?;
         // A picture can arrive *after* the movement does — an exercise is catalogued
-        // the moment it's real, and the photo turns up when someone takes one. Gating
-        // this on `is_new` meant the picture then had nowhere to land: the row already
-        // existed, so the seed skipped it forever, and the movement stayed
-        // illustrated-by-nothing however many images were added to the bundle.
+        // the moment it's real, and the photo turns up when someone takes one — so
+        // this is not gated on the row being new.
         //
-        // This does read + render every picture in the bundle, ~15 MB off disk, and
-        // that is the price of a re-render being able to land at all. It is only
+        // This does read + render every picture in the bundle, and that is the
+        // price of a re-render being able to land at all. It is only
         // paid when the digest moved, which is exactly when a picture may have
         // changed; an unchanged bundle never reaches this loop.
         if let Some(img) = &ex.image {

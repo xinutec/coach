@@ -1,9 +1,8 @@
 //! **A missing FILE must 404, not be handed the page.**
 //!
-//! #1478, measured across the fleet 2026-09-08: `GET /media/nope.woff2` came
-//! back `200 text/html` — the SPA shell, to a browser that asked for a font. It
-//! renders broken icons and reports nothing at all, so the failure is silent on
-//! both sides, and the wrong answer being a `200` is what makes it invisible.
+//! Answering `GET /media/nope.woff2` with `200 text/html` — the SPA shell, to a
+//! browser that asked for a font — renders broken icons and reports nothing at
+//! all: the wrong answer being a `200` is what makes it invisible.
 //!
 //! The rule is a dot in the last path segment: `/plan` is a route and
 //! `/main-ABC123.js` is a file. A heuristic, and the alternative — enumerating

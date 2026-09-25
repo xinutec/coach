@@ -1,48 +1,14 @@
 {-
 coach/gate.dhall — this repository's commit gate.
 
-Was `scripts/verify.sh`, and this is the conversion that decided the schema:
-coach is the repository with a resource in its gate, and the question was
-whether a table has to learn about lifetimes. It does not. The database is
-acquired, used and released by `with-test-db`, which the `tests` row invokes —
-one row, one command, no setup/teardown vocabulary in the table. That is the same
-call the reconciler next door made about its drill, where seed→up→wait→verify→
-teardown stayed one coarse effect rather than becoming four facts that reopen
-each other.
+The database is acquired, used and released by `with-test-db`, which the rows
+that need one invoke: one row, one command, no setup/teardown vocabulary. The
+server is ephemeral, and `tests/db.rs` creates and drops its own `coach_test_*`
+databases, so no development state leaks into the suite.
 
-Three things did not survive the move, each deliberately.
-
-**The DB probe and its trap are gone.** The script poked 127.0.0.1:3308 with
-bash's /dev/tcp, started `scripts/dev-db.sh` in the background if nothing
-answered, polled sixty times, and killed it from a `trap … EXIT`. All of that is
-`with-test-db` now, shared with fleetwatch and messages rather than written a
-third time.
-
-**And the database is ephemeral rather than the long-lived dev one.** The script
-reused `.dev/` on :3308 when it was up, so the suite ran against whatever state a
-development session had left there. `tests/db.rs` creates and drops its own
-`coach_test_*` databases, so a fresh server costs it nothing and removes the
-question entirely.
-
-**The conditional pnpm install is gone**, for the reason gamepads' was: its own
-comment justified it on correctness — "a node_modules left behind by npm still
-has a working .bin, so verify would pass against packages the lockfile no longer
-describes" — and running it unconditionally serves that better. Measured on
-gamepads before cutting: an up-to-date `--frozen-lockfile` install is 455 ms.
-
-**The `&&` chains are gone.** `pnpm run lint && ng-build && pnpm test &&
-pnpm run ui-check` reported one name when four things could be wrong.
-
-**The vocabulary moved into the schema.** `inDevShell`, the clippy target
-directory, the Angular worker cap, and the `ng-build` / `dev-lint` /
-`check-table` rows were defined here and in ten other tables identically — the
-duplication the shared tools were built to remove, recreated one level up. They
-are `G.` values now. Two consequences the rendered JSON shows: every dev-shell
-row gains `--no-warn-dirty`, because a gate that prints "Git tree is dirty" on
-every row of every run has trained everyone to ignore a warning; and dev-lint is
-pinned to its committed HEAD rather than run out of its worktree, which is what
-stops a neighbour's half-finished edit failing this gate for a reason no commit
-anywhere explains.
+Shared vocabulary (`inDevShell`, `ngBuild`, `devLint`, …) lives in dev-lint's
+schema as `G.` values. dev-lint is pinned to its committed HEAD, so a
+neighbour's half-finished edit cannot fail this gate.
 
 The generated `gate.json` is committed; `the table matches its Dhall` re-renders
 and diffs it, so running the gate needs no `dhall`.
@@ -98,9 +64,8 @@ in  { name = "coach"
         , timeout_s = 900
         }
       , {-  The whole suite, including tests/db.rs, which runs real SQL against a
-            real MariaDB — the gate that was missing when a query drifted from
-            its `FromRow` struct, compiled, passed every pure test, and 500'd in
-            the gym on 82 of 119 exercises.
+            real MariaDB: a query that drifts from its `FromRow` struct compiles,
+            passes every pure test, and 500s in production.
 
             `--grant-all` because tests/db.rs creates and drops its own
             `coach_test_<name>` database per test, which needs rights beyond
@@ -131,9 +96,7 @@ in  { name = "coach"
         }
       , {-  The gate builds from the working tree, where every file exists; the
             image gets what its COPY lines name and nothing else. A file the
-            build needs but no COPY mentions passes here and fails in CI, which
-            is how .sqlx went in — the offline build was verified inside the
-            repo, where the directory is obviously present.
+            build needs but no COPY mentions passes here and fails in CI.
 
             So compile from a tree assembled out of the Dockerfile's own COPY
             lines, with no database, the way the image does.
@@ -175,11 +138,8 @@ in  { name = "coach"
             committed frontend output moved. Catches a Rust API-type edit that
             was not regenerated and committed.
 
-            `scripts/gen-types.sh --check` rather than a `scripts/check-types.sh`
-            of its own: both paths go through `dev-lint#gen-types` now, and the
-            one thing that is coach's — the output directory and the cargo
-            invocation that emits into it — is stated in that script once rather
-            than in two files that can disagree about which types exist.
+            Through `scripts/gen-types.sh`, so generating and checking share
+            one statement of the output directory and the cargo invocation.
         -}
         G.Check::{
         , name = "generated types are current"
@@ -208,10 +168,7 @@ in  { name = "coach"
       , {-  The Playwright specs, type-checked. Nothing else reads them:
             Playwright transforms them with esbuild, which strips types rather
             than checking them, and `tsconfig.app.json` reaches only what
-            `src/main.ts` imports. `typecheck:e2e` has been in package.json all
-            along and no gate has ever run it — DL-E2E-TYPES-UNCHECKED found
-            that on 2026-08-10, when it stopped accepting a script's existence
-            as proof of its execution. The layout harness is the only gate that
+            `src/main.ts` imports. The layout harness is the only gate that
             sees what a phone suffers; it should not be the least-checked code
             here.
         -}
@@ -245,14 +202,9 @@ in  { name = "coach"
       , {-  The L2 phone-width layout harness: it serves the freshly-built dist
             and asserts no overlap or overflow at Pixel width.
 
-            Placement is no longer only presentation. `pnpm run ui-check` used to
-            begin with a build of its own, so the gate built the frontend twice —
-            once in the row above and once here — and this row's ordering did not
-            matter. The build is now the row above and nothing else, so this one
-            genuinely reads what that one wrote. That is how the rest of the
-            fleet does it (memview, recall), and it is what makes the mtime rule
-            in `ng-build` mean something: exactly one thing in the gate writes
-            `dist/`, and it has to prove it did.
+            It reads the dist the build row above wrote, so it must run after
+            it. Exactly one row writes `dist/`, which is what makes the mtime
+            rule in `ng-build` mean something.
         -}
         G.Check::{
         , name = "frontend ui-check (phone-width layout harness)"
@@ -261,7 +213,7 @@ in  { name = "coach"
         , {-  Playwright DELETES this at the start of every run, so the run made
               to investigate a failure is the run that erases it — and no option
               turns that off (`preserveOutput` is about PASSING tests). Declaring
-              it here makes the gate copy it aside when this check fails. #1545
+              it here makes the gate copy it aside when this check fails.
           -}
           artifacts = [ "test-results" ]
         , env = G.nonInteractive

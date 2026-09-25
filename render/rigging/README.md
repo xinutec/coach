@@ -1,11 +1,11 @@
 # Écorché rigging (abandoned — kept as a record)
 
-**Outcome (2026-07-19): posing the écorché is off the table.** This borrowed-rig
-approach *did* move the figure, but the écorché is dozens of separate muscle
-shells, not one skinned mesh, so every bent joint tears and interpenetrates them
-into non-human shapes — structural, not fixable by tuning. The écorché is used
-only for muscle colouring in the neutral pose (M1/M3, shipped). These scripts are
-kept as a record of what was tried and why it doesn't generalise. See M2 in
+**Posing the écorché is off the table.** This borrowed-rig approach *does* move
+the figure, but the écorché is dozens of separate muscle shells, not one skinned
+mesh, so every bent joint tears and interpenetrates them into non-human shapes —
+structural, not fixable by tuning. The écorché renders only neutral-pose stills;
+everything posed uses a single skinned body instead (`../skin/`). These scripts
+are kept as a record of what was tried and why it doesn't generalise. See
 [../../docs/anatomy-renders.md](../../docs/anatomy-renders.md).
 
 ## Idea
@@ -21,7 +21,7 @@ muscles.
 
 nixpkgs Blender won't build on Apple Silicon; use the official blender.org arm64
 build (`hdiutil attach` the .dmg, copy `Blender.app` out). Do NOT run on isis —
-it's production and an uncapped render already wedged it once.
+it's production, and an uncapped render can wedge it.
 
 ```sh
 BL=./Blender.app/Contents/MacOS/Blender
@@ -44,7 +44,7 @@ Regenerate `slim.blend` and `body.blend` with the **same** Blender version — a
 - The arms — initially the écorché's hanging arms bound across a ~5cm gap to the
   A-posed donor and stretched. Fixed by posing the donor arms down, snapshotting
   that geometry for the KDTree, and `pose.armature_apply` to bake arms-down as the
-  rest *before* the écorché binds (doing it after → double-deform, transfer5's bug).
+  rest *before* the écorché binds (doing it after double-deforms).
 
 ## Why it was abandoned
 
@@ -52,4 +52,4 @@ Even with the arm fix, bent joints produce **non-human shapes**: the écorché i
 separate muscle shells with no shared skin, so a joint bend tears and
 interpenetrates them regardless of weight quality. Structural, not tunable.
 Posing is off the table — the écorché is used only for neutral-pose muscle
-colouring (M1/M3, shipped). See memory `project_coach_anatomy_posing`.
+colouring.

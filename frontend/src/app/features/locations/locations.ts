@@ -203,11 +203,10 @@ export class LocationsPage {
 
 	/** Selected kit that carries a load — each gets a discrete-weights editor. A
 	 *  dumbbell can be *both*: an adjustable handle you load, and a plain 5 kg one
-	 *  you don't. The two sets union, so kit is no longer either/or.
+	 *  you don't. The two sets union.
 	 *
 	 *  This is the catalog's `weighted` flag, not the free-weight category: a cable
-	 *  stack's pin positions are exactly a list of discrete weights, and gating on
-	 *  the category meant there was nowhere to enter them. */
+	 *  stack's pin positions are exactly a list of discrete weights. */
 	readonly weightedSlugs = computed(() =>
 		[...this.formEquip()].filter(
 			(s) => this.equipment().find((e) => e.slug === s)?.weighted ?? false,

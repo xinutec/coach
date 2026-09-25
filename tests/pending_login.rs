@@ -25,7 +25,7 @@ fn a_login_completes_when_nextcloud_echoes_the_state() {
 #[test]
 fn a_login_completes_when_the_login_flow_swallowed_the_state() {
     // NC redirects to `/auth/callback?state=&code=…` when the browser had no NC
-    // session. This is the bug: it used to be unrecoverable.
+    // session. The cookie alone must still complete the login.
     let now = now();
     let (_nonce, cookie) = issue(SECRET, Some("/".into()), now);
     assert!(accept(SECRET, Some(&cookie), Some(""), now).is_some());

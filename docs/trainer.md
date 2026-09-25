@@ -64,8 +64,8 @@ order:
 
 - **Per metric.** Weighted work: an estimated 1RM per set (Epley,
   `e1rm = load × (1 + (reps + rir) / 30)`). Rep work: best effective reps. Holds:
-  best seconds. Loaded carries: the best (weight, seconds) pair, which travel
-  together because neither means anything alone.
+  best seconds. Loaded carries: the best (weight, seconds) or (weight, metres)
+  pair, which travel together because neither means anything alone.
 - **Staleness decay.** Each set's estimate is scaled by *its own* age — full trust
   for two weeks, then the detraining slope to a 60 % floor — and ability is the max
   of the decayed estimates. Decaying per set *then* maxing makes ability monotone
@@ -75,7 +75,7 @@ order:
   *upwards*, so without this an athlete who genuinely gets weaker — injury,
   illness, a bad year — is stuck: floored at 60 % of a peak they no longer have,
   the honest low measurement discarded by the same `max` that protects a real old
-  PR, and the block reset never firing because they keep turning up. That was an
+  PR, and the block reset never firing because they keep turning up: an
   unbreakable miss → re-measure → discard loop
   ([R6-3](field-test.md#r6-3-getting-weaker-is-unrepresentable-and-the-loop-never-closes--fixed)).
   It reads **sessions, not sets**, and the **best** of them rather than the latest,
@@ -123,7 +123,7 @@ budget is a cardinality constraint. Greedy marginal gain — repeatedly take the
 that pays down the most *remaining* need — is (1 − 1/e)-optimal for a monotone
 submodular objective, and deterministic (ties break to the lower exercise id).
 
-Three things fall out rather than being special-cased:
+Four things fall out rather than being special-cased:
 
 - **Duplicates are unrepresentable.** The accumulator is keyed by exercise, so an
   exercise covering two groups is one item with a count.
@@ -148,21 +148,18 @@ want of weights is **named in a notice**, not silently omitted.
 group) ranks a movement's variations.
 
 ⚠ **A prime mover split across two patterns is a ladder split in two**, because
-the ladder only looks within one pattern. That is worth more attention than the
-numbers: reviewed 2026-09-10, the difficulty values read as coherent ladders,
-and a tie between two movements is frequently a real judgement rather than an
-undecided one. What the same review found was nine movements filed under `core`
-whose prime movers are limbs — so the pistol squat sat at 5 on a ladder the app
-could never reach from a squat, which topped out at 3. Re-file the pattern
-before re-ranking the numbers. A movement the athlete has **topped out** (the
+the ladder only looks within one pattern: a pistol squat filed under `core` is a
+rung no squat can ever reach. When a ladder looks wrong, check the pattern before
+re-ranking the numbers; a tie between two movements is often a real judgement.
+
+A movement the athlete has **topped out** (the
 rep range's ceiling, at `High` confidence — the ask is clamped there, so "keep doing
 12s" would be forever) or **plateaued** on (a month of sessions with nothing beaten)
 has stopped producing progress; while a harder doable variation of the same pattern
 and primary group exists, that rung steps out of candidacy, measuring its successor
 becomes a need of its own (the same mechanism as confirmation, so it qualifies even
 when the group's volume is covered), and the step is announced until the successor
-has an estimate of its own. "You've outgrown incline push-ups" is something this
-coach can now say.
+has an estimate of its own: "You've outgrown incline push-ups".
 
 ### 4. Dose — what to actually do
 
@@ -176,7 +173,7 @@ weighted lift *has* a load and a carry *has* both a weight and a time.
 
   The rung is a fact about what the *coach* asked, not about what you can lift, so it
   lives on the prediction-error ledger (which already replays the coach forward) and
-  not on the ability estimate. That placement is the whole fix. Deriving the working
+  not on the ability estimate. Deriving the working
   weight from `e1rm` each session cannot progress at all — top-of-range reps at load
   *L* produce exactly the estimate that prescribes *L*, a fixed point with no exit,
   and eight simulated weeks against an athlete 2.5× stronger produced **zero** load
@@ -193,8 +190,8 @@ weighted lift *has* a load and a carry *has* both a weight and a time.
   is not.
 - **Reps:** climb the range off the decayed best.
 - **Hold:** off the best hold.
-- **Loaded carry:** the same double progression with seconds where the reps go —
-  climb the clock to the ceiling, then take the next weight you own and reset it.
+- **Loaded carry:** the same double progression with seconds (or metres) where the
+  reps go — climb to the ceiling, then take the next weight you own and reset.
 
 **Asking for more is a probe, and the sets answer it.** Every prescription is a
 prediction, and the prediction-error ledger ([`pacing/residual.rs`]) recomputes from
@@ -203,9 +200,8 @@ row **step down** a rung; three **re-open the measurement** — a repeatedly wro
 estimate is a wrong number, not a run of bad luck.
 
 **A rout counts once.** The escalation above counts sessions and would otherwise
-ignore how badly each one went, so being asked for ten reps and managing one was the
-same event as falling a rep short — three sessions and six sets of a weight you can
-lift once before anything re-opened the question. A session delivering less than a
+ignore how badly each one went: being asked for ten reps and managing one would be
+the same event as falling a rep short, three sessions running. A session delivering less than a
 third of the work asked is therefore a *rout* rather than an ordinary miss, and one
 is enough to send the exercise back to being measured. It is judged on **volume**
 (load × reps, seconds), not on the Epley figure the miss bands use: one rep of a
@@ -216,16 +212,15 @@ And the +1 rep, the +5 s, the next
 bell is **earned**: by a session that beat the ask, or periodically after every third
 quiet session — the sessions in between consolidate at the demonstrated best.
 Matching your best while failing the ask moves nothing (ability is a max), so without
-the cadence the same failing +1 was re-asked verbatim every session for weeks.
+the cadence the same failing +1 would be re-asked every session.
 
 **The ledger judges the ask, not the ceiling** — and this is the load-bearing
 distinction. The engine does not always ask for everything the estimate supports:
 whenever it is holding or backing off, and on an under-recovered day, it deliberately
-asks for *less*. Judged against the ceiling,
-full compliance with that reduced ask read as failure — and the back-off fed itself,
-because two real misses eased the ask and the eased session then became miss number
-three, sending a perfectly good estimate back to calibration. "Back off and rebuild"
-could never rebuild. So the ask is reconstructed from the same numbers `prescribe`
+asks for *less*. Judged against the ceiling, full compliance with that reduced ask
+would read as failure, and the back-off would feed itself: two real misses ease the
+ask, the eased session becomes miss number three, and a good estimate goes back to
+calibration. So the ask is reconstructed from the same numbers `prescribe`
 used, at **the load the athlete actually logged** — which means the owned-weight rack
 never has to be reconstructed, and an improvised weight is judged honestly instead of
 as a shortfall. A session is judged on its best set (the third set's fatigue is not a
@@ -251,9 +246,8 @@ ceiling over it, nothing lowers it. When the ceiling does bind, the trace names 
 *recent* set that set the ceiling, because that is where the number now comes from.
 So the trace carries the set itself (`Explanation::estimate_from`: row id, date,
 load × reps) and "Why this?" shows it with a way to remove it. The set is
-usually *old* — the one measured here was 60 days back and still 2.1× true
-ability a year on — so an affordance that only reached the latest set would
-never reach the one that matters. Removal deletes the logged set and the next
+usually *old*, so an affordance that only reached the latest set would never
+reach the one that matters. Removal deletes the logged set and the next
 verdict re-derives; no number is ever edited by hand, so the engine remains the
 only thing that computes one.
 
@@ -313,8 +307,8 @@ What an exercise carries: `pattern`, `metric`, `unilateral`, `implements`,
 `difficulty`, `skill`, `warmup`, a cue, a demo video and an image.
 
 - **`metric`** is what the movement is measured in: `reps`, `weighted_reps`, `hold`,
-  or `weighted_hold` (a loaded carry — weight *and* time, since neither alone
-  describes a farmer's walk).
+  `weighted_hold` (a loaded carry — weight *and* time, since neither alone
+  describes a farmer's walk) or `weighted_distance` (weight and metres).
 - **`implements`** is how many of the kit the movement uses. It decides which loads
   are buildable: a two-dumbbell press can't be built from a weight you own one of,
   and a pair of adjustable handles splits the disc budget between them.
@@ -340,7 +334,7 @@ which includes a cable stack: a pulley is a machine, but the weight on it is the
 whole point. Loads are resolved **per exercise**, not per equipment, because what is
 buildable depends on how many implements the movement needs.
 
-The 19 `*_legacy` rows are retired placeholders (`is_active = 0`), superseded by
+The `*_legacy` rows are retired placeholders (`is_active = 0`), superseded by
 real catalog entries. Nothing references them and nothing lists them. Leave them.
 
 ## How we know it's right
@@ -378,8 +372,7 @@ reach the ledger as different signals; `scripts/simulate-matrix.sh` crosses the 
 It exercises the loop the athlete actually lives in (prescribe →
 perform → re-estimate → prescribe), which the back-test structurally cannot: replayed
 history never responds to the coach. Deterministic, so traces diff across engine
-changes. The probe cadence, the plateau/ladder pair and the coarse-rack rounding rule
-all came out of its first traces.
+changes. The probe cadence and the plateau/ladder pair came out of it.
 
 **Explanations as data** (`Explanation`). Every work and calibration item carries the
 factors that produced it — deficit, recovery, the pay that qualified it, confidence,

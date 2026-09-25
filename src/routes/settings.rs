@@ -17,7 +17,7 @@ pub async fn get(
     Ok(Json(repo::get(&app.pool, &user.user_id).await?))
 }
 
-/// PATCH /api/settings → update the active window / cutoff / spacing.
+/// PATCH /api/settings → update any subset of the settings.
 pub async fn patch(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,

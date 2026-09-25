@@ -2,7 +2,7 @@
 //!
 //! Establishes *who the user is* and nothing else. The access token is used
 //! once to read `{id, displayname}` and then discarded; no refresh token is
-//! ever stored, so life never hits NC's single-use-refresh-token rotation.
+//! ever stored, so coach never hits NC's single-use-refresh-token rotation.
 
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;

@@ -1,9 +1,9 @@
 # coach
 
 Personal exercise/training tracker with an **adaptive pacing coach**. A sibling
-of `life`: Rust (axum) backend + Angular 22 frontend + its own MariaDB, served
-from one image and deployed to k3s on isis. Public at `coach.xinutec.org`, gated
-by Nextcloud OAuth login.
+of `life`: Rust (axum) backend + Angular frontend + its own MariaDB, served from
+one image and deployed to k3s on isis. Public at `coach.xinutec.org`, gated by
+Nextcloud OAuth login.
 
 There's no stored plan or program. On every request the pacing engine recomputes
 what to do from first principles: your logged set history (rolling muscle-group
@@ -16,18 +16,24 @@ Android app's on-device geofence (only when you're home).
 
 ## Layout
 
-- `src/` — Rust backend (see module docs). `pacing/engine.rs` is the pure,
-  unit-tested core; `pacing/service.rs` assembles its input + applies your tz.
+- `coach-pacing/` — the pure pacing engine, compiled `#![no_std]` so it cannot
+  do IO or read the clock (see its `lib.rs`).
+- `src/` — Rust backend (see module docs). `pacing/service.rs` assembles the
+  engine's input from the DB + applies your tz; `bin/` holds the back-test and
+  the athlete simulator.
 - `docs/trainer.md` — the trainer model: design principles, known gaps, and the
-  staged roadmap toward a full deterministic trainer (ability model, ordered
-  daily plan, calibration tasks).
+  roadmap. `docs/field-test.md` — the findings (R*n*-*m*) the code refers to.
+- `data/catalog/` — the exercise catalog, seeded into the DB at boot whenever
+  its content hash changes: exercises, equipment, muscles, images and loops.
+- `render/` — the Blender pipeline that draws the catalog's anatomy pictures and
+  loops; see `docs/anatomy-renders.md`.
 - `migrations/` — sqlx migrations, run at boot. Append-only.
 - `frontend/` — Angular app (Today burn-down, log, history, balance, exercise
   library, locations, settings). A movement's picture and demo are one tap from
   the plan card: the demo plays in the sheet (muted, chrome-stripped, from the
   timestamp the catalog link points at) rather than throwing you out to YouTube
   mid-set, and fills the screen if you turn the phone sideways.
-- `android/` — WebView wrapper + native geofence/notification layer (WIP).
+- `android/` — WebView wrapper + native geofence/notification layer.
 
 ## Develop
 
@@ -36,28 +42,26 @@ nix develop                 # cargo + node toolchain
 ./scripts/dev-db.sh         # local MariaDB on :3308 (db/user: coach/coach)
 cp .env.example .env        # fill in; DEV_LOGIN_USER bypasses Nextcloud locally
 cargo run                   # API on :8080 (STATIC_DIR unset = API only)
-# frontend: cd frontend && npm install && npm start   # ng serve :4200, proxies /api
+# frontend: cd frontend && pnpm install && pnpm start  # ng serve :4200, proxies /api
 
 # to serve the built SPA from the backend (single origin):
-#   (cd frontend && NG_BUILD_MAX_WORKERS=1 npm run build)   # the =1 avoids a macOS
+#   (cd frontend && NG_BUILD_MAX_WORKERS=1 pnpm run build)  # the =1 avoids a macOS
 #   STATIC_DIR=frontend/dist/coach-web/browser cargo run    # build-teardown abort
 ```
 
-`gen-types.sh` regenerates the frontend TS types from the Rust API types;
-`check-types.sh` is the drift gate. `gate.dhall` is the gate to run before
-pushing (`nix run ../dev-lint#gate -- . gate.json`): backend fmt + clippy +
-tests, frontend lint/build/unit tests, the type-drift check, the Playwright
-layout checks, the Android app, and dev-lint. The drift gate diffs the
-worktree against the git *index*, so `git add -A` first or the drift gate reads a
-stale tree.
+`scripts/gen-types.sh` regenerates the frontend TS types from the Rust API
+types; `--check` reports drift instead. `gate.dhall` is the commit gate, run by
+the pre-commit hook (`scripts/setup-hooks.sh` installs it once per clone) or by
+hand with `nix run 'git+file:../dev-lint?ref=HEAD#gate' -- . gate.json`: backend
+fmt + clippy + tests, frontend lint/build/unit tests, the type-drift check, the
+Playwright layout checks, the Android app, and dev-lint.
 
 The backend tests include `tests/db.rs`, which runs the real queries against a
 real MariaDB — a `FromRow` struct binds its columns by name at *runtime*, so a
 SELECT that drifts from it compiles, passes every pure test, and 500s in
-production (it did). The gate runs that row through `with-test-db`, which brings
-up an ephemeral MariaDB and tears it down again, so this needs no ceremony; CI
-gets a `mariadb` service. The tests fail loudly without a server rather than
-skipping.
+production. The gate runs that row through `with-test-db`, which brings up an
+ephemeral MariaDB and tears it down again; CI gets a `mariadb` service. The
+tests fail loudly without a server rather than skipping.
 
 ## Train from the command line
 
@@ -105,7 +109,8 @@ succeeds proves a pod came up, not which image it came up on; `/version` is what
 proves the deploy.
 
 The k8s manifests live in the home monorepo (`xinutec/pippijn`
-`code/kubes/coach/k8s/`). First time only, from that checkout, on isis as root:
+`code/kubes/coach/k8s/`, generated from `dhall/apps/coach.dhall`). First time
+only, from that checkout, on isis as root:
 
 ```sh
 # NC OAuth2 client "coach" (dash admin), redirect

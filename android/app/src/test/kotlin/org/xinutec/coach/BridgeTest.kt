@@ -7,17 +7,10 @@ import org.junit.Test
 /**
  * The reminders bridge's admission check.
  *
- * `addJavascriptInterface` — what this replaced — is documented by Android as
- * "available to every frame within the WebView, including iframes. It lacks
- * origin-based access control." That was not theoretical here: the library sheet
- * embeds a `youtube-nocookie.com` player so a demo can be watched mid-warm-up, so
- * the WebView deliberately runs somebody else's code, and the old main-frame URL
- * check passed because the main frame really was coach.
- *
- * `addWebMessageListener` moves the guarantee into the WebView, which will not
- * inject the port outside `Bridge.ALLOWED_ORIGINS` at all. These tests cover the
- * second layer — the one that still has to be right if the origin rule is ever
- * edited by someone who doesn't know it is load-bearing.
+ * The library sheet embeds a `youtube-nocookie.com` player, so the WebView runs
+ * somebody else's code. `addWebMessageListener` will not inject the port outside
+ * `Bridge.ALLOWED_ORIGINS`; these tests cover the second layer, the one that
+ * still has to be right if the origin rule is ever edited.
  */
 class BridgeTest {
     private val coach = Config.BASE_URL

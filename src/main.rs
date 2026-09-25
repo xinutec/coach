@@ -1,4 +1,4 @@
-//! coach — periodized training tracker + pacing coach. Entry point: load
+//! coach — training tracker + pacing coach. Entry point: load
 //! config, connect the DB, run migrations, serve. All logic lives in the
 //! `coach` library crate.
 

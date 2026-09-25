@@ -150,7 +150,7 @@ fn the_budget_remainder_never_starts_a_movement_below_its_minimum_dose() {
     // Two movements on disjoint groups, both with a 2-set minimum, budget 3.
     // The remainder after the first pick is one set — not enough to *commit* to
     // the second movement, so it must not appear as a 1-set orphan ("Push-up —
-    // 1 set", round-3 field test). The spare set tops up the first movement
+    // 1 set"). The spare set tops up the first movement
     // instead: its marginal gain was just re-ranked and it's already set up.
     let cands = vec![
         cand(1, vec![1.0, 0.0], 2.0, 0.0, false, 2, 4),

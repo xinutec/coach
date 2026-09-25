@@ -2,7 +2,7 @@
 #!nix-shell -i bash -p gh curl python3
 # Deploy the *current commit* to isis, and prove it landed.
 #
-# Three failure modes this exists to rule out, all of which have bitten us:
+# Three failure modes this rules out:
 #
 #   1. Racing CI. `gh run list --limit 1` right after a push returns the *previous*
 #      commit's run (GitHub hasn't created the new one yet). Waiting on that and

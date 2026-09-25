@@ -89,14 +89,9 @@ mat-card {
     color: var(--mat-sys-on-primary-container);
   }
 
-  // Finished items and warm-ups collapse to `.compact` instead of being dimmed.
-  // The old treatment was two opacity rules that fought — `.suggestion.done`
-  // (0.62) against `.suggestion.warmup:not(.next)` (0.8) — and `:not()` takes its
-  // argument's specificity, so the warm-up rule won at (0,3,0) and a *finished*
-  // warm-up never dimmed at all. Measured in the browser, not read off the file.
-  // Dimming was the wrong instrument regardless: it costs contrast on text that
-  // is already `on-surface-variant`, and it never bought back the height, which
-  // was the actual problem.
+  // Finished items and warm-ups collapse to `.compact` instead of being dimmed:
+  // dimming costs contrast on text that is already `on-surface-variant`, and
+  // buys back none of the height.
   &.compact {
     margin-bottom: 0.4rem;
   }
@@ -269,8 +264,8 @@ mat-card {
   &.assess {
     border-left: 3px solid var(--mat-sys-tertiary);
   }
-  // Icon-in-pill. (Warm-up and Done no longer need one: both render as a compact
-  // row, which says it by shape.)
+  // Icon-in-pill. (Warm-up and Done have none: both render as a compact row,
+  // which says it by shape.)
   .assess-pill {
     display: inline-flex;
     align-items: center;

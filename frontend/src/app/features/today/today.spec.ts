@@ -9,12 +9,9 @@ import { Today } from "./today";
 
 /** The card is where the engine's verdict becomes something a person reads
  *  standing in a gym, and nearly all of it is presentation over the wire types —
- *  pure functions of a `Suggestion`, an `Explanation`, a `PacingNow`. Several of
- *  these lines are field-test findings that reached the athlete before they
- *  reached a test (R2-2's "14 / 13", the untrained day that read "3 / 10 done"),
- *  which is exactly the class of bug a component spec catches and neither the
- *  Rust suite nor the layout harness can: the engine was right both times, and
- *  the page did the arithmetic itself. */
+ *  pure functions of a `Suggestion`, an `Explanation`, a `PacingNow`. Where the
+ *  page does arithmetic of its own (R2-2), only a component spec can catch it:
+ *  the Rust suite sees the engine and the layout harness sees pixels. */
 
 const bodyweight = (repLow: number, repHigh: number): Ask => ({
 	kind: "bodyweight",
@@ -131,17 +128,15 @@ afterEach(() => {
 });
 
 describe("the session counter", () => {
-	// R2-2. The header used to read the engine's own day-size estimate while the
-	// cards held their own set counts, so finishing every card reported "14 / 13".
-	// It sums the cards now — and then the *other* half of the same bug showed up:
-	// counting warm-ups meant three checked-off arm circles read as "3 / 10 done"
-	// on a day the engine scored as untrained.
+	// R2-2. The header sums the cards' own set counts (so finishing every card
+	// cannot read "14 / 13"), and leaves warm-ups out (so three checked-off arm
+	// circles cannot read as "3 / 10 done" on an untrained day).
 	it("counts the work, not the warm-ups", () => {
 		const t = card();
 		const p = pacing({
 			plan: [
-				suggestion({ kind: "warmup", sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null }] }),
-				suggestion({ exerciseId: 2, sets: 3, logged: [{ reps: 8, loadKg: null, holdS: null }] }),
+				suggestion({ kind: "warmup", sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null, distanceM: null }] }),
+				suggestion({ exerciseId: 2, sets: 3, logged: [{ reps: 8, loadKg: null, holdS: null, distanceM: null }] }),
 				suggestion({ exerciseId: 3, sets: 4, logged: [] }),
 			],
 		});
@@ -153,7 +148,7 @@ describe("the session counter", () => {
 		const t = card();
 		const p = pacing({
 			plan: [
-				suggestion({ kind: "warmup", sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null }] }),
+				suggestion({ kind: "warmup", sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null, distanceM: null }] }),
 				suggestion({ exerciseId: 2, sets: 3 }),
 			],
 		});
@@ -167,7 +162,7 @@ describe("what comes next", () => {
 		t.pacing.set(
 			pacing({
 				plan: [
-					suggestion({ sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null }] }),
+					suggestion({ sets: 1, logged: [{ reps: 10, loadKg: null, holdS: null, distanceM: null }] }),
 					suggestion({ exerciseId: 2, exerciseName: "Second", sets: 3 }),
 				],
 			}),
@@ -208,7 +203,7 @@ describe("a plan item's shape on the page", () => {
 	// first work card — the reason the page exists — below the fold.
 	it("collapses a finished item and a warm-up, and keeps work standing", () => {
 		const t = card();
-		const done = [{ reps: 8, loadKg: null, holdS: null }];
+		const done = [{ reps: 8, loadKg: null, holdS: null, distanceM: null }];
 		expect(t.isCompact(suggestion({ sets: 1, logged: done }))).toBe(true);
 		expect(t.isCompact(suggestion({ kind: "warmup" }))).toBe(true);
 		expect(t.isCompact(suggestion({ sets: 3, logged: done }))).toBe(false);
@@ -245,7 +240,7 @@ describe("the dose on a compact row", () => {
 
 	it("reports the sets once the item is finished", () => {
 		const t = card();
-		const s = suggestion({ sets: 1, logged: [{ reps: 8, loadKg: null, holdS: null }] });
+		const s = suggestion({ sets: 1, logged: [{ reps: 8, loadKg: null, holdS: null, distanceM: null }] });
 		expect(t.compactDose(s)).toBe("1 set · aim 8");
 	});
 
@@ -258,16 +253,16 @@ describe("the dose on a compact row", () => {
 });
 
 describe("what you already did", () => {
-	// On set two the question is what set one was, and that used to live only in
-	// History. Reps alone read better with the unit said once at the end.
+	// On set two the question is what set one was. Reps alone read better with the
+	// unit said once at the end.
 	it("says the unit once for reps and per-set for anything carrying a load", () => {
 		const t = card();
 		expect(
 			t.loggedSummary(
 				suggestion({
 					logged: [
-						{ reps: 9, loadKg: null, holdS: null },
-						{ reps: 6, loadKg: null, holdS: null },
+						{ reps: 9, loadKg: null, holdS: null, distanceM: null },
+						{ reps: 6, loadKg: null, holdS: null, distanceM: null },
 					],
 				}),
 			),
@@ -276,12 +271,26 @@ describe("what you already did", () => {
 			t.loggedSummary(
 				suggestion({
 					logged: [
-						{ reps: 7, loadKg: 22.5, holdS: null },
-						{ reps: 6, loadKg: 24, holdS: null },
+						{ reps: 7, loadKg: 22.5, holdS: null, distanceM: null },
+						{ reps: 6, loadKg: 24, holdS: null, distanceM: null },
 					],
 				}),
 			),
 		).toBe("22.5 kg × 7 · 24 kg × 6");
+	});
+
+	it("says how far a carry went", () => {
+		const t = card();
+		expect(
+			t.loggedSummary(
+				suggestion({
+					logged: [
+						{ reps: null, loadKg: 24, holdS: null, distanceM: 10 },
+						{ reps: null, loadKg: 24, holdS: null, distanceM: 15 },
+					],
+				}),
+			),
+		).toBe("24 kg 10 m · 24 kg 15 m");
 	});
 
 	it("says nothing at all before the first set", () => {
@@ -291,7 +300,7 @@ describe("what you already did", () => {
 
 	it("carries the per-side convention into the receipt", () => {
 		const t = card([exercise(1, { unilateral: true })]);
-		expect(t.loggedSummary(suggestion({ logged: [{ reps: 9, loadKg: null, holdS: null }] }))).toBe(
+		expect(t.loggedSummary(suggestion({ logged: [{ reps: 9, loadKg: null, holdS: null, distanceM: null }] }))).toBe(
 			"9 reps each side",
 		);
 	});

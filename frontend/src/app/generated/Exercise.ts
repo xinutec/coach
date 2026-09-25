@@ -9,7 +9,7 @@ import type { Pattern } from "./Pattern";
 export type Exercise = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, unilateral: boolean, 
 /**
  * Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
- * Catalog-authoritative (was a hardcoded equipment-slug sniff).
+ * Set by the catalog, not inferred from equipment.
  */
 skill: boolean, 
 /**

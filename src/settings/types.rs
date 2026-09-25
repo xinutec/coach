@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::muscle::types::Region;
 
 // `Mode` lives in the pure `coach-pacing` core (the engine optimises for it);
-// re-exported here so `crate::settings::types::Mode` and its `as_db`/`from_db`
-// conversions keep resolving.
+// re-exported for the DB row below.
 pub use coach_pacing::domain::Mode;
 
 #[derive(Clone, Debug, Serialize)]

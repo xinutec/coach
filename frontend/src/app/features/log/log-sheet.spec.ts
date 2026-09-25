@@ -14,10 +14,9 @@ import { LogSheet, type LogSheetData } from "./log-sheet";
  *  max over decayed sets, so a wrong value here is not a wrong screen — it is a
  *  PR the model cannot unlearn, and it goes on shaping prescriptions for weeks.
  *
- *  Two of the cases below are field-test findings that reached the athlete
- *  before they reached a test: R2-1 logged "10 reps · 4 kg" against a bodyweight
- *  drill because a stale value sat behind a hidden field, and a run of sets was
- *  lost when the sheet dismissed itself under the next tap. */
+ *  Two cases below guard field-test findings: a stale value behind a hidden
+ *  field must not ride along (R2-1), and the sheet must not dismiss itself
+ *  under the next tap. */
 
 function exercise(id: number, over: Partial<Exercise> = {}): Exercise {
 	return {
@@ -316,7 +315,7 @@ describe("after a set lands", () => {
 	});
 
 	/** Sets come in runs. A sheet that dismisses itself swallows the tap meant
-	 *  for it — that is how a "Log set" tap once landed on the History tab. */
+	 *  for it, landing it on the tab underneath. */
 	it("stays open", () => {
 		const { sheet, dismissed } = open({ exercises: [exercise(1)] });
 		sheet.save();

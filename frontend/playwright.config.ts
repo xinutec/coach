@@ -11,7 +11,8 @@ import harness from "./e2e/harness.mjs";
  *
  * Everything shared — the Pixel geometry, the port, the static server that
  * serves the bundle — comes from @xinutec/ui-harness. What this app says about
- * itself is in e2e/harness.mjs. `npm run ui-check` builds first.
+ * itself is in e2e/harness.mjs. `pnpm run ui-check` reads the built dist, so
+ * build first.
  *
  * Tests live in e2e/ (outside src/), so the vitest unit runner ignores them.
  */

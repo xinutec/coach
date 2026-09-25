@@ -51,7 +51,7 @@
 //! the axis the temperament can't reach. `untracked` (the default) hands the
 //! engine no readiness, so a run reproduces the pre-readiness behaviour exactly.
 //! `roughweek` sleeps the athlete poorly through the third week: the coach eases
-//! the ask on those Low mornings, and — because it now reconstructs the readiness
+//! the ask on those Low mornings, and — because it reconstructs the readiness
 //! each session was written under (R5-2) — a compliant eased session must *not*
 //! turn up as a miss in the ledger. That is the loop the unit tests can't run.
 
@@ -115,13 +115,11 @@ const INJURY_WEEK: i64 = 2;
 
 /// Detraining: what *not* training costs.
 ///
-/// ⚠ This is deliberately NOT a [`Temperament`], which is the modelling gap
-/// round 6 named. Every temperament banks progress as a function of the sim
-/// week, so an athlete who disappears for three weeks comes back *stronger* —
-/// and the 21-day layoff therefore tested re-entry after silence rather than
-/// after decline. Ability and compliance were separated on the grounds that they
-/// move independently, and disuse is exactly where they do not: it is caused by
-/// the behaviour and it moves the ability.
+/// ⚠ This is deliberately NOT a [`Temperament`]. Every temperament banks
+/// progress as a function of the sim week, so as a temperament an athlete who
+/// disappears for three weeks would come back *stronger*. Ability and compliance
+/// are separate axes because they move independently, and disuse is exactly
+/// where they do not: it is caused by the behaviour and it moves the ability.
 ///
 /// So it follows from the days actually trained rather than from the layoff
 /// window. A skipper's two-day gaps cost nothing; three weeks away costs real
@@ -141,11 +139,9 @@ const DETRAIN_ENDURANCE_MULT: f64 = 2.0;
 
 /// Parse an axis from its env-var spelling, and say what the spellings are.
 ///
-/// Both halves come from one list because they drifted apart when they didn't:
-/// round 6 added `novice`, `strong` and `injured` to `Temperament::parse` and
-/// left `SIM_ATHLETE`'s rejection message naming the original three, so the one
-/// output a reader consults *after* getting it wrong told them the new athletes
-/// did not exist. Same shape as `db_str!` in `coach-pacing`.
+/// Both halves come from one list so a new spelling cannot be parsed yet missing
+/// from the rejection message, the one output a reader consults *after* getting
+/// it wrong. Same shape as `db_str!` in `coach-pacing`.
 macro_rules! sim_axis {
     ($name:ident { $($variant:ident => $s:literal),+ $(,)? }) => {
         impl $name {
@@ -504,12 +500,8 @@ fn perform(
             String::new()
         }
     }
-    // One match over what was actually asked. This used to be two nested matches
-    // over `s.kind` and a tuple of Options, with a catch-all arm reading
-    // "unintelligible card" — the simulator guessing at a prescription the engine
-    // had computed exactly. It also had to consult the exercise's `metric` to tell
-    // an AMRAP from a max hold, because the flat fields could not say; the ask now
-    // says it, so the parameter is gone. Warm-ups are skipped by the caller.
+    // One match over what was actually asked: the simulator performs the ask the
+    // engine computed, never a guess at it. Warm-ups are skipped by the caller.
     match s.ask {
         // Weighted reps: attempt the asked reps at the given load.
         Ask::Weighted {

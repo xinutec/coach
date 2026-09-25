@@ -47,11 +47,8 @@ async fn main() -> Result<()> {
     let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
     coach::seed::run(&pool, &catalog_dir).await?;
 
-    // Same assembly as the live verdict — *including the location*. This used to
-    // run "location-agnostic", which sounded neutral but actually meant the old
-    // engine's permissive path: no kit filter at all, so the back-test validated
-    // prescriptions against equipment the athlete doesn't own. A back-test has to
-    // mirror the environment it's predicting; it now runs at a real location
+    // Same assembly as the live verdict — *including the location*. A back-test
+    // has to mirror the environment it's predicting, so it runs at a real location
     // (`BACKTEST_LOCATION` by name, else the default one), exactly as the app does.
     let locations = location_repo::list(&pool, &user).await?;
     let wanted = std::env::var("BACKTEST_LOCATION").ok();
@@ -169,9 +166,8 @@ async fn main() -> Result<()> {
                 .get(&s.exercise_id)
                 .cloned()
                 .unwrap_or_else(|| s.exercise_name.clone());
-            // Read straight off the ask rather than inferring it from a tuple of
-            // Options. This is the trace the engine's changes are judged against,
-            // so it has to report what the coach asked, not a plausible
+            // Read straight off the ask: this is the trace engine changes are
+            // judged against, so it reports what the coach asked, not a
             // reconstruction of it.
             let reps = match (s.ask.rep_low(), s.ask.rep_high()) {
                 (Some(a), Some(b)) if a != b => format!(" {a}-{b} reps"),

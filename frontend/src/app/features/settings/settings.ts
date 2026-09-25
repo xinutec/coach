@@ -18,12 +18,10 @@ import { SwUpdates } from "../../sw-updates";
  *  on-device home-geofence reminders (the geofence + notifications are native;
  *  the home location never leaves the phone). Absent in a plain browser.
  *
- *  A message port rather than the three plain methods it used to be. The wrapper
- *  injects it with `WebViewCompat.addWebMessageListener`, whose origin rules keep
- *  it out of every frame that isn't this app — the library sheet embeds a YouTube
- *  player, and the API this replaced was injected into that frame too. The shape
- *  is the platform's `MessagePort`, so it is a `postMessage` out and a `message`
- *  event back, and `remindersStatus()` could no longer be a return value. */
+ *  The wrapper injects it with `WebViewCompat.addWebMessageListener`, whose
+ *  origin rules keep it out of every frame that isn't this app (the library sheet
+ *  embeds a YouTube player). The shape is the platform's `MessagePort`: a
+ *  `postMessage` out and a `message` event back. */
 interface CoachAndroidBridge {
 	postMessage(message: string): void;
 	addEventListener(
@@ -35,11 +33,11 @@ interface CoachAndroidBridge {
 /** What we can ask the phone for. Three words, matching MainActivity. */
 type BridgeRequest = "status" | "setup" | "disable";
 
-/** The shape an app older than this page injects: three plain methods, from the
- *  `addJavascriptInterface` era. The app is sideloaded, so the page always
- *  updates first and can be running against either — and calling
- *  `addEventListener` on this one throws, which would take the whole Settings
- *  page down rather than just the reminders card. */
+/** The shape an older APK injects: three plain methods over
+ *  `addJavascriptInterface`. The app is sideloaded, so the page always updates
+ *  first and can be running against either — and calling `addEventListener` on
+ *  this one throws, which would take the whole Settings page down rather than
+ *  just the reminders card. */
 interface LegacyCoachAndroidBridge {
 	remindersStatus(): string;
 	setupReminders(): void;
@@ -119,11 +117,8 @@ export class SettingsPage {
 	/** Listen for what the phone says about the reminders, then ask once.
 	 *
 	 *  Every answer arrives the same way, whether we asked for it or the native
-	 *  flow finished and volunteered it. That replaces a pair of `setTimeout`s
-	 *  that re-read the state 1500 ms after asking to set up — a guess at how long
-	 *  someone takes to answer two permission dialogs, and wrong in both
-	 *  directions: too short and the page showed the old state, too long and it
-	 *  sat there having already succeeded. */
+	 *  flow finished and volunteered it, so the page never guesses with a timer
+	 *  how long someone takes to answer the permission dialogs. */
 	private refreshReminders(): void {
 		const bridge = coachAndroid();
 		this.isAndroid.set(bridge !== null);
@@ -183,10 +178,9 @@ export class SettingsPage {
 
 	async checkUpdates(): Promise<void> {
 		const r = await this.swUpdates.checkNow();
-		// ⚠ `failed` is its own answer, not the `else`. The shared policy reports a
-		// check that could not complete — offline, or activation refused — and
-		// folding it into the dev-build branch told the user "No service worker"
-		// when the app has one and simply could not reach the server.
+		// ⚠ `failed` is its own answer, not the `else`: a check that could not
+		// complete (offline, or activation refused) must not read as "No service
+		// worker".
 		this.updateMsg.set(
 			r === "current"
 				? "Up to date."

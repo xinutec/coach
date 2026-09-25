@@ -3,20 +3,14 @@
 /**
  * One set already logged against a plan item, as the row actually holds it.
  *
- * The card used to report progress as a bare count — "1 / 2 sets" — which
- * answers "how many" and not "what". Standing over the bar on set two, the
- * question is what you did on set one, and the only place that lived was the
- * History tab.
+ * Standing over the bar on set two, the question is what you did on set one,
+ * not just how many sets are in.
  *
- * Deliberately **not** metric-shaped, unlike [`Ask`] and unlike the validated
- * [`crate::domain::LoggedSet`] the write path now takes. It reports history,
- * and history is not clean: 65 of the 357 sets in the log do not fit their
- * exercise's metric. Nearly all are the 2024 import, which writes its own
- * INSERT and never saw the shape check; two are mobility drills carrying 4 kg
- * from the stale-form-field post that prompted the check in the first place.
- * A sum type here would have to drop those rows or refuse to load them, and
- * silently under-reporting what the athlete did is worse than reporting it
- * oddly. Strictness belongs where the row is *created*, which is where it now
- * is.
+ * Deliberately **not** metric-shaped, unlike [`Ask`] and the validated
+ * [`crate::domain::LoggedSet`] the write path takes. It reports history, and
+ * history holds rows that do not fit their exercise's metric (chiefly the
+ * imported log, which predates the shape check). A sum type would have to drop
+ * or refuse those rows, and under-reporting what the athlete did is worse than
+ * reporting it oddly. Strictness belongs where a row is *created*.
  */
-export type DoneSet = { reps: number | null, loadKg: number | null, holdS: number | null, };
+export type DoneSet = { reps: number | null, loadKg: number | null, holdS: number | null, distanceM: number | null, };

@@ -89,9 +89,8 @@ async fn fresh(name: &str) -> MySqlPool {
     // concurrently, next to an Angular build — the CREATE can arrive while the old
     // directory is still on disk and fail with 1007 "database exists". Re-running
     // the whole suite immediately then passes, which is the signature of a race and
-    // not of a leftover. (It was misread as an orphaned datadir once; the tell is
-    // that the server's dictionary and the disk agree, so there is nothing stale to
-    // clean.)
+    // not of a leftover: the server's dictionary and the disk agree, so there is
+    // nothing stale to clean.
     //
     // Deliberately *not* `CREATE DATABASE IF NOT EXISTS`: that would silently adopt
     // a half-dropped database and run the tests against whatever survived. The DROP
@@ -133,7 +132,7 @@ async fn fresh(name: &str) -> MySqlPool {
 // Tests run on parallel threads, so the seeds overlap: the cost is roughly one
 // seed of wall-clock, not six.
 
-/// **The regression test for the production 500.** Every exercise detail — the
+/// Every exercise detail — the
 /// query that joins `exercise_equipment` to `equipment` and builds an
 /// `EquipmentRow` — for the whole catalog, active and retired. A column list that
 /// drifts from the struct fails here instead of in the gym.
@@ -167,13 +166,8 @@ async fn every_exercise_detail_loads() {
 
 /// The three list-shaped queries must describe the same exercise.
 ///
-/// `list_cols!` used to guarantee this by construction — one column list, three
-/// queries — and that macro was itself the fix after `EquipmentRow` drifted and
-/// 500'd on 82 exercises in the gym. A compile-time-checked query takes only a
-/// string literal, so the list is written out three times now and the guarantee
-/// has to come from somewhere else.
-///
-/// The compiler covers most of it: all three fill one `ExerciseListRow`, so a
+/// A compile-time-checked query takes only a string literal, so the column list
+/// is written out three times. The compiler covers most of it: all three fill one `ExerciseListRow`, so a
 /// column added to one copy and not the others fails the build. What it cannot
 /// see is a copy whose expression changes while its alias and type do not — an
 /// `EXISTS` re-pointed at `exercise_loops` is still an `i64` called `has_image`,
@@ -375,9 +369,8 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
 
 /// The cable stack, end to end: kit whose load lives in the catalog's `weighted`
 /// flag, through the seeder, the location's registered weights, and out as a
-/// prescribable load. Before this, a pulley was a `machine`, `machine` wasn't a
-/// free weight, and the coach could put no weight on the one machine whose entire
-/// purpose is the weight on it — so its exercises were bodyweight reps forever.
+/// prescribable load. A pulley is a `machine`, not a free weight, and its whole
+/// purpose is the weight on it.
 #[tokio::test]
 async fn a_cable_stack_carries_a_load() {
     let pool = &fresh("cable").await;
@@ -529,9 +522,9 @@ async fn the_database_refuses_a_set_no_parser_looked_at() {
         async move { sqlx::query(AssertSqlSafe(sql)).execute(pool).await }
     };
 
-    // Numbers that describe nothing a human did. The 3 530-second carry is the
-    // real one: round 3 of the field test, an append instead of a replace, and
-    // the ability model read it as a demonstrated max.
+    // Numbers that describe nothing a human did. The 3 530-second carry is a
+    // fat-fingered append the ability model would read as a demonstrated max
+    // (R3-1).
     for (what, cols, vals) in [
         ("no reps at all", "reps", "0"),
         ("more reps than a set has", "reps", "101"),
@@ -569,10 +562,8 @@ async fn the_database_refuses_a_set_no_parser_looked_at() {
 }
 
 /// A picture can arrive after the movement does — a movement is catalogued the
-/// moment it's real, and someone photographs it later. The image seed used to be
-/// gated on the exercise being *new*, so a picture added to an existing row had
-/// nowhere to land: the seed skipped it, forever, however many images went into
-/// the bundle.
+/// moment it's real, and someone photographs it later. The image seed must not
+/// be gated on the exercise being *new*.
 #[tokio::test]
 async fn a_picture_added_later_reaches_an_existing_movement() {
     let pool = fresh("image").await;

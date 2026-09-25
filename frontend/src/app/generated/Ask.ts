@@ -7,18 +7,11 @@
  * [`super::dose::Measure`] (a calibration), which are one type here because a
  * card shows one or the other and never both.
  *
- * It exists because the guarantee `dose` establishes used to stop at
- * `Serialize`. The verdict carried `rep_low`, `rep_high`, `load_kg` and
- * `hold_s` as four independent `Option`s — the same "thirty-two representable
- * shapes, about three legal ones" that `dose`'s own doc comment describes
- * itself as having removed. Everything downstream then had to guess the shape
- * back: the engine did it to phrase "do this next", the back-test did it to
- * recover what the coach had asked, the simulator did it to decide what the
- * athlete should perform, and the Today card did it twice more in TypeScript.
- * Six reconstructions of a fact that was known exactly at the point it was
- * computed, each free to disagree with the others — and the ledger disagreeing
- * with the coach is the failure this area keeps rediscovering (R4-1, R5-1,
- * R6-1).
+ * It carries `dose`'s guarantee across `Serialize`: independent `Option`
+ * fields would let every consumer (the engine's phrasing, the back-test, the
+ * simulator, the Today card) reconstruct the shape its own way, and the ledger
+ * disagreeing with the coach is this area's recurring failure (field-test
+ * R4-1, R5-1, R6-1).
  *
  * Tagged, so the frontend gets a discriminated union and `@switch` is
  * exhaustive over it rather than a chain of null tests.

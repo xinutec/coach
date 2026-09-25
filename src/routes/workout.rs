@@ -16,10 +16,8 @@ use crate::workout::types::{NewSet, WorkoutSet};
 /// POST /api/sets → log a set.
 ///
 /// The body is checked against the exercise's metric before it's stored: a
-/// bodyweight drill can't carry a load, a hold can't carry reps. The round-2
-/// field test logged "10 reps · 4 kg" mobility drills because the client kept a
-/// stale hidden field — the client is fixed too, but data this wrong must not
-/// be one bug away from the ability model.
+/// bodyweight drill can't carry a load, a hold can't carry reps. A stale client
+/// field must not be one bug away from the ability model.
 pub async fn create(
     State(app): State<AppState>,
     AuthUser(user): AuthUser,

@@ -19,10 +19,6 @@ kind: SuggestionKind, sets: number,
  * Day-scoped, not session-scoped: the session gap elapses hours before the
  * day does, and the plan forgetting your morning is not something you should
  * have to work around.
- *
- * There used to be a `done: i32` beside this, documented as "always `done`
- * entries long" — a length carried twice, which is a length that can
- * disagree with itself. It's [`Suggestion::done`] now.
  */
 logged: Array<DoneSet>, 
 /**
@@ -40,9 +36,8 @@ group: string,
  * it instead. A swap the athlete can act on ("buy a cable machine", "register
  * your kettlebell weights") rather than an unexplained substitution.
  *
- * Only ever set when the ideal is *actually* blocked. It used to be set
- * whenever the ideal wasn't what the cover picked — which is the normal case,
- * and made the card claim kit was missing that was standing right there.
+ * Only set when the ideal is *actually* blocked, not merely when the cover
+ * picked something else, which is the normal case.
  */
 substitutedFor: Substitution | null, 
 /**

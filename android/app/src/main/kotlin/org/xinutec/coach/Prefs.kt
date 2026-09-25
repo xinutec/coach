@@ -14,34 +14,12 @@ class Prefs(
     private val sp = context.getSharedPreferences("coach", Context.MODE_PRIVATE)
 
     var homeLat: Double?
-        get() = if (sp.contains(K_LAT)) Double.fromBits(sp.getLong(K_LAT, 0)) else null
-        set(v) =
-            sp
-                .edit()
-                .apply {
-                    if (v ==
-                        null
-                    ) {
-                        remove(K_LAT)
-                    } else {
-                        putLong(K_LAT, v.toRawBits())
-                    }
-                }.apply()
+        get() = getDouble(K_LAT)
+        set(v) = putDouble(K_LAT, v)
 
     var homeLng: Double?
-        get() = if (sp.contains(K_LNG)) Double.fromBits(sp.getLong(K_LNG, 0)) else null
-        set(v) =
-            sp
-                .edit()
-                .apply {
-                    if (v ==
-                        null
-                    ) {
-                        remove(K_LNG)
-                    } else {
-                        putLong(K_LNG, v.toRawBits())
-                    }
-                }.apply()
+        get() = getDouble(K_LNG)
+        set(v) = putDouble(K_LNG, v)
 
     /** Geofence radius in metres. 150 m covers a house + garden without firing
      *  from the street. */
@@ -55,6 +33,15 @@ class Prefs(
         set(v) = sp.edit().putBoolean(K_ARMED, v).apply()
 
     val hasHome: Boolean get() = homeLat != null && homeLng != null
+
+    private fun getDouble(key: String): Double? =
+        if (sp.contains(key)) Double.fromBits(sp.getLong(key, 0)) else null
+
+    private fun putDouble(key: String, v: Double?) {
+        val edit = sp.edit()
+        if (v == null) edit.remove(key) else edit.putLong(key, v.toRawBits())
+        edit.apply()
+    }
 
     private companion object {
         const val K_LAT = "home_lat"

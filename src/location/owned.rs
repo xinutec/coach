@@ -5,8 +5,8 @@
 //! is this a weight you could have built at all? A logged load far beyond
 //! anything you own is the signature of a mistyped field, and the ability model
 //! is a max over history — so one such number becomes a PR the engine cannot
-//! unlearn (it decays to a 60 % floor and the block reset only fires on an
-//! 8-week gap, which never comes while you keep training).
+//! unlearn (decay has a floor, and the block reset needs a gap that never comes
+//! while you keep training).
 
 use std::collections::HashSet;
 

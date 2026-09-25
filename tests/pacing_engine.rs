@@ -159,9 +159,8 @@ fn input(
     available: Option<Vec<i64>>,
 ) -> PacingInput {
     let last_set_at = history.iter().map(|s| s.logged_at).max();
-    // `available: None` = "the kit isn't what this test is about", which now means
-    // a location stocked with everything the catalog needs — not the old "no
-    // filter" special case (there isn't one: absent kit means absent kit).
+    // `available: None` = "the kit isn't what this test is about": a location
+    // stocked with everything the catalog needs (absent kit means absent kit).
     let kit = Kit(match available {
         Some(v) => v.into_iter().map(EquipmentId).collect(),
         None => exercises.iter().flat_map(|e| e.equipment.clone()).collect(),
@@ -834,10 +833,8 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
 
 #[test]
 fn the_plan_remembers_what_you_did_earlier_today() {
-    // A session ends after the session gap. A *day* doesn't. Progress used to be
-    // scoped to the session window, so once the gap elapsed the plan forgot
-    // everything: on 2026-07-25 three warm-ups logged at 16:21 read back at
-    // 22:05 as `0 / 10`, with all three re-offered as still to do. No coach
+    // A session ends after the session gap. A *day* doesn't: three warm-ups
+    // logged in the afternoon must still read as done in the evening. No coach
     // forgets your warm-up because you broke for lunch.
     let exs = vec![
         ex(
@@ -1294,8 +1291,8 @@ fn a_stronger_history_earns_a_heavier_owned_weight() {
 
 #[test]
 fn a_stale_pr_is_not_prescribed_at_face_value() {
-    // A 6 × 60 kg top set from 200 days ago and nothing since: the old engine
-    // would prescribe ~60 kg + a rep. Staleness decays the estimate, so the
+    // A 6 × 60 kg top set from 200 days ago and nothing since: taken at face
+    // value it would prescribe ~60 kg + a rep. Staleness decays the estimate, so the
     // prescription is conservatively lighter — a returning athlete rebuilds.
     let owned: BTreeMap<ExerciseId, Vec<f64>> =
         BTreeMap::from([(ExerciseId(5), vec![40.0, 50.0, 60.0])]);
@@ -1530,8 +1527,8 @@ fn a_day_you_trained_closes_as_a_session_not_a_rest_day() {
     // Same Rest state, but the work happened *today*. "You're balanced and
     // recovered — rest up" is the wrong sentence to read at bedtime on a day you
     // trained: nothing is due precisely *because* you did it. The session-closing
-    // line used to be gated on still being inside the session window, which
-    // elapses hours before the day does.
+    // line must not be gated on the session window, which elapses hours before
+    // the day does.
     let out = rested_after_training_at(hours_ago(10));
     assert_eq!(out.state, PacingState::Rest);
     assert!(out.suggestion.is_none());
@@ -2050,7 +2047,7 @@ fn a_settled_athletes_target_tracks_their_own_rate() {
 //
 // Ability is a max over decayed sets, so without the ledger a miss pulls nothing
 // down and the athlete is re-handed the load his last sessions already failed.
-// These drive the fix end to end through `evaluate`.
+// These drive the ledger end to end through `evaluate`.
 
 /// A run of identical weighted sessions on the barbell row, one per week, newest
 /// `days_ago` last. Enough distinct recent days to reach `High` confidence.
@@ -2329,7 +2326,7 @@ fn warmup_labels_name_distinct_groups() {
 fn the_warmup_preps_the_sessions_heaviest_groups_first() {
     // Chest work is trusted (2 sets); quads work is a 1-set calibration. Chest
     // carries more of the session, so its drill must lead — even though the
-    // quads drill has the lower exercise id (the old order).
+    // quads drill has the lower exercise id.
     let mut h = Vec::new();
     for d in [2, 4, 9] {
         h.push(bset(1, days_ago(d), 10)); // push-up: trusted chest work
@@ -2648,8 +2645,9 @@ fn an_items_label_is_a_prime_mover() {
 
 // R4-1: the +1 ask is a probe, and a probe is earned. An athlete who matches
 // their best while failing the ask keeps the same estimate (ability is a max),
-// so before this the coach re-asked best+1 every single session — grinding, not
-// coaching. Between probes the ask consolidates at the demonstrated best.
+// so without a cadence the coach would re-ask best+1 every single session —
+// grinding, not coaching. Between probes the ask consolidates at the
+// demonstrated best.
 #[test]
 fn a_failed_probe_earns_consolidation_not_a_daily_regrind() {
     let row = || catalog().remove(1); // Ring row — bodyweight, Lats
@@ -2821,16 +2819,13 @@ fn a_movement_too_hard_to_build_steps_down_to_an_easier_sibling() {
     );
 }
 
-// R5-3 (supersedes R4-3): a coarse rack must not manufacture a miss. With bells
-// at 4 and 5 kg and an estimate measured at 5 kg, the computed working load lands
-// between rungs. Round 4 answered that by rounding the *load* up, so the rep range
-// could demonstrate the estimate — but that was treating a symptom: the misses came
-// from the ledger judging sessions against the athlete's ceiling instead of against
-// the ask. The ask is now reconstructed at the load actually used, so the nearest
-// rung is judged honestly — and it is also the better prescription, because rounding
-// up asked for reps below the mode's range and made the load oscillate between two
-// rungs session after session. What matters is the consequence, so that is what this
-// asserts: do what the card says, and the ledger holds nothing against you.
+// R4-3, answered by R5-1: a coarse rack must not manufacture a miss. With bells at
+// 4 and 5 kg and an estimate measured at 5 kg, the computed working load lands
+// between rungs. The ledger reconstructs the ask at the load actually used, so the
+// nearest rung is judged honestly; rounding the load up instead would ask for reps
+// below the mode's range and oscillate between two rungs. What matters is the
+// consequence, so that is what this asserts: do what the card says, and the ledger
+// holds nothing against you.
 #[test]
 fn a_coarse_rack_does_not_manufacture_a_miss() {
     let h = vec![wset(5, days_ago(2), 5.0, 5)];
@@ -2901,9 +2896,8 @@ fn a_topped_out_movement_hands_over_even_while_meeting_it() {
 
 // ---- round 5: the ledger judges the ask, not the ceiling --------------------
 //
-// Playing full sessions through `evaluate` and feeding the results back to the
-// ledger caught it marking *its own easing* as the athlete's failure. Both tests
-// below drive the real loop — read the card, do exactly what it says, ask the
+// The ledger must not mark *the coach's own easing* as the athlete's failure.
+// Both tests below drive the real loop — read the card, do exactly what it says, ask the
 // ledger what it made of that — because the bug only exists in the seam between
 // the two, and neither side looks wrong alone.
 
@@ -3014,9 +3008,8 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
 }
 
 // R5-2: the other half of the ask. A low-readiness morning makes the coach ask for
-// less — and until the ledger could see that, doing exactly what it asked on a
-// badly-slept day was recorded as the athlete falling short, which then held their
-// progression back for having slept badly. Readiness isn't in the set history (it
+// less, and doing exactly that on a badly-slept day must not be recorded as the
+// athlete falling short. Readiness isn't in the set history (it
 // lives in health-sync), so the ledger is told what the coach knew that morning.
 #[test]
 fn an_eased_day_is_not_recorded_as_a_failure() {

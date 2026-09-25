@@ -1,595 +1,251 @@
 # Anatomy renders
 
-Generate the exercise illustrations ourselves from a 3D anatomical model instead
-of sourcing them one by one: a figure per exercise, primary muscles dark red,
-secondaries lighter red, consistent style, and the colouring **derived from the
-same catalog data the engine uses** so it is never an artist's opinion.
+Exercise illustrations generated from a 3D anatomical model rather than sourced
+one by one: one figure style, primary muscles dark red, secondaries lighter red,
+and the colouring **derived from the same catalog data the engine uses**, so it
+is never an artist's opinion.
 
-Two artifacts per exercise, and they are independent:
+Two artifacts per exercise, independent of each other:
 
-- a **still**, which every one of the 136 has;
-- a **demo loop**, which some have. `data/catalog/loops/` is the set.
+- a **still** — every exercise has one. Most are sourced photographs; a few are
+  renders.
+- a **demo loop** — some have one. `data/catalog/loops/` is the set.
 
 A loop sits beside the photograph rather than replacing it, in its own table and
 found by convention, so a bad loop cannot cost an exercise the picture it already
-had. The seeder says so on every boot: `N loop(s) added, 0 image(s)`.
+has. The seeder reports both on every boot: `… image(s) and … loop(s) added`.
 
-**What the colouring guarantees, exactly.** It comes from the catalog, so it is
-never invented. It is not complete: the labelling gives a body vertex the muscle
-its inward ray reaches first, so a muscle lying under another is barely carried,
-and several exercises colour a primary faintly or not at all. A loop therefore
-ships on the strength of its MOVEMENT — the photograph beside it carries the
-exercise, and showing muscle areas properly is a separate job for another time
-(Pippijn, 2026-09-12).
-
-**The figure is a single skinned body, not the écorché.** The écorché is dozens
-of separate muscle shells, so every bent joint tears and interpenetrates them —
-structural, and no weighting fixes a mesh that is not continuous. It is never
-posed. Fork C poses an MB-Lab body instead and *derives* its muscle regions from
-the écorché by registration, so the catalog still decides what is red while the
-thing that bends is one continuous surface. Everything posed or animated comes
-from that body; the écorché survives as the source of the region names and as the
-neutral "muscles worked" still.
-
-Open: **three floor loops** — cat-cow, scapular push-up, kneeling lat reach. The
-approach is proved; see "Standing on two contacts".
+**What the colouring guarantees.** It comes from the catalog, so it is never
+invented. It is not complete: the labelling gives a body vertex the muscle its
+inward ray reaches first, so a muscle lying under another is barely carried, and
+several exercises colour a primary faintly or not at all. A loop therefore ships
+on the strength of its MOVEMENT — the photograph beside it carries the exercise.
+Showing deep muscle areas properly is a separate piece of work.
 
 ## Why
 
-134/136 exercises have sourced images today, so the payoff is not coverage. It is:
+The payoff is not coverage; sourced pictures already cover the catalog. It is:
 
 - **Correctness by construction.** Highlighted muscles come from
-  `data/catalog/exercises.json`, not an artist's opinion. Editing an exercise's
-  muscle map and re-rendering keeps the picture honest.
+  `data/catalog/exercises.json`. Editing an exercise's muscle map and
+  re-rendering keeps the picture honest.
 - **One visual style** instead of a scrapbook of stock-art sources.
 - **Independence** from scraping (dead hosts, DNS blocks, format surprises).
-- **New exercises never ship image-less** — a pose file is the only authoring cost.
+- **New exercises never ship image-less** — a pose is the only authoring cost.
 
-## Decisions (approved)
+## Decisions
 
 - **Base asset: Z-Anatomy** — an open-source Blender anatomy atlas with every
-  muscle as a separate named mesh, built on the BodyParts3D dataset. We cannot
-  sculpt an accurate human ourselves; accuracy comes from the dataset.
-- **License: CC-BY-SA is acceptable.** Derived renders inherit it; the app
-  carries attribution (see below).
-- **Illustration quality, not biomechanics.** The reference stock images are
-  stylized; muscles need to *read* correctly in a pose, not simulate.
+  muscle as a separate named mesh, built on the BodyParts3D dataset. Accuracy
+  comes from the dataset; we do not sculpt a human ourselves.
+- **License: CC-BY-SA is acceptable.** Derived renders inherit it; see
+  Attribution.
+- **Illustration quality, not biomechanics.** Muscles need to *read* correctly in
+  a pose, not simulate.
 - **Renders are judged by Pippijn.** Pose quality is a visual call; the loop is
   render → deliver → critique. Nothing ships to the catalog unreviewed.
+- **Supplement, never replace.** The photograph stays exactly as it is and the
+  loop is a second artifact beside it. The sourced pictures show what to do and
+  took real work to gather.
 
-## M1 findings (2026-07-18) — asset inspected
+## The two figures
 
-Both archives are Blender application templates; the model is in `Startup.blend`.
-Inspected headless on isis:
+### The écorché (Z-Anatomy)
 
-- **Z-Anatomy** — 7,184 objects (4,569 meshes) in TA2 anatomical naming.
-  Collections: Skeletal / Muscular insertions / Joints / Muscular system (894
-  objs) / Cardiovascular / Lymphoid / Nervous / Visceral / Regions of human body
-  / Bonus. Muscles are split per head (e.g. "Acromial part of deltoid muscle")
-  with `.l`/`.r` sides and `.ol`/`.or`/`.el`/`.er` variants, so **one catalog
-  slug maps to several meshes** — the muscle-map is one-to-many.
-- **No armature** in the anatomy file.
-- **No skin mesh anywhere.** There is no integumentary layer. "Regions of human
-  body" (343 objs) is `.g`/`.j` label markers (text + leader lines), not a body
-  surface.
-- **Z-Biomechanics** — a bones-only build: a real **237-bone armature** (plus
-  `AnatPoseToTPose` / `TPoseToAnatPose` retarget rigs) aligned to the same
-  skeleton. But it carries only the skeleton, and **muscles have zero vertex
-  groups** — nothing is skinned to it. It is rigid bone-posing, not a
-  muscle-deforming rig.
+The atlas ships as Blender application templates; the model is `Startup.blend`.
 
-Consequences: catalog-driven muscle colouring is well-supported (every muscle is
-a named mesh). The **skinned-figure aesthetic is not** — the asset gives an
-écorché (bare muscle/bone), not the grey-skin-with-a-face look of the reference
-stock art. Getting that look needs a separate body-surface mesh registered to
-these proportions, which is a project of its own. This is a decision fork —
-recorded below, awaiting direction. **Supersedes the earlier claim that
-Z-Anatomy includes skin/face; it does not.**
+- 7,184 objects (4,569 meshes) in TA2 anatomical naming. Muscles are split per
+  head (e.g. "Acromial part of deltoid muscle") with `.l`/`.r` sides and
+  `.ol`/`.or`/`.el`/`.er` variants, so **one catalog slug maps to several
+  meshes** — `render/muscle_map.json` is one-to-many.
+- **No skin mesh.** "Regions of human body" is `.g`/`.j` label markers (text +
+  leader lines), not a body surface. The écorché is bare muscle and bone.
+- **No armature** in the anatomy file. Z-Biomechanics has a 237-bone armature
+  aligned to the same skeleton, but muscles have zero vertex groups.
 
-## Aesthetic — OPEN (was: skinned grey figure)
+**The écorché is never posed.** It is dozens of separate muscle shells, so every
+bent joint tears and interpenetrates them into non-human shapes whatever the
+weights — structural, since no weighting fixes a mesh that is not continuous.
+`render/rigging/` records the attempt. The écorché is the source of the region
+names and renders the neutral-pose "muscles worked" still.
 
-The reference stock art is a grey **skinned** male figure with a face, target
-muscles shown red. M1 established Z-Anatomy cannot produce that directly (no skin
-mesh). Direction is undecided; options in "Decision fork" below.
+### The skinned body (fork C)
 
-## Decision fork (after M1)
+Everything posed or animated is a single MB-Lab body. Its muscle regions are
+*derived* from the écorché, not painted: both figures stand in the same pose at
+the same scale, each body vertex takes the Z-Anatomy name its inward ray (along
+the skin normal) reaches first, falling back to the nearest surface where the
+ray leaves the body, and `muscle_map.json` resolves a catalog slug onto those
+names exactly as it does for the écorché meshes. The catalog still decides what
+is red, and the thing that bends is one continuous surface. A label is a vertex
+index, not a position, so the colours travel with the deformation.
 
-- **A — Z-Anatomy écorché.** Bare muscle/skeleton, catalog-driven colouring,
-  pose via the Z-Biomechanics skeleton (bind muscles ourselves). Best muscle
-  accuracy, fully open-source, but a clinical/specimen look — does *not* match
-  the reference art (no skin, no face).
-- **B — Z-Anatomy muscles + a separate skin body.** Register a CC0/MakeHuman
-  body surface to the Z-Anatomy proportions, composite muscles showing through.
-  Matches the references, but adds a two-mesh registration sub-project that must
-  hold through every pose — the largest option.
-- **C — single skinned body, painted muscle regions.** Abandon separable meshes:
-  one rigged male body (e.g. MakeHuman/SMPL), muscle regions painted as
-  vertex-colour/texture, recoloured per exercise from the catalog. Directly gives
-  the reference look and rigs trivially (one standard humanoid mesh), but loses
-  per-muscle geometric precision. **The paint map does not have to be painted** —
-  see "Fork C: the derived paint map" below.
-- **D — pause.** 134/136 exercises already have sourced images; the marginal
-  value is consistency, not coverage. Keep the M1 findings and revisit later.
+- **Subdivide before labelling.** `label-body.py` applies the body's subdivision
+  modifier first (17,996 → 276,437 vertices), after clearing MB-Lab's facial
+  expression shape keys, which block applying a modifier. At cage resolution the
+  anterior mid-thigh holds 176 skin vertices and the quadriceps read as a band;
+  subdivided, the highlight takes the muscle's shape. Rendering 276k of real
+  geometry is also faster than subdividing an 18k cage at render time.
+- **Keep MB-Lab's deformation stack.** Corrective smooth, subdivision and the
+  displacement texture are switched off while distances are measured and
+  restored before saving. The armature deforms with **preserve volume** (dual
+  quaternion): linear blend collapses a bent hip or knee inward and twists a
+  forearm.
+- **Light for form.** Key sun 2.1, fill 0.7, ambient 0.15: a key of 4.0 on a
+  0.80-albedo surface clips to white and the figure reads as a plaster cast. The
+  suns subtend 12°; Blender's default 0.526° disc lays hard-edged wedges across
+  the torso that look like a second translucent body.
+- **Remaining limit:** some skin vertices resolve to bone rather than muscle,
+  the skin and the atlas figure being different builds that registration alone
+  does not reconcile.
 
-## Fork C: the derived paint map
+## Files
 
-The objection to C was that hand-painting muscle regions hands the colouring
-back to an artist's opinion, which is the one thing this pipeline exists to
-avoid. It does not have to be painted. Both figures can stand in the same pose
-at the same scale, and each body vertex can take the name of the anatomy whose
-surface is nearest to it. muscle_map.json then resolves a catalog slug onto
-those same Z-Anatomy names, exactly as it does for the écorché meshes, so the
-catalog still decides what is red.
+Shared (`render/`):
 
-Built (2026-09-03), unposed:
+- `fetch-asset.sh` — download + unzip Z-Anatomy into a gitignored `asset/`
+  (idempotent, so the CI cache skips it).
+- `prepare.py` — strip the atlas to the muscular system + skeleton and save the
+  gitignored `slim.blend`. Never point a render at `Startup.blend`: the slim
+  blend is what keeps a runner from thrashing.
+- `muscle_map.json` — catalog muscle slug → Z-Anatomy base names (side/variant
+  suffixes matched automatically). `scripts/check-muscle-map.py` validates every
+  name against real, non-label meshes.
+- `za.py` — Z-Anatomy naming and the red/flesh palette, so the two renderers
+  cannot disagree about what a picture means.
+- `stage.py` — orthographic camera, sun rig and render settings. The two figures
+  only compare under the same light.
+- `floor.py` — the ground slab for floor poses.
+- `render.py` — the écorché still: read the exercise's muscle roles from the
+  catalog, colour via the map, render a PNG. Exits non-zero on a primary or
+  secondary slug with no map entry rather than rendering an uncoloured lie.
 
-- `render/za.py` — Z-Anatomy naming and the red/flesh palette, shared so the two
-  renderers cannot drift into disagreeing about what a picture means.
-- `render/stage.py` — orthographic camera, sun rig and Cycles settings. An
-  écorché and a skinned body only compare if the light is the same.
-- `render/skin/label-body.py` — registers the MB-Lab body onto the écorché and
-  writes one `mus:`-prefixed vertex group per Z-Anatomy base name.
-- `render/skin/render-skin.py` — the fork-C counterpart of `render.py`: same
-  catalog, same map, same light, colour carried per vertex instead of per mesh.
-- `render/skin/debug-regions.py` — colours each region distinctly so the
-  transfer can be looked at rather than inferred from a tally.
+Skinned body (`render/skin/`):
 
-`render.py` now shares `za.py` and `stage.py`. Excluding annotation meshes (see
-below) moves its counts — visible muscle meshes 666 -> 581, head-fill bones
-324 -> 87 — with no visible change: heel_toe_rocks re-renders with a solid head
-and red calves as before.
+- `label-body.py` — registers the MB-Lab body onto the écorché and writes one
+  `mus:`-prefixed vertex group per Z-Anatomy base name.
+- `render-skin.py` — the posed still: same catalog, map and light as
+  `render.py`, colour carried per vertex instead of per mesh.
+- `poses.json` — named poses as per-bone XYZ euler degrees, with the rig's
+  measured axis conventions, plus the `_contact` and `_floor` tables.
+- `loops.json` — how each loop is built: its view and its `pose@frame` keys.
+- `animate.py` — renders a loop.
+- `collide.py`, `check-pose.py` — self-intersection check; reports every pose.
+- `plant.py` — floor contacts and levelling.
+- `try-pose.py` — authoring harness for candidate poses (`--render` for images,
+  `--no-solve` for a cheap grid).
+- `debug-regions.py` — colours each region distinctly, unlit, so the transfer can
+  be looked at rather than inferred from a tally.
 
-**What it establishes:** a goblet-squat render on the skinned body puts red on
-both quadriceps and neutral flesh everywhere else, from the catalog, on a figure
-with skin and a face. That is the reference look the écorché cannot reach.
+## Posing
 
-**What it does not:** region boundaries are ragged, because assignment is
-per-vertex and hard on a 17,996-vertex body. 4,095 of those vertices resolve to
-bone rather than to any muscle, the skin and the atlas figure being different
-builds that height registration alone does not reconcile.
+**Probe the rig; do not reason about it.** The euler conventions are borrowed and
+not guessable. A hinge tips the pelvis forward and counter-rotates the thighs,
+and that counter-rotation has the SAME sign as the pelvis (`pelvis +62` wants
+`thigh +65`), because the thigh's local X runs opposite to the pelvis's. A sign
+guess costs a render sweep; perturbing one bone at a time and printing where the
+contacts land costs a few pose evaluations and no renders.
 
-### Posing (2026-09-03)
+Measured facts about this rig:
 
-**The body poses without tearing**, which is the structural failure that ended
-M2 for the écorché. A squat bends hip, knee, ankle, spine, shoulder and elbow
-with no interpenetration and no non-human shapes: one continuous skinned mesh
-deforms where dozens of separate muscle shells could not. The muscle colours
-travel with the deformation, because a label is a vertex index rather than a
-position.
+- **`stand` is an A-pose.** Rotating `upperarm` past about −50° on Z swings the
+  hand *inward* as it descends, so arms-at-sides is not reachable on Z alone and
+  every angle approaching it collides with the hip. The écorché stands the same
+  way.
+- **Overhead:** `upperarm` +Z raises the arm laterally; +85° clears the head;
+  +78° with the elbow at −100° is hands-behind-head.
+- **Scapular squeeze:** rolling the clavicles forward carries the hands inward
+  onto the thighs, so the arms widen — but only to −38°; past about −44° they
+  swing back in.
+- **Mirroring is not a sign flip.** The right-arm curl needed its own sweep
+  (`ua_x=55` where the left wanted 40). Author each side against the checker.
+- **Full elbow flexion is out of reach.** Past about 90° the hand drives into the
+  torso. The curl shows 90° with the upper arm swung forward.
+- **A front rack cannot be posed.** Both hands at the shoulders puts the forearms
+  in the same space at every combination swept (worst case 503 triangles), so
+  `squat_front_rack_double_kettlebell` has no render rather than a plain squat
+  that would misrepresent where the load sits.
 
-- `render/skin/poses.json` — named poses as per-bone XYZ euler degrees, with the
-  rig's measured axis conventions written down in the file.
-- `render-skin.py` takes a pose name as its fourth argument, and **stands the
-  figure on the floor itself**: bending the hips and knees moves the feet but not
-  the root, so a posed figure otherwise hangs in the air at whatever height its
-  rest pose left it.
+**A pose has a view that suits it.** Arms held forward foreshorten into stubs
+from the front; a squat only reads from the side. For a side view the camera's
+width is the figure's y extent.
 
-`label-body.py` no longer bakes the arms-down measuring pose as the rest. That
-left the rig inconsistent — bones arms-down, mesh still in its authored T — and
-the body then rendered in a T-pose whatever its bones said.
+**Poses are shared, not per exercise.** A squat is a squat whoever holds what, so
+a slug maps onto named poses through `loops.json`. A new shape costs about half
+an hour (the RDL took two numeric probes and four renders); a shape already
+authored costs minutes (`good_morning_dumbbell` reuses the hinge, and the catalog
+colours it differently).
 
-### Making the flesh move like flesh (2026-09-03)
-
-MB-Lab's body ships a deformation stack — corrective smooth, subdivision at
-render level 3, a displacement texture — and `label-body.py` switches all of it
-off so the evaluated mesh keeps its vertex count while distances are measured.
-It then saved the blend that way, so every render was the raw 18k cage under
-plain linear-blend skinning. The stack is restored before saving now, and the
-armature deforms with **preserve volume** (dual quaternion): linear blend
-collapses a bent hip or knee inward and twists a forearm, and those are joints
-every exercise uses. Subdivision also interpolates the colour attribute, which
-is what smoothed the ragged region boundaries.
-
-Two lighting faults, both of which read as rendering bugs rather than as light:
-
-- **Exposure.** A key sun of 4.0 on a 0.80-albedo surface clips to white. The
-  figure had no form at all — a plaster cast. Key 2.1, fill 0.7, ambient 0.15.
-- **Shadow hardness.** Blender's sun defaults to a 0.526° disc. An arm held
-  towards the camera laid a hard-edged wedge across the torso that looked like
-  a second translucent body; deleting the écorché entirely did not remove it.
-  The suns subtend 12° now, so shadows have a penumbra.
-
-Labels come from a ray cast along the skin normal, with nearest-surface as the
-fallback where the ray leaves the body — 11,900 of 17,349 by ray. This is the
-anatomically meaningful question, though it barely moved the region sizes.
-
-**Region coverage was a resolution problem, not a labelling one.** All four
-quadriceps together held 217 of 17,996 vertices and the red described a band
-rather than the muscle. Neither the query method nor the registration was at
-fault: tallying the anterior mid-thigh specifically showed it holds **176 skin
-vertices in total**, of which 90 already *were* quadriceps. The labels were
-right and the canvas was too coarse.
-
-`label-body.py` applies the body's subdivision modifier before labelling —
-17,996 -> 276,437 vertices — after clearing MB-Lab's facial expression shape
-keys, which block applying a modifier and which this pipeline does not use.
-Quadriceps go 217 -> 3,357, pectoralis major 32 -> 538, biceps brachii 73 ->
-1,047, and the highlight becomes the muscle's shape.
-
-Renders also got *faster*: 21s against 50s, because 276k of real geometry beats
-18k subdivided to ~1.1M at render time.
-
-### Detecting a body that passes through itself
+## Collisions
 
 Posing has no collision: bones rotate, skin follows, and a limb swung into the
-torso simply occupies the same space as it. The `stand` pose shipped with the
-hands inside the pelvis and emerging at the crotch, and with the two hands
-inside each other — obvious once seen, and invisible to every check we had.
+torso occupies the same space as it. `collide.py` intersects the posed skin with
+itself, attributes each intersecting triangle to the bone that drives it, and
+measures how far apart those two bones are along the skeleton. **The test is not
+whether surfaces intersect but which ones do**: a deep squat legitimately presses
+hamstring against calf (`squat` has 16,436 self-intersecting pairs and is fine),
+while a hand seven joints from the pelvis sharing space with it is not.
+Thresholds: 5 joints apart, 40 triangles. `render-skin.py` refuses an impossible
+pose, and `check-pose.py` exits non-zero if any pose is impossible.
 
-`render/skin/collide.py` intersects the posed skin with itself and attributes
-each intersecting triangle to the bone that drives it, then measures how far
-apart those two bones are along the skeleton. **The test is not whether surfaces
-intersect but which ones do**: a deep squat legitimately presses hamstring
-against calf and folds skin at a closed hip, so `squat` has 16,436
-self-intersecting triangle pairs and is fine. A hand seven joints from the
-pelvis sharing space with it is not. Thresholds: 5 joints apart, 40 triangles.
+**Why a triangle count and not a depth.** Measured as signed distance over whole
+regions, crossed forearms resting on each other (correct) reach 2.7cm, and hands
+inside the pelvis (wrong) span 1.5–7.9cm. The ranges overlap, so no depth
+threshold separates contact from penetration. The reason is structural: a
+rigidly skinned mesh has no flesh compression, so two limbs at rest against each
+other interpenetrate by about as much as real tissue would squash.
 
-#### Why the threshold is a triangle count and not a depth
+So legitimate contact is an explicit, named, per-pose exemption: the `_contact`
+table in `poses.json` names the pose, the two things allowed to touch and the
+reason, and applies to the interpolated frames of any sequence whose keys include
+that pose. The rule stays at full strength for every other pose.
 
-A crossover swings the arms until the forearms rest against each other, and the
-check refuses it — 582 triangles, more than a hand buried in a thigh. The
-obvious reading is that counting triangles confuses a long band of CONTACT with
-deep PENETRATION, and that measuring depth instead would fix the rule for every
-pose rather than exempting one. A render confirms the pose is fine: the forearms
-cross in a natural X.
+- ⚠ **State an exemption at LIMB level.** Which bone pair meets first moves as
+  the arms do, so a bone-pair entry goes stale mid-animation. A
+  `LIMB:clavicle_L` token expands through the skeleton's own child links: *these
+  two arms touch*.
+- ⚠ **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
+  the render is the only remaining check for that pose. Arms posed symmetrically
+  meet head-on at mid-swing; one arm crosses in FRONT of the other.
 
-**Measured, and it does not work.** Signed distance to the other region's
-surface, over whole regions (measuring only the intersecting triangles
-under-reads badly — it passed a hand inside a pelvis as shallow):
+## Floor contacts
 
-| pose | deepest contact |
-|---|---|
-| crossed forearms, correct | **2.7cm** |
-| hands inside the pelvis, wrong | 7.9cm, down to **1.5cm** for the shallowest pair |
+A standing figure meets the floor in one place, so the plant is one line: find
+the lowest vertex and drop the rig until it touches. A pose that declares no
+contacts takes exactly that path.
 
-The ranges OVERLAP. Legitimate contact is deeper than several illegitimate ones,
-so no threshold admits the first and rejects the second.
-
-The reason is structural: **a rigidly skinned mesh has no flesh compression.**
-Two forearms resting against each other must interpenetrate by about as much as
-real tissue would squash, so the very property that separates contact from
-penetration in a body is the one not modelled. No geometric measure available
-here can make this call.
-
-So the call is a judgement, and the honest form for a judgement is an explicit,
-named, per-pose exemption that records what was allowed and why — auditable,
-and leaving the rule at full strength for every other pose. Loosening the
-threshold would trade four caught faults for one authored pose.
-
-That is the `_contact` table in poses.json. An entry names the pose, the two
-things allowed to touch, and the reason, and applies to the interpolated frames
-of any sequence whose keys include that pose.
-
-⚠ **State it at LIMB level, not bone by bone.** The first attempt vouched for
-`lowerarm_twist_L`/`lowerarm_twist_R` — the pair the static pose reported — and
-the animation then failed at a different frame on `lowerarm_L`/`lowerarm_twist_R`,
-because which pair meets first moves as the arms do. A `LIMB:clavicle_L` token
-expands through the skeleton's own child links, so the exemption says the thing
-that is actually true — *these two arms touch* — instead of a list that goes
-stale.
-
-⚠ **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
-the render IS the only remaining check for that pose. The failure it has to
-catch: arms posed symmetrically put the hands head-on at mid-swing instead of
-passing, which the guard reports as a collision and which is an authoring error,
-not a case for exemption. One arm crosses in FRONT of the other.
-
-- `render/skin/check-pose.py` reports every pose, non-zero if any is impossible.
-- `render-skin.py` refuses to render one, so an impossible pose cannot reach the
-  catalog the way the headless écorché did.
-
-Verified in both directions: the three real poses pass, and a deliberately
-folded-arms pose is rejected with `lowerarm_L through lowerarm_R: 431 triangles`
-and no image written.
-
-⚠ **`stand` is an A-pose, not arms-at-sides.** Rotating `upperarm` past about
--50° on Z swings the hand *inward* as it descends rather than straight down —
-the bone's local axis is not the anatomical one — so arms-at-sides is not
-reachable on Z alone, and every angle that approached it collided with the hip.
-The écorché stands the same way, so the two styles agree.
-
-⚠ **A pose has a view that suits it.** Arms held forward foreshorten into stubs
-from the front; the squat only reads from the side. View is a per-exercise
-choice, not a global default.
-
-The one shipped écorché (`heel_toe_rocks`) was rendered under the old exposure
-and has not been re-rendered, so it is a shade brighter than anything new.
-
-### Animation (2026-09-03)
-
-`render/skin/animate.py` renders an exercise as a seamless loop: keyframe the
-bones through a list of `pose@frame` keys, plant the feet on every frame, frame
-the camera on the union of every frame, render with EEVEE to MP4 through
-Blender's own FFmpeg. A goblet squat comes out as 24 frames at 12fps, 33 KB.
-
-Three things it has to get right that a still does not:
-
-- **Check every frame, not just the keys.** Two legal poses can be joined by an
-  illegal path, and this is not hypothetical: the very first loop attempted was
-  rejected at frame 3 with the fingers of both hands inside both thighs, while
-  `stand` at frame 0 and `squat` at frame 12 each pass on their own. Fixed by a
-  `squat_reach` waypoint that brings the arms forward while the legs are still
-  nearly straight, so the hands travel in front of the thighs rather than
-  through them.
-- **Plant the feet on every frame.** The hips drop through a rep, so one offset
-  would leave the figure sinking and rising.
-- **Frame on the whole rep.** Framing on whichever pose is current leaves the
-  figure drifting in and out of the composition.
-
-`--stills <dir>` writes PNGs of every key and midpoint, because a loop can only
-be judged by looking and not everyone reviewing can open a video in place.
-
-**What the app stores (decided by Pippijn, 2026-09-03): both.** The photograph
-stays exactly as it is and the loop is added beside it. The sourced pictures
-show what to do and took real work to gather, so a loop that comes out badly
-must not be able to cost us one.
-
-- `exercise_loops` is its own table (migration 0027), so seeding a loop cannot
-  touch `exercise_images`.
-- The seeder finds a loop by convention — `data/catalog/loops/<slug>.mp4` — and
-  etag-compares like images, so an unchanged loop is not rewritten.
-- `GET /api/exercises/{id}/loop`, ETag-cached for a year like the image.
-  `hasLoop` on the detail says whether to ask; a 404 is ordinary.
-- The sheet plays it muted and inline *below* the hero, `object-fit: contain`
-  rather than the hero's `cover`, because the render is framed on the whole rep
-  deliberately and cropping would cut the feet off at the bottom of the squat.
-
-Which exercises have one is `data/catalog/loops/`. It was enumerated here once
-and the list went stale twice before anyone noticed — the directory is the
-answer and cannot disagree with itself.
-
-**How a loop is built is recorded in `render/skin/loops.json`**, and `animate.py`
-reads it:
-
-```
-blender -b <blend> --python animate.py -- glute_bridge out/bridge.mp4
-```
-
-Verified by re-making the shipped bridge from the manifest alone: identical
-measurements, identical size, five bytes apart — all of them inside the
-timestamp.
-
-⚠ **Only `glute_bridge` is in it.** The thirteen loops that shipped first were
-rendered from specs nobody wrote down, and a guessed one for `squat_goblet` was
-rejected at frame 4 with the fingers of both hands through each other. **A wrong
-entry would be worse than an absent one**: the file exists to be trusted, so each
-of the thirteen has to be re-derived and actually rendered before it is added.
-Tracked as its own task.
-
-⚠⚠ **A LOOP `.mp4` CANNOT BE COMPARED BY BYTES — IT CARRIES A TIMESTAMP.** The
-container embeds the wall-clock time of the render, so two runs of identical code
-differ by a few bytes inside the time string near the end of the file:
-
-```
-12 12:43:53 ... Lavf60.16.100      run A
-12 12:46:50 ... Lavf60.16.100      run B, same code: 2 bytes differ
-```
-
-**So run a control before believing a byte diff.** Without a same-code pair to
-compare against, "old and new hash differently" reads as a regression — and
-determinism is claimed elsewhere in this document for the POSE, which makes that
-misreading easy to believe.
-
-What IS a valid regression test is the REPORTED MEASUREMENTS — planting, the
-per-frame checks, the framing bounds. For `scapular_squeeze` under old and new
-code those were identical line for line (`planted 25 frames`, `checked 24
-frames: nothing passes through anything`, `framed on the whole rep: 0.98 x 1.67
-m`), with only the output filename differing. That is what says the geometry did
-not move. A `git worktree` at HEAD renders the old side, pointed at the same
-blend.
-
-Measured for the overhead group: `upperarm` +Z raises the arm laterally, and
-+85° clears the head; +78° with the elbow at -100° is hands-behind-head. Rolling
-the shoulders forward (the clavicles, for a scapular squeeze) carries the hands
-inward onto the thighs, so that pose widens the arms — but only to -38°, since
-past about -44° they swing back in again.
-
-⚠ **`squat_front_rack_double_kettlebell` cannot be posed on this body.** A front
-rack carries both hands at the shoulders, and every combination swept — upper
-arm 60/72/84°, elbow 70/85° — puts the two forearms in the same space, worst
-case 503 triangles. Left out rather than shown as a plain squat, which would
-misrepresent where the load sits. Same underlying limit as the elbow: this build
-is too bulky for a pose that brings the forearms together.
-
-⚠ **Mirroring a pose is not a sign flip.** The right-arm curl collided at the
-angles that worked on the left and needed its own sweep (`ua_x=55` where the
-left wanted 40). Author each side against the checker rather than negating.
-
-### What a movement costs to author (measured, 2026-09-10)
-
-**A new shape: about half an hour.** The RDL took two numeric probes and four
-renders. **A shape already authored: minutes.** `good_morning_dumbbell` reuses
-the hinge exactly and cost one render and no pose work at all — the catalog
-supplies different muscles, so the same motion comes out coloured differently.
-That is the ratio that makes the remaining movements tractable: they fall into a
-few shapes, not seventeen.
-
-**Probe the rig, do not guess at it.** Both sign errors that cost renders were
-axis assumptions. A hinge tips the pelvis forward and counter-rotates the thighs
-to keep the legs under it, and that counter-rotation has the SAME sign as the
-pelvis — `pelvis +62` wants `thigh +65`, because the thigh's local X runs
-opposite to the pelvis's. Guessing the sign gives a figure lying flat in mid-air.
-Sweeping the angle and printing where the ankle lands settles it in one run.
-
-⚠ **This body cannot reach full elbow flexion.** Every curl past about 90° drives
-the hand into the torso, and the collision check refuses all of them. The curl
-shows a 90° flexion with the upper arm swung forward, which is as much as the
-build allows.
-
-⚠ **`stage.setup` framed on the wrong axis for side views** until this pass: it
-sized the camera on `size.x` and `size.z` whatever the view, but a left or right
-view looks along x, so its width is the figure's y extent. A standing figure hid
-it because height dominated either way; the first hinge came out cropped to an
-arm.
-
-**Render cost, measured on the Mac at 768px (2026-09-03).** Marginal cost per
-frame within one Blender process, which is what an animation pays:
-
-| engine | first frame | steady |
-|---|---|---|
-| Cycles, 64 samples | 13.8s | ~21s/frame |
-| EEVEE Next, 32 samples | 59.1s (GPU context) | **3.9s/frame** |
-
-EEVEE is visually indistinguishable here — the subject is matte diffuse under
-two suns, with no light transport for path tracing to win at — so a 60-frame
-loop is ~5 minutes rather than ~21. `COACH_RENDER_ENGINE=EEVEE` selects it.
-
-⚠ **Measure the marginal frame, not the invocation.** Timing one `blender -b`
-run per engine says EEVEE is *slower* (63s vs 28s), because a single-frame
-invocation is dominated by loading a 54 MB blend and by EEVEE's one-off GPU
-setup — costs an animation pays once across all frames.
-
-### Four faults, each of which produced a plausible wrong answer
-
-Worth recording because every one of them looked like a result:
-
-1. **`.j` and `.i` are annotation meshes** — 1,051 of them, 822 zero-thickness
-   planes, many well off the figure's axis. `is_label` tested only `.g`. They
-   are invisible in a lit render, which is why they went unnoticed for a year,
-   but they are ordinary surfaces to a nearest-surface query and they wreck a
-   bounding box.
-2. **`bound_box` measured geometry that was not the geometry queried** — the
-   pre-modifier box of a T-pose whose arms had yet to be brought down. Register
-   from the actual posed vertices instead.
-3. **MB-Lab parents the body mesh to its armature**, so transforming both
-   compounds the scale. The body came out 9% short and sunk into the écorché;
-   every lookup then answered with deep tissue, and neck skin resolved to the
-   sternothyroid while thigh skin resolved to the iliotibial tract. The
-   registration is checked afterwards now, and refuses rather than proceeding.
-4. **The debug render used the lit rig**, which washes a saturated colour to
-   white. It showed a blank grey body while 12,144 vertices were in fact
-   labelled. A segmentation has to be read off an unlit surface.
-
-Faults 1-3 each produced a *contiguous, symmetric, anatomically plausible*
-segmentation. What exposed them was checking which muscles were named, not
-whether the picture looked like a body: pectoralis major, biceps brachii and
-sartorius were absent entirely while a deep neck strap muscle held 2,798
-vertices.
-
-## Pipeline shape
-
-New top-level `render/` directory; the shipped artifact stays
-`data/catalog/images/<slug>.png`, seeded exactly as today.
-
-Built (2026-07-18):
-
-- `render/fetch-asset.sh` — download + unzip Z-Anatomy into a gitignored
-  `render/asset/` (raw asset not committed; idempotent so the CI cache skips it).
-- `render/prepare.py` (bpy) — strip the atlas to the muscular system + skeleton
-  meshes, purge orphans, save the slim `render/slim.blend` (gitignored,
-  reproducible from fetch + prepare).
-- `render/muscle_map.json` — committed. Catalog muscle slug → Z-Anatomy mesh
-  base names (side/variant suffixes matched automatically). Authored
-  incrementally; render.py exits non-zero on a primary/secondary slug with no
-  entry rather than rendering an uncoloured lie.
-- `render/render.py` (bpy) — load slim blend, read the exercise's muscle roles
-  from `data/catalog/exercises.json`, colour via the map (dark red primary, light
-  red secondary, neutral the rest), orthographic camera per view, white world +
-  sun, render PNG.
-- `.github/workflows/render.yml` — `workflow_dispatch` entry point (inputs:
-  `exercises`, `view`); installs pinned Blender, runs the three scripts, uploads
-  PNGs as an artifact.
-
-`render/props.py` (procedural dumbbell/barbell/bench) is still not built — M4.
-
-⚠ `render/poses/<slug>.json`, a pose file per exercise, was never built and is
-not wanted: poses turned out to be SHARED (a squat is a squat whoever is
-holding what), so they live as named entries in `render/skin/poses.json` and a
-slug maps onto them through `loops.json`. Planned per-slug, built per-pose.
-
-**Render host — and ⚠ this describes the ÉCORCHÉ stills only.** The fork-C skin
-pipeline (`render/skin/`) has no CI job and is run by hand against a Blender
-downloaded to `~/Applications` — 4.2.3, pinned to the same version the workflow
-installs. "The Mac can't build Blender" is still true and is not the same claim:
-it cannot build one from nixpkgs, and it runs a downloaded one fine. Everything
-below is about the workflow that renders the atlas.
-
-The Mac can't build Blender (link error, aarch64-darwin, blender 5.1.2), and isis is
-production — rendering the full atlas there once exhausted its 16 GB, hard-wedged
-the box, and forced an unclean reboot (~47 min downtime, 2026-07-18). The fix is
-not to render on our machines at all: a dedicated **`workflow_dispatch`**
-workflow (`.github/workflows/render.yml`) runs on an ephemeral `ubuntu-latest`
-runner, so a blow-up kills a throwaway VM, not a service. It is manual-only —
-never on push — because renders are slow (Cycles) and rare.
-
-Blender is a pinned download in the job (blender.org tarball, cached). The
-Z-Anatomy asset is fetched from its GitHub repo and cached. Renders upload as a
-build **artifact for review first**; only approved images are committed into
-`data/catalog/images/`.
-
-**Still strip to a slim blend first.** `prepare.py` reduces the 7,184-object
-atlas to the muscular system (+ skeleton) — that is what keeps even the runner
-from thrashing, and makes each render fast. Never point the render at
-`Startup.blend`.
-
-The isis path (and its `systemd-run` memory cap) is abandoned; it survives only
-in [[reference_isis_render_memory_cap]] as the reason CI is the host.
-
-Determinism: pinned Blender version, fixed seed, fixed light/camera rig,
-versioned pose files — re-rendering an unchanged pose yields the same image, so
-image diffs mean something, like the back-test.
-
-## Standing on two contacts
-
-A standing figure meets the floor in one place, so the plant is one line: measure
-the lowest vertex and drop the rig until it touches.
-
-A floor pose rests on two or more. A glute bridge is on the shoulders **and** the
-feet while the middle rises; all fours is on two hands and two knees. A
+A floor pose rests on two or more: a glute bridge on the shoulders **and** the
+feet while the middle rises; all fours on two hands and two knees. A
 single-point drop lands whichever contact is lowest and leaves the rest in the
 air.
 
-**Two things that look like solutions and are not:**
+**The pose says what it rests on.** `_floor` in `poses.json` lists each floor
+pose's contacts as bone names — `spine03, foot_L, foot_R` is a bridge. Geometry
+cannot tell a load-bearing contact from an incidentally low one. With the
+contacts named, one angle is left free — how far the figure tips along its own
+length — and `plant.py` finds it by **search over the `root` bone**, measuring
+the actual skinned, corrective-smoothed mesh. A closed form would have to choose
+the axis "along the body", which is z standing and y lying down; fixing it
+silently rotates a squat by 27.9° and a hinge by 40.2°.
 
-- **Tuning a pose until the heights read right.** Hip, shoulder and foot heights
-  are all satisfied by a body that has simply rotated as a whole — which renders
-  as a straight diagonal plank, feet highest, with every number correct. Height
-  measurements cannot distinguish a bridge from a ramp.
-- **Levelling by a closed form.** Rotating the rig until the two ends of the body
-  sit at the same height requires choosing the axis "along the body", and that
-  axis is z standing and y lying down. Treating it as fixed rotates a squat by
-  27.9 deg and a hinge by 40.2 deg — silently, since those poses look plausible
-  at any angle.
+Two things look like solutions and are not:
 
-### What works: the pose says what it rests on
+- **Tuning a pose until the heights read right.** A body that has rotated as a
+  whole satisfies hip, shoulder and foot heights and renders as a diagonal plank.
+  Heights cannot distinguish a bridge from a ramp.
+- **Levelling alone.** A pose with a wrong torso levels perfectly (+15.9° of tip,
+  0.00cm spread) with the head 9cm underground.
 
-`render/skin/plant.py`. A pose declares its floor contacts in a `_floor` table
-beside `_contact`, as bone names — `spine03, foot_L, foot_R` is a bridge,
-`foot_L, foot_R` is standing. Nothing else knows: the geometry cannot tell a
-load-bearing contact from an incidentally low one.
+Hence two guards:
 
-With the contacts named, one angle is left free — how far the figure tips along
-its own length — and it is found by **search, not a formula**. A closed form has
-to pick the axis "along the body", which is the mistake described above; a search
-over the `root` bone measures the actual skinned, corrective-smoothed mesh and
-needs no opinion about which way the body is lying.
+- **A tilt cap (5°).** A correct pose needs well under a degree. Past the cap the
+  tip is the figure rotating as a whole, reported as a fault in the POSE.
+- **A through-floor check that NAMES the part.** "head is 9cm under the ground"
+  is the answer; "something is" sends you looking at the whole figure.
 
-⚠ **A pose that declares nothing takes the old path untouched.** That is the
-whole safety argument: `stand`, `squat` and `hinge_bottom` cannot be reached by
-this code.
-
-### Two guards, because levelling is not enough
-
-Levelling alone reproduces failure 1 exactly. Measured while authoring the
-bridge: a pose with a wrong torso needed **+15.9 deg** of tip, achieved a contact
-spread of 0.00cm, and put **the head 9cm underground**. Perfectly level, plainly
-not the movement.
-
-- **A tilt cap (5 deg).** A correct pose needs well under a degree. Past the cap
-  the tip is not a correction, it is the figure rotating as a whole, and it is
-  reported as a fault in the POSE rather than absorbed.
-- **A through-floor check that NAMES the part.** "Something is 9cm under the
-  ground" sends you looking at the whole figure; "head is 9cm under the ground"
-  is the answer. Each vertex's dominant deform bone is resolved once.
-
-### The rig cannot lift a hip with one bone
-
-⚠ **Measure this rig; do not reason about it.** The euler conventions are
-borrowed and not guessable — a sign guess costs a render sweep, and perturbing
-one bone at a time costs eight pose evaluations and no renders.
-
-The hierarchy is `root -> pelvis -> {thigh, spine01} -> spine02 -> spine03 ->
-neck -> head`, and the measured response of each contact to +10 deg of X is:
+**The rig cannot lift a hip with one bone.** The hierarchy is `root → pelvis →
+{thigh, spine01} → spine02 → spine03 → neck → head`, and each contact's measured
+response to +10° of X is:
 
 | bone | head | spine03 | pelvis | foot |
 |---|---|---|---|---|
@@ -601,177 +257,157 @@ neck -> head`, and the measured response of each contact to +10 deg of X is:
 | neck | +2.8 | 0 | 0 | 0 |
 | thigh | 0 | 0 | 0 | +10.0 |
 
-⚠ **Read the pelvis column. Only `root` moves the pelvis, and it moves the
-shoulders MORE.** Every spine bone moves it by zero. That is structural, not a
-tuning problem: the pelvis is upstream of the spine, so no rotation anywhere
-raises the hips relative to the shoulders. **A glute bridge is not reachable by
-turning one dial**: rotating as a whole is the only thing one dial can do, so
-that is what any single-bone attempt produces.
+Only `root` moves the pelvis, and it moves the shoulders MORE: the pelvis is
+upstream of the spine, so no rotation raises the hips relative to the shoulders.
+The table also gives the answer: hold the shoulder contact still with
+`spine01 = −4.685 × root`, and the pelvis rises 16.5cm per 10° of root while the
+head falls 21.2cm; `spine03` and `neck` put the head back without touching the
+shoulder contact. Four bones, one linear solve.
 
-The table also gives the answer. Hold the shoulder contact still with
-`spine01 = -4.685 x root`; the pelvis then rises 16.5cm per 10 deg of root while
-the head falls 21.2cm — and `spine03` and `neck` move the head without touching
-the shoulder contact at all (+6.7 and +2.8 against +0.6 and 0), so they put it
-back. Four bones, one linear solve, no guessing.
+The same topology forces counter-rotation on all fours: arching the spine moves
+the hands, so the arms must compensate, and only the magnitude is free. Too much
+compensation cancels the visible curve — check that the two keys of a pair
+actually look different.
 
-⚠ **Watch the units when reading a hip height.** "Hips 14.1cm" in a pose with the
-hips flat on the ground is not a lift — it is the mean pelvis vertex of a body
-that is simply thick. Lift is a DIFFERENCE between two poses; the absolute number
-is about 14cm before anything has moved.
+⚠ **A hip height is a difference.** "Hips 14.1cm" with the hips flat on the
+ground is the mean pelvis vertex of a thick body, not a lift.
 
-### ⚠⚠ Blender exits 0 when the script CRASHES
+⚠ **Judge a floor pose against a floor.** Against plain grey, a body on the
+ground and one hovering 15cm above it are the same picture. And the views are
+orthographic and horizontal, so a flat *plane* renders edge-on as a one-pixel
+line — present in the scene, invisible in the frame. `floor.py` is a slab with
+thickness.
 
-Measured 2026-09-12: `blender -b --python x.py` where `x.py` raises returns **0**.
-The traceback is printed and the status says success. An explicit `sys.exit(1)`
-IS honoured — so a script that decides something is wrong can report it, and a
-script that breaks cannot.
+## Animation
 
-Every check in this pipeline runs that way, so a green exit code means "blender
-ran", never "the check passed". It bit immediately: a sweep reported `rc=0`
-having produced no measurements at all, because the script had died on a
-NameError in a branch added minutes earlier.
+`animate.py` renders a seamless loop: keyframe the bones through `pose@frame`
+keys, plant every frame, frame the camera on the union of every frame, and
+render with EEVEE to MP4 through Blender's own FFmpeg at 12fps. A two-second rep
+is 24 frames.
 
-**Assert on the OUTPUT, not the status.** These scripts print one line per
-candidate or per pose; count them, or grep the log for `Traceback`. Absence of a
-result is the signal, and it looks exactly like success if you only read `$?`.
+- **Check every frame, not just the keys.** Two legal poses can be joined by an
+  illegal path: `stand` → `squat` passes at both ends and puts the fingers inside
+  the thighs at frame 3. A `squat_reach` waypoint brings the arms forward while
+  the legs are still nearly straight.
+- **Plant every frame.** The hips drop through a rep, so one offset would leave
+  the figure sinking and rising. Floor poses are levelled at each key and
+  verified at every frame.
+- **Frame on the whole rep,** or the figure drifts in and out of the composition.
+- **Render every frame.** `frame_step` is set to 1 explicitly: the source blend
+  carries 2, and the encoder then silently drops every other frame after every
+  check has passed. Verify the result with `ffprobe` (`nb_frames`, duration),
+  not by the render's exit status.
 
-### Look at it against a floor, or do not look at all
+`--stills <dir>` writes PNGs of every key and midpoint for review.
 
-The stage has no ground plane — a standing figure needs none. For authoring a
-floor pose that is the wrong instrument: against plain grey, a body resting on
-the ground and one hovering 15cm above it are **the same picture**, which is how
-the plank survived being looked at.
+**`loops.json` is how a loop is re-made.** Given only a slug and an output path,
+`animate.py` reads the view and keys from it:
 
-⚠ And a floor *plane* is not enough either. The authoring views are orthographic
-and horizontal, so a flat plane renders edge-on as a one-pixel line: in the
-scene, invisible in the frame, which is worse than nothing because it looks like
-the check was done. Use a slab with thickness.
+```
+blender -b <blend> --python animate.py -- glute_bridge out/bridge.mp4
+```
 
-## The hard part: rig and poses
+Only specs that have been rendered and passed the checks belong in it. A loop
+with no entry predates the file and cannot be reproduced until its spec is
+re-derived and verified; a guessed spec (tried for `squat_goblet`) failed at
+frame 4 with the fingers of both hands through each other. A wrong entry is
+worse than an absent one, because the file exists to be trusted.
 
-The atlas meshes stand in anatomical position with no skeleton. Posing needs an
-armature with weights, and an écorché of dozens of separate muscle shells
-deforms imperfectly under automatic weighting: joint creases, interpenetration.
+⚠ **A loop `.mp4` cannot be compared by bytes.** The container embeds the
+wall-clock time of the render, so two runs of identical code differ by a few
+bytes inside the time string. The regression test is the REPORTED MEASUREMENTS
+— planting, the per-frame checks, the framing bounds — compared line for line. A
+`git worktree` at the old commit renders the other side against the same blend.
 
-Plan: fit a standard humanoid armature (Rigify metarig) to the figure, bind with
-automatic weights, and fix the worst deformation only where a pose exposes it.
-Accepted risk — this is the step that can fail to reach acceptable quality. If
-multi-shell weighting proves unusable, fallbacks in order: rigid nearest-bone
-binding + corrective smooth; or a single skin mesh with muscle regions painted
-as texture (loses per-muscle geometry, keeps catalog-driven colouring). Decide
-at M2 with renders in hand, not in the abstract.
+**In the app.** `exercise_loops` is its own table (migration 0027), so seeding a
+loop cannot touch `exercise_images`. The seeder finds `data/catalog/loops/<slug>.mp4`
+by convention and etag-compares it like an image. `GET /api/exercises/{id}/loop`
+is ETag-cached for a year; `hasLoop` on the detail says whether to ask. The
+sheet plays it muted and inline below the hero, `object-fit: contain`, because
+the render is framed on the whole rep and cropping would cut the feet off.
 
-Pose authoring is where most of the total effort lives (~136 exercises,
-minutes-to-tens-of-minutes each once the rig behaves). Poses are authored
-incrementally and reviewed one by one; sourced images stay in place until their
-replacement render is approved.
+## Render hosts and cost
 
-## Milestones
+**Écorché stills: CI only.** `.github/workflows/render.yml` is a manual
+`workflow_dispatch` job on an ephemeral `ubuntu-latest` runner with a pinned,
+cached Blender download; it uploads PNGs as an artifact for review, and only
+approved images are committed into `data/catalog/images/`. The atlas does not
+render on our machines: the Mac cannot build Blender from nixpkgs, and rendering
+the full atlas on isis once exhausted its memory and took production down.
 
-- **M1 — asset + toolchain. DONE + visually validated (2026-07-18).** Direction:
-  écorché. The render-images workflow runs green on a GitHub runner (~5 min):
-  fetch asset → slim blend (7,184 → 2,033 meshes) → Cycles render. The glute
-  bridge render shows a shaded 3D back-view muscular figure with gluteus maximus
-  in red (primary) and hamstrings in pink (secondary) — catalog-driven, correct.
-  Getting there took fixing five Z-Anatomy-specific gotchas (below). Unposed;
-  posing is M2. Starter muscle-map in `render/muscle_map.json`.
+**Skinned body: by hand on the Mac,** against a downloaded Blender 4.2.3 in
+`~/Applications`, the same version the workflow pins.
 
-### Z-Anatomy render gotchas (all fixed in render.py)
+**Cost** at 768px, measured as the marginal frame within one Blender process
+(which is what an animation pays):
 
-The atlas is authored for interactive study, not rendering. In order of
-discovery, each produced a wrong image that *looked* like a different bug:
+| engine | first frame | steady |
+|---|---|---|
+| Cycles, 64 samples | 13.8s | ~21s/frame |
+| EEVEE Next, 32 samples | 59.1s (GPU context) | **3.9s/frame** |
 
-1. **Muscles ship hidden.** The file opens on the skeleton; muscle layers are
-   `hide_render`. A render coloured them but showed only the skeleton. Fix:
-   reset `hide_render`/`hide_viewport` on the meshes we want.
-2. **Fascia occludes the muscles.** Broad connective sheets (fascia lata,
-   investing abdominal fascia, aponeuroses) wrap the body as a smooth envelope
-   and hide every muscle behind a featureless silhouette. Fix: skip meshes whose
-   name matches fascia/aponeurosis/retinaculum/sheath/membrane.
-3. **Material slots are object-linked.** Clearing `mesh.materials` leaves the
-   original muscle material rendering. Fix: replace every slot, set
-   `slot.link = 'DATA'`, and reset every polygon's `material_index` to 0.
-4. **A compositor node-tree + Freestyle bake a sepia "sketch" filter over every
-   render** — this dominated all material/lighting changes (identical output
-   across edits was the tell). Fix: `scene.use_nodes = False`,
-   `scene.render.use_freestyle = False`, clear `view_layer.material_override`.
-5. **Label/guide meshes** (the "Muscular system" title card, `.g` markers) float
-   in the frame. Fix: skip `.g`, all-caps, and collection-title names.
+EEVEE is visually indistinguishable here — matte diffuse under two suns, with no
+light transport for path tracing to win at. `COACH_RENDER_ENGINE=EEVEE` selects
+it for stills. ⚠ Timing single-frame invocations says the opposite, because one
+frame is dominated by loading the blend and EEVEE's one-off GPU setup.
 
-Lighting: camera-relative suns (not view-relative) so the visible surface is lit
-whatever the view — the first attempt lit the far side on a back view and looked
-flat.
-- **M2 — rig. ATTEMPTED, BLOCKED (2026-07-18).** `render/pose.py` appends the
-  Z-Biomechanics 237-bone armature, strips its constraints/drivers to a clean FK
-  rig, bakes object transforms, and binds all 789 muscles with automatic weights
-  (0 failures). But every render — even the unposed *rest* bind — comes out
-  blank: the muscles deform out of frame the moment they are bound. Root cause
-  (unresolved): the armature's rest skeleton does not line up with the standing
-  muscle geometry, so the bind maps muscles onto a mismatched pose and contorts
-  them. Fixed along the way (all real, none sufficient): constraint/driver rig,
-  rigid-fallback displacement, object-transform bind mismatch, shared `.l`/`.r`
-  mirror-mesh data. What remains is aligning the armature's rest pose to the
-  muscles — reverse-engineering the file's T-pose↔anatomical constraint system,
-  or hand-aligning bones. That is a real rigging project, the risk flagged up
-  front ("the rig is the risk"). `pose.py` + `poses.json` are kept as the
-  scaffold. Dev loop used capped isis (systemd-run MemoryMax=6G) for fast
-  iteration; final renders stay in CI.
+**Determinism:** pinned Blender, fixed seed, fixed light and camera — an unchanged
+pose renders the same image, so an image diff means something.
 
-  **Follow-up (2026-07-19) — a rig was made to work, and posing was still
-  abandoned.** `render/rigging/` got the écorché to pose at all: an MB-Lab free
-  humanoid as a *deformation donor*, KDTree nearest-vertex weight transfer onto
-  the muscle shells, arms baked into the rest pose before binding (Pippijn's
-  donor-rig idea). Torso/legs deformed and the arm gap was closable. But the
-  renders were **not human-possible shapes** — because the écorché is separable
-  muscle shells, not continuous skinned tissue, every bent joint tears and
-  interpenetrates the shells no matter how good the weights are. Structural, not
-  a tuning problem. **Verdict: posing/animation is off the table; the écorché is
-  a neutral-pose "muscles worked" illustration only.** The `render/rigging/`
-  scripts stay as a record of what was tried and why it doesn't generalise.
+## Traps
 
-  ⚠ **That verdict still holds for the ÉCORCHÉ and was overtaken for the APP.**
-  What changed is the figure, not the reasoning: fork C poses a single skinned
-  body and derives its muscle regions from the écorché, so the thing that bends
-  is one continuous surface. Loops ship from that. Read this entry as the reason
-  the écorché itself is never posed, not as the state of the pipeline.
-- **M3 — unposed écorché shipped to the catalog (2026-07-18).** Full 42-slug
-  muscle-map authored (`render/muscle_map.json`) and validated across muscle
-  groups/views (push-up→pecs, squat→quads, curl→biceps, row→upper back,
-  lat-reach→lats, heel-toe→calves — all correct). The two last image-less
-  warmups (kneeling lat reach, heel-toe rocks) took écorché images; **all
-  136 exercises have images.** The pipeline can now render any exercise
-  unposed.
+**⚠⚠ Blender exits 0 when the script crashes.** `blender -b --python x.py` where
+`x.py` raises prints the traceback and returns 0; an explicit `sys.exit(1)` is
+honoured. So a green status means "blender ran", never "the check passed". These
+scripts print one line per candidate or pose: count them, or grep for
+`Traceback`.
 
-  **Kneeling lat reach went back to a sourced illustration (2026-07-22)** — a
-  GymVisual-set drawing that shows the kneeling position *and* colours the lats.
-  The only slug where the two styles competed head to head, and the écorché lost
-  on the same ground as below: it says which muscle, not what to do. Worth
-  weighing when M5 decides replace vs supplement.
+**Faults that each produced a plausible wrong answer** — a contiguous, symmetric,
+anatomically plausible segmentation. What exposes them is checking *which*
+muscles are named, not whether the picture looks like a body.
 
-  **Replace vs supplement: DECIDED — supplement** (Pippijn, 2026-09-03). The
-  photograph stays exactly as it is and the loop is a second artifact beside it,
-  in its own table, found by convention. So a bad loop can never cost an exercise
-  the picture it already had — which the seeder log states on every boot
-  (`N loop(s) added, 0 image(s)`).
-- **M4 — props + a loaded lift.** Dumbbell RDL: two dumbbells in hands, hinge
-  pose. Proves prop parenting and equipment-driven selection.
-- **M5 — scale.** Batch pose authoring and a review loop. NOT replacement of the
-  sourced images: that question is settled above, and a loop supplements rather
-  than overwrites.
+1. **`.g`, `.j` and `.i` are annotation meshes** — many are zero-thickness planes
+   well off the figure's axis. Invisible in a lit render, but ordinary surfaces
+   to a nearest-surface query, and they wreck a bounding box.
+2. **`bound_box` is pre-modifier.** Register from the actual posed vertices.
+3. **MB-Lab parents the body mesh to its armature,** so transforming both
+   compounds the scale; a body 9% short and sunk into the écorché labels neck
+   skin as a deep strap muscle. `label-body.py` checks the registration and
+   refuses rather than proceeding.
+4. **A segmentation has to be read unlit.** The lit rig washes a saturated colour
+   to white.
+5. **A map entry can name an annotation.** `Erector spinae` in the atlas is a
+   2-vertex label; the muscle is its iliocostalis, longissimus and spinalis
+   parts. `check-muscle-map.py` validates names against real meshes.
+
+**Z-Anatomy is authored for study, not rendering** (all handled in `render.py`):
+
+1. Muscles ship `hide_render`; reset `hide_render`/`hide_viewport`.
+2. Fascia, aponeuroses, retinacula, sheaths and membranes wrap the body as a
+   featureless envelope; skip them by name.
+3. Material slots are object-linked: replace every slot, set `slot.link =
+   'DATA'`, reset every polygon's `material_index` to 0.
+4. A compositor node tree + Freestyle bake a sepia "sketch" filter over every
+   render (identical output across material edits is the tell):
+   `scene.use_nodes = False`, `scene.render.use_freestyle = False`, clear
+   `view_layer.material_override`.
+5. Label and title meshes float in the frame; skip `.g`, all-caps and
+   collection-title names.
+
+Suns are camera-relative, so the visible surface is lit whatever the view.
+
+## Not built
+
+- **Props.** No dumbbell, barbell or bench is modelled; a loaded lift renders
+  empty-handed.
+- **Layered labelling** for muscles that lie under others (see "What the
+  colouring guarantees").
 
 ## Attribution
 
 Renders derive from Z-Anatomy (CC-BY-SA 4.0, github.com/Z-Anatomy), itself based
 on BodyParts3D / Anatomography (CC-BY-SA 2.1 JP). The male figure lives in the
-`Models-of-human-anatomy` repo; the atlas template in `The-blend`. The app carries this attribution on the same
-surface that credits exercise media today; the exact placement is decided when
-the first render ships (M3).
+`Models-of-human-anatomy` repo; the atlas template in `The-blend`.
 
-## Open questions
-
-- Whether nixpkgs Blender works headless on darwin — M1 verifies; isis is the
-  fallback runner.
-- Slim-blend size and rebuild time — if prepare is slow, cache the slim blend as
-  a build artifact rather than rebuilding per render.
-- Whether Z-Anatomy's surface aesthetic (clinical atlas) reads well enough next
-  to the current fitness-illustration style — judged at M1/M2 renders.
+⚠ **The app does not show this attribution yet.** CC-BY-SA requires it wherever
+a derived render or loop is displayed.

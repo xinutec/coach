@@ -26,7 +26,7 @@ pub async fn get(pool: &MySqlPool, exercise_id: i64) -> Result<Option<ImageBlob>
 
 /// Seed an exercise's image, replacing whatever is there. Idempotent, and the
 /// caller only reaches it when the bytes differ — but it must *replace*, not
-/// ignore: this was `INSERT IGNORE`, which made the first picture an exercise ever
+/// ignore: an `INSERT IGNORE` would make the first picture an exercise ever
 /// received permanent, so a corrected render could never reach the app.
 pub async fn upsert(
     pool: &MySqlPool,

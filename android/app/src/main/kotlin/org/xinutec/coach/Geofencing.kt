@@ -13,9 +13,8 @@ import com.google.android.gms.location.LocationServices
 
 /**
  * Registers/removes the single "home" geofence. The OS wakes
- * [GeofenceBroadcastReceiver] when the boundary is crossed — the app itself
- * doesn't run in between, which is why this is far more battery-efficient than
- * polling location or pulling it from Nextcloud.
+ * [GeofenceBroadcastReceiver] when the boundary is crossed; the app does not
+ * run in between, which is why this beats polling location.
  */
 object Geofencing {
     private const val REQUEST_ID = "home"
@@ -74,8 +73,6 @@ object Geofencing {
                 .setRequestId(REQUEST_ID)
                 .setCircularRegion(lat, lng, prefs.radiusM)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
-                // DWELL (with a 1-min loiter) means "settled at home", not just
-                // passing the boundary — avoids a nudge when you walk past.
                 .setTransitionTypes(TRANSITIONS)
                 .setLoiteringDelay(60_000)
                 .build()

@@ -124,7 +124,8 @@ hold, and the API trusts it. Fixed in both: switching the sheet's exercise
 re-derives every field (the plan's prescription for a planned movement, blank
 otherwise — a 5 from dips can no longer become a hamstring-curl calibration),
 the payload only carries the fields the metric owns, and the server 400s any
-load/reps/hold the exercise's metric cannot carry (`NewSet::shape_error`).
+load/reps/hold the exercise's metric cannot carry (`LoggedSet::parse` in
+`coach-pacing/src/domain.rs`, which the write path requires).
 
 ## R2-2. The day counter double-books its own plan — FIXED
 
@@ -133,10 +134,11 @@ the 3 warm-up slots; the numerator excludes the two mobility drills but *counts
 the ramp-in curl* (it shares an exercise with a work item), so completing the
 plan exactly reads 14/13 — and mid-session, after all three warm-ups, it read
 1/13 while three cards showed Done. One plan, two bookkeeping rules. Fixed:
-the header sums the plan's own cards — sets and done both, warm-ups included —
-so it cannot disagree with them and finishing the plan is N/N by construction.
-(The engine's `dayTargetSets` keeps its estimator meaning; it sizes the plan
-and drives the nudge, and no longer doubles as the header.)
+the header sums the plan's own cards — sets and done both — so it cannot
+disagree with them and finishing the plan is N/N by construction. Warm-ups are
+left out of both sides: they credit no volume, and counting them read "3 / 10
+done" on a day with no training in it. (The engine's `dayTargetSets` keeps its
+estimator meaning; it sizes the plan and drives the nudge, not the header.)
 
 ## R2-3. The warm-up doesn't warm up the session it precedes — FIXED
 
@@ -218,9 +220,7 @@ Squat sky reach — 10 slow reps." — and the rest prompt names that item too.
   re-renders in place and both incidents are consistent with automation tap
   timing rather than a layout fault. Watching, no code change.
 - Triceps extension has no catalog image (placeholder icon). FIXED —
-  `data/catalog/images/triceps_extension_overhead_dumbbell.jpg` exists and the
-  catalog is 136/136 imaged. This line said OPEN until 2026-09-01, which made
-  the round 1-3 summary read as having an outstanding item when it did not;
+  `data/catalog/images/triceps_extension_overhead_dumbbell.jpg`;
   `scripts/add-image.py <slug> <url-or-file>` is how one is seeded.
 
 ## What round 2 confirmed is right
@@ -269,8 +269,9 @@ estimate as a demonstrated max. A coach hearing "I carried it for an hour"
 asks you to repeat that with a straight face.
 
 The metric-shape validation (R2-1) checked *which* fields a set carries, not
-whether their values are humanly possible. Fixed: `NewSet::shape_error` now
-also bounds the values — reps 1–100, seconds 1–600, load 0–300 kg, RPE 1–10 —
+whether their values are humanly possible. Fixed: the same parse bounds the
+values — reps 1–100, seconds 1–600, load 0–300 kg, distance 1–500 m (and RPE
+1–10 on the request) —
 generous ceilings no honest set exceeds, so a real outlier day is never
 refused. The log sheet shows the server's objection under the fields instead
 of failing silently (a swallowed rejection reads exactly like a logged set).
@@ -392,10 +393,9 @@ the fix was a workaround.
   over to a harder variation where one exists, but "you've outgrown your
   heaviest bell" would be a better sentence. Kit-limit notices are future
   work (G9 territory).
-- **`difficulty` is now load-bearing.** The ladder reads it, so a wrong rung
-  is a wrong step-up; the values were reviewed 2026-09-10 and read as
-  coherent ladders; what was wrong was the *pattern* on nine movements, not
-  the ranking (see trainer.md).
+- **`difficulty` is load-bearing.** The ladder reads it, so a wrong rung is a
+  wrong step-up — and so is a wrong *pattern*, which splits a ladder in two
+  (see trainer.md).
 
 # Round 5 — the coach marking its own easing as your failure
 
@@ -500,7 +500,7 @@ trains a fortnight then vanishes for three weeks.
 Fifteen cells (`scripts/simulate-matrix.sh`), eight weeks each, same soil. The
 compliant baselines reproduced round 5 (improver 29 missed cards against its 28),
 so the engine has not drifted. Everything below is what the other fourteen cells
-found. **All of it is open.**
+found; each finding carries its status.
 
 ## R6-1. A weighted lift cannot progress at all — FIXED
 
@@ -552,8 +552,8 @@ But the product never collects RPE — deliberately, and it is a stated principl
 own exertion". `simulate.rs` logs `rpe: None` for that reason, which is why the
 matrix sees the freeze and the unit test does not. **The one test that certifies
 "converges on a good trainer over time" is certifying a mode the app does not
-run in.** Whatever fixes R6-1, that test needs a no-RPE case alongside its
-current one, or it will keep passing while the shipped engine stands still.
+run in.** It now carries a no-RPE case alongside the original
+(`the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe`).
 
 **The fix: the rung belongs to the ledger.** A weighted lift now progresses along
 a `Rung` — the weight the coach last sent the athlete to, and the reps shown there.
@@ -566,7 +566,7 @@ the two asking different numbers is the failure this area keeps rediscovering
 *Where* the rung is derived from is the entire difficulty, and two obvious answers
 are both wrong. Deriving it from `e1rm`, as before, is the fixed point. Deriving it
 from the athlete's **latest session** escapes the fixed point — and was tried first
-(branch `r6-1-weighted-progression`) — but hands the weight to the athlete: the
+— but hands the weight to the athlete: the
 coach follows a bad patch, or a lighter bell picked up because the right one was in
 use, straight down, and the miss ladder stops escalating because every shortfall
 becomes the next target. Six `pacing_engine` tests pinned exactly that and went red.
@@ -594,23 +594,21 @@ Good mornings walk `15 → 16 kg` and triceps extensions `4 → 5 kg` on the imp
 too. Elsewhere the worst ledger streak rises from 1 to 2 — the back-off firing once
 and recovering, which is the response working rather than a grind.
 
-**A correction to the round-6 write-up above.** The real back-test showing
-`Row (both sides): 10@9` on six consecutive days was cited here as the fixed point
-appearing in Pippijn's own logged data. That was overstated: the back-test replays
-history that never responded to the coach, so six identical *suggestions* are equally
-consistent with the movement simply not having been taken. The trace is unchanged by
-this fix, exactly as `trainer.md` predicts it must be — "replayed history never
-responds to the coach" is why E3 exists. The simulation is the evidence for R6-1; the
-back-test cannot be.
+**The back-test is not evidence for R6-1.** It shows `Row (both sides): 10@9` on six
+consecutive days of real history, but replayed history never responds to the coach,
+so six identical *suggestions* are equally consistent with the movement simply not
+having been taken — and the trace is unchanged by the fix, as it must be. The
+simulation is the evidence.
 
-Two second-order effects fall out of the same place. The `floor(raw)` on a
+Before the fix, two second-order effects fell out of the same place. The `floor(raw)` on a
 consolidation session drops any fractional rep every time, so the ask erodes —
 `9 → 8 → 7` on the strong athlete's row, a coach concluding you are getting weaker
 *because* you did what it asked. And the erosion then hides the problem from the
 plateau detector, which fires on the rep range's ceiling: an ask that has drifted
 to 9 out of 10 never looks topped out, so the variation ladder never gets its turn
-either. For `Biceps curl` both variants are `difficulty: 1`, so there is no harder
-rung to step to even in principle — that movement is terminally stuck.
+either. For `Biceps curl` both variants are `difficulty: 1`, so there was no harder
+rung to step to even in principle. The rung removes both: consolidation holds the
+rung's reps, and a movement progresses by weight without needing the ladder.
 
 ## R6-2. The miss response can't tell a near-miss from a rout — FIXED
 
@@ -865,9 +863,8 @@ to Compound — and sorts ahead of its new tier-mates rather than merely joining
 them, which was cut 3's mistake.
 
 Never into Power or Skill. Those lead because a fresh CNS is what makes a
-max-power measurement or a hold worth anything — R6-#1 was exactly a jump
-calibration taken fatigued — and that is a fact about physiology, not about
-scheduling. It is not the tail's to borrow.
+max-power measurement or a hold worth anything, and that is a fact about
+physiology, not about scheduling. It is not the tail's to borrow.
 
 Both sides of the ratio count only days carrying a logged set, which is what
 stops the Android geofence poller from manufacturing skips: it fetches a verdict
@@ -927,6 +924,7 @@ The named failure is gone: 2026-08-01, previously an 8-movement session on a 0.0
 score, is a rest day. Across the axis: **0 rest days → 5**, 56 training days → 51.
 Runs without biometrics are untouched (no readiness, no rule), which the
 `untracked` axis confirms at 0 rest days.
+
 ## R6-6. The coach follows an improvising athlete down the rack — FIXED
 
 `improviser` takes the bell below the one on the card and completes every ask.

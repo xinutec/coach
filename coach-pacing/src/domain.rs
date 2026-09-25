@@ -2,8 +2,7 @@
 //! identifiers, and the enums for region, muscle role, movement pattern, set
 //! metric, and training mode. Each enum carries `as_db`/`from_db` string
 //! conversions (the coach ENUM-column convention); the DB row structs and their
-//! fallible `TryFrom` conversions stay in the std shell, which re-exports these
-//! so `crate::muscle::types::Region` etc. keep resolving.
+//! fallible `TryFrom` conversions stay in the std shell, which re-exports these.
 
 use serde::{Deserialize, Serialize};
 
@@ -12,18 +11,12 @@ use serde::{Deserialize, Serialize};
 /// Generates a row-id newtype: a `i64` primary key that knows which table it
 /// came from.
 ///
-/// Every id in this app was an `i64`, which made four different things one type.
-/// Nothing stopped a group id being passed where an exercise id was wanted —
-/// `blocked_ideal(.., groups.id[ix], c.ex.id)` takes both, adjacent, and swapping
-/// them compiled, ran, and produced a plausible-looking wrong answer. The maps
-/// had the same problem from the other side: `exercise_loads` needed a doc
-/// comment shouting "keyed by exercise id — **not** by equipment" precisely
-/// because its type could not say so. A `BTreeMap<ExerciseId, _>` says it, and
-/// the comment becomes redundant.
+/// A bare `i64` makes every id one type: a group id passed where an exercise id
+/// is wanted compiles, runs, and gives a plausible wrong answer, and a map's key
+/// can only be named in a comment. A `BTreeMap<ExerciseId, _>` says it.
 ///
-/// `#[serde(transparent)]` keeps the wire format a bare number, so this is
-/// invisible to the frontend and to Android — the guarantee is bought entirely
-/// inside Rust, at no cost to the API.
+/// `#[serde(transparent)]` keeps the wire format a bare number, so the guarantee
+/// costs the API nothing.
 macro_rules! row_id {
     // `wire` marks an id that appears in a serialized API type, so ts-rs emits a
     // TypeScript alias for it. The other ids are internal to the engine, and
@@ -101,20 +94,13 @@ impl Columns {
 /// A set that has been checked against its exercise's metric — the only shape
 /// the log is written from.
 ///
-/// The fields a set may carry are its metric's fields and nothing else. That was
-/// a runtime predicate over three independent `Option`s (`NewSet::shape_error`)
-/// with a test file of its own, enforced at exactly one call site, and a load on
-/// a bodyweight mobility drill got in anyway — twice, and the rows are still in
-/// the log. Parsing the request body into this instead means the illegal shapes
-/// stop existing after the check rather than merely being disapproved of, and a
-/// second write path cannot forget to ask.
+/// The fields a set may carry are its metric's fields and nothing else. Parsing
+/// the request body into this type makes the illegal shapes unrepresentable past
+/// the check, so a second write path cannot forget to ask.
 ///
 /// The measurement is required; the load is not. A set that records neither reps
-/// nor seconds is not a set — the old predicate accepted an entirely empty body,
-/// because it only ever asked whether a *present* field was allowed. The load
-/// stays optional because an unweighted set of a weighted movement is honest: an
-/// empty-bar technique set the athlete chose not to weigh, and refusing it would
-/// lose a real set.
+/// nor seconds is not a set. An unweighted set of a weighted movement is honest,
+/// though (an empty-bar technique set), and refusing it would lose a real set.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LoggedSet {
     Reps {
@@ -139,9 +125,8 @@ pub enum LoggedSet {
 
 /// Value ceilings no honest set exceeds — plausibility, not policy. Generous on
 /// purpose: a real outlier day must never be refused, only a number that
-/// describes nothing a human did. The round-3 field test stored a fat-fingered
-/// **3 530-second** farmers walk (an "append" instead of a replace) and the
-/// carry ability model would have read it as a demonstrated max.
+/// describes nothing a human did: a fat-fingered 3 530-second farmers walk would
+/// otherwise reach the ability model as a demonstrated max.
 const MAX_REPS: i32 = 100;
 const MAX_HOLD_S: i32 = 600;
 const MAX_LOAD_KG: f64 = 300.0;
@@ -220,8 +205,8 @@ impl LoggedSet {
         })
     }
 
-    /// The set as the flat `workout_sets` columns hold it. The schema is three
-    /// nullable columns, so exactly one place converts, and this is it.
+    /// The set as the flat, nullable `workout_sets` columns hold it. This is the
+    /// one place that converts.
     pub fn columns(self) -> Columns {
         match self {
             LoggedSet::Reps { reps } => Columns {
@@ -337,32 +322,21 @@ pub enum Metric {
     WeightedReps,
     Hold,
     /// A loaded carry or hold: **weight and time together** (a farmer's walk, a
-    /// waiter walk, an overhead carry). Neither of the other two can say it —
-    /// `Hold` has no load, `WeightedReps` has no clock — so the four carries in
-    /// the catalog were modelled as weighted *reps* and the coach prescribed
-    /// "Farmers walk, 5 reps at 6 kg", which is not a thing anyone does. The
-    /// progression is the same double-progression shape as a weighted lift, with
-    /// seconds where the reps go: climb the time, then step the weight.
+    /// waiter walk, an overhead carry). `Hold` has no load and `WeightedReps` no
+    /// clock. Progression is the weighted lift's double progression with seconds
+    /// where the reps go: climb the time, then step the weight.
     WeightedHold,
-    /// A loaded carry measured by **distance**: weight and metres. The other
-    /// half of what a carry can be — and the half the athlete actually does. His
-    /// farmer's walks were logged as a fixed 10 m carried heavier over weeks,
-    /// which had nowhere to live: the importer put the distance in the reps
-    /// column, where the ability model read it as reps and derived a one-rep-max
-    /// from it. Same double progression, with metres where the seconds go.
+    /// A loaded carry measured by **distance**: weight and metres, e.g. a fixed
+    /// 10 m carried heavier over weeks. Same double progression, with metres
+    /// where the seconds go.
     WeightedDistance,
 }
 impl Metric {
     /// Does a set of this movement carry a weight?
     ///
-    /// An exhaustive `match` rather than a `matches!` over the variants that do,
-    /// because the difference is not stylistic. Adding `WeightedDistance` produced
-    /// six compile errors and *two silent falsehoods*: `matches!(m, WeightedReps |
-    /// WeightedHold)` in the load resolver and in the implausible-load check both
-    /// went on returning `false` for it, so a carry got no buildable weights and
-    /// was reported to the athlete as kit with nothing registered for it. A
-    /// boolean subset test is a non-exhaustive match that the compiler cannot see.
-    /// This one it can.
+    /// An exhaustive `match`, not `matches!` over the variants that do: a new
+    /// metric must fail to compile here rather than silently answer `false`.
+    /// Call sites ask this instead of testing variants themselves.
     pub fn takes_load(self) -> bool {
         match self {
             Metric::Reps | Metric::Hold => false,

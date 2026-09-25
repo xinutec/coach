@@ -1,13 +1,11 @@
 //! Session selection as **weighted set cover** — the algorithmic core of the plan.
 //!
-//! The domain truth an earlier group-loop had backwards: *one set of one exercise
-//! credits many muscle groups at once* (primary 1.0, secondary 0.5, stabilizer
-//! 0.25 — the muscle model). Walking the in-deficit groups and asking each one
-//! "which exercise fills you?" therefore emitted the same exercise once per group
-//! it happened to cover (dips appearing twice, for Chest and again for Triceps),
-//! and left set counts to a separate deficit-share heuristic bolted on afterwards.
+//! The domain truth: *one set of one exercise credits many muscle groups at once*
+//! (primary 1.0, secondary 0.5, stabilizer 0.25 — the muscle model). Asking each
+//! in-deficit group "which exercise fills you?" would emit dips once for Chest
+//! and again for Triceps.
 //!
-//! Selection is instead a **coverage problem**: today's need is a vector over the
+//! Selection is therefore a **coverage problem**: today's need is a vector over the
 //! group space, one set of an exercise is a vector that pays part of it down, and
 //! the day's set budget is a cardinality constraint. Maximising coverage under
 //! that constraint is monotone submodular, so greedy marginal gain — repeatedly
@@ -17,7 +15,7 @@
 //! Three things stop being special cases and simply fall out:
 //!
 //! - **Duplicates are unrepresentable.** The accumulator is keyed by exercise, so
-//!   "dips ×2" is one item with a count — which is what it always was.
+//!   "dips ×2" is one item with a count.
 //! - **Set counts are earned, not apportioned.** A second set of dips is worth
 //!   less than a first row once the first already paid down chest and triceps,
 //!   because [`ByGroup::saturating_sub`] clamps the need at zero. Diminishing
@@ -269,7 +267,7 @@ pub fn select<'a, T: Ranked>(
             }
             // Entering a movement means committing to its full minimum dose; a
             // budget remainder too small for that must not start it ("Push-up —
-            // 1 set", the round-3 orphan). The spare set instead tops up a
+            // 1 set"). The spare set instead tops up a
             // movement already in the session — re-ranked below like any other —
             // or goes honestly unspent.
             if entering && left < cand.min.min(cand.cap) {

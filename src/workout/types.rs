@@ -50,8 +50,7 @@ pub struct NewSet {
 ///
 /// [`repo::create`] takes this rather than a [`NewSet`], which is what makes the
 /// check unskippable: there is no way to reach the INSERT holding only an
-/// unvalidated body. It used to take the body itself, with the one call site in
-/// the route remembering to ask first.
+/// unvalidated body.
 ///
 /// [`repo::create`]: super::repo::create
 #[derive(Debug)]

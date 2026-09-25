@@ -11,11 +11,9 @@ import org.robolectric.RobolectricTestRunner
 /**
  * What the phone makes of the coach's answer.
  *
- * The reminder reads two fields out of a verdict that carries a couple of dozen,
- * and the verdict is the app's most-changed type — `Ask` was retagged, `Readiness`
- * gained a constructor, `distance_m` arrived, and none of that is the reminder's
- * business. A parse that broke on any of it would show up as a reminder that
- * quietly stopped firing, on a phone, with no log anyone reads.
+ * The reminder reads two fields out of a much larger verdict, and the verdict is
+ * the app's most-changed type. A parse that broke on a change to the rest would
+ * show up as a reminder that quietly stopped firing, with no log anyone reads.
  */
 @RunWith(RobolectricTestRunner::class)
 class PacingClientTest {

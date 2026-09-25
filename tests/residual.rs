@@ -1,8 +1,7 @@
 //! The prediction-error ledger and the progression it drives.
 //!
-//! Ability is a max over decayed sets, so before this a session that went badly
-//! pulled nothing down — the athlete was handed the same load the sets had just
-//! contradicted. These tests fix that behaviour in place: a miss holds, two misses
+//! Ability is a max over decayed sets, so on its own a session that went badly
+//! pulls nothing down. These tests pin the ledger's answer: a miss holds, two misses
 //! step down, three send the exercise back to being measured. And, as importantly,
 //! a *good* history is unaffected — the ledger must not invent a miss out of an
 //! ordinary session.

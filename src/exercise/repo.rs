@@ -20,12 +20,9 @@ use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId};
 // Equipment slugs (comma-joined) + image presence, as correlated subqueries so
 // the list stays one row per exercise without a GROUP BY.
 //
-// This column list was a `list_cols!` macro shared by the three queries below,
-// which is what stopped it drifting after `EquipmentRow` cost us 82 exercises in
-// the gym (see tests/db.rs). A checked query takes only a string literal, so
-// sharing and checking cannot both be had, and the list is written out three
-// times now. What replaces the macro is NOT the compiler alone: it catches a
-// column added or dropped in one copy, because all three fill one
+// The column list is written out in each of the three queries below: a checked
+// query takes only a string literal, so it cannot be shared. The compiler catches
+// a column added or dropped in one copy, because all three fill one
 // `ExerciseListRow`, but NOT a copy whose expression changes while its alias and
 // type stay put — an EXISTS re-pointed at another table is the same `i64` called
 // `has_image`. `every_read_path_agrees` in tests/db.rs is the guard for that:

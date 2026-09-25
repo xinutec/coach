@@ -28,8 +28,7 @@ macro_rules! db_str {
 }
 
 // `Pattern` and `Metric` live in the pure `coach-pacing` core (the engine reasons
-// over them); re-exported here so `crate::exercise::types::Pattern` and their
-// `as_db`/`from_db` conversions keep resolving.
+// over them); re-exported for the DB rows below.
 pub use coach_pacing::domain::{Metric, Pattern};
 
 /// Body position the movement is performed in (optional).
@@ -74,7 +73,7 @@ pub struct Exercise {
     pub metric: Metric,
     pub unilateral: bool,
     /// Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
-    /// Catalog-authoritative (was a hardcoded equipment-slug sniff).
+    /// Set by the catalog, not inferred from equipment.
     pub skill: bool,
     /// A mobility/activation move: the warm-up block draws from these, and they
     /// credit no training volume.
@@ -222,9 +221,8 @@ pub(crate) struct ExerciseDetailRow {
     pub cue: Option<String>,
     pub demo_url: Option<String>,
     pub summary: Option<String>,
-    /// `tinyint(4)` in the schema, so `i8` here and widened on the way out. The
-    /// runtime query path silently widened it, which is what a checked query
-    /// stops: the row type now says what the column actually is.
+    /// `tinyint(4)` in the schema, so `i8` here and widened on the way out: the
+    /// row type says what the column actually is, as a checked query requires.
     pub difficulty: Option<i8>,
     pub has_image: i64,
     pub has_loop: i64,

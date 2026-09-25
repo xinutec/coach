@@ -110,13 +110,11 @@ pub async fn context(
         .collect();
     // Which kit actually *carries* the weight. A bench and a pull-up bar are needed
     // for a dumbbell bench press and a weighted chin-up, but you don't load them —
-    // asking what weights are registered for a bench is a category error, and it
-    // used to produce a notice telling the athlete to go and weigh their furniture.
+    // asking what weights are registered for a bench is a category error.
     //
-    // This is the catalog's `weighted` flag, not a guess from the category. Reading
-    // it as `category == FreeWeight` was right about the bench and wrong about the
-    // pulley: a cable stack is a `machine`, so the coach could put no weight on the
-    // one machine in the gym whose whole purpose is the weight on it.
+    // This is the catalog's `weighted` flag, not a guess from the category:
+    // `category == FreeWeight` is right about the bench and wrong about a cable
+    // stack, which is a `machine` whose whole purpose is the weight on it.
     let bears_load: BTreeSet<EquipmentId> = equipment
         .iter()
         .filter(|e| e.weighted)
@@ -135,7 +133,7 @@ pub async fn context(
                 .cloned()
                 .unwrap_or_default();
             // Skill = the catalog flag (gymnastic ring/parallette work) or any
-            // hold (isometrics are skill-biased). No more equipment-slug sniffing.
+            // hold (isometrics are skill-biased).
             let is_skill = e.skill || e.metric == Metric::Hold;
             // The full display name: variations are distinct movements ("Pull-up
             // (L-sit)" is a hold, not a rep-out) — a bare shared base name in a

@@ -1,11 +1,9 @@
 //! Client activity trace: what the browser sees and the API does not.
 //!
-//! **Why this exists, and it is not analytics.** The per-request trace already
-//! logs every API call, and that was treated as sufficient across the fleet for
-//! a long time. It is not: a tap that hits a cache, a control that was disabled,
-//! a screen that rendered wrong — none of it reaches the server, so none of it
-//! can be diagnosed afterwards from a report like "I pressed it and nothing
-//! happened".
+//! **Why this exists, and it is not analytics.** The per-request trace logs every
+//! API call, but a tap that hits a cache, a control that was disabled, a screen
+//! that rendered wrong — none of it reaches the server, so none of it can be
+//! diagnosed afterwards from a report like "I pressed it and nothing happened".
 //!
 //! The events fold into the **same** log stream as the API requests, so a
 //! session reads as one timeline: `client-event kind=nav path=/workout`, then
@@ -13,9 +11,8 @@
 //! tap caused.
 //!
 //! **There is no storage here.** These are logs, not data. The endpoint moves
-//! the client's events into the backend log and forgets them.
-//!
-//! Ported from the `life` app, where this has run since 2026-07-17.
+//! the client's events into the backend log and forgets them. The same endpoint
+//! runs in the `life` app.
 
 use axum::Json;
 use axum::http::StatusCode;

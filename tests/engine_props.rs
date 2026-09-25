@@ -161,9 +161,8 @@ fn owned_strategy() -> impl Strategy<Value = Vec<f64>> {
 
 /// The same scenario judged at a given readiness.
 ///
-/// This used to build `Readiness { score, band }` with the thresholds copied
-/// inline, which let the property generate a band that didn't follow its score —
-/// a day the engine cannot produce, so any failure it found was unreachable.
+/// Through `Readiness::of`, so the property can never generate a band that
+/// doesn't follow its score: a day the engine cannot produce.
 fn with_readiness(mut input: PacingInput, score: f64) -> PacingInput {
     input.readiness = Some(Readiness::of(score));
     input

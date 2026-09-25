@@ -59,9 +59,8 @@ fn every_weighted_lift_declares_kit_that_carries_a_load() {
     );
 
     // Every metric that carries a weight, not just weighted *reps*. A carry is
-    // loaded too, and a weighted plank is a hold with a plate on it — the check
-    // used to look only at `weighted_reps`, so those two could declare kit that
-    // holds nothing and the coach would silently never prescribe them.
+    // loaded too, and a weighted plank is a hold with a plate on it; kit that
+    // holds nothing would mean the coach silently never prescribes them.
     let loaded = ["weighted_reps", "weighted_hold"];
     let orphans: Vec<String> = catalog()
         .iter()

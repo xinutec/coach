@@ -267,10 +267,9 @@ export class Today {
 	 * commitment's record) but the decision is spent. A **warm-up** is one line of
 	 * prep, not a prescription; its whole content is "10 arm circles".
 	 *
-	 * Rendered full, they crowded the work off the screen: measured at Pixel 7
-	 * width, every card was 166px regardless of state, so three finished warm-ups
-	 * filled 498px of a ~780px viewport and the first work card — the reason the
-	 * page exists — sat below the fold for the whole session.
+	 * Rendered full, they crowd the work off the screen: at phone width a few
+	 * finished warm-ups push the first work card, the reason the page exists,
+	 * below the fold.
 	 */
 	isCompact(s: Suggestion): boolean {
 		return s.logged.length >= s.sets || s.kind === "warmup";
@@ -279,11 +278,10 @@ export class Today {
 	/**
 	 * What you actually did, in the order you did it.
 	 *
-	 * The count ("1 / 2 sets") was standing in for this, and answered the wrong
-	 * question: on set two you want to know what set one was, and that lived only
-	 * in History. Reps alone read better with the unit said once at the end
-	 * ("9 · 6 reps"); anything carrying a load or a clock names its own
-	 * ("22.5 kg × 7 · 24 kg × 6").
+	 * A bare count ("1 / 2 sets") answers the wrong question: on set two you want
+	 * to know what set one was. Reps alone read better with the unit said once at
+	 * the end ("9 · 6 reps"); anything carrying a load, a clock or a distance names
+	 * its own ("22.5 kg × 7 · 24 kg × 6", "24 kg 10 m").
 	 */
 	loggedSummary(s: Suggestion): string {
 		if (!s.logged.length) return "";
@@ -292,9 +290,12 @@ export class Today {
 			if (d.loadKg !== null) parts.push(`${d.loadKg} kg`);
 			if (d.reps !== null) parts.push(d.loadKg !== null ? `× ${d.reps}` : `${d.reps}`);
 			if (d.holdS !== null) parts.push(`${d.holdS}s`);
+			if (d.distanceM !== null) parts.push(`${d.distanceM} m`);
 			return parts.join(" ");
 		});
-		const repsOnly = s.logged.every((d) => d.loadKg === null && d.holdS === null);
+		const repsOnly = s.logged.every(
+			(d) => d.loadKg === null && d.holdS === null && d.distanceM === null,
+		);
 		const per = this.perSide(s.exerciseId) ? " each side" : "";
 		return `${bits.join(" · ")}${repsOnly ? " reps" : ""}${per}`;
 	}
@@ -334,13 +335,8 @@ export class Today {
 
 	/**
 	 * The calibration instruction for an `assess` suggestion — what to actually do
-	 * so the logged set measures your ability.
-	 *
-	 * This used to infer the instruction from the exercise's *metric* in the
-	 * catalog, because the wire suggestion didn't say which calibration had been
-	 * asked for; the rep count came with a `?? 5` for the case where the fields
-	 * didn't line up. The ask names the calibration, so both the lookup and the
-	 * invented default are gone.
+	 * so the logged set measures your ability. The ask names the calibration, so
+	 * nothing is inferred from the catalog and nothing is defaulted.
 	 */
 	assessInstruction(s: Suggestion): string {
 		const ex = this.exercises().find((e) => e.id === s.exerciseId);
@@ -424,8 +420,7 @@ export class Today {
 
 	/** Open the log sheet, optionally prefilled from a specific plan item. The
 	 *  bare + button prefills from the next unfinished plan item — mid-session
-	 *  that's almost always the set being logged (and it's changeable), where an
-	 *  alphabetical default meant scrolling past "Arm circles" every time. */
+	 *  that's almost always the set being logged (and it's changeable). */
 	openLog(from?: Suggestion): void {
 		const source = from ?? this.nextUp() ?? undefined;
 		const data: LogSheetData = {
@@ -448,14 +443,11 @@ export class Today {
 	}
 
 	/** The header's arithmetic is the plan's own — summed from the cards, never
-	 *  the engine's day-size estimate, which once said 13 while the cards held 16
-	 *  sets so finishing them all read "14 / 13" (field-test R2-2).
+	 *  the engine's day-size estimate, which can disagree with them (R2-2).
 	 *
 	 *  Work sets only. Warm-ups credit no volume and count toward nothing the
-	 *  coach scores, so including them let the page report "3 / 10 done" on a day
-	 *  the engine read as untrained — the counter said a third of a session had
-	 *  happened when none of it had. They still show as their own checked-off
-	 *  rows; they just aren't the session's measure. */
+	 *  coach scores; they show as their own checked-off rows but aren't the
+	 *  session's measure. */
 	private work(p: PacingNow): Suggestion[] {
 		return p.plan.filter((s) => s.kind !== "warmup");
 	}

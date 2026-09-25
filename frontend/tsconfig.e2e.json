@@ -3,9 +3,8 @@
 // ⚠ **Nothing else reads these files.** `tsconfig.app.json` reaches only what
 // `src/main.ts` imports and `tsconfig.spec.json` only `src/**/*.spec.ts`, so the
 // e2e tree is in neither; and Playwright transforms specs with esbuild, which
-// strips types without checking them. Measured in memview on 2026-08-03: a
-// planted `const planted: number = "not a number"` passed the lint script,
-// eslint aimed straight at the file, `ng build`, and a full Playwright run.
+// strips types without checking them: a planted `const planted: number = "not a
+// number"` passes the lint script, `ng build`, and a full Playwright run.
 //
 // The harness is the only gate that can see what a phone actually suffers —
 // text overlaps, content past the right edge, controls too small for a thumb.

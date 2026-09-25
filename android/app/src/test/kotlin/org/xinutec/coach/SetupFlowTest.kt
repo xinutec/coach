@@ -15,10 +15,9 @@ class SetupFlowTest {
     /**
      * How a run stands with respect to one permission.
      *
-     * The distinction between [ALREADY] and [GRANTS] is the whole reason this is
-     * an enum and not a boolean: they end in the same state but take different
-     * routes, and the first version of this test collapsed them into one flag and
-     * so could not express a fresh install at all.
+     * [ALREADY] and [GRANTS] end in the same state by different routes; a
+     * boolean could not tell them apart, and so could not express a fresh
+     * install.
      */
     private enum class Answer {
         /** Held before setup began; never prompted for. */
@@ -34,9 +33,8 @@ class SetupFlowTest {
     /**
      * One run of the flow, as the sequence of steps it actually takes.
      *
-     * Note what is absent: whether a home is already stored. It is not a
-     * parameter because it is not an input to [SetupFlow.next] — that is the fix
-     * this file guards, so the harness must not be able to describe it either.
+     * Note what is absent: whether a home is already stored. It is not an input
+     * to [SetupFlow.next], so the harness cannot describe it either.
      */
     private fun run(
         fine: Answer = Answer.ALREADY,
@@ -110,23 +108,18 @@ class SetupFlowTest {
     }
 
     /**
-     * ⚠ The regression this file exists for.
-     *
-     * Everything already granted is the state of a phone that has run setup
-     * before — which is exactly when the button reads "Update home & turn on".
-     * The capture used to be guarded on `!prefs.hasHome`, so in this state it was
-     * skipped, the flow fell straight through to arming, and the toast said
-     * "Reminders on": a button that could not do the one thing its label
-     * promised, reporting success. A home set on 2026-07-04 was still in place on
-     * 2026-09-12. Under that logic this run was `[ARM]`.
+     * ⚠ Everything already granted is a phone that has run setup before, which
+     * is when the button reads "Update home & turn on". A capture guarded on a
+     * stored home would make this run `[ARM]`: the home never moves, and the
+     * toast still says "Reminders on".
      */
     @Test
     fun `a returning user still re-captures home before arming`() {
         assertEquals(listOf(SetupStep.CAPTURE_HOME, SetupStep.ARM), run())
     }
 
-    /** The latch has to hold across the re-entries, or the capture that now always
-     *  runs would run again on every callback. */
+    /** The latch has to hold across the re-entries, or the capture would run
+     *  again on every callback. */
     @Test
     fun `home is captured exactly once per run, never in a loop`() {
         val taken = run(fine = Answer.GRANTS, background = Answer.GRANTS)

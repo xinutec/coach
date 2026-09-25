@@ -21,7 +21,7 @@ RUN apk add --no-cache git ca-certificates \
 COPY frontend/ .
 # Stamp the build version into the bundle (see scripts/stamp-version.mjs). The
 # build context has no .git, so the commit comes from GIT_SHA (passed by CI —
-# .github/workflows/docker.yml); it defaults to 'dev' for a plain local build.
+# .github/workflows/build.yml); it defaults to 'dev' for a plain local build.
 ARG GIT_SHA=dev
 RUN GIT_SHA="$GIT_SHA" node scripts/stamp-version.mjs
 RUN pnpm exec ng build --configuration production
@@ -58,7 +58,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 # The app only reads (binary, bundle) and never writes to disk, so everything
 # stays root-owned; the process just must not run as root. uid/gid 65532 is the
-# conventional "nonroot" id, matched by k8s/03-app.yaml.
+# conventional "nonroot" id, matched by the k8s manifest (see README).
 RUN groupadd --gid 65532 coach \
     && useradd --uid 65532 --gid coach --no-create-home --shell /usr/sbin/nologin coach
 WORKDIR /app

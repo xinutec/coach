@@ -5,11 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SwUpdates } from './sw-updates';
 
-// ⚠ These assert on `activateUpdate` rather than on a spied `applyUpdate`. The
-// rules moved to `@xinutec/ui-harness/sw-updates` on 2026-09-13 and this file is
-// the adapter, so there is no internal seam left to spy on — and that is an
-// improvement: only the NAVIGATION is stubbed now, so applyUpdate() runs for
-// real, including its failure path, which is where the interesting behaviour is.
+// ⚠ These assert on `activateUpdate` rather than on a spied `applyUpdate`: the
+// rules live in `@xinutec/ui-harness/sw-updates` and this file is the adapter, so
+// only the NAVIGATION is stubbed and applyUpdate() runs for real, including its
+// failure path, which is where the interesting behaviour is.
 function setup(isEnabled: boolean) {
   const versionUpdates = new Subject<VersionEvent>();
   const unrecoverable = new Subject<UnrecoverableStateEvent>();

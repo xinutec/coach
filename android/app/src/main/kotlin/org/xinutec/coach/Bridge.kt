@@ -23,12 +23,9 @@ internal enum class BridgeAction {
 /**
  * Who may speak to the reminders bridge, and what they may say.
  *
- * Both halves of that question are answered here, as one pure function, because
- * they are one decision: a message is acted on only if it comes from coach's own
- * main frame *and* says something in the vocabulary. Keeping it out of
- * [MainActivity] is what makes it testable — the activity's copy needed a
- * WebView, a Play-services client and a live geofence to reach, so the origin
- * check was the one piece of the security fix that nothing could exercise.
+ * Both halves are one decision, answered by one pure function: a message is
+ * acted on only if it comes from coach's own main frame *and* says something in
+ * the vocabulary. Outside [MainActivity] it is testable without a WebView.
  *
  * The frame and origin checks are belt and braces: `addWebMessageListener` has
  * already refused to inject the port into any frame outside
@@ -37,8 +34,8 @@ internal enum class BridgeAction {
  * from being gone with nothing failing.
  */
 internal object Bridge {
-    /** `window.CoachAndroid` on the page. Its presence is still how the Settings
-     *  page knows it is running inside the native app. */
+    /** `window.CoachAndroid` on the page. Its presence is how the Settings page
+     *  knows it is running inside the native app. */
     const val NAME = "CoachAndroid"
 
     /** The only origin the bridge is injected into. An origin rule is
