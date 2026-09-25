@@ -307,11 +307,11 @@ is 24 frames.
 blender -b <blend> --python animate.py -- glute_bridge out/bridge.mp4
 ```
 
-Only specs that have been rendered and passed the checks belong in it. A loop
-with no entry predates the file and cannot be reproduced until its spec is
-re-derived and verified; a guessed spec (tried for `squat_goblet`) failed at
-frame 4 with the fingers of both hands through each other. A wrong entry is
-worse than an absent one, because the file exists to be trusted.
+Every shipped loop has an entry, and a new loop is not done until it has one.
+Only specs that have been rendered and passed the checks belong in it: a spec
+that differs by a frame (`squat_reach@6` for `@5` on the squat) puts the fingers
+of both hands through each other. A wrong entry is worse than an absent one,
+because the file exists to be trusted.
 
 ⚠ **A loop `.mp4` cannot be compared by bytes.** The container embeds the
 wall-clock time of the render, so two runs of identical code differ by a few
