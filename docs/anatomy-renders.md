@@ -409,6 +409,8 @@ Renders derive from Z-Anatomy (CC-BY-SA 4.0, github.com/Z-Anatomy), itself based
 on BodyParts3D / Anatomography (CC-BY-SA 2.1 JP). The male figure lives in the
 `Models-of-human-anatomy` repo; the atlas template in `The-blend`.
 
-The exercise sheet credits it in a line under every loop. CC-BY-SA requires the
-credit wherever a derived work is shown, so a new place that shows a render needs
-one too.
+CC-BY-SA requires the credit wherever a derived work is shown. The exercise sheet
+credits it in a line under every loop. ⚠ **Stills are not credited:**
+`heel_toe_rocks.png` is an écorché render and shows with no credit, because
+nothing in the catalog marks which pictures are renders. A new place that shows a
+render needs the credit too.
