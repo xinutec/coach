@@ -29,11 +29,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import za  # noqa: E402
-import stage  # noqa: E402
-import collide  # noqa: E402
-import plant  # noqa: E402
-import floor as floormod  # noqa: E402
+import za  # noqa: E402  the sys.path line above puts the siblings on the path
+import stage  # noqa: E402  the sys.path line above puts the siblings on the path
+import collide  # noqa: E402  the sys.path line above puts the siblings on the path
+import plant  # noqa: E402  the sys.path line above puts the siblings on the path
+import floor as floormod  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 positional = [a for a in argv if not a.startswith("--")]
@@ -271,7 +271,7 @@ if do_check:
           "nothing passes through anything")
 
 # Frame on the union of every frame, so the figure does not drift as it moves.
-import mathutils  # noqa: E402
+import mathutils  # noqa: E402  a Blender script read top to bottom; the framing starts here
 
 umin = mathutils.Vector((1e9,) * 3)
 umax = mathutils.Vector((-1e9,) * 3)

@@ -60,7 +60,7 @@ object Geofencing {
 
     /** (Re)register the home geofence. No-op (returns false) unless reminders are
      *  armed, a home is set, and background-location is granted. */
-    @SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission") // hasBackgroundLocation is checked below, before the call
     fun arm(context: Context): Boolean {
         val prefs = Prefs(context)
         if (!prefs.armed) return false

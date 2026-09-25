@@ -67,7 +67,7 @@ CELLS=(
 if [ -n "$override" ]; then
   # Word-split on purpose: the override is a space-separated list of the same
   # "athlete:behaviour:recovery" triples.
-  # shellcheck disable=SC2206
+  # shellcheck disable=SC2206 # word-split on purpose (above)
   CELLS=($override)
 fi
 

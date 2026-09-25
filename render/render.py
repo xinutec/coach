@@ -21,8 +21,8 @@ from pathlib import Path
 import mathutils
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import za  # noqa: E402
-import stage  # noqa: E402
+import za  # noqa: E402  the sys.path line above puts the siblings on the path
+import stage  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 slug, view, out_png = argv[0], argv[1], argv[2]

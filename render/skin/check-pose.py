@@ -18,8 +18,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import collide  # noqa: E402
-import plant  # noqa: E402
+import collide  # noqa: E402  the sys.path line above puts the siblings on the path
+import plant  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 poses = json.loads((Path(__file__).resolve().parent / "poses.json").read_text())

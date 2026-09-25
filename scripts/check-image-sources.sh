@@ -25,7 +25,7 @@ copies=$(awk '
 [ -n "$copies" ] || { echo "no backend COPY lines found — did the Dockerfile change shape?" >&2; exit 1; }
 
 while read -r _ rest; do
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086 # $rest is the COPY line's word list, split on purpose
     set -- $rest
     dest="${*: -1}"
     for src in "${@:1:$#-1}"; do

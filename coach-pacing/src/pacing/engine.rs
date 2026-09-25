@@ -1792,7 +1792,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 /// Cover today's need with the kit present: greedy set-cover over the doable
 /// catalog, each chosen exercise prescribed (trusted ability) or assessed
 /// (untrusted), then ordered into a session and led by a warm-up block.
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "each input of the set-cover, named"
+)]
 fn plan_session(
     input: &PacingInput,
     kit: &Kit,

@@ -104,7 +104,7 @@ class MainActivity : WebShellActivity() {
      * either: `reply` moves only for a caller we are actually talking to.
      */
     private fun onBridgeMessage(
-        @Suppress("UNUSED_PARAMETER") view: WebView,
+        @Suppress("UNUSED_PARAMETER") view: WebView, // the WebView callback's signature
         message: WebMessageCompat,
         sourceOrigin: Uri,
         isMainFrame: Boolean,
@@ -265,7 +265,7 @@ class MainActivity : WebShellActivity() {
     // resumed from several places and re-enters itself, so the request code is the
     // state machine's own signal, not a launcher's callback.
     @Deprecated("Deprecated in Java")
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION") // the request code is the state machine's own signal (above)
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,

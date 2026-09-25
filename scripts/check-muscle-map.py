@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "render"))
-import za  # noqa: E402
+import za  # noqa: E402  the sys.path line above puts the siblings on the path
 
 REPO = Path(__file__).resolve().parent.parent
 mmap = json.loads((REPO / "render/muscle_map.json").read_text())

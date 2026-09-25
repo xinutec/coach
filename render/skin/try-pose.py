@@ -39,10 +39,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
-import plant  # noqa: E402
-import stage  # noqa: E402
-import collide  # noqa: E402
-import floor as floormod  # noqa: E402
+import plant  # noqa: E402  the sys.path line above puts the siblings on the path
+import stage  # noqa: E402  the sys.path line above puts the siblings on the path
+import collide  # noqa: E402  the sys.path line above puts the siblings on the path
+import floor as floormod  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 positional = [a for a in argv if not a.startswith("--")]

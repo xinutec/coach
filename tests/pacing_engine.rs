@@ -62,7 +62,10 @@ fn groups() -> Vec<GroupMeta> {
     ]
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "a fixture builder spelling every knob of the scenario"
+)]
 fn ex(
     id: i64,
     name: &str,

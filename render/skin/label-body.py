@@ -30,7 +30,7 @@ import mathutils
 from mathutils.bvhtree import BVHTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import za  # noqa: E402
+import za  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 body_blend, out_blend = argv[0], argv[1]
