@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { CachedResource } from "./cached-resource";
 
-/** The read model every routed tab sits on. Its four promises: a failed background refresh is not
- *  an error, `loaded` never goes back to false, a second refresh cancels the
- *  first, and `patch` shows immediately. Each is invisible until a refactor
+/** The read model every routed tab sits on. Its four promises: a failed
+ *  background refresh is not an error, `loaded` never goes back to false, a
+ *  second refresh cancels the first, and `patch` shows immediately. Each is invisible until a refactor
  *  breaks it, and then it breaks every screen at once — a placeholder on every
  *  revisit, or a retry button over data that is fine. */
 

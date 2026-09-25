@@ -2,11 +2,10 @@
 //! of R2-1 (docs/field-test.md): a stale client field must not be able to store
 //! "10 reps · 4 kg" against a bodyweight mobility drill.
 //!
-//! These now exercise `NewSet::validate`, which *parses* the body into a
-//! `LoggedSet` rather than merely disapproving of it. The distinction is what
-//! makes the rule unskippable: `workout::repo::create` accepts only the parsed
-//! form, so a future write path cannot forget to ask the way the 2024 importer
-//! did.
+//! These exercise `NewSet::validate`, which *parses* the body into a `LoggedSet`
+//! rather than merely disapproving of it. The distinction is what makes the rule
+//! unskippable: `workout::repo::create` accepts only the parsed form, so a future
+//! write path cannot forget to ask.
 
 use coach::exercise::types::Metric;
 use coach::workout::types::NewSet;

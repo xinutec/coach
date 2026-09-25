@@ -221,10 +221,8 @@ proptest! {
     }
 
     // The training plan is budgeted: work sets (deficit-sized, min 2 each) never
-    // exceed the day target — and now *exactly* so. The cover takes one set per
-    // step and at most `budget` steps, so work can't spill at all. (The old
-    // deficit-share sizing could overrun by a trailing item's fixed count; that
-    // slack is gone along with the heuristic that needed it.)
+    // exceed the day target. The cover takes one set per step and at most `budget`
+    // steps, so work can't spill at all.
     #[test]
     fn work_volume_stays_within_the_day_budget((m, d, raw, owned) in scenario()) {
         let out = evaluate(&build_input(m, d, &raw, &owned), base());
@@ -241,10 +239,8 @@ proptest! {
         );
     }
 
-    // No exercise is ever planned twice. The old group-loop emitted one item per
-    // muscle group, so a movement covering two in-deficit groups (dips → chest AND
-    // triceps) appeared twice and read as a stutter. The cover accumulates *by
-    // exercise*, so "2 × dips" is a single item with a count — a duplicate is
+    // No exercise is ever planned twice, even one covering two in-deficit groups
+    // (dips → chest AND triceps). The cover accumulates *by exercise*, so "2 × dips" is a single item with a count — a duplicate is
     // unrepresentable. This holds for every history, not just the ones we thought of.
     #[test]
     fn an_exercise_is_never_planned_twice((m, d, raw, owned) in scenario()) {

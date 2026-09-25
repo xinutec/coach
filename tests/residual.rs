@@ -62,10 +62,10 @@ fn a_steady_history_records_no_misses() {
     assert!(!r.wants_hold() && !r.wants_back_off() && !r.wants_remeasure());
 }
 
-// R6-2: the miss response was blind to magnitude — being asked for ten reps and
-// managing one was the same event as falling a rep short, so it took three
-// sessions (six sets, at a weight the athlete could lift once) before anything
-// re-opened the question. A rout is its own evidence.
+// R6-2: the miss response must see magnitude — being asked for ten reps and
+// managing one is not the same event as falling a rep short, and must not take
+// three sessions at a weight the athlete can lift once to re-open the question.
+// A rout is its own evidence.
 #[test]
 fn a_rout_re_opens_the_measurement_without_waiting_for_three() {
     // Settled at 40 kg × 8, then a session that manages a single rep of it.

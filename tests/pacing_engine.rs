@@ -313,8 +313,8 @@ fn a_started_movement_is_confirmed_even_when_its_group_is_covered() {
     // engine would flee to the untouched groups and never ask for push-ups again.
     // But one or two sessions is not a trusted baseline. The coach should keep
     // asking for the movement until the estimate is solid — confirming what you've
-    // *started* before broadening into new movements. This is the whole calibration
-    // fix: on day two, repeat, don't scatter. (Volume sits a few days back, so the
+    // *started* before broadening into new movements. On day two, repeat, don't
+    // scatter. (Volume sits a few days back, so the
     // group has recovered — confirmation waits on recovery, it doesn't override it.)
     let mut h = vec![];
     for _ in 0..12 {
@@ -731,10 +731,8 @@ fn location_substitutes_the_ideal() {
 fn substitution_prefers_the_ideal_exercise_metric() {
     // Lat pull down (reps, machine id 101 not here) must swap to another *reps*
     // pull, not to a max hold — a hold is a different ask, not a substitute.
-    // The prod bug this pins: Balanced once scored every exercise identically, so
-    // a rep-out and an isometric were indistinguishable and the hold's lower id
-    // won the tie — "Lat pull down" became "Pull-up (L-sit)". Balanced now rates
-    // rep work above holds, so the preference decides it, not the tie-break.
+    // Balanced rates rep work above holds, so the preference decides it, not the
+    // tie-break on exercise id (which would pick the hold's lower id).
     let exs = vec![
         ex(
             5,
@@ -797,9 +795,8 @@ fn substitution_prefers_the_ideal_exercise_metric() {
 
 #[test]
 fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
-    // One fresh top set of 6 × 60 kg (top of the Strength range). The old engine
-    // blindly bumped to 62.5 kg; ability-derived prescription won't exceed what
-    // the reps support — it holds 60 kg at the top of the range until a better
+    // One fresh top set of 6 × 60 kg (top of the Strength range). Not a blind bump
+    // to 62.5 kg: ability-derived prescription won't exceed what the reps support — it holds 60 kg at the top of the range until a better
     // set raises the estimate.
     let inp = PacingInput {
         groups: back_only(),
@@ -826,10 +823,10 @@ fn prescribes_from_demonstrated_capacity_not_a_blind_jump() {
 //
 // Once the first set of a session lands (a session = sets separated by no more
 // than the session gap), the plan is frozen at what the engine would have said
-// then; later sets only report progress against it. Without this, every logged
-// set re-solved the day: calibrations were re-prescribed above the max just
-// demonstrated, targets ratcheted set-over-set, and half-finished movements
-// vanished as their muscles read "recovering".
+// then; later sets only report progress against it. Otherwise every logged set
+// would re-solve the day: calibrations re-prescribed above the max just
+// demonstrated, targets ratcheting set-over-set, and half-finished movements
+// vanishing as their muscles read "recovering".
 
 #[test]
 fn the_plan_remembers_what_you_did_earlier_today() {
@@ -874,8 +871,8 @@ fn the_plan_remembers_what_you_did_earlier_today() {
 #[test]
 fn the_card_reports_what_you_lifted_not_only_how_many_sets() {
     // "1 / 2 sets" answers how many, not what. Standing over the bar on set two
-    // the question is what set one was, and the only place that lived was the
-    // History tab — so the item carries its logged sets, oldest first.
+    // the question is what set one was, so the item carries its logged sets,
+    // oldest first.
     let mut h = vec![
         set(1, days_ago(2)),
         set(1, days_ago(4)),
@@ -1476,7 +1473,7 @@ fn recovery_is_graded_over_a_region_horizon() {
 #[test]
 fn low_readiness_reduces_the_day_target() {
     // Same history; a low-readiness day prescribes fewer sets, not just lighter
-    // ones (the recovery factor now reaches the day's set count). Dense history +
+    // ones (the recovery factor reaches the day's set count). Dense history +
     // 1 day/week keeps the target above its floor so the scaling is visible.
     let mut h = vec![];
     for d in 8..40 {
@@ -1561,9 +1558,7 @@ fn spike_over_a_baseline(spike_from: i64) -> Vec<SetRec> {
 #[test]
 fn auto_deload_when_volume_spikes() {
     // This week is far above the weeks that came before it — that, and only that,
-    // is a spike. (Before, *any* history concentrated in the last 7 days tripped
-    // this, because the average divided by eight weeks whether or not they existed:
-    // a beginner's every week read as a spike.)
+    // is a spike.
     let out = evaluate(
         &input(
             Mode::Balanced,
@@ -1741,11 +1736,9 @@ fn emphasis_biases_a_region() {
 
 #[test]
 fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
-    // The prod shape of this: the Office kettlebell (and the Home dumbbell) are
-    // listed as kit but have no weights registered, so the engine had nothing to
-    // snap to — and offered a "1 kg overhead press", the lightest thing in the
-    // room standing in for an unknown. There is no honest load here, so there is
-    // no prescription: the lift is dropped, and the athlete is told why (they can
+    // Kit listed at a location with no weights registered has nothing to snap to,
+    // and the lightest thing in the room must not stand in for an unknown. There
+    // is no honest load here, so there is no prescription: the lift is dropped, and the athlete is told why (they can
     // fix it by registering the weights) rather than left with a silent gap.
     let exs = vec![
         barbell_row(), // weighted, equipment 3 — present, but no weights registered
@@ -1788,10 +1781,8 @@ fn a_lift_with_no_registered_weights_is_left_out_and_said_so() {
 
 #[test]
 fn without_a_location_it_asks_rather_than_guesses() {
-    // No location → the engine doesn't know what's doable. The old spelling
-    // (`Option<BTreeSet>` consulted with `is_none_or`) made that mean "everything
-    // is doable", so a missing location silently switched the safety filter off.
-    // Absent kit now means absent kit: the verdict narrows to a question.
+    // No location → the engine doesn't know what's doable, which must not read as
+    // "everything is doable". The verdict narrows to a question.
     let inp = PacingInput {
         kit: None,
         ..input(Mode::Balanced, catalog(), vec![], None, None)
@@ -1813,10 +1804,8 @@ fn without_a_location_it_asks_rather_than_guesses() {
 
 // ---- loaded carries (weighted_hold) ----------------------------------------
 //
-// A carry is a weight *and* a time. The metric taxonomy had only `hold` (no load)
-// and `weighted_reps` (no clock), so all four carries in the catalog were filed as
-// weighted reps and the coach prescribed "Farmers walk (suitcase) — 5 reps at
-// 6 kg". Reps are not what a carry is measured in.
+// A carry is a weight *and* a time — neither `hold` (no load) nor `weighted_reps`
+// (no clock). "Farmers walk — 5 reps at 6 kg" is not a thing anyone does.
 
 /// A kettlebell carry: id 7, one implement, the gym's bells.
 fn waiter_walk() -> ExerciseInfo {
@@ -1995,11 +1984,9 @@ fn a_carry_with_no_registered_weights_is_not_prescribed() {
 
 #[test]
 fn a_first_session_does_not_shrink_the_day_target() {
-    // The estimator divided logged sets by a flat 8 weeks whether or not eight
-    // weeks of history existed. So a returning athlete's first session — 14 sets in
-    // one day — read as 1.75 sets/week, and the day's target *fell* from the
-    // cold-start 6 to the floor of 3: logging made the coach believe he trained
-    // less than logging nothing did. An estimate must not get worse as it learns.
+    // Dividing by a flat 8 weeks would read a returning athlete's first session —
+    // 14 sets in one day — as 1.75 sets/week, and the day's target would *fall*
+    // below the cold start. An estimate must not get worse as it learns.
     let cold = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
 
     // One honest session today: 14 sets across the catalog.
@@ -2271,8 +2258,8 @@ fn warmup_labels_name_distinct_groups() {
         // Work on chest and lats.
         catalog().remove(0), // Push-up (chest)
         r2_pullup(),
-        // Drill A warms chest only; drill B warms chest *and* lats — under the
-        // old rule B was included for lats but labelled chest, same as A.
+        // Drill A warms chest only; drill B warms chest *and* lats, and must be
+        // labelled for the lats it was picked for, not for chest like A.
         warmup_ex(100, "Chest opener", 10),
         ExerciseInfo {
             id: ExerciseId(101),
@@ -2320,8 +2307,8 @@ fn warmup_labels_name_distinct_groups() {
 }
 
 // R2-3b: the warm-up preps what the session actually loads, heaviest first —
-// including groups the work only hits as secondaries. Two of three slots on
-// obliques while dips/pull-ups/push-ups went in cold is the bug this pins.
+// including groups the work only hits as secondaries: dips, pull-ups and
+// push-ups must not go in cold while the drills loosen up the obliques.
 #[test]
 fn the_warmup_preps_the_sessions_heaviest_groups_first() {
     // Chest work is trusted (2 sets); quads work is a 1-set calibration. Chest
@@ -2397,9 +2384,8 @@ fn a_secondary_group_under_real_load_gets_warmed_too() {
 // The warm-up is sized to the session it precedes. A broad compound pushes five
 // groups past the warm-up threshold, but two committed work sets don't earn five
 // drills — the block keeps to the heaviest-loaded groups and leaves the tail to
-// general movement and ramp-ins. (With a gap-free drill catalog, an unbounded
-// block reached 11 drills before 9 working sets — a warm-up longer than the
-// session it warmed up for.)
+// general movement and ramp-ins. Unbounded, a gap-free drill catalog would build
+// a warm-up longer than the session it warms up for.
 #[test]
 fn a_short_session_earns_a_short_warmup() {
     let mut h = Vec::new();
@@ -2582,15 +2568,14 @@ fn the_banner_names_the_warmup_when_thats_next() {
     );
 }
 
-// R2-8: the card's headline muscle is a prime mover. Dips read "(Serratus)"
-// because the label chased the neediest group it touched at all; a coach names
-// what the movement *is*.
+// R2-8: the card's headline muscle is a prime mover, not the neediest group the
+// movement touches at all; a coach names what the movement *is*.
 #[test]
 fn an_items_label_is_a_prime_mover() {
     // Chest hammered via a chest-only movement (need ~0); lats untrained (max
     // need). The hybrid below trains chest as PRIMARY and lats only as
     // SECONDARY — it gets picked *for* the lats need, but its headline must
-    // still be the prime mover. The old label logic said "Lats".
+    // still be the prime mover, not "Lats".
     let mut h = Vec::new();
     for d in [1, 2, 3] {
         for _ in 0..2 {
@@ -2933,10 +2918,9 @@ fn strength_row(h: Vec<SetRec>) -> PacingInput {
 
 // R5-1: two real misses ease the ask down a rung to rebuild from. Meeting that
 // eased ask is the athlete doing exactly what was asked — it must *clear* the
-// streak. Judged against the ceiling instead, it read as miss number three and
-// tripped the re-measure, so "back off and rebuild" fed itself: every genuine
-// slump ended in calibration, and the rung it backed off to was never given the
-// chance to prove anything.
+// streak. Judged against the ceiling instead, it would read as miss number three
+// and trip the re-measure: every genuine slump would end in calibration, and the
+// rung it backed off to would never get the chance to prove anything.
 #[test]
 fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
     let h = vec![
@@ -2969,7 +2953,7 @@ fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
     );
 }
 
-// R5-2: a genuine shortfall against an eased ask still counts. The fix must not
+// R5-2: a genuine shortfall against an eased ask still counts. The ledger must not
 // buy its calm by going deaf — falling short of a *reduced* number is the
 // clearest evidence yet that the estimate is wrong.
 #[test]
@@ -3065,8 +3049,7 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
 }
 
 // The mirror: a day health can't answer for must not invent an easing that didn't
-// happen. An absent reading means full-effort — the same judgment the ledger made
-// before health could be asked at all.
+// happen. An absent reading means full-effort.
 #[test]
 fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
     let h = vec![

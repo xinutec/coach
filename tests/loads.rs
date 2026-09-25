@@ -63,8 +63,8 @@ fn a_single_disc_cannot_be_loaded_at_all() {
 
 #[test]
 fn you_cannot_load_more_plates_than_you_own() {
-    // One pair of 2.5s: 2.5-per-side is reachable, 5-per-side is not. The old model
-    // assumed unlimited plates and would cheerfully suggest a weight you can't build.
+    // One pair of 2.5s: 2.5-per-side is reachable, 5-per-side is not — never a
+    // weight you can't build.
     let loads = reachable_loads(20.0, &[plate(2.5, 2)], 1, None);
     assert_eq!(
         loads,

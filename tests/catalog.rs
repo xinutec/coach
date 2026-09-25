@@ -14,8 +14,8 @@ fn catalog() -> Vec<Value> {
 
 /// Every demo link must be a YouTube video the app can *play in the sheet* — the
 /// frontend embeds it rather than linking out, and it can only do that if it can
-/// pull a video id out of the URL. Two entries once read `youtube.be` (a typo for
-/// `youtu.be`, and a domain that isn't YouTube at all): a silently dead button.
+/// pull a video id out of the URL. A typo like `youtube.be` (not a YouTube domain
+/// at all) is a silently dead button.
 #[test]
 fn every_demo_url_is_an_embeddable_youtube_video() {
     let bad: Vec<String> = catalog()

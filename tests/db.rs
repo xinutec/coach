@@ -150,8 +150,8 @@ async fn every_exercise_detail_loads() {
             with_equipment += 1;
         }
     }
-    // The bug hit exactly the exercises that have equipment, so a run where none
-    // do would pass while proving nothing.
+    // The equipment join is the one that drifts, so a run where no exercise has
+    // equipment would pass while proving nothing.
     assert!(
         with_equipment >= 80,
         "only {with_equipment} exercises have equipment — the join isn't being exercised"
@@ -213,7 +213,7 @@ async fn every_read_path_agrees() {
 }
 
 /// Every other read path, executed once against the real schema. Cheap, and it
-/// closes the same class of bug for the queries that didn't happen to break.
+/// closes the same class of drift for every query.
 #[tokio::test]
 async fn every_read_path_runs() {
     let pool = &fresh("read").await;
