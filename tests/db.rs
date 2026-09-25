@@ -1,18 +1,12 @@
-//! The tests that run SQL against a **real MariaDB**, because nothing else did.
+//! The tests that run SQL against a **real MariaDB**.
 //!
 //! Every other test in this suite is pure: the engine, the ability model, the load
-//! maths. They are the reason the *thinking* is trustworthy, and they cannot catch
-//! a single thing that goes wrong between the code and the database. So one
-//! didn't: `EquipmentRow` grew a `loadable` field, one of the two SELECTs that
-//! build it was updated and the other wasn't, and because a `FromRow` struct binds
-//! its columns **by name at runtime**, it compiled, passed the whole suite, shipped
-//! — and 500'd in production on every exercise that has any equipment, which is 82
-//! of them. The bug was live in the gym.
-//!
-//! The fix at the time was to share the column list (`eq_cols!`). This is the
-//! other half: a test that actually executes the queries. The rule it enforces is
-//! blunt — *every read path runs against a migrated, seeded schema, and the whole
-//! catalog goes through the one that broke.*
+//! maths. They cannot catch a thing that goes wrong between the code and the
+//! database — and a `FromRow` struct binds its columns **by name at runtime**, so
+//! a SELECT that drifts from it compiles, passes every pure test, and 500s in
+//! production. The rule here is blunt: *every read path runs against a migrated,
+//! seeded schema, and the whole catalog goes through the joins most likely to
+//! drift.*
 //!
 //! Needs a database. `scripts/dev-db.sh` (127.0.0.1:3308) is the default; CI
 //! supplies one via `COACH_TEST_DATABASE_URL`. It fails loudly when there isn't
@@ -423,11 +417,9 @@ async fn a_cable_stack_carries_a_load() {
 
 /// A correction in the catalog must actually reach an already-seeded row.
 ///
-/// It didn't. The seed's hash gate watched `exercises.json` only, and its
-/// reconcile wrote back four flags — so fixing a broken `demo_url` in the catalog
-/// re-ran the seed and left the row exactly as broken, in a way that looked
-/// entirely applied from the outside. This corrupts a row the way prod was
-/// corrupted and asserts the next boot repairs it.
+/// A reconcile that skips a column the catalog owns re-runs the seed and leaves
+/// the row as it was, in a way that looks entirely applied from the outside. This
+/// corrupts a row and asserts the next boot repairs it.
 #[tokio::test]
 async fn a_catalog_correction_reaches_an_already_seeded_row() {
     let pool = fresh("reconcile").await;
@@ -436,8 +428,7 @@ async fn a_catalog_correction_reaches_an_already_seeded_row() {
     let before = before.expect("seeded exercise");
     let good_url = before.demo_url.clone().expect("catalog entry has a demo");
 
-    // Break the row, exactly as prod's rows were broken: a stale value the catalog
-    // has since corrected.
+    // Break the row: a stale value the catalog has since corrected.
     sqlx::query("UPDATE exercises SET demo_url = ?, cue = ? WHERE id = ?")
         .bind("https://youtube.be/wrong")
         .bind("stale cue")
@@ -489,6 +480,42 @@ async fn an_unchanged_catalog_short_circuits_the_seed() {
         Some("untouched-by-a-noop-seed"),
         "the seed ran even though the catalog is unchanged"
     );
+}
+
+/// A rendered still is a CC BY-SA derivative, so it carries its credit — from the
+/// catalog, like every other scalar the catalog owns, and so a corrected credit
+/// reaches a row that is already seeded. A photograph with none carries none.
+#[tokio::test]
+async fn a_rendered_still_carries_its_credit_and_a_photograph_none() {
+    let pool = fresh("credit").await;
+    let all = ex_repo::list(&pool, false).await.unwrap();
+    let id_of = |slug: &str| all.iter().find(|e| e.slug == slug).expect(slug).id;
+    let render = id_of("heel_toe_rocks");
+
+    // A stale credit, and a gate that has to look again, as a catalog edit forces.
+    sqlx::query("UPDATE exercises SET image_credit = NULL, image_credit_url = NULL WHERE id = ?")
+        .bind(render)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE catalog_state SET catalog_hash = 'stale' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    seed::run(&pool, &catalog_dir()).await.expect("re-seeding");
+
+    let credit = ex_repo::detail(&pool, render)
+        .await
+        .unwrap()
+        .unwrap()
+        .image_credit
+        .expect("the render's credit did not reach the row");
+    assert!(credit.text.contains("Z-Anatomy"), "{}", credit.text);
+    assert!(credit.text.contains("CC BY-SA"), "{}", credit.text);
+    assert_eq!(credit.url.as_deref(), Some("https://github.com/Z-Anatomy"));
+
+    let photo = ex_repo::detail(&pool, id_of("rdl")).await.unwrap().unwrap();
+    assert!(photo.image_credit.is_none());
 }
 
 async fn first_id(pool: &MySqlPool) -> i64 {

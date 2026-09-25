@@ -79,6 +79,15 @@ struct SeedImage {
     file: String,
     #[serde(rename = "type")]
     content_type: String,
+    /// What the picture's licence asks to be credited with, if anything.
+    #[serde(default)]
+    credit: Option<SeedCredit>,
+}
+
+#[derive(Deserialize)]
+struct SeedCredit {
+    text: String,
+    url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -312,6 +321,9 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let mut link_conn = pool.acquire().await?;
     for ex in &exercises {
         let position = ex.position.as_deref().map(|p| p.replace(' ', "_"));
+        let credit = ex.image.as_ref().and_then(|i| i.credit.as_ref());
+        let credit_text = credit.map(|c| c.text.as_str());
+        let credit_url = credit.and_then(|c| c.url.as_deref());
         let id = match existing.get(&ex.slug) {
             Some(&id) => {
                 // Write back every scalar the catalog owns. Same column list as the
@@ -320,7 +332,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                     "UPDATE exercises SET \
                        name = ?, variation = ?, pattern = ?, metric = ?, position = ?, \
                        unilateral = ?, skill = ?, warmup = ?, power = ?, difficulty = ?, implements = ?, \
-                       cue = ?, demo_url = ?, summary = ? \
+                       cue = ?, demo_url = ?, summary = ?, image_credit = ?, image_credit_url = ? \
                      WHERE id = ?",
                 )
                 .bind(&ex.name)
@@ -337,6 +349,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(&ex.cue)
                 .bind(&ex.demo_url)
                 .bind(&ex.summary)
+                .bind(credit_text)
+                .bind(credit_url)
                 .bind(id)
                 .execute(pool)
                 .await?;
@@ -346,8 +360,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             None => {
                 let res = sqlx::query(
                     "INSERT INTO exercises \
-                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, power, difficulty, implements, cue, demo_url, summary) \
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (slug, name, variation, pattern, metric, position, unilateral, skill, warmup, power, difficulty, implements, cue, demo_url, summary, image_credit, image_credit_url) \
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 )
                 .bind(&ex.slug)
                 .bind(&ex.name)
@@ -364,6 +378,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .bind(&ex.cue)
                 .bind(&ex.demo_url)
                 .bind(&ex.summary)
+                .bind(credit_text)
+                .bind(credit_url)
                 .execute(pool)
                 .await
                 .with_context(|| format!("inserting exercise {}", ex.slug))?;

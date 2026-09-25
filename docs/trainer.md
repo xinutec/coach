@@ -304,7 +304,8 @@ already exist — a field the catalog owns but the reconcile skips is a field th
 catalog only *appears* to own.
 
 What an exercise carries: `pattern`, `metric`, `unilateral`, `implements`,
-`difficulty`, `skill`, `warmup`, a cue, a demo video and an image.
+`difficulty`, `skill`, `warmup`, a cue, a demo video and an image (with the
+credit its licence asks for, where it asks for one).
 
 - **`metric`** is what the movement is measured in: `reps`, `weighted_reps`, `hold`,
   `weighted_hold` (a loaded carry — weight *and* time, since neither alone

@@ -6324,7 +6324,11 @@
     "equipment": [],
     "image": {
       "file": "heel_toe_rocks.png",
-      "type": "image/png"
+      "type": "image/png",
+      "credit": {
+        "text": "Anatomy from Z-Anatomy (based on BodyParts3D), CC BY-SA 4.0",
+        "url": "https://github.com/Z-Anatomy"
+      }
     }
   },
   {

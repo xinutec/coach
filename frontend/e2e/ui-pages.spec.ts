@@ -399,16 +399,27 @@ test("exercise sheet — the library detail renders clean @ phone", async ({
 	await expectNoHorizontalOverflow(page, testInfo, SHEET);
 });
 
-test("exercise sheet — a loop and its credit line render clean @ phone", async ({
+test("exercise sheet — a credited picture and loop render clean @ phone", async ({
 	page,
 }, testInfo) => {
 	await mockApi(page);
 	await page.route("**/api/exercises/6", (r) =>
-		r.fulfill({ json: { ...DETAIL, hasLoop: true } }),
+		r.fulfill({
+			json: {
+				...DETAIL,
+				hasImage: true,
+				hasLoop: true,
+				imageCredit: {
+					text: "Anatomy from Z-Anatomy (based on BodyParts3D), CC BY-SA 4.0",
+					url: "https://github.com/Z-Anatomy",
+				},
+			},
+		}),
 	);
 	await page.goto("/library");
 	await page.getByText("Ring dip").click();
-	await page.locator(".loop-credit").waitFor();
+	// One under the picture, one under the loop.
+	await expect(page.locator(".credit")).toHaveCount(2);
 	await expectNoTextOverlaps(page, testInfo, SHEET);
 	await expectNoHorizontalOverflow(page, testInfo, SHEET);
 });

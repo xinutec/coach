@@ -42,6 +42,7 @@ function detail(over: Partial<ExerciseDetail> = {}): ExerciseDetail {
 		difficulty: 3,
 		hasImage: true,
 		hasLoop: false,
+		imageCredit: null,
 		equipment: [],
 		muscles: [],
 		...over,
@@ -345,7 +346,7 @@ describe("what the sheet says about a movement", () => {
 	/** CC-BY-SA: a render derived from Z-Anatomy must say so wherever it shows. */
 	it("credits the anatomy the loop is rendered from", () => {
 		sheet(detail({ hasLoop: true }));
-		const credit = document.querySelector(".loop-credit");
+		const credit = document.querySelector(".credit");
 		expect(credit?.textContent).toContain("Z-Anatomy");
 		expect(credit?.textContent).toContain("CC BY-SA 4.0");
 		expect(credit?.querySelector("a")?.getAttribute("href")).toBe(
@@ -353,9 +354,33 @@ describe("what the sheet says about a movement", () => {
 		);
 	});
 
+	/** A rendered still owes the same credit as a loop; the catalog says which. */
+	it("credits the picture when the catalog gives it a credit", () => {
+		sheet(
+			detail({
+				imageCredit: { text: "Anatomy from Z-Anatomy, CC BY-SA 4.0", url: "https://github.com/Z-Anatomy" },
+			}),
+		);
+		const credit = document.querySelector(".credit");
+		expect(credit?.textContent).toContain("Anatomy from Z-Anatomy, CC BY-SA 4.0");
+		expect(credit?.querySelector("a")?.getAttribute("href")).toBe("https://github.com/Z-Anatomy");
+	});
+
+	it("credits a picture without a link as plain text", () => {
+		sheet(detail({ imageCredit: { text: "Photo: someone", url: null } }));
+		const credit = document.querySelector(".credit");
+		expect(credit?.textContent).toContain("Photo: someone");
+		expect(credit?.querySelector("a")).toBeNull();
+	});
+
+	it("credits no picture the catalog gives no credit", () => {
+		sheet(detail());
+		expect(document.querySelector(".credit")).toBeNull();
+	});
+
 	it("credits nothing when there is no loop", () => {
 		sheet(detail({ hasLoop: false }));
-		expect(document.querySelector(".loop-credit")).toBeNull();
+		expect(document.querySelector(".credit")).toBeNull();
 	});
 
 	it("points the picture at the exercise's own image", () => {

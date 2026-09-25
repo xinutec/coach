@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, e.unilateral as `unilateral!: bool`, e.is_active as `is_active!: bool`, e.cue, e.demo_url, e.summary, e.difficulty, EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64`, EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) AS `has_loop!: i64` FROM exercises e WHERE e.id = ?",
+  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, e.unilateral as `unilateral!: bool`, e.is_active as `is_active!: bool`, e.cue, e.demo_url, e.summary, e.difficulty, EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64`, EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) AS `has_loop!: i64`, e.image_credit, e.image_credit_url FROM exercises e WHERE e.id = ?",
   "describe": {
     "columns": [
       {
@@ -232,6 +232,38 @@
           "max_size": 1
         },
         "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "image_credit",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "collation": 45,
+          "max_size": 1020
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercises",
+            "name": "image_credit"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "image_credit_url",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "collation": 45,
+          "max_size": 2048
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercises",
+            "name": "image_credit_url"
+          }
+        }
       }
     ],
     "parameters": {
@@ -252,8 +284,10 @@
       true,
       true,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "88f1b7fe30345e64d9ed0c7ba3d4bacfc2492b6be7563a43e5801394b9334301"
+  "hash": "21e7a808d82667819722ffd886914ea5670a271e6e4d6e3f7cadd3de94639558"
 }

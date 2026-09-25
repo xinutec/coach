@@ -89,7 +89,8 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
                 EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) \
                   AS `has_image!: i64`, \
                 EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) \
-                  AS `has_loop!: i64` \
+                  AS `has_loop!: i64`, \
+                e.image_credit, e.image_credit_url \
          FROM exercises e WHERE e.id = ?",
         id
     )
@@ -126,7 +127,7 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
     .map(ExerciseMuscle::try_from)
     .collect::<Result<Vec<_>>>()?;
 
-    use super::types::{Metric, Pattern, Position};
+    use super::types::{ImageCredit, Metric, Pattern, Position};
     Ok(Some(ExerciseDetail {
         id: row.id,
         slug: row.slug,
@@ -149,6 +150,11 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         difficulty: row.difficulty.map(i32::from),
         has_image: row.has_image != 0,
         has_loop: row.has_loop != 0,
+        // A URL with no words has nothing to show, so it is no credit.
+        image_credit: row.image_credit.map(|text| ImageCredit {
+            text,
+            url: row.image_credit_url,
+        }),
         equipment,
         muscles,
     }))

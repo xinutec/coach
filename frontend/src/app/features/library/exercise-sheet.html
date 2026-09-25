@@ -57,6 +57,17 @@
       <span>No picture yet</span>
     </div>
   }
+  <!-- What the picture's licence asks to be credited with (a render derived
+       from Z-Anatomy is CC BY-SA). The catalog says which pictures owe one. -->
+  @if (d.hasImage && d.imageCredit; as credit) {
+    <p class="credit">
+      @if (credit.url) {
+        <a [href]="credit.url" target="_blank" rel="noopener">{{ credit.text }}</a>
+      } @else {
+        {{ credit.text }}
+      }
+    </p>
+  }
   <!-- The generated 3D loop sits BESIDE the photograph, never in place of it:
        the sourced pictures show what to do and took real work to gather, and a
        loop that comes out badly must not be able to cost us one. Muted and
@@ -73,7 +84,7 @@
     ></video>
     <!-- The loop is derived from Z-Anatomy, and CC BY-SA asks for the credit
          wherever the derived work is shown. -->
-    <p class="loop-credit">
+    <p class="credit">
       Anatomy from
       <a href="https://github.com/Z-Anatomy" target="_blank" rel="noopener">Z-Anatomy</a>
       (based on BodyParts3D),

@@ -410,7 +410,8 @@ on BodyParts3D / Anatomography (CC-BY-SA 2.1 JP). The male figure lives in the
 `Models-of-human-anatomy` repo; the atlas template in `The-blend`.
 
 CC-BY-SA requires the credit wherever a derived work is shown. The exercise sheet
-credits it in a line under every loop. ⚠ **Stills are not credited:**
-`heel_toe_rocks.png` is an écorché render and shows with no credit, because
-nothing in the catalog marks which pictures are renders. A new place that shows a
-render needs the credit too.
+credits it in a line under every loop, and under any picture whose catalog entry
+carries an `image.credit` (`text`, optional `url`). ⚠ **A rendered still gets its
+credit only from that field** — nothing detects a render — so a new render
+committed to `data/catalog/images/` needs one in `exercises.json`, as
+`heel_toe_rocks` has. A new place that shows a render needs the credit too.

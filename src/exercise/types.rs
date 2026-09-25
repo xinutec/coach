@@ -203,8 +203,20 @@ pub struct ExerciseDetail {
     pub difficulty: Option<i32>,
     pub has_image: bool,
     pub has_loop: bool,
+    /// Who the picture is owed to, when its licence asks to be credited.
+    pub image_credit: Option<ImageCredit>,
     pub equipment: Vec<Equipment>,
     pub muscles: Vec<ExerciseMuscle>,
+}
+
+/// The credit shown under a picture: the words, and where they point.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ImageCredit {
+    pub text: String,
+    pub url: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -226,6 +238,8 @@ pub(crate) struct ExerciseDetailRow {
     pub difficulty: Option<i8>,
     pub has_image: i64,
     pub has_loop: i64,
+    pub image_credit: Option<String>,
+    pub image_credit_url: Option<String>,
 }
 
 /// A muscle link on create/patch: which muscle, in what role.
