@@ -26,3 +26,8 @@ overrides:
   ws: ^8.21.0
   "@babel/core": ^7.29.6
   esbuild: ^0.28.2
+
+# The catalog names only versions a day old (dev-lint tables/deps.dhall);
+# strict, so a younger install fails instead of writing itself an exclusion.
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
