@@ -13,12 +13,8 @@ export type Suggestion = { exerciseId: ExerciseId, exerciseName: string, pattern
  */
 kind: SuggestionKind, sets: number, 
 /**
- * The sets of this item already logged **today**, oldest first — what the
- * athlete has actually put in against the plan's commitment.
- *
- * Day-scoped, not session-scoped: the session gap elapses hours before the
- * day does, and the plan forgetting your morning is not something you should
- * have to work around.
+ * This item's sets logged **today**, oldest first; scoped to the day, not the
+ * session, so the plan never forgets your morning.
  */
 logged: Array<DoneSet>, 
 /**
@@ -31,13 +27,9 @@ ask: Ask,
  */
 group: string, 
 /**
- * When set, the ideal exercise for this group genuinely isn't doable here, so
- * an equivalent was swapped in: the ideal's name, and what it would take to do
- * it instead. A swap the athlete can act on ("buy a cable machine", "register
- * your kettlebell weights") rather than an unexplained substitution.
- *
- * Only set when the ideal is *actually* blocked, not merely when the cover
- * picked something else, which is the normal case.
+ * Set only when the group's ideal exercise is actually blocked here: its name and
+ * what would unblock it ("register your kettlebell weights"), so the swap is
+ * actionable.
  */
 substitutedFor: Substitution | null, 
 /**

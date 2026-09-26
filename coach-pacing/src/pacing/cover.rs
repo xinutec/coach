@@ -1,31 +1,18 @@
-//! Session selection as **weighted set cover** — the algorithmic core of the plan.
+//! Session selection as **weighted set cover**. One set of one exercise credits many
+//! muscle groups at once (primary 1.0, secondary 0.5, stabilizer 0.25), so today's need
+//! is a vector over the groups, a set is a vector paying part of it down, and the day's
+//! budget bounds the count. Coverage is monotone submodular: greedy marginal gain is
+//! deterministic and (1 − 1/e)-optimal.
 //!
-//! The domain truth: *one set of one exercise credits many muscle groups at once*
-//! (primary 1.0, secondary 0.5, stabilizer 0.25 — the muscle model). Asking each
-//! in-deficit group "which exercise fills you?" would emit dips once for Chest
-//! and again for Triceps.
+//! What falls out:
 //!
-//! Selection is therefore a **coverage problem**: today's need is a vector over the
-//! group space, one set of an exercise is a vector that pays part of it down, and
-//! the day's set budget is a cardinality constraint. Maximising coverage under
-//! that constraint is monotone submodular, so greedy marginal gain — repeatedly
-//! take the set that pays down the most *remaining* need — is the standard
-//! (1 − 1/e)-of-optimal algorithm, and it is deterministic.
+//! - **No duplicates:** the accumulator is keyed by exercise, so "dips ×2" is one item.
+//! - **Earned set counts:** [`ByGroup::saturating_sub`] clamps need at zero, so a
+//!   second set is worth less once the first paid its groups down.
+//! - **Balance:** greedy's bound applies to the session the athlete gets.
 //!
-//! Three things stop being special cases and simply fall out:
-//!
-//! - **Duplicates are unrepresentable.** The accumulator is keyed by exercise, so
-//!   "dips ×2" is one item with a count.
-//! - **Set counts are earned, not apportioned.** A second set of dips is worth
-//!   less than a first row once the first already paid down chest and triceps,
-//!   because [`ByGroup::saturating_sub`] clamps the need at zero. Diminishing
-//!   returns is the clamp, not a rule.
-//! - **Balance is a guarantee, not a hope.** Greedy's bound applies to the session
-//!   the athlete actually gets.
-//!
-//! The vector is indexed by [`GroupIx`] — a dense index into the group space, not
-//! a muscle-group *id* — so a group index and an exercise id cannot be confused,
-//! and a dot product is a flat array walk.
+//! [`GroupIx`] is a dense index into the group list, not a group id, so the two cannot
+//! be confused.
 
 use crate::prelude::*;
 
@@ -66,15 +53,9 @@ impl<T: Copy> ByGroup<T> {
     }
 }
 
-// The two impls below are the *only* places this crate indexes a slice, and the
-// only places it can panic on a bad index. `Index` has to return `&T`, so there
-// is no total version of it to write — the alternative is not a safer operator
-// but no operator, pushing an `unwrap` on to every one of the ~30 call sites.
-//
-// So the bound is discharged here instead: a `GroupIx` is only ever minted by
-// `ByGroup::iter` or from `enumerate()` over the very group list these vectors
-// are sized from, so `i.0 < len` holds for every value that can reach this code.
-// That is a fact about provenance, which the lint cannot see and a reviewer can.
+// The only slice indexing in this crate. `Index` must return `&T`, so it has no total
+// form; the bound holds by provenance instead: a `GroupIx` is only minted by
+// `ByGroup::iter` or by enumerating the group list these vectors are sized from.
 impl<T> core::ops::Index<GroupIx> for ByGroup<T> {
     type Output = T;
     #[allow(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
@@ -124,13 +105,10 @@ pub struct Candidate {
     pub credit: ByGroup<f64>,
     /// Style preference: mode fit + novelty. Scales rank; never qualifies.
     pub weight: f64,
-    /// A one-time **need** — in the same effective-set units as coverage — to bring
-    /// a movement the athlete has *started but not yet confirmed* up to a trusted
-    /// baseline. Added to the exercise's pay only on the set that *enters* it into
-    /// the session, so it opens the gate (a just-trained group has ~0 coverage need,
-    /// yet the movement is still worth repeating until its estimate is solid) without
-    /// inflating later sets. Zero for a movement that is either never-done (there's
-    /// nothing to confirm — that's novelty, covered by `credit`) or already trusted.
+    /// A one-time need, in effective sets, to bring a started but unconfirmed movement
+    /// to a trusted baseline. Counted only on the set that enters it into the session,
+    /// so it opens the gate for a just-trained group without inflating later sets. Zero
+    /// for never-done movements (novelty, priced by `credit`) and trusted ones.
     pub confirm: f64,
     /// Never trained — a brand-new movement, subject to the per-session novelty cap
     /// so a calibration day introduces a few movements to learn, not a scattershot
@@ -146,30 +124,18 @@ pub struct Candidate {
     pub cap: i32,
 }
 
-/// The least *genuine need* — in effective sets — a set must pay down to earn a
-/// place in the session. Below half an effective set, the group is essentially at
-/// target and the stimulus isn't worth the slot; the coach would rather hand back
-/// a short session than pad it with work the athlete doesn't need.
-///
-/// Deliberately gated on the **pay**, not on `pay × weight`: style (mode fit,
-/// novelty) may *rank* candidates, but it must never *qualify* one. Otherwise a
-/// merely fashionable exercise clears the bar on a group that's already done.
-/// [`Candidate::confirm`] is counted into the pay here on purpose — knowing what
-/// you can do on a movement you've started *is* a need, not a style, so it may
-/// qualify a pick the same way coverage does.
+/// The least genuine need, in effective sets, a set must pay down to earn a place;
+/// below half a set, a short session beats padding. Gated on the **pay**, not `pay ×
+/// weight`: style may rank candidates but never qualify one. [`Candidate::confirm`]
+/// counts, since firming up a started movement is a need.
 pub const MIN_PAY: f64 = 0.5;
 
 /// Float ties within this are treated as equal, so the id tie-break (not
 /// accumulated rounding) decides — the verdict must be byte-identical run to run.
 const EPS: f64 = 1e-9;
 
-/// What the cover needs to know about something it can pick.
-///
-/// Selection is pure scoring over [`Candidate`], but a caller nearly always knows
-/// more about each option than the scorer cares about — which exercise it came
-/// from, how it will be dosed. Ranking the caller's *own* type and handing it back
-/// means there is no second vector to keep in step with this one, and no index
-/// travelling between them.
+/// What the cover needs to know about something it can pick. The cover ranks the
+/// caller's own type and hands it back, so no second vector or index travels beside it.
 pub trait Ranked {
     fn candidate(&self) -> &Candidate;
 }
@@ -202,21 +168,12 @@ pub struct Chosen<'a, T> {
     index: usize,
 }
 
-/// Greedily fill `budget` sets from `cands`, each time taking the set that pays
-/// down the most *remaining* need. Returns one [`Chosen`] per exercise, in the
-/// order they were first picked. Stops early when nothing left clears
-/// [`MIN_PAY`].
-///
-/// Two needs qualify a pick, both in effective-set units: **coverage** (this set's
-/// dot with the remaining group need) and, only on the set that first enters an
-/// exercise, its **confirmation** need ([`Candidate::confirm`]) — the value of
-/// turning a started-but-unproven movement into a trusted baseline. Coverage is
-/// what gets *paid down* (subtracted from `need`); confirmation just opens the door
-/// and is spent once. `novelty_cap` bounds how many never-done movements a single
-/// session introduces, so a calibration day is a few movements learned properly,
-/// not a scattershot of one-off sets.
-///
-/// Deterministic: ties break to the lower exercise id.
+/// Greedily fill `budget` sets from `cands`, each time taking the set that pays down
+/// the most remaining need; one [`Chosen`] per exercise, in first-picked order. Stops
+/// when nothing clears [`MIN_PAY`]. A pick qualifies on **coverage** (paid down from
+/// `need`) or, on the set that enters it, on its one-time **confirmation** need.
+/// `novelty_cap` bounds never-done movements per session. Ties break to the lower
+/// exercise id.
 pub fn select<'a, T: Ranked>(
     cands: &'a [T],
     need: &ByGroup<f64>,
@@ -235,12 +192,8 @@ pub fn select<'a, T: Ranked>(
     // Movement families already in the session — each admits one entry (R3-3).
     let mut families: alloc::collections::BTreeSet<&str> = alloc::collections::BTreeSet::new();
 
-    // Every round commits at least one set, so the budget bounds the rounds.
-    // Saying that as the loop's own range makes termination structural — bounded
-    // by a number fixed before the first iteration. The equivalent `while left >
-    // 0` terminated only because `Candidate::min` happens to be >= 1: a candidate
-    // offering a zero-set dose would have left `left` unchanged and spun forever,
-    // and nothing in the types said otherwise.
+    // The budget bounds the rounds, since every round commits at least one set; as the
+    // loop's range, termination doesn't rest on `Candidate::min` being at least 1.
     for _ in 0..budget.max(0) {
         if left == 0 {
             break;

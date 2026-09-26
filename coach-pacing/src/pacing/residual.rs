@@ -1,24 +1,14 @@
-//! The prediction-error ledger: how well the engine's estimate has been describing
-//! the athlete lately.
+//! The prediction-error ledger: how well the estimate has been describing the athlete
+//! lately. Every prescription is a prediction, and ability is a max, so on its own a
+//! bad session pulls nothing down.
 //!
-//! Every prescription is a **prediction** — "you can do 8 × 40 kg" — and ability is a
-//! *max* over decayed sets, so on its own a session that went badly pulls nothing down,
-//! and the athlete keeps being handed a number the sets have already contradicted.
+//! The ledger is **recomputed from history**, keeping the engine stateless: for each
+//! training day, what the estimate was *before* it (the same [`ability::estimate`] over
+//! earlier sets) against what the day produced. One miss holds the load, two in a row
+//! step down a rung, and persistent misses re-open the measurement.
 //!
-//! Nothing is stored to answer that. The residual is **recomputable from history alone**,
-//! keeping the engine stateless: for each training day, ask what the estimate was
-//! *before* it (the same [`ability::estimate`], over the strictly-earlier sets) and
-//! compare against what the day produced.
-//!
-//! - **A miss is answered.** One → hold the load. Two in a row → step *down* the
-//!   owned-weights ladder and rebuild.
-//! - **Persistent misses re-open the measurement.** An estimate that keeps being wrong
-//!   is a wrong estimate rather than a bad day, so the exercise goes back to being
-//!   measured — the rule everywhere in this engine: when it doesn't know, it measures.
-//!
-//! ⚠ It compares **sessions, not sets**. A session's third set is expected to be worse
-//! than its first, which is fatigue and not a miss, so a day is judged on its best set —
-//! what the estimate is a claim about.
+//! ⚠ It compares **sessions, not sets**: a day is judged on its best set, since a third
+//! set's fatigue is not a miss.
 
 use crate::num::{count, whole};
 use crate::prelude::*;
@@ -46,12 +36,9 @@ const MISS_MARGIN: f64 = 0.05;
 const BEAT_MARGIN: f64 = 0.05;
 /// Consecutive misses before the load steps down instead of holding.
 pub const BACK_OFF_AFTER: i32 = 2;
-/// Quiet sessions (nothing beaten) between attempts at more. Asking best+1 is a
-/// **probe**, and a probe is earned: by a session that actually beat the
-/// estimate, or periodically after this much consolidation. Without the cadence
-/// the coach would re-ask the same failing +1 every session: the estimate never
-/// moves when the athlete matches their best while failing the ask (ability is
-/// a max). (R4-1.)
+/// Quiet sessions (nothing beaten) between attempts at more. A probe (best+1) is earned
+/// by a beat or by this much consolidation; without the cadence a failing +1 would be
+/// re-asked every session (R4-1).
 pub const PROBE_EVERY: i32 = 3;
 /// How far back a plateau looks, and the least evidence it needs. A month of
 /// sessions with nothing beaten is a movement that has stopped producing
@@ -63,19 +50,11 @@ const PLATEAU_MIN_SESSIONS: usize = 4;
 /// wrong estimate is not a run of bad luck, and grinding an athlete against it is
 /// how you dig a hole.
 pub const REMEASURE_AFTER: i32 = 3;
-/// How little of the asked work makes a session a [`Outcome::Rout`] rather than an
-/// ordinary miss — measured as *volume* (load × reps, seconds, reps), which is
-/// linear and so actually discriminates. An Epley ratio does not: one rep at a
-/// weight versus ten of it is a 22 % difference in implied 1RM but a 90 % one in
-/// what the athlete managed, and it is the second number a coach reacts to.
-///
-/// A third, and the number has two real constraints either side of it. Below: the
-/// case this exists for is a novice handed someone else's history — asked for ten
-/// reps of a weight and managing one, about a tenth of the work. Above: dropping
-/// from 40 kg × 5 to 30 kg × 5 against a ten-rep ask is a little over *four* tenths,
-/// and that has to stay an ordinary miss, because it is exactly the shape the
-/// hold → back-off → re-measure ladder was built to walk. A third sits between them
-/// with room on both sides, which is as precise as this wants to be.
+/// Below this share of the asked work a session is a [`Outcome::Rout`], not an ordinary
+/// miss. Measured as volume, which discriminates: one rep of ten is a 22 % shortfall in
+/// implied 1RM but 90 % in work done. A third sits between one rep of ten (a rout) and
+/// 40 kg × 5 → 30 kg × 5 against a ten-rep ask (an ordinary miss the back-off ladder
+/// should walk).
 const ROUT_FRACTION: f64 = 0.3;
 
 /// How the athlete's session compared with what the engine believed beforehand.
@@ -87,7 +66,7 @@ pub enum Outcome {
     Met,
     /// Came in under the estimate.
     Missed,
-    /// Came in *far* under it — less than [`ROUT_FRACTION`] of the work asked for.
+    /// Came in *far* under it — less than `ROUT_FRACTION` of the work asked for.
     /// A miss with a magnitude, and a different kind of evidence: missing ten reps
     /// by one is a bad day, managing one of them is a wrong number, and the athlete
     /// has already supplied the correction. Escalates on its own rather than
@@ -113,13 +92,9 @@ pub struct Residual {
 }
 
 impl Residual {
-    /// The estimate has been wrong often enough — or wrong *badly* enough once —
-    /// that it should be re-measured rather than prescribed from.
-    ///
-    /// A count alone is blind to magnitude: a session at a tenth of the ask and a
-    /// session one rep short would be the same event, and an athlete who has
-    /// genuinely lost strength would be asked for a weight they can lift *once*,
-    /// three sessions running. A rout is its own evidence.
+    /// The estimate has been wrong often enough, or badly enough once, to be
+    /// re-measured rather than prescribed from: a count alone would treat a rout like a
+    /// rep short, three sessions running.
     pub fn wants_remeasure(&self) -> bool {
         self.consecutive_misses >= REMEASURE_AFTER
             || matches!(self.outcomes.last(), Some((_, Outcome::Rout)))
@@ -165,16 +140,10 @@ impl Residual {
     }
 }
 
-/// The ledger for every exercise in `history`.
-///
-/// Takes no `now`: every session is judged at *its own* moment, against what was
-/// known *then*. The ledger is a fact about the past and does not change with the
-/// clock — which is also what makes it cheap to recompute on every verdict.
-/// `loads` is the weights each exercise can be built with here — the same map the
-/// engine plans against. The ledger needs it because the ask it reconstructs is a
-/// weight off the rack ([`dose::weighted_ask`]), and a rung it cannot name is a
-/// rung it cannot judge against. An exercise absent from the map simply never
-/// grows a [`Rung`].
+/// The ledger for every exercise in `history`. It takes no `now`: each session is
+/// judged against what was known then, so it is cheap to recompute. `loads` is the rack
+/// the engine plans against, needed to name the rung an ask was set on; an exercise
+/// absent from it never grows a [`Rung`].
 pub fn residuals(
     history: &[SetRec],
     mode: Mode,
@@ -263,19 +232,10 @@ fn ledger(
     led
 }
 
-/// Where the coach stands on this lift after the session it just judged.
-///
-/// The rung *moved* (or didn't) inside [`dose::weighted_ask`] when the ask was
-/// written; this only records where that left things. The standing position is
-/// the **ask itself** — that is what "the weight the coach sent you to" means —
-/// and the athlete can push it further only by doing more at that weight.
-///
-/// The baseline deliberately does not fall when a session comes in short. If it
-/// followed the athlete down, every shortfall would become the next target, a
-/// decline would register one miss and read as compliance ever after, and
-/// `two misses → back off` / `three → re-measure` would be unreachable (R6-1).
-/// Holding it means a short session is re-asked once (the hold), and a second one
-/// steps the rung down.
+/// Where the coach stands on this lift after the session just judged: the rung is the
+/// **ask itself**, and the athlete moves it only by doing more at that weight. It never
+/// follows a short session down, or every shortfall would become the next target and
+/// the miss ladder could never escalate (R6-1).
 fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode) -> Option<Rung> {
     let range = rep_range(mode, true);
     // What the athlete did *at the weight they were sent to*. Work at some other
@@ -293,31 +253,16 @@ fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode)
     })
 }
 
-/// How the session compared with **what the engine asked that morning** — not with
-/// the athlete's ceiling.
+/// How the session compared with **what the engine asked that morning**, not with the
+/// athlete's ceiling. The engine deliberately asks for less while holding, backing off
+/// or on an under-recovered day; judged against the ceiling, compliance would read as
+/// failure and the back-off would feed itself.
 ///
-/// That distinction is the whole point of this function. The engine does not always
-/// ask for everything the estimate supports: whenever the miss-response is holding
-/// or backing off, it deliberately asks for *less* ([`dose::reserve`]). Judged
-/// against the ceiling, full compliance would score as failure, and the back-off
-/// would feed itself: the eased session reads as the next miss and a good
-/// estimate is sent back to calibration. So the ask is reconstructed here from
-/// the same numbers `prescribe` used, and the question the ledger answers is
-/// "did you do what I asked?".
-///
-/// The rack never has to be reconstructed: the athlete's set records the load they
-/// actually used, so the ask is recomputed *at that load*. Which also means an
-/// improvised weight is judged honestly rather than as a miss.
-///
-/// `None` when the session says nothing about the ask (no shared metric) — it is
-/// not evidence either way, and must not be recorded as a miss, which would have
-/// the engine back off from silence.
-///
-/// `recovered` is the other half of the ask: a low-readiness morning eases it too,
-/// and that fact lives in health-sync rather than in the set history, so it is
-/// reconstructed by asking health what it knew that day
-/// ([`PacingInput::readiness_history`]). A day health can't answer for is judged
-/// full-effort — a missing signal must never invent an easing that didn't happen.
+/// The ask is recomputed from the same numbers `prescribe` used, at the load actually
+/// logged, so an improvised weight is judged honestly. `recovered` comes from what
+/// health knew that morning ([`PacingInput::readiness_history`]); a day it can't answer
+/// for is full-effort. `None` when the session says nothing about the ask: silence is
+/// not a miss.
 fn judge(
     predicted: &Ability,
     today: &[&SetRec],
@@ -480,13 +425,9 @@ fn reps_band(done: i32, asked: i32) -> Outcome {
     }
 }
 
-/// An outcome, with the size of the shortfall taken into account.
-///
-/// `done` and `asked` are **volumes** in the metric's own units — load × reps for a
-/// lift, seconds for a hold, load × seconds for a carry — not the Epley figures the
-/// bands are computed from. That difference is the point: Epley compresses a rout
-/// into something that looks survivable (one rep of ten reads as a 22 % shortfall),
-/// and volume doesn't (it reads as 90 %).
+/// An outcome, sized by the shortfall. `done` and `asked` are volumes in the metric's
+/// units (load × reps, seconds, load × seconds), not Epley figures, which make a rout
+/// look survivable.
 fn sized(outcome: Outcome, done: f64, asked: f64) -> Outcome {
     match outcome {
         Outcome::Missed if asked > 0.0 && done < asked * ROUT_FRACTION => Outcome::Rout,

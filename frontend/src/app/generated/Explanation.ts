@@ -41,13 +41,8 @@ confidence: Confidence,
  */
 e1rm: number | null, 
 /**
- * The single logged set that set the estimate above — the max is one real
- * set, and this names it.
- *
- * Shown so a wrong number is correctable. Ability is a max, so one mistyped
- * set becomes a ceiling nothing later can lower, and the offending set is
- * usually weeks old — "the coach is asking for something absurd" is
- * otherwise an archaeology problem with no way in.
+ * The logged set the estimate comes from, shown so a wrong number is correctable:
+ * one mistyped set becomes a ceiling, usually weeks old.
  */
 estimateFrom: EstimateSource | null, 
 /**

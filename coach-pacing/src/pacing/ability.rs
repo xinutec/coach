@@ -1,31 +1,16 @@
-//! The ability model: a pure estimate of what the athlete can do *today* per
-//! exercise, derived from logged set history. This is the foundation the
-//! prescription derives from (see `engine`), rather than "bump the last set",
-//! which is blind to how old that set is and how hard it went.
+//! The ability model: what the athlete can do *today* per exercise, as a pure function
+//! of logged sets and `now`.
 //!
-//! Every number is derivable from history by a pure function; no clock is read
-//! (the caller passes `now`), so it's fully unit-testable and back-testable.
+//! - **RPE-aware e1RM:** `reps` at `load` with `rir` in reserve is worth `load × (1 +
+//!   (reps + rir)/30)` (Epley, extended for reserve); no RPE means `rir = 0`.
+//! - **Per-set staleness decay, then max:** each set decays by its own age (full trust
+//!   for two weeks, then down to a floor), so ability never rises with idleness, yet an
+//!   old PR is not forgotten.
+//! - **A ceiling from recent work** (`CAP_MULTIPLE` × the best of the last
+//!   `CAP_SESSIONS`): a max alone can never register a decline. The cap only lowers,
+//!   so both guarantees above survive it.
 //!
-//! Three ideas do the work:
-//!   * **RPE-aware e1RM** — a set of `reps` at `load` with `rir` reps in reserve
-//!     is worth an estimated 1-rep-max of `load × (1 + (reps + rir)/30)` (Epley,
-//!     extended for reserve). Missing RPE → `rir = 0` (the set at face value).
-//!   * **Per-set staleness decay** — each set's estimate is scaled down by *its
-//!     own* age (full trust for two weeks, then the detraining slope to a
-//!     floor), and the exercise's ability is the **max of these decayed
-//!     estimates**. Decaying per set, then maxing, makes ability provably
-//!     monotone under idleness (more time off never *raises* it) while still
-//!     trusting a genuine old PR down to the floor rather than forgetting it.
-//!   * **A ceiling from recent work** — the max is then held under a multiple of
-//!     the best of the last few sessions (`CAP_MULTIPLE`, `CAP_SESSIONS`). A max
-//!     can only ever be argued *upwards*, so without this a decline — injury,
-//!     illness, a worse year — is unrepresentable: the honest low measurement
-//!     comes back and is discarded by the same max that protects the old PR. The
-//!     cap only ever lowers, so both guarantees above survive it.
-//!
-//! Confidence is separate from the estimate: it counts *recent* sessions, and
-//! decides whether the engine prescribes from the estimate or asks for a fresh
-//! assessment.
+//! Confidence counts *recent* sessions and decides between prescribing and measuring.
 
 use crate::num::{count, whole};
 use crate::prelude::*;
@@ -51,13 +36,10 @@ const DECAY_FLOOR: f64 = 0.60;
 /// A set left of this window no longer counts toward *confidence* (it still
 /// contributes a decayed estimate — see the module note).
 const CONFIDENCE_WEEKS: i64 = 6;
-/// A break in an exercise's history longer than this splits it into a new
-/// training block. **Only the most-recent block estimates ability** — so after a
-/// real interruption (a long layoff, a health setback), your current level is
-/// read from your *return*, not from a pre-break PR that no longer describes you.
-/// Continuous training leaves everything in one block. Set
-/// beyond normal rotation/rest so an ordinary week off never resets you, but well
-/// under the detraining timescale so a genuine break does.
+/// A gap longer than this splits an exercise's history into blocks, and only the latest
+/// block estimates ability: after a real break the level is read from the return, not
+/// from a pre-break PR. Longer than an ordinary week off, shorter than the detraining
+/// timescale.
 const BLOCK_GAP_WEEKS: i64 = 8;
 /// Recent sessions (distinct days) needed for `High` / `Medium` confidence.
 /// `pub` so the engine's confirmation-need can measure "sessions still owed before
@@ -65,40 +47,20 @@ const BLOCK_GAP_WEEKS: i64 = 8;
 /// drift.
 pub const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
-/// Ability may not exceed this multiple of what the athlete has actually shown
-/// across their last `CAP_SESSIONS` sessions.
+/// Ability may not exceed this multiple of what the athlete has shown in their last
+/// [`CAP_SESSIONS`] sessions.
 ///
-/// Ability is a **max**, which is what lets a real PR survive a quiet fortnight —
-/// and is also why, uncapped, a genuine decline is unrepresentable. An injury, an
-/// illness, or simply a worse year produces an honest low measurement, and the max
-/// discards it in favour of a number that no longer describes the athlete. Decay
-/// can't rescue that (it floors at `DECAY_FLOOR`, well above a real setback) and
-/// neither can the block reset (it needs a gap the athlete never takes, because
-/// they keep turning up). What's left is a closed loop: the coach prescribes what
-/// it wrongly believes, the athlete misses, the miss re-opens the measurement, the
-/// measurement comes back low, the max throws it away, and the next prescription
-/// is nearly as heavy again.
-///
-/// A ceiling drawn from recent work is the cheapest cut in that loop that is still
-/// a **pure function of set history** — it reads no clock beyond `now` and nothing
-/// about what the coach *asked*, so the residual ledger can go on replaying this
-/// estimator without the two ending up calling each other.
-///
-/// The multiple is headroom for the easing the coach itself prescribes: a
-/// low-readiness day asks two reps fewer (`dose::LOW_READINESS_EXTRA_RIR`), and a
-/// complying athlete then logs a set that understates them. Too tight and the
-/// coach follows its own easing downwards; too loose and a real decline never gets
-/// caught.
+/// Ability is a max, so on its own it discards an honest low measurement (injury,
+/// illness, a worse year), and neither decay nor the block reset can rescue that while
+/// the athlete keeps training. The ceiling is a pure function of set history, so the
+/// ledger can keep replaying this estimator. The multiple is headroom for the coach's
+/// own easing: too tight and the coach follows its easing down, too loose and a decline
+/// is never caught.
 const CAP_MULTIPLE: f64 = 1.15;
-/// Sessions the ceiling reads. Deliberately the same bar as [`HIGH_SESSIONS`]: the
-/// cap should bite exactly when the engine trusts the estimate enough to prescribe
-/// from it, and not before. Below that bar there isn't enough recent evidence to
-/// overrule a max, and the engine is measuring rather than prescribing anyway.
-///
-/// Reading several sessions rather than the latest one is what separates a decline
-/// from a bad day. Easing and off-days are intermittent, so a full-effort session
-/// usually survives somewhere in the window; a real decline is present in every
-/// one of them.
+/// Sessions the ceiling reads: the same bar as [`HIGH_SESSIONS`], so the cap bites
+/// exactly when the estimate is trusted enough to prescribe from. Several sessions, not
+/// the latest, separate a decline (present in every one) from a bad or eased day
+/// (intermittent).
 const CAP_SESSIONS: usize = HIGH_SESSIONS as usize;
 
 /// How much the engine trusts an exercise's estimate — the gate between
@@ -139,22 +101,10 @@ pub struct Ability {
     pub confidence: Confidence,
     /// Distinct recent days the exercise was trained (drives confidence).
     pub sessions_recent: i32,
-    /// The set that actually set this estimate — the max is one real set, and
-    /// this is it.
-    ///
-    /// Ability is a max, so a single wrong number lingers: it decays only to
-    /// `DECAY_FLOOR`, `BLOCK_GAP_WEEKS` never fires while training continues, and
-    /// an honest re-measurement is *lower* and loses. `CAP_MULTIPLE` bounds
-    /// how far it can hold out — but only once `CAP_SESSIONS` sessions have
-    /// accumulated to bound it with, and only to within that multiple. The
-    /// estimate is properly correctable only if the athlete can be shown which set
-    /// produced it — otherwise "the coach is asking for something absurd" is an
-    /// archaeology problem, and the offending set is usually weeks back, out of
-    /// reach of anything that only offers the latest one.
-    ///
-    /// When the ceiling binds, this names the *recent* set that set the ceiling:
-    /// that is the set the number now comes from, and the old high one has already
-    /// been overruled.
+    /// The one set this estimate comes from, shown so a wrong number can be corrected:
+    /// a mistyped max lingers for weeks, and the offending set is usually too old for
+    /// anything that only offers the latest one. When the ceiling binds, this is the
+    /// recent set that set it.
     pub source: Option<Source>,
 }
 
@@ -169,12 +119,9 @@ pub struct Source {
     pub hold_s: Option<i32>,
 }
 
-/// What a loaded carry demonstrated: this weight, for this long.
-///
-/// The two travel together on purpose. "12 kg" says nothing without the duration
-/// and "30 s" says nothing without the weight, so an `Option<f64>` apiece would
-/// let a caller read one and prescribe from it — which is how the carries ended up
-/// being prescribed in reps in the first place.
+/// What a loaded carry demonstrated: this weight, for this long. The two travel
+/// together because neither means anything alone; separate options would let a caller
+/// prescribe from one.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Carry {
     pub load: f64,
@@ -235,14 +182,9 @@ fn source_of(s: &SetRec) -> Source {
     }
 }
 
-/// The best decayed estimate in each metric over some window of an exercise's
-/// sets, and the set behind each one.
-///
-/// It is a type so that the recent **ceiling** is computed by the same code as the
-/// estimate it caps, differing only in which sets are fed to it. Two hand-written
-/// copies of "the best set in here" would be two chances to disagree about what
-/// *best* means, and a ceiling that measures something slightly different from the
-/// estimate it bounds is a permanent quiet bias rather than a visible bug.
+/// The best decayed estimate per metric over a window of sets, and the set behind each.
+/// A type, so the recent ceiling is computed by the same code as the estimate it caps,
+/// and the two cannot mean different things by "best".
 #[derive(Default)]
 struct Bests {
     e1rm: Option<f64>,
@@ -312,13 +254,9 @@ impl Bests {
     }
 }
 
-/// Hold an estimate under the recent ceiling, and hand back the set that explains
-/// whichever number survives.
-///
-/// The source moves with the number deliberately. `source` answers "which set
-/// produced this?", and once the ceiling binds, the old high set is no longer the
-/// answer — nor is it still worth correcting, since it has already been overruled
-/// by more recent work.
+/// Hold an estimate under the recent ceiling, and return the set that explains
+/// whichever number survives: once the ceiling binds, the old high set is no longer the
+/// answer.
 fn under_ceiling(
     est: Option<f64>,
     src: Option<Source>,
@@ -384,12 +322,9 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     let window_cut = now - Duration::weeks(CONFIDENCE_WEEKS);
     let block_gap = Duration::weeks(BLOCK_GAP_WEEKS);
 
-    // The most-recent contiguous training block: walk back from the newest set until
-    // a gap longer than `BLOCK_GAP_WEEKS`. Only this block estimates ability, so a
-    // pre-break PR can't raise the estimate — or a prescription — above what the
-    // return has actually shown. Continuous training is one block, and sets on the
-    // same day never split (they're one session, so the chimera guard still holds).
-    // Confidence still counts recent days across *all* sets.
+    // The latest training block: walk back until a gap longer than `BLOCK_GAP_WEEKS`,
+    // so a pre-break PR cannot raise the estimate. Same-day sets never split.
+    // Confidence still counts recent days across all sets.
     let mut sets: Vec<&SetRec> = sets.to_vec();
     sets.sort_by_key(|s| core::cmp::Reverse(s.logged_at)); // newest first
     let block_cut = {

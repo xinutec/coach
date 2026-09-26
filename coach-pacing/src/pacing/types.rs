@@ -84,12 +84,9 @@ pub struct PacingSettings {
     pub min_rest_min: i32,
 }
 
-/// The equipment present where the athlete is training.
-///
-/// Absent kit means absent kit. Not knowing where you are is a *different* state
-/// ([`PacingInput::kit`] = `None`) and yields a narrower verdict, no suggestions
-/// at all, never a wider one: an unknown location must not read as "everything
-/// is doable" and switch the safety filter off.
+/// The equipment present where the athlete is training. Absent kit means absent kit;
+/// not knowing the location is a different state ([`PacingInput::kit`] = `None`) that
+/// plans nothing, never a wider verdict.
 #[derive(Clone, Debug, Default)]
 pub struct Kit(pub alloc::collections::BTreeSet<EquipmentId>);
 
@@ -117,13 +114,10 @@ pub struct PacingInput {
     /// engine can't say what's doable and won't guess: the verdict carries no
     /// plan and asks for a location. Degradation narrows the claim, never widens it.
     pub kit: Option<Kit>,
-    /// The loads each exercise can actually be built with here. Keyed per
-    /// *exercise* rather than per piece of kit because what's buildable depends on
-    /// how many implements the movement needs: a pair of dumbbells splits a finite
-    /// disc budget between them, and a fixed weight you own one of can't serve a
-    /// two-dumbbell press. Absent or empty = not loadable here, so the lift isn't
-    /// selectable (see [`super::dose::Inventory`]) and the verdict says why rather
-    /// than inventing a number.
+    /// The loads each exercise can be built with here: per *exercise*, since a pair of
+    /// dumbbells splits the discs and a weight you own one of can't serve a
+    /// two-dumbbell press. Absent or empty means not loadable here, so not selectable
+    /// ([`super::dose::Inventory`]).
     pub exercise_loads: BTreeMap<ExerciseId, Vec<f64>>,
     /// Equipment id → its display name, so a blocked substitution can name the kit
     /// it's missing instead of saying "its kit isn't here" and leaving the athlete
@@ -135,22 +129,13 @@ pub struct PacingInput {
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
     pub readiness: Option<Readiness>,
-    /// The days each movement was *offered* — put on a card the athlete could
-    /// have done — keyed by exercise.
-    ///
-    /// Raw, like `readiness_history`: the engine owns the judgment about what
-    /// counts as neglect. This cannot be derived from `history`, which records
-    /// only what *did* happen; "offered twenty times, performed zero" is a fact
-    /// about cards, and no group-level statistic can see it (field-test R6-4).
+    /// The days each movement was *offered*, keyed by exercise. Raw, so the engine
+    /// judges neglect; `history` records only what happened, and "offered twenty times,
+    /// done zero" is a fact about cards (R6-4).
     pub offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
-    /// Readiness as it stood on each past training day, keyed by local date.
-    ///
-    /// The prediction-error ledger needs it. The coach asks for *less* on an
-    /// under-recovered morning, so judging that session as though it had been
-    /// full-effort records the athlete's compliance as a failure — which then holds
-    /// their progression back for having slept badly. A day that's absent (health
-    /// has no data, or is down) is judged full-effort, so a missing signal never
-    /// invents an easing that didn't happen.
+    /// Readiness on each past training day, for the ledger: an eased, under-recovered
+    /// session judged as full-effort would count compliance as failure. A missing day
+    /// is judged full-effort.
     pub readiness_history: BTreeMap<NaiveDate, Readiness>,
 }
 
@@ -259,20 +244,11 @@ pub enum SuggestionKind {
     Assess,
 }
 
-/// What the coach is asking for, in the terms the movement's metric allows.
-///
-/// This is the wire form of [`super::dose::Dose`] (a prescription) and
-/// [`super::dose::Measure`] (a calibration), which are one type here because a
-/// card shows one or the other and never both.
-///
-/// It carries `dose`'s guarantee across `Serialize`: independent `Option`
-/// fields would let every consumer (the engine's phrasing, the back-test, the
-/// simulator, the Today card) reconstruct the shape its own way, and the ledger
-/// disagreeing with the coach is this area's recurring failure (field-test
-/// R4-1, R5-1, R6-1).
-///
-/// Tagged, so the frontend gets a discriminated union and `@switch` is
-/// exhaustive over it rather than a chain of null tests.
+/// What the coach is asking for, in the terms the metric allows: the wire form of
+/// [`super::dose::Dose`] and [`super::dose::Measure`], one type since a card shows one
+/// or the other. It carries `dose`'s guarantee over the wire, so no consumer
+/// reconstructs the shape its own way (R4-1, R5-1, R6-1). Tagged, so the frontend
+/// switches over it exhaustively.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -469,13 +445,8 @@ pub struct Explanation {
     pub confidence: Confidence,
     /// Estimated 1-rep-max (kg) the load was derived from, when known.
     pub e1rm: Option<f64>,
-    /// The single logged set that set the estimate above — the max is one real
-    /// set, and this names it.
-    ///
-    /// Shown so a wrong number is correctable. Ability is a max, so one mistyped
-    /// set becomes a ceiling nothing later can lower, and the offending set is
-    /// usually weeks old — "the coach is asking for something absurd" is
-    /// otherwise an archaeology problem with no way in.
+    /// The logged set the estimate comes from, shown so a wrong number is correctable:
+    /// one mistyped set becomes a ceiling, usually weeks old.
     pub estimate_from: Option<EstimateSource>,
     /// Sessions in a row the athlete has come in under this estimate. Non-zero means
     /// the prescription was held back or stepped down on purpose, and the card can
@@ -511,17 +482,11 @@ pub struct Substitution {
     pub blocker: Blocker,
 }
 
-/// One set already logged against a plan item, as the row actually holds it.
-///
-/// Standing over the bar on set two, the question is what you did on set one,
-/// not just how many sets are in.
-///
-/// Deliberately **not** metric-shaped, unlike [`Ask`] and the validated
-/// [`crate::domain::LoggedSet`] the write path takes. It reports history, and
-/// history holds rows that do not fit their exercise's metric (chiefly the
-/// imported log, which predates the shape check). A sum type would have to drop
-/// or refuse those rows, and under-reporting what the athlete did is worse than
-/// reporting it oddly. Strictness belongs where a row is *created*.
+/// One set already logged against a plan item, as the row holds it: on set two, the
+/// question is what set one was. Deliberately not metric-shaped: history holds rows
+/// that don't fit their metric (mostly the imported log), and under-reporting them is
+/// worse than showing them oddly. Strictness belongs where a row is created
+/// ([`crate::domain::LoggedSet`]).
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
@@ -544,25 +509,17 @@ pub struct Suggestion {
     /// Work (prescribe) or Assess (measure). Drives the Today card's framing.
     pub kind: SuggestionKind,
     pub sets: i32,
-    /// The sets of this item already logged **today**, oldest first — what the
-    /// athlete has actually put in against the plan's commitment.
-    ///
-    /// Day-scoped, not session-scoped: the session gap elapses hours before the
-    /// day does, and the plan forgetting your morning is not something you should
-    /// have to work around.
+    /// This item's sets logged **today**, oldest first; scoped to the day, not the
+    /// session, so the plan never forgets your morning.
     pub logged: Vec<DoneSet>,
     /// What to actually do: the prescription, or the calibration that stands in
     /// for one when the estimate isn't trusted.
     pub ask: Ask,
     /// The muscle group this targets (for the reason text).
     pub group: String,
-    /// When set, the ideal exercise for this group genuinely isn't doable here, so
-    /// an equivalent was swapped in: the ideal's name, and what it would take to do
-    /// it instead. A swap the athlete can act on ("buy a cable machine", "register
-    /// your kettlebell weights") rather than an unexplained substitution.
-    ///
-    /// Only set when the ideal is *actually* blocked, not merely when the cover
-    /// picked something else, which is the normal case.
+    /// Set only when the group's ideal exercise is actually blocked here: its name and
+    /// what would unblock it ("register your kettlebell weights"), so the swap is
+    /// actionable.
     pub substituted_for: Option<Substitution>,
     /// Why this was chosen (deficit, recovery, ability, readiness). `None` for
     /// warm-up items, which are prep rather than a reasoned prescription.

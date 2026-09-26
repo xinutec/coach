@@ -1,25 +1,15 @@
-//! What to actually do for a chosen exercise — as types that make the wrong
-//! thing unsayable.
+//! What to do for a chosen exercise, as types that make the wrong thing unsayable. A
+//! tuple of optional fields admits dozens of shapes and a handful of legal ones; three
+//! types close the gap:
 //!
-//! A prescription as a tuple of optional fields has dozens of representable
-//! shapes and a handful of legal ones, and the bugs live in the gap: a weighted
-//! lift carrying no load, a load conjured for a lift never performed, the
-//! lightest dumbbell in the room standing in for an unknown. Three types close
-//! the gap:
-//!
-//! - [`Inventory`] — the weights you own here, **non-empty by construction**. So
-//!   [`Inventory::snap`] is total: it always returns a weight you actually own,
-//!   and there is no "unknown inventory" branch to invent 13.5 kg from. An
-//!   exercise needing load where no weights are registered isn't loadable, and
-//!   the engine simply doesn't select it (and says so) rather than guessing.
-//! - [`Dose`] / [`Measure`] — a sum type per metric, so a weighted lift *has* a
-//!   `load: f64` (not an `Option`), a bodyweight lift has no load field at all,
-//!   and a hold has seconds.
-//! - [`Known`] — an ability estimate the engine trusts. `prescribe` takes one *by
-//!   type*, and the only constructor checks confidence. "When I don't know what
-//!   you can do, I measure instead of guessing" is the safety principle that
-//!   keeps a returning athlete off their pre-illness numbers, enforced by the
-//!   compiler rather than by a code path that a later edit could bypass.
+//! - [`Inventory`]: the weights you own here, **non-empty by construction**, so
+//!   [`Inventory::snap`] always returns a weight you own. Kit with no registered
+//!   weights isn't loadable, and the engine leaves it out (and says so) rather than
+//!   guess.
+//! - [`Dose`] / [`Measure`]: a sum type per metric, so a weighted lift *has* a load and
+//!   a bodyweight lift has none.
+//! - [`Known`]: an estimate the engine trusts; `prescribe` takes one by type, so "when
+//!   I don't know, I measure" is enforced by the compiler.
 
 use crate::num::whole;
 use crate::prelude::*;
@@ -32,11 +22,8 @@ use crate::domain::Mode;
 
 // ---- what a dose looks like ------------------------------------------------
 //
-// These live here, next to `Dose`, because the ledger reads them too: it has to
-// know what the coach *asked* in order to judge whether the athlete did it (see
-// `residual::judge`). Two copies of these numbers would mean the coach asking
-// one thing and the ledger marking another — and the athlete taking the blame
-// for the difference.
+// Here, beside `Dose`, because the ledger reads them too (`residual::judge`): one copy,
+// so the coach and the ledger cannot disagree about what was asked.
 
 /// Reps in reserve the working load targets at the top of the rep range. `0` =
 /// prescribe to demonstrated capacity: a load whose top-of-range reps match your
@@ -55,13 +42,10 @@ pub const HOLD_STEP_S: i32 = 5;
 /// carry that has reached the ceiling is asking for more weight, not more walking.
 pub const CARRY_BASE_S: i32 = 30;
 pub const CARRY_TOP_S: i32 = 60;
-/// The same ladder for a carry measured in metres: climb the distance to the
-/// ceiling, then take the next weight and start the distance again. 10 m is the
-/// length he has always walked them, so it is where a fresh carry opens.
-///
-/// The ceiling is 20 m — three sessions per weight rung (10 → 15 → 20), the same
-/// rhythm as the timed carry's 30 → 60 s. A higher ceiling keeps the athlete
-/// walking a light bell for many sessions before the weight may move.
+/// The timed carry's ladder in metres: climb the distance to the ceiling, then take the
+/// next weight. It opens at 10 m, the distance these carries are walked; the 20 m
+/// ceiling gives three sessions per rung (10 → 15 → 20), like the timed carry's 30 → 60
+/// s.
 pub const CARRY_BASE_M: i32 = 10;
 pub const CARRY_TOP_M: i32 = 20;
 pub const DISTANCE_STEP_M: i32 = 5;
@@ -107,21 +91,13 @@ pub fn reps_at(e1rm: f64, load: f64, rir: f64) -> f64 {
     30.0 * (e1rm / load - 1.0) - rir
 }
 
-/// The weight the coach last sent the athlete to on a lift, and the reps
-/// demonstrated there.
+/// The weight the coach last sent the athlete to on a lift, and the reps shown there: a
+/// fact about the **coach's** history, kept with the ledger that replays it.
 ///
-/// This is a fact about the **coach's** history, not the athlete's, which is why
-/// it lives with the ledger that replays it rather than with the ability estimate.
-/// Deriving the working weight from `e1rm` each session cannot progress at all:
-/// top-of-range reps at load `L` produce exactly the e1RM that prescribes `L`, so
-/// the load is a fixed point of its own prescription (R6-1).
-/// Deriving it from the athlete's *latest* session escapes the fixed point but
-/// hands the rung to the athlete: the coach then follows a bad patch — or a
-/// lighter bell picked off the rack — straight down, and the miss ladder stops
-/// escalating because every shortfall becomes next session's target.
-///
-/// So the rung moves only when the coach moves it: up when the reps top the range
-/// and a probe is due, down when the ledger backs off. Everything else holds it.
+/// Deriving the weight from `e1rm` each session is a fixed point (top-of-range reps at
+/// `L` prescribe `L` again, R6-1); deriving it from the latest session follows every
+/// bad patch down. So the rung moves only when the coach moves it: up when the reps top
+/// the range and a probe is due, down when the ledger backs off.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rung {
     pub load: f64,
@@ -129,13 +105,9 @@ pub struct Rung {
     pub reps: i32,
 }
 
-/// The weighted ask: which weight, and how many reps of it.
-///
-/// One function, because both sides of the loop need the identical answer — the
-/// coach to write the card, the ledger to judge what came back. Two copies would
-/// have the coach asking one number and the ledger marking another, with the
-/// athlete taking the blame for the difference; the constants above already live
-/// here for exactly that reason, and the rule that reads them belongs with them.
+/// The weighted ask: which weight, and how many reps of it. One function, used by the
+/// coach to write the card and by the ledger to judge it, so the two cannot ask
+/// different numbers.
 pub fn weighted_ask(
     inv: &Inventory,
     e1rm: Option<f64>,
@@ -180,13 +152,10 @@ pub fn weighted_ask(
         return (lower, (r.reps - 1).clamp(1, range.high));
     }
     if r.reps >= range.high && probe {
-        // Topped the range here, and a probe is due — that is what "earned" means.
-        // The next rung is a floor on the step, not the whole of it: it guarantees
-        // movement (strictly heavier, so there is no fixed point to sit in), while
-        // an estimate that can see further is still believed. A set logged with
-        // reps in reserve demonstrates strength the rung ladder cannot read, and
-        // stepping 2.5 kg at a time would take months to reach a weight the sets
-        // already justify. Both candidates are weights the athlete owns.
+        // Topped the range and a probe is due. The next owned weight guarantees
+        // movement (no fixed point), but an estimate that justifies more is still
+        // believed: stepping one plate at a time would lag a set logged with reps in
+        // reserve.
         let stepped = inv.next_above(inv.snap(r.load));
         let load = match e1rm {
             Some(e) => stepped.max(inv.snap(load_for(e, f64::from(range.high), reserve(advance)))),
@@ -246,17 +215,10 @@ pub struct Inventory {
 }
 
 impl Inventory {
-    /// The weights you own, or `None` if you own none — in which case the
-    /// exercise is not loadable here and must not be prescribed.
-    ///
-    /// Non-positive and non-finite entries are dropped, not just empties
-    /// rejected: a `0.0` (or negative/NaN/inf) weight would make [`reps_at`]
-    /// divide by a non-positive load — `e1rm / 0.0 = +inf`, floored and cast to
-    /// a saturated rep count — so "do max reps at 0 kg" reaches the athlete with
-    /// no panic to flag it. Holding *positive-finite* in the type (not merely
-    /// non-empty) is what keeps the dose math total.
-    ///
-    /// [`reps_at`]: crate::pacing::engine
+    /// The weights you own, or `None` if none (the exercise is then not loadable here).
+    /// Non-positive and non-finite entries are dropped: a zero load would make the rep
+    /// maths divide by zero and prescribe "max reps at 0 kg". Positive-finite in the
+    /// type keeps the dose maths total.
     pub fn new(mut loads: Vec<f64>) -> Option<Self> {
         loads.retain(|w| w.is_finite() && *w > 0.0);
         loads.sort_by(f64::total_cmp);
@@ -387,23 +349,13 @@ pub enum Measure {
     LoadedDistance { start: f64 },
 }
 
-/// An ability estimate the engine **trusts enough to prescribe from**.
+/// An ability estimate the engine **trusts enough to prescribe from**. The only
+/// constructor is [`Known::of`], and prescription takes a `Known` by type, so no edit
+/// can derive a load for an exercise the engine doesn't know.
 ///
-/// The only way to obtain one is [`Known::of`]. Prescription functions take a
-/// `Known` by type, so it is not possible — today or after any future edit — to
-/// derive a working load for an exercise the engine doesn't actually know. That is
-/// the safety rule ("when unsure, measure") expressed as a type rather than as a
-/// convention.
-///
-/// Trust has two halves, and an estimate needs both:
-///
-/// - **Recent enough** — `High`/`Medium` confidence. An estimate built from stale
-///   sets, or from none, describes someone else.
-/// - **Not repeatedly wrong** — the athlete has not missed it several sessions
-///   running ([`Residual::wants_remeasure`]). An estimate the sets keep
-///   contradicting is not a run of bad luck; it is a wrong number, and prescribing
-///   from it grinds the athlete against a claim they have already disproved. So it
-///   goes back to being *measured*.
+/// Trust needs both halves: **recent** (`High`/`Medium` confidence; stale sets describe
+/// someone else) and **not repeatedly wrong** ([`Residual::wants_remeasure`]; an
+/// estimate the sets keep contradicting goes back to being measured).
 #[derive(Clone, Copy, Debug)]
 pub struct Known<'a>(&'a Ability);
 

@@ -1,21 +1,15 @@
-//! The dynamic coaching engine: a pure function from (history, mode, instant) to
-//! a verdict. No I/O, no clock — the caller passes `now` (user-local tz). It
-//! computes rolling muscle-group volume, grades each group's recovery, turns the
-//! two into a **need vector** over the muscle-group space, and then *covers* that
-//! need with the kit actually present: a greedy set-cover ([`super::cover`]) picks
-//! the day's sets one at a time, each time taking the one that pays down the most
-//! remaining need. No program, no weekly plan, no stored state.
+//! The coaching engine: a pure function from (history, mode, instant) to a verdict; the
+//! caller passes `now` in local time. It grades each muscle group's volume and recovery
+//! into a **need vector**, then *covers* it with the kit present: a greedy set-cover
+//! ([`super::cover`]) takes, one set at a time, whatever pays down the most remaining
+//! need. No program, no stored state.
 //!
-//! Two invariants are carried by types rather than by care:
+//! Types carry two invariants: an exercise appears in the plan once, with the sets it
+//! earned; and a load comes only from a measured ability ([`super::dose::Known`]),
+//! snapped to a weight the athlete owns ([`super::dose::Inventory`]).
 //!
-//! - an exercise appears in the plan **once**, with the set count it earned — the
-//!   cover accumulates by exercise, so a duplicate is unrepresentable;
-//! - a working load is only ever derived from an ability the engine has actually
-//!   measured ([`super::dose::Known`]) and only ever snapped to a weight the
-//!   athlete owns ([`super::dose::Inventory`], non-empty by construction).
-//!
-//! All coefficients below are labelled heuristics, tunable — targets are anchored
-//! to the user's own history to avoid false-precision absolute landmarks.
+//! The coefficients below are labelled, tunable heuristics; targets are anchored to the
+//! athlete's own history.
 
 use crate::num::{count, whole};
 use crate::prelude::*;
@@ -58,12 +52,9 @@ const WARMUP_HOLD_S: i32 = 20;
 /// calibration) or two sets' secondary assist. Below it, a group is touched, not
 /// loaded, and prepping it would spend slots the loaded groups need (R2-3).
 const WARMUP_MIN_LOAD: f64 = 1.0;
-/// One mobility drill per this many committed work sets — the warm-up scales
-/// with the session it precedes — bounded both ways: even a short session warms
-/// its top groups, and even a huge one keeps the block well short of the work.
-/// Otherwise every loaded group would claim a slot and the drills could outnumber
-/// the working sets; a coach triages — the heaviest areas get drills, the tail
-/// warms up through general movement and the ramp-ins.
+/// One mobility drill per this many committed work sets, bounded both ways (below): the
+/// warm-up scales with the session, the heaviest groups get drills, and the tail warms
+/// up through the ramp-ins.
 const WARMUP_SETS_PER_DRILL: i32 = 3;
 const WARMUP_MIN_DRILLS: i32 = 3;
 const WARMUP_MAX_DRILLS: i32 = 6;
@@ -88,14 +79,10 @@ const MAX_SETS_PER_EXERCISE: i32 = 4;
 /// training. This is what stops the cover pouring the whole day into one group.
 const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 
-/// One-time confirmation need (effective-set units) per session a started movement
-/// still owes before its estimate is trusted. Sized to lead a fully-untrained
-/// group's coverage — a group can chase at most [`MAX_GROUP_SETS_PER_DAY`] of it —
-/// so locking in what you've *begun* comes before broadening into new movements,
-/// until the baseline is solid. Zero once High-confidence, so it self-limits: after
-/// a couple of sessions on a movement the coach stops asking for it specially and
-/// lets ordinary coverage decide. This is the whole of the "calibration phase":
-/// there is no phase flag, only an estimate that isn't trusted yet.
+/// Confirmation need (effective sets) per session a started movement still owes before
+/// its estimate is trusted: large enough that finishing what you began outranks
+/// starting something new. Zero at `High` confidence, so the "calibration phase" is
+/// nothing more than an estimate not yet trusted.
 const CONFIRM_UNIT: f64 = 5.0;
 
 /// Longest silence between two sets that still counts as the same session. The
@@ -105,20 +92,12 @@ const CONFIRM_UNIT: f64 = 5.0;
 /// history alone — the engine stays a pure function.
 const SESSION_GAP_MIN: i64 = 120;
 
-/// Most never-done movements one session introduces. A calibration day is a few
-/// movements learned properly, not a scattershot of one-off sets across every
-/// untrained group at once — which is exactly what pure coverage does on day two,
-/// when every group you haven't hit yet reads as maximum deficit. Deliberately
-/// small: a coach adds two or three new movements at a time and lets you own them
-/// before piling on more, and the same holds on a cold start — a focused first
-/// session that samples a few patterns beats a broad one nobody can attend to.
+/// Most never-done movements one session introduces. On day two every untried group
+/// reads as maximum deficit; a coach adds two or three new movements at a time, not a
+/// scatter of one-off sets.
 const NOVELTY_CAP: i32 = 3;
-/// The one-time need (effective sets) to measure the next rung of a variation
-/// ladder the athlete has outgrown (G7). Same mechanism as confirmation: knowing
-/// what you can do on the movement that replaces a topped-out one *is* a need,
-/// so it qualifies the rung into a session even when the group's volume is
-/// already covered — otherwise the step-up stays a notice forever while the
-/// cover keeps picking other trusted work for the group.
+/// The one-time need to measure the next rung of an outgrown ladder (G7), so the
+/// step-up enters a session even when the group's volume is already covered.
 const LADDER_CONFIRM: f64 = 1.0;
 
 // ---- tunable heuristics ----------------------------------------------------
@@ -138,13 +117,9 @@ fn recovery_of(unrecovered: f64) -> f64 {
     (1.0 - unrecovered / RECOVERY_SETS).clamp(0.0, 1.0)
 }
 const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as recovered
-/// Offers on training days before a movement he never does is called neglected.
-///
-/// Counted only over days he actually logged something, which is the rule that
-/// keeps the Android geofence poller from manufacturing skips: it fetches the
-/// verdict on days the app is never opened, and those days are not evidence that
-/// he declined anything. Four is the smallest number that isn't an accident — it
-/// is a movement reaching the tail of four separate sessions he did train.
+/// Offers on training days before a movement never done counts as neglected. Only days
+/// with a logged set count: the geofence fetches verdicts on days the app is never
+/// opened, and those are not declines.
 const NEGLECT_MIN_OFFERS: usize = 4;
 
 /// Readiness at or below this is not a light day, it is a day off (R6-5).
@@ -166,16 +141,10 @@ const DELOAD_SCALE: f64 = 0.6;
 const ANCHOR_WEEKLY_SETS: f64 = 24.0; // ≈ 6 sets × 4 days
 const ANCHOR_WEEKS: f64 = 2.0;
 
-/// The one-time confirmation need for a candidate (effective-set units) — the
-/// value of turning a *started but unproven* movement into a trusted baseline.
-///
-/// It fires only for `Medium` confidence: the athlete has one or two recent
-/// sessions on the movement, so an estimate exists but isn't yet solid, and another
-/// session on *this* movement is worth more than covering a group its muscles have
-/// already had this week. Scaled by how many sessions of proof remain, so a
-/// barely-started movement is asked for before a nearly-proven one. `None` (never
-/// done — nothing to confirm; that's novelty, priced by coverage) and `High`/`Low`
-/// (already trusted, or stale and handled by re-assessment) get nothing.
+/// The one-time confirmation need for a candidate: only at `Medium` confidence (an
+/// estimate exists but isn't solid), scaled by the sessions of proof still owed. A
+/// never-done movement is novelty, priced by coverage; `High` is trusted and `Low` is
+/// re-assessed.
 fn confirm_need(confidence: Confidence, sessions_recent: i32) -> f64 {
     match confidence {
         Confidence::Medium => {
@@ -282,13 +251,9 @@ fn mode_fit(mode: Mode, ex: &ExerciseInfo) -> f64 {
     }
 }
 
-/// An exercise's metric **together with the weights it can actually be loaded
-/// with here** — resolved once, when candidates are built.
-///
-/// This is what makes [`prescribe`] and [`assess`] total. A weighted lift with no
-/// registered weights never becomes a `Loaded`, so it never becomes a candidate,
-/// so neither function has an "and what if there's no weight?" branch to fall
-/// through into a guess.
+/// An exercise's metric together with the weights it can be loaded with here. A
+/// weighted lift with none never becomes a candidate, which is what makes [`prescribe`]
+/// and [`assess`] total.
 enum Loaded {
     Weighted(Inventory),
     Reps,
@@ -317,26 +282,14 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<ExerciseId, Vec<f64>>) 
     }
 }
 
-/// Prescribe from a **trusted** ability estimate — the type is the proof: there
-/// is no way to call this for an exercise the athlete hasn't recently
-/// demonstrated (see [`Known`]).
+/// Prescribe from a **trusted** estimate; [`Known`] is the proof. The load derives from
+/// the decayed e1RM and steps only when logged sets earn the next owned weight.
 ///
-/// Weighted work autoregulates: the load derives from the decayed e1RM, so a layoff
-/// self-corrects to a lighter start and the load steps up only when logged sets raise
-/// the estimate past the next owned weight — double progression, *earned* and snapped
-/// to what you own.
-///
-/// Two things hold it back. `advance = false` (low readiness) leaves more in reserve.
-/// And `feedback`, the prediction-error ledger, answers a session that went badly:
-/// ⚠ **one miss holds** the number and **two in a row step down** a rung. Without that,
-/// ability is a max over decayed sets and a miss pulls nothing down — the athlete is
-/// handed the number the sets just contradicted, which is how you grind someone into a
-/// hole.
-///
-/// Asking for *more* is a **probe**, not the default: earned by a session that beat the
-/// estimate, or periodic after enough consolidation ([`Residual::probe_due`]). Matching
-/// your best while failing the ask moves nothing, ability being a max, so without the
-/// cadence the same failing +1 would be re-asked every session (R4-1).
+/// Low readiness (`advance = false`) leaves more in reserve. The ledger (`feedback`)
+/// answers misses: ⚠ one holds the number, two in a row step down a rung. Asking for
+/// more is a **probe**, earned by a beat or due after enough consolidation
+/// ([`Residual::probe_due`]); otherwise a failing +1 would be re-asked every session
+/// (R4-1).
 fn prescribe(
     loaded: &Loaded,
     ability: &Known,
@@ -373,12 +326,10 @@ fn prescribe(
             let range = rep_range(mode, false);
             let low = match ability.best_reps {
                 Some(best) => {
-                    // Probe (+1), consolidate (best), or (after two misses) ask one
-                    // rep fewer than the number that isn't happening. Capped at the
-                    // range top only — the range floor is a style preference, and
-                    // demonstrated ability outranks it. Clamping up to the floor
-                    // would ask an athlete who ground out 2 for 8, and quietly undo
-                    // the miss-response above (aim best−1, hauled straight back up).
+                    // Probe (+1), consolidate (best), or after two misses ask one fewer
+                    // than what isn't happening. Capped at the range top only: the
+                    // floor is a style preference, and clamping up to it would undo the
+                    // miss-response.
                     let aim = match (probe, back_off) {
                         (_, true) => best - 1,
                         (true, false) => best + 1,
@@ -503,24 +454,14 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
     }
 }
 
-/// Which block of the work an exercise belongs in — the classic order that puts
-/// demanding, technical work while the nervous system is fresh and leaves
-/// finishers for last. Lower runs earlier. (The warm-up block is prepended
-/// separately by [`build_warmup`]; these tiers order the work that follows it.)
+/// Which block of the work an exercise belongs in; lower runs earlier (the warm-up is
+/// prepended by [`build_warmup`]).
 ///
-/// Power leads. Maximal-intent ballistic work — jumps, throws, Olympic lifts,
-/// plyo — is the most fatigue-sensitive thing in the session: a broad jump for
-/// distance or a slam for speed is only worth measuring *fresh*, and a calibration
-/// taken after three compounds under-reads true power and feeds that low number
-/// straight into the ability model. So it sorts ahead of even skill work. The
-/// check comes first because a jump or slam is often patterned Core (box jump,
-/// med-ball slam), and the finisher tier below must not claim it.
-///
-/// Compound vs isolation goes by *breadth* — how many muscle groups the movement
-/// genuinely works (primaries + secondaries) — not by whether it's weighted. A
-/// curl before pull-ups pre-fatigues the small muscle the compound needs as a
-/// link, so the compound reads artificially weak, and its reps are exactly what
-/// the ability model measures.
+/// Power leads: a jump or throw is only worth measuring fresh, and a tired calibration
+/// feeds a low number into the ability model. It is checked first because such moves
+/// are often patterned Core. Compound vs isolation goes by *breadth* (groups trained),
+/// not by load: an isolation before its compound pre-fatigues the link the compound
+/// needs.
 fn tier(ex: &ExerciseInfo, neglected: bool) -> Tier {
     let breadth = ex
         .groups
@@ -538,25 +479,14 @@ fn tier(ex: &ExerciseInfo, neglected: bool) -> Tier {
     } else {
         Tier::Isolation
     };
-    // A movement he keeps not reaching moves up the session. A human coach who
-    // watched someone walk out before the core work twenty times would put the
-    // core work earlier, and the alternative — leaving it in the tail — is
-    // self-reinforcing: its group keeps its deficit, so the cover keeps picking
-    // it, and its breadth keeps putting it last, where it keeps not happening.
-    //
-    // One step, and never into Power or Skill. Those two lead because a fresh CNS
-    // is what makes a max-power measurement or a hold worth anything, and that is
-    // a fact about physiology rather than about scheduling.
+    // A movement never reached moves up one step, as a coach would move work the
+    // athlete keeps walking out before; left in the tail it would stay there. Never
+    // into Power or Skill, which lead for physiological reasons.
     if neglected { base.promoted() } else { base }
 }
 
-/// Movements he is offered on days he trains, and does not do.
-///
-/// Only days carrying at least one logged set count, on both sides of the ratio.
-/// A day with no sets is not a day he declined anything — he may never have
-/// opened the app, and the Android geofence poller fetches a verdict regardless.
-/// Counting those would turn every quiet day into evidence against every
-/// movement.
+/// Movements offered on training days and never done. Only days with a logged set
+/// count, on either side: a day without sets is not a day anything was declined.
 fn neglected(
     offers: &BTreeMap<ExerciseId, Vec<NaiveDate>>,
     history: &[SetRec],
@@ -581,14 +511,9 @@ fn neglected(
     out
 }
 
-/// Where a movement sits in the session's running order.
-///
-/// **Declaration order is training order** — `Ord` is derived from it, so the
-/// sort reads the sequence off these variants rather than off numbers that have
-/// to be kept in step with the reasoning in [`tier`]. Worth stating separately
-/// because the two orders genuinely differ: [`tier`] tests `Core` third so a
-/// patterned-Core movement can't be claimed as a compound, but a finisher still
-/// *trains* last.
+/// Where a movement sits in the running order. **Declaration order is training order**
+/// (`Ord` is derived). It differs from [`tier`]'s test order, which checks `Core` third
+/// so a patterned-Core movement isn't claimed as a compound.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 enum Tier {
     /// Ballistic power — fresh CNS, before anything fatiguing.
@@ -648,16 +573,9 @@ impl cover::Ranked for Cand<'_> {
     }
 }
 
-/// Build the selectable candidates for this location: catalog minus warm-up moves,
-/// minus anything the kit can't do, minus weighted lifts with no registered
-/// weights or enough implements to go round (the service names those in the
-/// verdict's notices — a drop the athlete can act on, not a silent gap).
-///
-/// Also where the **variation ladder** (G7) turns, both ways: a movement the
-/// athlete has topped out or plateaued on steps out of candidacy for a harder
-/// doable variation, and one stuck below the range floor steps out for an easier
-/// one — and the returned notes say so, because a step in either direction is
-/// coaching, and coaching gets said.
+/// The selectable candidates here: the catalog minus warm-up moves, absent kit, and
+/// lifts with no buildable load (which the service names in notices). Also where the
+/// variation ladder (G7) turns both ways, with notes that say so.
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
@@ -680,25 +598,12 @@ fn candidates<'a>(
         }
     };
 
-    // G7 — the variation ladder, decided up front, and it runs both ways. At High
-    // confidence (a verdict, not thin data) a rung steps aside for its next doable
-    // sibling, which becomes a measurement need; the step is announced while the
-    // sibling is still news, and once it has its own estimate it's simply in the
-    // rotation.
-    //
-    // Up: two walls end a movement's usefulness as a prescription — the rep range's
-    // ceiling (the ask is clamped there, so "keep doing 12s" would be forever) and a
-    // plateau (a month of sessions with nothing beaten — see [`Residual::plateaued`]).
-    //
-    // Down: the mirror wall. A bodyweight movement stuck *below* the range floor and
-    // not climbing out is too hard to build reps on — grinding 2 dips forever banks no
-    // volume — so it steps back to its hardest easier sibling, where the athlete can
-    // actually accumulate work and progress toward it (the up-ladder returns them once
-    // that sibling tops out). A rep count under the floor is ordinary early on and
-    // normally resolves by climbing, so this fires only when it's *also* confirmed
-    // stuck: plateaued, or the miss-response has bottomed out (two in a row asking
-    // fewer reps than are happening). Checked first, so a plateau below the floor
-    // regresses instead of being handed an even harder variation it also can't do.
+    // G7, at High confidence only. Up: a movement at the rep range's ceiling, or
+    // plateaued (a month with nothing beaten), steps aside for its next harder doable
+    // sibling, which becomes a measurement need. Down: a bodyweight movement stuck
+    // below the range floor (plateaued, or the miss-response bottomed out) steps back
+    // to its hardest easier sibling, where reps can build. Down is checked first, so a
+    // plateau below the floor regresses rather than climbs.
     let mut stepped_aside: alloc::collections::BTreeSet<ExerciseId> = Default::default();
     let mut ladder_targets: alloc::collections::BTreeSet<ExerciseId> = Default::default();
     let mut ladder_notes = Vec::new();
@@ -784,13 +689,9 @@ fn candidates<'a>(
                 credit[i] = role_credit(*role) * groups.recovery[i];
             }
         }
-        // The group this item is labelled with: its neediest **prime mover**.
-        // Ranked by need × credit within the primaries only — the label is what
-        // the card headlines, and a coach names what the movement *is*, not the
-        // neediest synergist it happens to brush.
-        // Falls back to any trained group when the catalog gives a movement no
-        // primary, so a confirmation pick still gets a label and an explanation.
-        // Ties → lower group id, so it stays deterministic.
+        // The item's label is its neediest prime mover (need × credit, primaries only):
+        // a coach names what the movement is, not a synergist it brushes. Any trained
+        // group when the catalog gives no primary; ties to the lower id.
         let rank = |a: &GroupIx, b: &GroupIx| {
             let (pa, pb) = (groups.need[*a] * credit[*a], groups.need[*b] * credit[*b]);
             pa.total_cmp(&pb).then(groups.id[*b].cmp(&groups.id[*a]))
@@ -820,12 +721,8 @@ fn candidates<'a>(
         if stepped_aside.contains(&ex.id) {
             continue;
         }
-        // Confirmation waits on recovery: don't ask someone to repeat a movement
-        // whose prime movers are still fried just to firm up its estimate — the
-        // coverage gate already refuses to re-train a fried group for volume, and
-        // confirmation has to respect the same physiology. Scale by the
-        // least-recovered primary group (the limiting muscle); a movement with no
-        // known primary group isn't recovery-gated.
+        // Confirmation respects recovery as coverage does: scaled by the
+        // least-recovered primary group. A movement with no primary isn't gated.
         let prime_recovery = ex
             .groups
             .iter()
@@ -906,14 +803,9 @@ fn harder_sibling<'a>(
         .min_by_key(|y| (y.difficulty, y.id))
 }
 
-/// The next rung *down* the variation ladder from `ex` (difficulty `d`): the
-/// hardest *easier* doable variation sharing its pattern and a primary muscle
-/// group. The nearest rung down, not the floor — regressing dips earns push-ups,
-/// not a wall push-up. Ties break to the lower id, so it stays deterministic.
-///
-/// The mirror of [`harder_sibling`]: what a coach drops to when a movement is too
-/// hard to build reps on, so the athlete banks clean volume on something they *can*
-/// do and climbs back — the up-ladder returns them once the easier rung tops out.
+/// The next rung down from `ex`: the hardest easier doable variation sharing its
+/// pattern and a primary group (dips → push-ups, not a wall push-up); ties to the lower
+/// id. The mirror of [`harder_sibling`].
 fn easier_sibling<'a>(
     ex: &ExerciseInfo,
     d: i32,
@@ -942,14 +834,9 @@ fn easier_sibling<'a>(
         .max_by_key(|y| (y.difficulty, core::cmp::Reverse(y.id)))
 }
 
-/// The exercise the athlete *would* be doing for this group if the kit allowed:
-/// the best-scoring one that trains it as a primary **and is actually blocked
-/// here** — the equipment is absent, or it's present but has no registered weights.
-///
-/// The blocked-ness is the whole point. The cover preferring a different movement
-/// is the normal case, since it optimises marginal coverage and this looks at one
-/// group. A substitution notice must name a real obstacle, or it teaches the
-/// athlete to distrust the ones that are real.
+/// The best exercise for this group as a primary that is **actually blocked here** (kit
+/// absent, or no weights registered). Only a real obstacle may be named: the cover
+/// preferring another movement is the normal case.
 fn blocked_ideal(
     input: &PacingInput,
     kit: &Kit,
@@ -1005,19 +892,11 @@ fn blocked_ideal(
     })
 }
 
-/// Build the warm-up block for a work plan: mobility prep for the muscle groups
-/// the session actually loads, plus a light ramp-in set on the first heavy lift.
-/// Warm-ups credit no volume and are the only place warm-up-tagged moves appear.
-/// Ordered first.
-///
-/// Coverage follows the committed plan's **load**: every group the work hits at
-/// primary or secondary credit, summed over its sets, ranked heaviest first. One
-/// drill per group, each labelled with the group it was picked for (R2-3).
-///
-/// Also returns the loaded groups it has *no* mobility move for. The catalog is
-/// only as good as what's been authored into it, and a group with no drill produces
-/// an empty warm-up that reads exactly like "you don't need one" — so the caller
-/// says which groups the athlete is on their own for.
+/// The warm-up block, ordered first: one mobility drill per group the committed session
+/// loads (primary or secondary credit, heaviest first, R2-3), plus a light ramp-in on
+/// the first heavy lift. Warm-ups credit no volume. Also returns loaded groups with no
+/// drill in the catalog, so the gap is named rather than reading as "no warm-up
+/// needed".
 fn build_warmup(
     work: &[Suggestion],
     input: &PacingInput,
@@ -1208,14 +1087,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- the session in progress, if one is ---
     //
-    // A session is the maximal run of sets separated by no more than
-    // SESSION_GAP_MIN, ending at the most recent set — and we're *in* it if that
-    // set is no further back than the gap. Everything that shapes the plan is
-    // then computed as of the session's first set, so re-evaluating mid-session
-    // reproduces the committed plan exactly instead of re-litigating it against
-    // sets logged minutes ago. Without this, a calibration would be re-prescribed
-    // above the max it had just measured, rep targets would ratchet set-over-set,
-    // and half-done movements would vanish because their muscles read "recovering".
+    // A session is the run of sets separated by at most SESSION_GAP_MIN, ending at the
+    // latest; we are in it if that set is within the gap. The plan is computed as of
+    // the session's first set, so a mid-session re-evaluation reproduces the committed
+    // plan instead of replanning on sets logged minutes ago.
     let session_start: Option<NaiveDateTime> = {
         let mut times: Vec<NaiveDateTime> = input.history.iter().map(|s| s.logged_at).collect();
         times.sort_unstable();
@@ -1262,11 +1137,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- credit volume into rolling / 8-week-avg / recovery windows ---
     //
-    // Two views of the same history. The *frozen* aggregates (windowed at
-    // `plan_at`, seeing only `planning`) shape the plan: need, recovery, the day
-    // target. The *live* aggregates (windowed at `now`, seeing everything) are
-    // what the athlete is owed as feedback: the balance view and the session's
-    // progress count. Outside a session the two coincide exactly.
+    // The *frozen* aggregates (at `plan_at`, over `planning`) shape the plan; the
+    // *live* ones (at `now`, over everything) feed the balance view and progress.
+    // Outside a session they coincide.
     let roll_cut = plan_at - Duration::days(ROLLING_DAYS);
     let hist_cut = plan_at - Duration::days(HISTORY_WEEKS * 7);
     let live_roll_cut = now - Duration::days(ROLLING_DAYS);
@@ -1343,22 +1216,11 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
     }
 
-    // How much history there actually *is*, in weeks — not the width of the window
-    // we looked through.
-    //
-    // ⚠ Dividing by the flat `HISTORY_WEEKS` would be your weekly rate only if you
-    // trained all eight weeks. For a returning athlete one session of 14 sets would
-    // read as 1.75 sets/week, and logging a session would *lower* the day's target:
-    // an estimate that gets worse the more it knows.
-    //
-    // Not floored at a week: one day of history is *zero* weeks of evidence, and the
-    // session-size prior below is what stops that extrapolating a hard morning into "98
-    // sets a week". Flooring at one week would treat today as a whole week already
-    // spent, understating the rate and shrinking the target after a first session.
-    //
-    // What this buys: logging a set can only *raise* the numerator, while the
-    // denominator moves only with the calendar, so logging never lowers the day's
-    // target. Time passing still can, which is detraining rather than an artefact.
+    // Weeks of history that actually exist, not the window's width. ⚠ Dividing by a
+    // flat `HISTORY_WEEKS` would make a first logged session *lower* the day's target.
+    // Not floored at a week either: one day is zero weeks of evidence, and the
+    // session-size prior stops it extrapolating. So logging can only raise the rate;
+    // only time passing lowers it.
     let observed_weeks = first_hist
         .map(|first| ((plan_at - first).num_days() as f64 / 7.0).clamp(0.0, HISTORY_WEEKS as f64))
         .unwrap_or(0.0);
@@ -1368,14 +1230,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let avg_weeks = observed_weeks.max(1.0);
 
     // --- one recovery factor on the per-group target ---
-    // Biometric readiness (when health has data) is primary and supersedes the
-    // crude volume-spike proxy; without it we fall back to that proxy.
     //
-    // The proxy compares this week against the weeks *before* it, not against an
-    // eight-week average, which for a new athlete is mostly empty weeks and would
-    // flag every week as a spike. A spike needs something to be a spike *against*:
-    // no prior weeks, no claim (and biometric readiness, when health has data,
-    // carries the cold start).
+    // Biometric readiness when health has data; otherwise a volume-spike proxy
+    // comparing this week with the weeks *before* it. With no prior weeks there is no
+    // spike to claim.
     let baseline_weeks = baseline_first
         .map(|first| {
             ((roll_cut - first).num_days() as f64 / 7.0)
@@ -1398,12 +1256,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let deload = input.readiness.is_none() && volume_deload;
     let days_scale = (f64::from(input.days_per_week) / 4.0).clamp(0.5, 2.0);
 
-    // Both numbers below are computed twice per group — once for the plan, once
-    // for the live balance view, differing only in which sets they count. Naming
-    // each formula once is what keeps the two views the *same* measurement, and
-    // puts the 0..1 clamp in one place rather than at every producer.
-    //
     // --- per-group balance + the need vector the session covers ---
+    //
+    // Each formula is named once and used for both the plan and the live balance view,
+    // so the two stay the same measurement.
     let n = input.groups.len();
     let mut groups = Groups {
         ix: input
@@ -1520,17 +1376,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- the one input designed to say "not today" ---
     //
-    // Gated on carrying fatigue as well as on the score, because the two mean
-    // different things. Unrecovered load plus a floor reading is a body that has
-    // been trained and has not come back: rest is the training decision. A floor
-    // reading with nothing unrecovered is a bad night, or a cold, or a watch
-    // having a bad week — and answering that with a *week* of silence would be its
-    // own failure, since the athlete who most needs a plan is the one who has not
-    // trained lately.
-    //
-    // It is self-limiting for the same reason: `unrecovered` is age-weighted, so a
-    // rest day decays the very thing that justified it. The coach stands down for
-    // a day, maybe two, and then plans again on its own — no counter, no state.
+    // Rest needs a floor readiness score AND unrecovered load: a trained body that
+    // hasn't come back. A floor score with nothing unrecovered is a bad night, not a
+    // reason to stand down. Self-limiting: `unrecovered` decays with age, so rest
+    // undoes its own cause.
     let carrying_fatigue = groups.recovery.iter().any(|(_, r)| r < RECOVERED_FRACTION);
     let resting = input
         .readiness
@@ -1540,19 +1389,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         plan.clear();
     }
 
-    // Progress against the plan: the day's sets pay its items in plan order (a
-    // ramp-in warm-up shares its exercise with the work item that follows, so
-    // order is what attributes them).
-    //
-    // The **day**, not the session. A session ends after SESSION_GAP_MIN — that
-    // boundary is what freezes the plan, and it should, or every logged set would
-    // re-litigate the prescription it was answering. But it has no business
-    // deciding what you *did*: warm-ups logged in the afternoon must not be
-    // offered again in the evening. The plan is for today, so "already done"
-    // means done today.
-    //
-    // A session that ran past midnight is still one session, so take whichever
-    // boundary is earlier — the day's start, or the session's.
+    // Progress: the day's sets pay the plan's items in plan order (a ramp-in shares its
+    // exercise with the work item after it). Scoped to the **day**, not the session:
+    // the session boundary freezes the plan, but warm-ups logged in the afternoon are
+    // still done in the evening. A session past midnight counts from its start.
     let day_start = now.date().and_time(NaiveTime::MIN);
     let from = session_start.map_or(day_start, |s| s.min(day_start));
     let mut logged: BTreeMap<ExerciseId, Vec<&SetRec>> = BTreeMap::new();
@@ -1657,15 +1497,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // `within_window` already implies before the end, so no separate cutoff check.
     let nudge = within_window && has_work && spacing_ok && behind;
 
-    // A short day-state clause, prepended to an active suggestion's reason — the
-    // coach says it in the one sentence it speaks, rather than the UI growing
-    // status widgets. `deload` only fires when readiness is absent (it's the
-    // no-biometric fallback), so the two never compete for the slot.
-    // Tone matters as much as content here. This is the one sentence the coach
-    // speaks, and it's read by someone returning to training — so it affirms
-    // readiness and invites the work, and never urges *intensity* ("push", "go
-    // hard"). The athlete decides how hard; the coach's job is to say what to do and
-    // that today's a good day for it.
+    // One day-state clause, woven into the sentence the coach speaks rather than a
+    // status widget (`deload` fires only without readiness). It affirms and invites; it
+    // never urges intensity — how hard is the athlete's call.
     let day_note = match input.readiness.map(|r| r.band()) {
         Some(Band::High) => Some("Recovered — a good day to train well."),
         // "keeping it light" is a claim about a session; on a rest day there
@@ -1679,12 +1513,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         "Tell me where you're training and I'll plan the session.".to_string()
     } else if suggestion.is_none() {
         if done_today > 0 {
-            // Every committed item is done — close the session, don't gloss it
-            // as a rest day. Not gated on being *in* the session: the gap
-            // elapses long before the day does, and "you're balanced and
-            // recovered — rest up" is a poor thing to read at bedtime on a day
-            // you trained. `done_today` already counts the day, warm-ups
-            // excluded, so a day of only prep is not a session closed.
+            // Every committed item is done: close the session rather than call it a
+            // rest day, even after the session gap. `done_today` excludes warm-ups, so
+            // a day of only prep closes nothing.
             "That's the session — nice work.".to_string()
         } else if resting {
             // A rest day the coach *chose*, which is a different sentence from
@@ -1719,12 +1550,9 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else if suggestion.is_some()
         && let Some(next) = &next_item
     {
-        // Always an invitation to the next movement — never "you're a bit light this
-        // week", which frames a returning athlete as behind a quota and pressures the
-        // volume up. Whether he's ahead of or behind the day's burn-down still drives
-        // the *nudge* (a reminder's timing); it must not colour what the coach says.
-        // A warm-up that hasn't been done leads: prep first, and the banner and the
-        // plan's pill name the same thing.
+        // Always an invitation to the next movement, never "you're light this week":
+        // ahead or behind drives only the nudge's timing. An undone warm-up leads,
+        // matching the plan's pill.
         if next.kind == SuggestionKind::Warmup {
             format!("Warm up first: {}.", next_phrase(next))
         } else {
@@ -1811,12 +1639,9 @@ fn plan_session(
 
         let (group, explanation, substituted_for) = match c.label {
             Some(ix) => {
-                // A swap note only makes sense when this pick actually *trains*
-                // the label group as a prime mover. Labels can fall to a
-                // secondary group (its primaries covered), and "Triceps
-                // extension — swapped in for Good morning" via a shared
-                // erector-spinae assist is nonsense the athlete rightly
-                // distrusts.
+                // A swap note only when this pick trains the label group as a prime
+                // mover; a label that fell to a secondary group would claim a
+                // nonsensical substitution.
                 let label_is_primary =
                     c.ex.groups
                         .iter()
