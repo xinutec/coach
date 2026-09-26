@@ -2,22 +2,11 @@ import { Signal, signal } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, map, switchMap, tap } from 'rxjs/operators';
 
-/** A root-scoped, cached read model over a server GET.
- *
- *  It fixes two things at once:
- *   - **Retain across tabs.** A route switch destroys the component, not this
- *     singleton — so returning to a tab shows its last data immediately instead
- *     of blanking to a loading placeholder and re-fetching from scratch.
- *   - **Share one fetch.** Several views read the same catalog (Today, Library
- *     and History all read exercises; Today, Library and Locations all read
- *     equipment); as a `providedIn: 'root'` singleton they share one cache and
- *     one request.
- *
- *  `refresh()` re-fetches in the BACKGROUND without clearing the visible value —
- *  the optimistic pattern: show what you have, update in place. So callers can
- *  call it freely on view entry and after a mutation without causing a flash.
- *
- *  Subclass it once per resource; the loader is the only per-resource part:
+/** A root-scoped, cached read model over a server GET. It outlives the routed
+ *  component, so a revisited tab shows its last data at once, and views reading
+ *  the same catalog share one cache and one request. `refresh()` re-fetches in
+ *  the background without clearing the visible value, so callers may call it
+ *  freely. Subclass it once per resource:
  *
  *  ```ts
  *  @Injectable({ providedIn: 'root' })

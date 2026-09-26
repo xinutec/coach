@@ -1,25 +1,15 @@
-//! E3 — athlete simulation: convergence as a regression test.
+//! E3: athlete simulation as a regression test. A deterministic athlete with a hidden
+//! true ability (closed-form Epley reps-to-failure) performs each prescription
+//! honestly, reporting its reserve as an integer RPE; the engine sees only the logged
+//! sets and must recover the truth. Tested properties:
 //!
-//! A deterministic **virtual athlete** run against the engine for simulated
-//! months. The athlete has a hidden *true* ability and performs each
-//! prescription honestly — reps to (or short of) failure, with an integer RPE
-//! that reports its reserve. The engine sees only the logged sets; it must
-//! *recover* the true ability from them and prescribe against it.
-//!
-//! No randomness: the athlete is a closed-form dose-response model (Epley
-//! reps-to-failure at a load), so every run is reproducible. This turns
-//! "becomes a close-to-perfect trainer over time" into tested properties:
-//!
-//!   * **convergence** — from a cold, deliberately-too-light first assessment,
-//!     the estimated e1RM climbs to within a few percent of true and stays there;
-//!   * **honesty** — the RPE-aware estimate never materially *exceeds* true
-//!     ability (no chimera — you can't invent strength the sets don't show);
-//!   * **stability** — once converged, the prescribed load doesn't oscillate;
-//!   * **tracking** — when true ability *grows*, the estimate follows it up;
-//!   * **bounded ramp** — planned volume never exceeds the day budget;
-//!   * **recovery honesty** — recovery is graded (G6), so a mostly-recovered
-//!     group can take light work; nothing below the effective-recovery gate
-//!     (deficit × recovery) is ever prescribed.
+//! - **convergence:** from a deliberately light first assessment, the e1RM estimate
+//!   climbs to within a few percent of true, and stays;
+//! - **honesty:** the estimate never materially exceeds true ability;
+//! - **stability:** once converged, the prescribed load doesn't oscillate;
+//! - **tracking:** when true ability grows, the estimate follows;
+//! - **bounded volume:** planned sets never exceed the day budget;
+//! - **graded recovery** (G6): nothing below the effective-recovery gate is prescribed.
 
 use coach_pacing::num::whole;
 use std::collections::BTreeMap;
@@ -254,19 +244,11 @@ fn estimate_converges_to_true_ability_and_holds() {
 
 // ---- progression without an RPE to help it ---------------------------------
 
-/// R6-1: the prescribed **load** has to climb for an athlete who logs no RPE.
-///
-/// The test above hands the engine an RPE on every set. That is not a detail: an
-/// RPE reports reserve, which lifts the estimate *above* the load that produced
-/// it, and it is the only reason the estimate there can climb at all. The product
-/// deliberately never collects one — "the athlete reports what happened, not how
-/// it felt" — so the shipped engine always runs the case below, where
-/// top-of-range reps at load `L` produce exactly the e1RM that prescribes `L`: a
-/// fixed point the progression must escape.
-///
-/// This athlete is far stronger than the cold start, does **precisely** what the
-/// card asks and not one rep more, and reports nothing. The weight must still go
-/// up — that is what double progression means.
+/// R6-1: the prescribed **load** must climb for an athlete who logs no RPE, which is
+/// the product (it never asks for one). Without reserve, top-of-range reps at load `L`
+/// produce exactly the e1RM that prescribes `L`: a fixed point the progression must
+/// escape. This athlete is far stronger than the cold start and does precisely what the
+/// card asks.
 #[test]
 fn the_load_climbs_for_a_compliant_athlete_who_logs_no_rpe() {
     let athlete = Athlete {

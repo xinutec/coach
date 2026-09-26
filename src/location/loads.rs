@@ -1,27 +1,15 @@
-//! Turn a loadable implement (a barbell, or an adjustable dumbbell handle) into
-//! the discrete set of total loads you can actually build on **one** of them — the
-//! "here are the weights you can load" contract the pacing engine consumes. Pure +
-//! unit-tested; the service calls it per exercise, so snapping and progression only
-//! ever step through totals the athlete can physically assemble.
+//! The discrete total loads you can build on **one** loadable implement (a barbell or
+//! an adjustable dumbbell handle), computed per exercise so progression only steps
+//! through weights the athlete can assemble:
 //!
-//! Four physical facts:
+//! - **Plates load in pairs:** a total is `implement + 2 × per-side sum`, and a disc
+//!   size is usable only if you own two.
+//! - **Discs are finite:** one pair of 2.5s reaches 2.5 per side, not 5.
+//! - **A pair of dumbbells splits the discs,** so loads are per *exercise* (which knows
+//!   how many implements it uses), not per equipment.
+//! - **A sleeve is finite:** past `slots` discs a side, nothing more fits.
 //!
-//! - **Plates load in pairs.** A bar or dumbbell loaded unevenly isn't a lighter
-//!   lift, it's a wrist injury — there's no unbalanced case worth modelling. A
-//!   total is `implement + 2 × (per-side sum)`, and a disc size is only usable if
-//!   you own two of them.
-//! - **You own a finite number of discs.** With one pair of 2.5s, 2.5-per-side is
-//!   reachable and 5-per-side is not. Suggesting a weight the athlete can't build
-//!   is the same class of bug as inventing a load for kit with no weights at all.
-//! - **A pair of dumbbells splits the disc budget.** Four of each disc is *two*
-//!   per dumbbell when the movement needs two — so a both-arms press tops out far
-//!   below what the same discs reach on a single goblet-squat dumbbell. This is why
-//!   loads are computed per *exercise* (which knows how many implements it uses),
-//!   not per equipment.
-//! - **A sleeve has finite space.** Past `slots` discs a side, nothing more fits,
-//!   however many you own.
-//!
-//! `qty: None` / `slots: None` mean "plenty" — a gym rack.
+//! `qty: None` / `slots: None` mean "plenty", as in a gym.
 
 use coach_pacing::num::natural;
 
@@ -44,14 +32,9 @@ const CENTI: f64 = 100.0;
 /// keeping the set finite.
 const MAX_PER_SIDE_CENTI: usize = 15_000;
 
-/// Total loads (kg, ascending) buildable on **one** implement of weight
-/// `implement`, when the movement uses `implements` of them (2 = a pair of
-/// dumbbells, which halves each disc size's budget per dumbbell) and each sleeve
-/// takes at most `slots` discs.
-///
-/// Always includes the bare implement as the floor. Empty when the discs can't
-/// even be shared out — but the bare implement alone is always buildable, so the
-/// result is never empty.
+/// Total loads (kg, ascending) buildable on one implement of weight `implement`, for a
+/// movement using `implements` of them, with at most `slots` discs a sleeve. Never
+/// empty: the bare implement is always buildable.
 pub fn reachable_loads(
     implement: f64,
     plates: &[Plate],
@@ -145,17 +128,10 @@ pub struct KitLoads {
     pub plates: Vec<Plate>,
 }
 
-/// The loads buildable for a movement that uses `implements` of this kit — one
-/// dumbbell (a goblet squat) or two (a bench press). Ascending, deduped.
-///
-/// A fixed 5 kg dumbbell serves a one-dumbbell movement but not a two-dumbbell one
-/// unless you own two of them; a pair of adjustable handles splits the disc budget
-/// between them. Both sources union, so an athlete with a fixed 5 kg *and* an
-/// adjustable handle gets both sets of weights.
-///
-/// Empty = this kit cannot be loaded for this movement at all (no weights
-/// registered, or not enough implements to go round), and the caller must not
-/// prescribe it rather than guessing a load.
+/// The loads for a movement using `implements` of this kit, ascending and deduped:
+/// fixed weights you own enough of, plus what the handles can build from the discs.
+/// Empty means this kit can't be loaded for this movement, and the caller must not
+/// prescribe it.
 pub fn loads_for(kit: &KitLoads, implements: u32) -> Vec<f64> {
     let implements = implements.max(1);
     let enough = |owned: Option<u32>| owned.is_none_or(|q| q >= implements);

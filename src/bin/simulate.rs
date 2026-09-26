@@ -1,42 +1,24 @@
-//! E3 — simulate an athlete into the future and watch the coach adapt.
+//! E3: simulate an athlete into the future and watch the coach adapt. The back-test
+//! replays history that never responds to the coach; this plays a deterministic athlete
+//! against the engine, starting from the real history in a **dev** DB. Each day the
+//! athlete reads the verdict as the UI shows it, performs as well as their hidden true
+//! ability allows (never reporting an RPE), and the walk continues on the grown
+//! history.
 //!
-//! The back-test (E1) replays history that already happened; it can never show
-//! how the engine responds to *its own* prescriptions. This does: starting from
-//! the real logged history in a **dev** DB, a deterministic simulated athlete
-//! reads each day's verdict exactly as the UI presents it (the `Suggestion`
-//! cards), performs what was asked as well as their *true* ability allows, and
-//! logs the results — instruct → try → record, never reporting an RPE. The walk
-//! then continues on the grown history, so the loop the athlete actually lives
-//! in (prescribe → perform → re-estimate → prescribe) runs for weeks in
-//! seconds.
+//! Two independent axes, because a set that fell short and a set that never happened
+//! reach the ledger differently:
 //!
-//! The athlete's true ability is initialised from the real history's own
-//! estimates and then evolves along a **temperament** curve:
+//! - **Temperament** (`SIM_ATHLETE`), the hidden ability: `improver`, `plateauer`,
+//!   `badweek`, `novice` (opens well below the history), `strong` (well above it),
+//!   `injured` (one group hurt in week 2).
+//! - **Behaviour** (`SIM_BEHAVIOUR`): `compliant`, `skipper` (three days a week),
+//!   `partial` (leaves after 60 % of the cards), `overachiever`, `improviser` (the bell
+//!   below the one on the card), `layoff` (a fortnight on, three weeks away).
 //!
-//! - `improver`   — steady gains, week on week
-//! - `plateauer`  — two weeks of gains, then flat forever
-//! - `badweek`    — an improver whose week 3 goes badly and recovers
-//! - `novice`     — opens well *below* what the history says, and climbs fast
-//! - `strong`     — opens well *above* it (trained elsewhere, only just logging)
-//! - `injured`    — an improver who hurts one muscle group in week 2 and stays hurt
-//!
-//! Temperament moves the hidden *ability*. How the athlete **behaves** towards
-//! the coach is a separate axis (`SIM_BEHAVIOUR`), because the two break
-//! different things: the ledger reads logged sets, and a set that never happened
-//! is a different signal from a set that fell short.
-//!
-//! - `compliant`    — does exactly what each card says, every day it says to
-//! - `skipper`      — trains three days a week whatever the plan says
-//! - `partial`      — leaves after the first 60 % of the work cards
-//! - `overachiever` — doesn't stop at the ask when the reps are there
-//! - `improviser`   — grabs the bell below the one on the card
-//! - `layoff`       — trains a fortnight, vanishes for three weeks, comes back
-//!
-//! Everything is deterministic (no randomness, no wall clock), so a trace diffs
-//! cleanly across engine changes — the same regression signal as the back-test,
-//! but over futures the history doesn't contain. The model's absolute numbers
-//! don't need to be right; they need to make the *coaching* visible: does a miss
-//! get answered, does a plateau get noticed, does progression step when earned?
+//! `SIM_RECOVERY` drives the biometric readiness the coach reads each morning; with
+//! `roughweek`, a compliant eased session must not read as a miss (R5-2).
+//! Deterministic, so traces diff across engine changes; what matters is whether the
+//! coaching is visible, not the absolute numbers.
 //!
 //! Usage (dev DB seeded from a prod dump — see scripts/simulate.sh):
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin simulate
@@ -46,14 +28,6 @@
 //!   SIM_RECOVERY  — untracked | rested | roughweek (default untracked)
 //!   SIM_USER      — user id (default pippijn)
 //!   SIM_LOCATION  — location by name (default: the user's default)
-//!
-//! `SIM_RECOVERY` drives the biometric readiness the coach reads each morning —
-//! the axis the temperament can't reach. `untracked` (the default) hands the
-//! engine no readiness, so a run reproduces the pre-readiness behaviour exactly.
-//! `roughweek` sleeps the athlete poorly through the third week: the coach eases
-//! the ask on those Low mornings, and — because it reconstructs the readiness
-//! each session was written under (R5-2) — a compliant eased session must *not*
-//! turn up as a miss in the ledger. That is the loop the unit tests can't run.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -114,24 +88,11 @@ const INJURY_MULT: f64 = 0.4;
 /// The sim week the injury lands in.
 const INJURY_WEEK: i64 = 2;
 
-/// Detraining: what *not* training costs.
-///
-/// ⚠ This is deliberately NOT a [`Temperament`]. Every temperament banks
-/// progress as a function of the sim week, so as a temperament an athlete who
-/// disappears for three weeks would come back *stronger*. Ability and compliance
-/// are separate axes because they move independently, and disuse is exactly
-/// where they do not: it is caused by the behaviour and it moves the ability.
-///
-/// So it follows from the days actually trained rather than from the layoff
-/// window. A skipper's two-day gaps cost nothing; three weeks away costs real
-/// strength; and nothing has to know which temperament is running.
-///
-/// The numbers are the modest end of the literature, matching the rest of this
-/// file's refusal to make a montage of it: a trained person loses little in the
-/// first week off, then roughly half a percent a day, and regains it about twice
-/// as fast on return — the asymmetry anyone who has come back from a layoff
-/// recognises. Endurance goes first and further, which is why holds and reps
-/// carry their own multiple.
+/// Detraining: what *not* training costs. ⚠ Deliberately not a [`Temperament`]:
+/// temperaments bank progress by sim week, so an athlete three weeks away would come
+/// back stronger. It follows from the days actually trained instead. The numbers are
+/// the modest end of the literature: little lost in the first week off, then about half
+/// a percent a day, regained twice as fast; endurance goes first and further.
 const DETRAIN_GRACE_DAYS: i64 = 7;
 const DETRAIN_PER_DAY: f64 = 0.005;
 const DETRAIN_MAX: f64 = 0.20;
@@ -869,12 +830,8 @@ async fn main() -> Result<()> {
             }
         }
 
-        // A labelled block rather than `continue`, so that a rest day or a no-show
-        // skips the *session* without also skipping the end-of-week report below.
-        // What the engine believes is true of the week whether or not the athlete
-        // turned up — and with `continue` here, an athlete whose skip pattern
-        // happened to land on the reporting day produced a trace with no accuracy
-        // rows at all, which is how both `skipper` cells went unmeasured.
+        // A labelled block, not `continue`, so a rest day or a no-show skips the
+        // session but not the end-of-week accuracy report below.
         'session: {
             let train = verdict.state == PacingState::Active
                 && verdict

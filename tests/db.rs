@@ -1,17 +1,11 @@
-//! The tests that run SQL against a **real MariaDB**.
+//! The tests that run SQL against a **real MariaDB**. A `FromRow` struct binds its
+//! columns by name at runtime, so a SELECT that drifts from it compiles, passes every
+//! pure test, and 500s in production. So every read path runs against a migrated,
+//! seeded schema, and the whole catalog goes through the joins most likely to drift.
 //!
-//! Every other test in this suite is pure: the engine, the ability model, the load
-//! maths. They cannot catch a thing that goes wrong between the code and the
-//! database — and a `FromRow` struct binds its columns **by name at runtime**, so
-//! a SELECT that drifts from it compiles, passes every pure test, and 500s in
-//! production. The rule here is blunt: *every read path runs against a migrated,
-//! seeded schema, and the whole catalog goes through the joins most likely to
-//! drift.*
-//!
-//! Needs a database. `scripts/dev-db.sh` (127.0.0.1:3308) is the default; CI
-//! supplies one via `COACH_TEST_DATABASE_URL`. It fails loudly when there isn't
-//! one rather than skipping: a test that silently passes when it can't run is
-//! worse than no test, because it reports the coverage it isn't providing.
+//! Needs a database: `scripts/dev-db.sh` (127.0.0.1:3308) by default,
+//! `COACH_TEST_DATABASE_URL` in CI. It fails loudly without one rather than skipping,
+//! since a skipped test reports coverage it isn't providing.
 
 use chrono::{Duration, Utc};
 use sqlx::{AssertSqlSafe, MySqlPool};
@@ -78,17 +72,10 @@ async fn fresh(name: &str) -> MySqlPool {
         .await
         .unwrap_or_else(|e| panic!("{e}"));
 
-    // The CREATE is retried, and only the CREATE. `DROP DATABASE` returns before
-    // InnoDB has finished removing the directory, so under load — nine of these run
-    // concurrently, next to an Angular build — the CREATE can arrive while the old
-    // directory is still on disk and fail with 1007 "database exists". Re-running
-    // the whole suite immediately then passes, which is the signature of a race and
-    // not of a leftover: the server's dictionary and the disk agree, so there is
-    // nothing stale to clean.
-    //
-    // Deliberately *not* `CREATE DATABASE IF NOT EXISTS`: that would silently adopt
-    // a half-dropped database and run the tests against whatever survived. The DROP
-    // above asserts it must be gone; this only waits for the filesystem to agree.
+    // Only the CREATE is retried. `DROP DATABASE` returns before InnoDB has removed the
+    // directory, so under load the CREATE can meet the old directory and fail with
+    // 1007; the suite passes on a rerun, the signature of a race, not a leftover. Not
+    // `IF NOT EXISTS`, which would adopt a half-dropped database.
     let create = format!("CREATE DATABASE `{db_name}` CHARACTER SET utf8mb4");
     for attempt in 1..=CREATE_ATTEMPTS {
         match run(create.clone()).await {
@@ -116,15 +103,10 @@ async fn fresh(name: &str) -> MySqlPool {
     pool
 }
 
-// A database per test, not one shared pool. Sharing a `static` pool across tests
-// looks like an easy win — seeding copies ~15 MB of image blobs — and is a trap:
-// every `#[tokio::test]` builds its own runtime, a sqlx pool's keepalive tasks
-// belong to the runtime that created it, and the first test to finish takes that
-// runtime (and the pool's ability to hand out connections) down with it. The rest
-// then fail on a pool timeout, which reads like a database problem and isn't.
-//
-// Tests run on parallel threads, so the seeds overlap: the cost is roughly one
-// seed of wall-clock, not six.
+// A database per test, not one shared `static` pool: each `#[tokio::test]` has its own
+// runtime, a pool's keepalive tasks belong to the runtime that made it, and the first
+// test to finish would take the pool down with it. The seeds run in parallel, so this
+// costs about one seed of wall-clock.
 
 /// Every exercise detail — the
 /// query that joins `exercise_equipment` to `equipment` and builds an
@@ -158,19 +140,11 @@ async fn every_exercise_detail_loads() {
     );
 }
 
-/// The three list-shaped queries must describe the same exercise.
-///
-/// A compile-time-checked query takes only a string literal, so the column list
-/// is written out three times. The compiler covers most of it: all three fill one `ExerciseListRow`, so a
-/// column added to one copy and not the others fails the build. What it cannot
-/// see is a copy whose expression changes while its alias and type do not — an
-/// `EXISTS` re-pointed at `exercise_loops` is still an `i64` called `has_image`,
-/// and it would compile, and it would be wrong on every row.
-///
-/// So this compares the VALUES, not the SQL. Debug strings rather than field
-/// equality on purpose: a field added to `Exercise` later is covered without
-/// anyone remembering to extend this test, which is exactly the failure being
-/// guarded against.
+/// The three list-shaped queries must describe the same exercise. A checked query takes
+/// only a string literal, so the column list is written three times; the shared
+/// `ExerciseListRow` catches a column added to one copy, but not an expression changed
+/// under the same alias and type. So this compares the values, via Debug strings, which
+/// also covers any field added later.
 #[tokio::test]
 async fn every_read_path_agrees() {
     let pool = &fresh("agree").await;
@@ -522,21 +496,11 @@ async fn first_id(pool: &MySqlPool) -> i64 {
     ex_repo::list(pool, false).await.unwrap()[0].id
 }
 
-/// The shape rules hold even when nobody asks the parser.
-///
-/// `LoggedSet::parse` is the only shape the API writes, and the pure tests prove
-/// it thoroughly — but a parser is a property of one code path. The NocoDB
-/// importer bypassed it by design (it needed the `band` column the API has no
-/// field for) and put 65 mis-shaped sets in the log that way; migrations
-/// 0020–0024 are the clean-up. That importer is gone, which removes the one
-/// caller and not the lesson: the next path to write this table directly won't
-/// have a parser either. So the same rules are stated a second time as CHECK
-/// constraints (0026), and this test writes raw SQL to prove the database
-/// refuses on its own.
-///
-/// The metric-dependent half (which column a given exercise may use) is *not*
-/// here and cannot be: it needs `exercises.metric`, and a CHECK cannot subquery.
-/// That half is still the parser's, which is why the parser still exists.
+/// The shape rules hold even when nobody asks the parser: a path that writes this table
+/// directly (an importer, a migration) has no parser. So the same rules are CHECK
+/// constraints (migration 0026), and this test writes raw SQL to prove the database
+/// refuses on its own. The metric-dependent half needs `exercises.metric`, which a
+/// CHECK cannot read, so it remains the parser's.
 #[tokio::test]
 async fn the_database_refuses_a_set_no_parser_looked_at() {
     let pool = &fresh("shape").await;
@@ -689,13 +653,9 @@ async fn a_transparent_diagram_is_rendered_but_a_photograph_is_left_alone() {
     );
 }
 
-/// The correction loop, end to end through the database: a wrong number becomes
-/// the estimate, the card names *that* set, removing it re-derives the estimate.
-///
-/// The unit tests pin that `source` picks the right set and the back-test proves
-/// prescriptions didn't move, but neither can see this chain — estimate →
-/// explanation → the row id the UI acts on → delete → estimate moves. It is also
-/// the only destructive path here, and deleting the wrong row would be silent.
+/// The correction loop through the database: a wrong number becomes the estimate, the
+/// card names *that* set, and removing it re-derives the estimate. The only destructive
+/// path here, and deleting the wrong row would be silent.
 #[tokio::test]
 async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
     let pool = &fresh("correct_estimate").await;

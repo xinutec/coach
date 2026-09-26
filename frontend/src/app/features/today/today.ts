@@ -83,12 +83,8 @@ export class Today {
   }
 
   /** Today's manual location pick, if one was made (per-day, localStorage).
-   *
-   *  The stored blob is checked, not asserted: it is written by whichever
-   *  version of this app the device last ran, and an `id` that isn't a number
-   *  would be handed on as a location id and silently select nothing. A blob
-   *  that doesn't hold up reads as "no pick made", which is the same answer a
-   *  missing key gives. */
+   *  Checked, not asserted: an older app version may have written it, and a
+   *  blob that doesn't hold up reads as "no pick made". */
   private pickedToday(): number | null {
     try {
       const raw = localStorage.getItem('coach.pickedLocation');
@@ -261,17 +257,10 @@ export class Today {
   }
 
   /**
-   * Whether a plan item renders as a one-line row rather than a full card.
-   *
-   * A card earns its height by holding something still to decide: the dose, the
-   * reasoning, the picture to check your form against. Two kinds hold none of
-   * that. A **finished** item is a receipt — it stays on the plan (it's the
-   * commitment's record) but the decision is spent. A **warm-up** is one line of
-   * prep, not a prescription; its whole content is "10 arm circles".
-   *
-   * Rendered full, they crowd the work off the screen: at phone width a few
-   * finished warm-ups push the first work card, the reason the page exists,
-   * below the fold.
+   * Whether a plan item renders as a one-line row rather than a full card. A
+   * card earns its height by holding something still to decide; a finished item
+   * (a receipt) and a warm-up ("10 arm circles") hold nothing, and full cards
+   * would push the first work card below the fold at phone width.
    */
   isCompact(s: Suggestion): boolean {
     return s.logged.length >= s.sets || s.kind === 'warmup';
@@ -367,13 +356,8 @@ export class Today {
     return this.exercises().find((e) => e.id === id)?.hasImage ?? false;
   }
 
-  /**
-   * A single-arm movement's numbers are **per side**: one set is both arms, and
-   * "10 reps" means ten with each. That's the convention the log follows, so it's
-   * the convention the prescription has to state — "3 × 10" on a suitcase carry is
-   * otherwise half a session or a double one, depending on how you read it, and
-   * the athlete is the one holding the kettlebell.
-   */
+  /** A single-arm movement's numbers are **per side** (one set is both arms), as
+   *  the log records them, so the prescription must say so. */
   perSide(id: number): boolean {
     return this.exercises().find((e) => e.id === id)?.unilateral ?? false;
   }

@@ -25,20 +25,11 @@ use tracing::Level;
 
 use crate::state::AppState;
 
-/// How long a static response may be reused without asking again.
-///
-/// ⚠ **`index.html` MUST REVALIDATE.** With no `Cache-Control` a client falls
-/// back to *heuristic* caching from `Last-Modified` and may keep the document
-/// without ever asking again: an Android WebView will call the new API for hours
-/// while running a build several deploys old. The symptom reads as "the change
-/// did not deploy", while CI, the image and the rollout are all correct.
-///
-/// `no-cache` rather than `no-store`: it means "ask first", not "never keep", so
-/// the ETag still turns the usual case into a 304 with no body.
-///
-/// Everything else Angular emits carries a content hash in its NAME, so a new
-/// build is a new URL and the old one can never be wrong. Those are the one kind
-/// of response `immutable` is honestly available for.
+/// How long a static response may be reused. ⚠ **`index.html` must revalidate**
+/// (`no-cache`: ask first, then a 304 via the ETag): without `Cache-Control` a WebView
+/// caches heuristically and runs a build several deploys old against the new API, which
+/// reads as "the change did not deploy". Everything else Angular emits has a content
+/// hash in its name, so it is `immutable`.
 fn cache_control_for(res: &Response<ServeFileSystemResponseBody>) -> Option<HeaderValue> {
     let is_html = res
         .headers()
@@ -52,16 +43,9 @@ fn cache_control_for(res: &Response<ServeFileSystemResponseBody>) -> Option<Head
     })
 }
 
-/// Serve the app's page for a client-side ROUTE, and 404 anything that plainly
-/// named a file.
-///
-/// ⚠ **A missing FILE must not be handed the page, and the mistake is
-/// invisible**: the wrong answer is a `200`, so a browser that asked for a
-/// woff2 and got HTML renders broken icons and reports nothing anywhere.
-///
-/// The test is a dot in the last path segment. It is a heuristic, and the
-/// alternative — enumerating the bundle's own asset names — would have to be
-/// rebuilt whenever `ng build` changes a hash.
+/// Serve the app for a client-side route, and 404 anything naming a file (a dot in the
+/// last segment). ⚠ A missing file must not get the page: a `200` of HTML for a font
+/// renders broken icons with no error anywhere.
 fn spa(index: &str, path: &str) -> axum::response::Response {
     use axum::response::IntoResponse as _;
 

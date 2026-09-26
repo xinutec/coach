@@ -18,18 +18,10 @@ import {
  */
 
 /**
- * Raw values that reached the screen instead of being turned into something a
- * human reads. `{{ someObject }}` is NOT a compile error: Angular accepts any
- * expression in an interpolation and calls String() on it — verified by
- * interpolating a `GroupBalance[]` into a template and watching `ngc
- * --strictTemplates` pass clean — and angular-eslint's template rules are not
- * type-aware, so nothing between the editor and the browser can see it. The .ts
- * side IS covered (typescript-eslint's no-base-to-string and
- * restrict-template-expressions catch `${obj}` and String(obj)), which leaves
- * templates, and leaves this: the rendered DOM, where the leak is unambiguous.
- *
- * `NaN` catches the arithmetic version of the same failure — a division by a
- * missing denominator painted as a number.
+ * Raw values that reached the screen. `{{ someObject }}` compiles even under
+ * `--strictTemplates`, and template lint isn't type-aware, so the rendered DOM is
+ * the only place to catch it (the .ts side is covered by typescript-eslint).
+ * `NaN` is the arithmetic version: a missing denominator painted as a number.
  */
 const LEAKED = /\[object Object\]|\bNaN\b|\bundefined\b/;
 

@@ -50,15 +50,9 @@ object PacingClient {
      * The verdict a `/api/pacing/now` body describes, or null if it describes
      * none.
      *
-     * Split from the fetch so the decision can be tested without a device: a
-     * body that doesn't parse and a body that says "don't nudge" have to reach
-     * the same outcome — silence — and the only difference between them is
-     * whether the phone was wrong or the coach was.
-     *
-     * Everything is read with a default. The verdict is a much larger object
-     * than this, and it grows; the reminder needs two fields of it, and a
-     * response that has gained or lost any of the rest must not turn into a
-     * missed reminder.
+     * Unparseable and "don't nudge" both mean silence. Both fields are read with
+     * a default, so a verdict that has gained or lost other fields never turns
+     * into a missed reminder.
      */
     fun parse(body: String): Verdict? =
         try {

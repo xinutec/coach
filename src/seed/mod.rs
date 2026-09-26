@@ -1,28 +1,15 @@
-//! Boot-time catalog seeder. Loads the global training library (equipment,
-//! muscle taxonomy, exercises, their M:N links, and image and loop blobs) from
-//! the `data/catalog/` bundle into the DB.
+//! Boot-time catalog seeder: loads the training library (equipment, muscle taxonomy,
+//! exercises and their links, image and loop blobs) from `data/catalog/` into the DB,
+//! so any fresh DB reproduces it.
 //!
-//! Hash-gated: the **whole bundle** (see `bundle_hash`) is fingerprinted
-//! (SHA-256) into `catalog_state`. An unchanged fingerprint short-circuits the
-//! seed (fast normal boots); a changed one re-seeds and **reconciles**.
+//! Hash-gated: the whole bundle (`bundle_hash`) is fingerprinted into `catalog_state`;
+//! unchanged means nothing to do, changed means re-seed and **reconcile**. The catalog
+//! owns every scalar it carries and the reconcile writes all of them back: a field it
+//! skipped would only *appear* catalog-owned. `is_active` is the exception, since the
+//! retired `*_legacy` rows are absent from the catalog.
 //!
-//! **The catalog is the source of truth for every scalar it carries**, and the
-//! reconcile writes all of them back to already-seeded rows, not just the flags
-//! the engine reads. A field the catalog owns but the reconcile skips is a field
-//! the catalog only *appears* to own: the edit changes the hash, re-runs the
-//! seed, and leaves the row as it was.
-//!
-//! `is_active` is the one column the catalog does *not* own: the retired
-//! `*_legacy` rows (migration 0006) are deliberately absent from it, so the
-//! reconcile never sees them.
-//!
-//! Images seed whenever the row hasn't got one — a movement is catalogued the
-//! moment it is real, and the picture turns up later — and are **rendered** on the
-//! way in (see [`render`]): the bundle is the source and keeps its alpha, while
-//! what the app is served is what the app can actually display.
-//!
-//! This keeps the exercise catalog and its images out of SQL migrations
-//! while still making any fresh DB (dev or prod) reproduce the full library.
+//! Pictures are **rendered** on the way in ([`render`]): the bundle keeps the source,
+//! the DB gets what the app can display.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -169,21 +156,11 @@ fn bundle_hash(dir: &Path) -> Result<String> {
     Ok(hex::encode(h.finalize()))
 }
 
-/// Re-point one exercise's M:N links at the catalog's: clear what's there, then
-/// insert what the catalog says. One transaction, and that is the point — a
-/// failure between the two would leave the exercise carrying a SUBSET of its
-/// equipment and muscles, which is not a broken row but a plausible one. The
-/// trainer picks exercises by exactly those links, so a silently narrower barbell
-/// press just stops being offered, and nothing anywhere reads as wrong.
-///
-/// Run for a new row too (where the deletes match nothing): one path for both
-/// cases beats two that can drift.
-///
-/// Takes a CONNECTION, not the pool: the catalog is hundreds of exercises, and
-/// checking one back out per exercise made the seed a burst of short-lived
-/// transactions that starved the pool when several seeds ran at once (the test
-/// suite does exactly that). One connection for the whole pass, one transaction
-/// per exercise on it.
+/// Re-point one exercise's links at the catalog's, in one transaction: a failure
+/// between the delete and the insert would leave a plausible subset of its equipment
+/// and muscles, silently narrowing what the trainer offers. New rows take the same
+/// path. It uses one connection for the whole pass, since a connection per exercise
+/// starves the pool when seeds run concurrently, as the tests do.
 async fn relink(conn: &mut MySqlConnection, ex: &SeedExercise, id: i64) -> Result<()> {
     let mut tx = conn.begin().await?;
     sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
@@ -292,12 +269,9 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         .await?
         .into_iter()
         .collect();
-    // What picture each exercise currently carries, by the etag of the bytes the
-    // app is actually serving. Presence alone is not enough: it makes an existing
-    // picture permanent, so re-rendering one is a change that can never land.
-    // Comparing the etag lets a *newly added* picture land on a row that has been
-    // there for months **and** a re-rendered one replace what's there, while an
-    // unchanged bundle still writes nothing.
+    // What each exercise currently serves, by the etag of those bytes. Presence alone
+    // would make the first file permanent; the etag lets a new or re-rendered one land,
+    // while an unchanged bundle writes nothing.
     let loop_etag: HashMap<i64, String> =
         sqlx::query_as("SELECT exercise_id, etag FROM exercise_loops")
             .fetch_all(pool)
@@ -389,14 +363,8 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         };
 
         relink(&mut link_conn, ex, id).await?;
-        // A picture can arrive *after* the movement does — an exercise is catalogued
-        // the moment it's real, and the photo turns up when someone takes one — so
-        // this is not gated on the row being new.
-        //
-        // This does read + render every picture in the bundle, and that is the
-        // price of a re-render being able to land at all. It is only
-        // paid when the digest moved, which is exactly when a picture may have
-        // changed; an unchanged bundle never reaches this loop.
+        // Not gated on the row being new: a picture can arrive after its movement.
+        // Every picture is read and rendered, but only when the digest moved.
         if let Some(img) = &ex.image {
             let path = dir.join("images").join(&img.file);
             let raw =

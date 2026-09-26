@@ -308,14 +308,11 @@ fn the_plan_is_ordered_and_sized_to_the_day_budget() {
 
 #[test]
 fn a_started_movement_is_confirmed_even_when_its_group_is_covered() {
-    // Two recent sessions of push-ups, several sets each: enough that Chest's weekly
-    // volume is met and the group is still recovering, so under pure coverage the
-    // engine would flee to the untouched groups and never ask for push-ups again.
-    // But one or two sessions is not a trusted baseline. The coach should keep
-    // asking for the movement until the estimate is solid — confirming what you've
-    // *started* before broadening into new movements. On day two, repeat, don't
-    // scatter. (Volume sits a few days back, so the
-    // group has recovered — confirmation waits on recovery, it doesn't override it.)
+    // Two recent sessions of push-ups: Chest's weekly volume is met, so pure coverage
+    // would move on to untouched groups. But two sessions are not a trusted baseline,
+    // so the coach keeps asking for push-ups until they are: on day two, repeat, don't
+    // scatter. (The volume is a few days back, so the group has recovered; confirmation
+    // waits on recovery.)
     let mut h = vec![];
     for _ in 0..12 {
         h.push(set(1, days_ago(4))); // push-up (chest): covered for the week, recovered
@@ -407,13 +404,10 @@ fn skill_and_hold_work_is_ordered_before_heavy_compounds() {
 
 #[test]
 fn power_work_leads_even_skill_and_compounds() {
-    // A ballistic jump (tier 1), a ring skill/hold (tier 2), and a barbell
-    // compound (tier 3), three different groups so all three make the plan. Power
-    // leads *both*: a jump for distance is only worth doing on a fresh CNS, and
-    // when it's a never-done calibration (as here) the number it produces feeds the
-    // ability model — fatigue in front of it corrupts that measurement, not just a
-    // rep target. The jump is patterned Core on purpose: box jumps and slams are,
-    // and the finisher tier must not claim them ahead of the power check.
+    // A ballistic jump, a ring hold and a barbell compound on three groups. Power leads
+    // both: a never-done jump is a calibration, and fatigue before it corrupts the
+    // measurement. The jump is patterned Core, which the finisher tier must not claim
+    // first.
     let jump = ExerciseInfo {
         id: ExerciseId(9),
         name: "Broad jump".into(),
@@ -1165,15 +1159,10 @@ fn a_warmup_is_an_instruction_with_a_dose() {
 
 #[test]
 fn a_bodyweight_target_is_one_rep_up_from_ability_not_the_mode_floor() {
-    // Recent sessions ground out at 2 reps — an honest maximum, shown while
-    // doing one's best. Balanced mode *likes* 8–12 reps, but a style preference is
-    // a ceiling to climb toward, not a floor to demand: asking 8 from an athlete
-    // who has shown 2 prescribes failure, and it silently defeats the
-    // miss-response too (aim best−1, clamped straight back up to 8). A steady
-    // every-other-day history long enough that today's probe is due (R4-1) and
-    // this week is no spike over the baseline: the target is one rep above the
-    // best demonstrated. Only the push-up is on offer — the other groups'
-    // calibration cards are beside the point and would eat the small day budget.
+    // Sessions ground out at 2 reps, an honest max. Balanced likes 8–12, but a style
+    // range is a ceiling to climb toward, not a floor: asking 8 would prescribe failure
+    // and undo the miss-response. With a probe due (R4-1) and no spike, the target is
+    // one above the best.
     let h: Vec<SetRec> = (1..=7).map(|i| bset(1, days_ago(2 * i), 2)).collect();
     let out = evaluate(
         &input(Mode::Balanced, vec![catalog().remove(0)], h, None, None),
@@ -2613,15 +2602,11 @@ fn an_items_label_is_a_prime_mover() {
     );
 }
 
-// ---- round 4: the simulated-athlete findings --------------------------------
+// ---- round 4: the simulated-athlete findings (docs/field-test.md R4-*) ------
 //
-// E3 (src/bin/simulate.rs) played a deterministic athlete against the engine for
-// eight simulated weeks and surfaced three coaching failures the back-test could
-// never show (they only exist in the loop the engine's own prescriptions create):
-// a failing +1 re-asked verbatim every session for weeks, a topped-out or
-// plateaued movement prescribed against its wall forever, and near-duplicate
-// movements (hamstring-curl cousins) sharing one session. These tests pin the
-// fixes.
+// Failures that exist only in the loop the engine's own prescriptions create: a failing
+// +1 re-asked every session, a movement prescribed against its wall forever, and
+// near-duplicate movements sharing one session.
 
 // R4-1: the +1 ask is a probe, and a probe is earned. An athlete who matches
 // their best while failing the ask keeps the same estimate (ability is a max),

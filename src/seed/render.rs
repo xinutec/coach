@@ -1,37 +1,14 @@
-//! Render a catalog picture into the form the app can actually display.
+//! Render a catalog picture into what the app can display. The bundle is the **source**
+//! and keeps its alpha; flattening happens here, on the way into the DB.
 //!
-//! The catalog bundle is the **source**: a picture keeps whatever it arrived with,
-//! alpha included, because a source that has already been flattened cannot be
-//! un-flattened. Two kinds of picture live there, and only one of them is ready to
-//! be shown:
-//!
-//! - **Photographs** — a person doing the movement. Opaque, roughly landscape,
-//!   framed. The app crops them to its 16:9 hero and they look right.
-//! - **Anatomy diagrams** — dark line-art on a *transparent* background, portrait
-//!   (241×338 is typical), with the working muscle highlighted. Shown as-is, they
-//!   fail twice: the app is theme-aware, so on a dark surface dark ink on
-//!   transparent is dark-on-near-black and the figure disappears; and a 16:9
-//!   `object-fit: cover` crops a portrait figure to a band across its stomach —
-//!   losing the movement and the very muscle the picture exists to show.
-//!
-//! So: transparency is composited onto white, and a picture whose shape is far from
-//! the hero's is **padded, never cropped**. A picture that is already opaque and
-//! roughly landscape is stored byte-for-byte as it came — most of the bundle, and
-//! the cheap path in every sense: it isn't even decoded.
-//!
-//! A shape test cannot see where the head is, though, and a few pictures are
-//! landscape enough to pass it while framed tightly enough that the hero's centre
-//! crop takes the head off. Those are named one by one in `PAD_ALWAYS`, because
-//! what makes them different is a fact about the photograph, not its dimensions.
-//!
-//! The shape test is deliberately about the *shape*, not about the alpha: an
-//! opaque square diagram loses its head and feet to `cover` exactly like a
-//! portrait does. Nor is it about the file type — a palette PNG carrying real
-//! transparency is rendered like a diagram, because that is what its pixels say.
-//!
-//! This lives in the seeder rather than in the import script because it is a
-//! *rendering* decision, and rendering decisions should have one implementation —
-//! not one per tool that happens to add a file.
+//! Photographs (opaque, roughly landscape) are stored byte-for-byte, which is most of
+//! the bundle. Anatomy diagrams (dark line-art on transparency, often portrait) would
+//! vanish on a dark theme and lose the muscle to a 16:9 crop, so transparency is
+//! composited onto white and a picture far from the hero's shape is **padded, never
+//! cropped**. The test is about shape and pixels, not the alpha channel or file type. A
+//! few landscape photos framed high still lose a head to the centre crop; those are
+//! named in `PAD_ALWAYS`. One implementation, in the seeder, rather than one per import
+//! tool.
 
 use anyhow::{Context, Result};
 use std::io::Cursor;
@@ -52,15 +29,10 @@ const TARGET_W: u32 = 1200;
 /// not; the exceptions are [`PAD_ALWAYS`].
 const CROPS_BADLY_BELOW: f64 = 1.2;
 
-/// Pictures the shape rule gets wrong. Each is wide enough to clear
-/// `CROPS_BADLY_BELOW`, and each still loses a head to the hero's centre crop,
-/// because the figure is framed high in the frame rather than centred. Padded
-/// instead, so the whole figure shows.
-///
-/// Enumerated rather than generalised on purpose: the other pictures in the same
-/// aspect band crop fine, so any rule wide enough to catch these would pad them
-/// for nothing. Each entry says what the crop does to it, so it can be
-/// checked against the picture instead of taken on trust.
+/// Pictures the shape rule gets wrong: wide enough to clear `CROPS_BADLY_BELOW`, yet
+/// framed high enough that the centre crop takes a head. Enumerated, since a rule wide
+/// enough to catch them would pad the rest of their band for nothing; each entry says
+/// what the crop does, so it can be checked against the picture.
 pub const PAD_ALWAYS: &[(&str, &str)] = &[
     // 5:4.
     ("squat_front_rack_double_kettlebell", "cut across the eyes"),

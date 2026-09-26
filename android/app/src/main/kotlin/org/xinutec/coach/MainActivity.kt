@@ -58,17 +58,12 @@ class MainActivity : WebShellActivity() {
      * Expose the reminders bridge to the coach app's own pages, and to nothing
      * else in the WebView.
      *
-     * The library sheet embeds a `youtube-nocookie.com` player, so the WebView
-     * runs somebody else's code. `addJavascriptInterface` would hand that frame
-     * the bridge too: Android documents it as "available to every frame within
-     * the WebView, including iframes. It lacks origin-based access control."
-     * `addWebMessageListener` injects only into frames matching
-     * [Bridge.ALLOWED_ORIGINS], and [Bridge.actionFor] re-checks origin and
-     * frame on every message, as Android's guidance recommends.
-     *
-     * With no [WebViewFeature.WEB_MESSAGE_LISTENER] the bridge is absent and the
-     * Settings page shows no reminders controls, as in a desktop browser.
-     * Falling back to `addJavascriptInterface` would reopen the hole.
+     * The library sheet embeds a YouTube player, so the WebView runs somebody
+     * else's code, and `addJavascriptInterface` would expose the bridge to that
+     * frame too. `addWebMessageListener` injects only into
+     * [Bridge.ALLOWED_ORIGINS], and [Bridge.actionFor] re-checks every message.
+     * Without [WebViewFeature.WEB_MESSAGE_LISTENER] there is no bridge, and no
+     * reminders controls, rather than a fallback that reopens the hole.
      */
     override fun onWebViewCreated(web: WebView) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
