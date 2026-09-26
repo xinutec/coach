@@ -1,6 +1,6 @@
-import { Overlay, type OverlayRef } from "@angular/cdk/overlay";
-import { TemplatePortal } from "@angular/cdk/portal";
-import { NgTemplateOutlet } from "@angular/common";
+import { Overlay, type OverlayRef } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -11,17 +11,17 @@ import {
   inject,
   signal,
   viewChild,
-} from "@angular/core";
-import { MAT_BOTTOM_SHEET_DATA } from "@angular/material/bottom-sheet";
-import { MatButtonModule } from "@angular/material/button";
-import { MatIconModule } from "@angular/material/icon";
-import { MatProgressBarModule } from "@angular/material/progress-bar";
-import { MatProgressSpinnerModule } from "@angular/material/progress-spinner";
-import { DomSanitizer, type SafeResourceUrl } from "@angular/platform-browser";
+} from '@angular/core';
+import { MAT_BOTTOM_SHEET_DATA } from '@angular/material/bottom-sheet';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 
-import { CoachApi } from "../../coach-api";
-import { ExerciseDetail } from "../../models";
-import { embedUrl, parseYoutube } from "../../shared/youtube";
+import { CoachApi } from '../../coach-api';
+import { ExerciseDetail } from '../../models';
+import { embedUrl, parseYoutube } from '../../shared/youtube';
 
 export interface ExerciseSheetData {
   exerciseId: number;
@@ -29,9 +29,9 @@ export interface ExerciseSheetData {
 
 /** Bottom sheet showing an exercise in full: image, muscles, equipment, demo. */
 @Component({
-  selector: "app-exercise-sheet",
-  templateUrl: "./exercise-sheet.html",
-  styleUrl: "./exercise-sheet.scss",
+  selector: 'app-exercise-sheet',
+  templateUrl: './exercise-sheet.html',
+  styleUrl: './exercise-sheet.scss',
   imports: [
     MatButtonModule,
     MatIconModule,
@@ -48,7 +48,7 @@ export class ExerciseSheet {
   private data = inject<ExerciseSheetData>(MAT_BOTTOM_SHEET_DATA);
   readonly detail = signal<ExerciseDetail | null>(null);
 
-  private playerTpl = viewChild.required<TemplateRef<unknown>>("playerTpl");
+  private playerTpl = viewChild.required<TemplateRef<unknown>>('playerTpl');
 
   /** The demo, when it's a video we can actually play in here. `null` → the demo
    *  link (if there is one) can only open out to YouTube. */
@@ -84,12 +84,12 @@ export class ExerciseSheet {
   constructor() {
     this.api.exercise(this.data.exerciseId).subscribe((d) => this.detail.set(d));
 
-    const mq = window.matchMedia("(orientation: landscape)");
+    const mq = window.matchMedia('(orientation: landscape)');
     this.landscape.set(mq.matches);
     const onChange = (e: MediaQueryListEvent) => this.landscape.set(e.matches);
-    mq.addEventListener("change", onChange);
+    mq.addEventListener('change', onChange);
     inject(DestroyRef).onDestroy(() => {
-      mq.removeEventListener("change", onChange);
+      mq.removeEventListener('change', onChange);
       this.closeFullscreen();
     });
 
@@ -108,9 +108,9 @@ export class ExerciseSheet {
     if (this.fsRef) return;
     this.frameReady.set(false);
     this.fsRef = this.overlay.create({
-      panelClass: "demo-fs-pane",
+      panelClass: 'demo-fs-pane',
       hasBackdrop: false,
-      positionStrategy: this.overlay.position().global().top("0").left("0"),
+      positionStrategy: this.overlay.position().global().top('0').left('0'),
       scrollStrategy: this.overlay.scrollStrategies.block(),
     });
     this.fsRef.attach(new TemplatePortal(this.playerTpl(), this.vcr));
@@ -146,10 +146,10 @@ export class ExerciseSheet {
     return d.variation ? `${d.name} (${d.variation})` : d.name;
   }
   primary(d: ExerciseDetail) {
-    return d.muscles.filter((m) => m.role === "primary");
+    return d.muscles.filter((m) => m.role === 'primary');
   }
   secondary(d: ExerciseDetail) {
-    return d.muscles.filter((m) => m.role !== "primary");
+    return d.muscles.filter((m) => m.role !== 'primary');
   }
   patternLabel(p: string): string {
     return p.charAt(0).toUpperCase() + p.slice(1);

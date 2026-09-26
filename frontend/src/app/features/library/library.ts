@@ -1,23 +1,23 @@
-import { Component, computed, inject, signal } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { MatBottomSheet } from "@angular/material/bottom-sheet";
-import { MatButtonModule } from "@angular/material/button";
-import { MatFormFieldModule } from "@angular/material/form-field";
-import { MatIconModule } from "@angular/material/icon";
-import { MatInputModule } from "@angular/material/input";
+import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 
-import { CoachApi } from "../../coach-api";
-import { Exercise, displayName } from "../../models";
-import { EquipmentStore, ExercisesStore } from "../../stores/catalog";
-import { ExerciseSheet } from "./exercise-sheet";
+import { CoachApi } from '../../coach-api';
+import { Exercise, displayName } from '../../models';
+import { EquipmentStore, ExercisesStore } from '../../stores/catalog';
+import { ExerciseSheet } from './exercise-sheet';
 
-const PATTERNS = ["push", "pull", "legs", "core"] as const;
+const PATTERNS = ['push', 'pull', 'legs', 'core'] as const;
 
 /** Browse the exercise library: search + pattern filter, tap for full detail. */
 @Component({
-  selector: "app-library",
-  templateUrl: "./library.html",
-  styleUrl: "./library.scss",
+  selector: 'app-library',
+  templateUrl: './library.html',
+  styleUrl: './library.scss',
   imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule],
 })
 export class LibraryPage {
@@ -30,7 +30,7 @@ export class LibraryPage {
   readonly exercises = computed(() => this.exercisesStore.value() ?? []);
   readonly loading = computed(() => !this.exercisesStore.loaded());
   // Signals (not plain fields) because the filtered view is a computed over them.
-  readonly search = signal("");
+  readonly search = signal('');
   readonly pattern = signal<string | null>(null);
   readonly patterns = PATTERNS;
   private equipmentNames = computed(

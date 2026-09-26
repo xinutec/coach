@@ -3,12 +3,12 @@ import {
   isDevMode,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
-} from "@angular/core";
-import { provideHttpClient, withFetch } from "@angular/common/http";
-import { provideRouter, withComponentInputBinding } from "@angular/router";
-import { provideServiceWorker } from "@angular/service-worker";
+} from '@angular/core';
+import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideServiceWorker } from '@angular/service-worker';
 
-import { routes } from "./app.routes";
+import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -20,9 +20,9 @@ export const appConfig: ApplicationConfig = {
     // offline (prod build only) — a basement gym has no signal.
     // registerImmediately, not registerWhenStable: the cache should be ready the
     // moment the app opens, not whenever Angular next reports itself stable.
-    provideServiceWorker("ngsw-worker.js", {
+    provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
-      registrationStrategy: "registerImmediately",
+      registrationStrategy: 'registerImmediately',
     }),
   ],
 };

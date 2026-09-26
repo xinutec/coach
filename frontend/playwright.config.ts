@@ -1,6 +1,6 @@
-import { defineConfig, devices } from "@playwright/test";
-import { phoneConfig } from "@xinutec/ui-harness/config";
-import harness from "./e2e/harness.mjs";
+import { defineConfig, devices } from '@playwright/test';
+import { phoneConfig } from '@xinutec/ui-harness/config';
+import harness from './e2e/harness.mjs';
 
 /**
  * Layout harness (L2 of dev-lint/docs/layout-quality-architecture.md): render the

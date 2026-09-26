@@ -1,17 +1,17 @@
-import { Component, computed, inject } from "@angular/core";
-import { MatProgressBarModule } from "@angular/material/progress-bar";
+import { Component, computed, inject } from '@angular/core';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { GroupBalance, Region } from "../../models";
-import { PacingStore } from "../../stores/catalog";
+import { GroupBalance, Region } from '../../models';
+import { PacingStore } from '../../stores/catalog';
 
-const REGION_ORDER: Region[] = ["chest", "back", "shoulders", "arms", "forearms", "core", "legs"];
+const REGION_ORDER: Region[] = ['chest', 'back', 'shoulders', 'arms', 'forearms', 'core', 'legs'];
 
 /** The muscle-group volume picture the coach reasons over — rolling volume vs
  *  target per group, by region. Shows the user their own data. */
 @Component({
-  selector: "app-balance",
-  templateUrl: "./balance.html",
-  styleUrl: "./balance.scss",
+  selector: 'app-balance',
+  templateUrl: './balance.html',
+  styleUrl: './balance.scss',
   imports: [MatProgressBarModule],
 })
 export class BalancePage {

@@ -1,16 +1,16 @@
-import { Component, inject, signal } from "@angular/core";
-import { RouterLink, RouterLinkActive, RouterOutlet } from "@angular/router";
-import { MatButtonModule } from "@angular/material/button";
-import { MatCardModule } from "@angular/material/card";
-import { MatIconModule } from "@angular/material/icon";
-import { MatMenuModule } from "@angular/material/menu";
-import { MatProgressBarModule } from "@angular/material/progress-bar";
-import { MatToolbarModule } from "@angular/material/toolbar";
+import { Component, inject, signal } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatToolbarModule } from '@angular/material/toolbar';
 
-import { CoachApi } from "./coach-api";
-import { Me } from "./models";
-import { SwUpdates } from "./sw-updates";
-import { Telemetry } from "./telemetry";
+import { CoachApi } from './coach-api';
+import { Me } from './models';
+import { SwUpdates } from './sw-updates';
+import { Telemetry } from './telemetry';
 
 interface NavItem {
   path: string;
@@ -19,9 +19,9 @@ interface NavItem {
 }
 
 @Component({
-  selector: "app-root",
-  templateUrl: "./app.html",
-  styleUrl: "./app.scss",
+  selector: 'app-root',
+  templateUrl: './app.html',
+  styleUrl: './app.scss',
   imports: [
     RouterOutlet,
     RouterLink,
@@ -46,11 +46,11 @@ export class App {
   readonly avatarError = signal(false);
 
   readonly nav: NavItem[] = [
-    { path: "/today", icon: "bolt", label: "Today" },
-    { path: "/balance", icon: "equalizer", label: "Balance" },
-    { path: "/library", icon: "fitness_center", label: "Library" },
-    { path: "/history", icon: "history", label: "History" },
-    { path: "/settings", icon: "settings", label: "Settings" },
+    { path: '/today', icon: 'bolt', label: 'Today' },
+    { path: '/balance', icon: 'equalizer', label: 'Balance' },
+    { path: '/library', icon: 'fitness_center', label: 'Library' },
+    { path: '/history', icon: 'history', label: 'History' },
+    { path: '/settings', icon: 'settings', label: 'Settings' },
   ];
 
   constructor() {
@@ -69,6 +69,6 @@ export class App {
   }
 
   signOut(): void {
-    this.api.logout().subscribe(() => (window.location.href = "/"));
+    this.api.logout().subscribe(() => (window.location.href = '/'));
   }
 }

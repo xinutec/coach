@@ -39,7 +39,12 @@
   @if (playing() && !landscape()) {
     <ng-container [ngTemplateOutlet]="playerTpl" />
   } @else if (video()) {
-    <button type="button" class="hero hero-play" (click)="play()" [attr.aria-label]="'Play the ' + d.name + ' demo'">
+    <button
+      type="button"
+      class="hero hero-play"
+      (click)="play()"
+      [attr.aria-label]="'Play the ' + d.name + ' demo'"
+    >
       @if (d.hasImage) {
         <img [src]="imageUrl(d.id)" alt="" />
       }
@@ -134,8 +139,8 @@
        and the frame's own error is a dead end without a way out. -->
   @if (d.demoUrl) {
     <a mat-stroked-button class="demo" [href]="d.demoUrl" target="_blank" rel="noopener">
-      <mat-icon>{{ video() ? "open_in_new" : "play_circle" }}</mat-icon>
-      {{ video() ? "Open in YouTube" : "Watch demo" }}
+      <mat-icon>{{ video() ? 'open_in_new' : 'play_circle' }}</mat-icon>
+      {{ video() ? 'Open in YouTube' : 'Watch demo' }}
     </a>
   } @else {
     <p class="demo pending">

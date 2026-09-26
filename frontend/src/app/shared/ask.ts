@@ -8,63 +8,63 @@
  * only when a single number is wanted regardless of shape, as when prefilling
  * the log sheet's fields.
  */
-import type { Ask } from "../models";
+import type { Ask } from '../models';
 
 /** The weight this ask names, if it names one. */
 export function askLoadKg(ask: Ask): number | null {
-	switch (ask.kind) {
-		case "weighted":
-		case "weightedHold":
-		case "weightedDistance":
-			return ask.loadKg;
-		case "buildUp":
-		case "loadedCarry":
-		case "loadedDistance":
-			return ask.startKg;
-		default:
-			return null;
-	}
+  switch (ask.kind) {
+    case 'weighted':
+    case 'weightedHold':
+    case 'weightedDistance':
+      return ask.loadKg;
+    case 'buildUp':
+    case 'loadedCarry':
+    case 'loadedDistance':
+      return ask.startKg;
+    default:
+      return null;
+  }
 }
 
 /** The number of reps actually asked for, if this ask is counted in reps. */
 export function askRepLow(ask: Ask): number | null {
-	switch (ask.kind) {
-		case "weighted":
-		case "bodyweight":
-			return ask.repLow;
-		case "buildUp":
-			return ask.reps;
-		default:
-			return null;
-	}
+  switch (ask.kind) {
+    case 'weighted':
+    case 'bodyweight':
+      return ask.repLow;
+    case 'buildUp':
+      return ask.reps;
+    default:
+      return null;
+  }
 }
 
 /** The top of the rep range. A calibration build-up is a single number, so its
  *  low and high are the same — the card then reads "8 reps", not "aim 8". */
 export function askRepHigh(ask: Ask): number | null {
-	switch (ask.kind) {
-		case "weighted":
-		case "bodyweight":
-			return ask.repHigh;
-		case "buildUp":
-			return ask.reps;
-		default:
-			return null;
-	}
+  switch (ask.kind) {
+    case 'weighted':
+    case 'bodyweight':
+      return ask.repHigh;
+    case 'buildUp':
+      return ask.reps;
+    default:
+      return null;
+  }
 }
 
 /** The seconds this ask names, if it is timed. */
 export function askHoldS(ask: Ask): number | null {
-	switch (ask.kind) {
-		case "hold":
-		case "weightedHold":
-			return ask.holdS;
-		default:
-			return null;
-	}
+  switch (ask.kind) {
+    case 'hold':
+    case 'weightedHold':
+      return ask.holdS;
+    default:
+      return null;
+  }
 }
 
 /** The metres this ask names, if it is a carry measured by distance. */
 export function askDistanceM(ask: Ask): number | null {
-	return ask.kind === "weightedDistance" ? ask.distanceM : null;
+  return ask.kind === 'weightedDistance' ? ask.distanceM : null;
 }

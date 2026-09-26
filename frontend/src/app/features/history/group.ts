@@ -1,5 +1,5 @@
-import { WorkoutSet } from "../../models";
-import { NonEmpty } from "../../shared/non-empty";
+import { WorkoutSet } from '../../models';
+import { NonEmpty } from '../../shared/non-empty';
 
 /** One movement within a day: every set of it, and the one line that says what it
  *  was. Three identical rows reading "Triceps extension" is the log describing
@@ -55,12 +55,12 @@ export function byMovement(
 export function summarise(sets: readonly WorkoutSet[], unilateral: boolean): string {
   const range = (pick: (s: WorkoutSet) => number | null, fmt: (v: string) => string): string => {
     const vals = sets.map(pick).filter((v): v is number => v != null);
-    if (vals.length === 0) return "";
+    if (vals.length === 0) return '';
     const [lo, hi] = [Math.min(...vals), Math.max(...vals)];
     return fmt(lo === hi ? `${lo}` : `${lo}–${hi}`);
   };
   return [
-    `${sets.length} set${sets.length === 1 ? "" : "s"}`,
+    `${sets.length} set${sets.length === 1 ? '' : 's'}`,
     range(
       (s) => s.reps,
       (v) => `${v} reps`,
@@ -82,12 +82,12 @@ export function summarise(sets: readonly WorkoutSet[], unilateral: boolean): str
       (v) => `${v} m`,
     ),
     // A single-arm movement's numbers are per side — one set is both arms.
-    unilateral ? "each side" : "",
+    unilateral ? 'each side' : '',
     range(
       (s) => s.rpe,
       (v) => `RPE ${v}`,
     ),
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(' · ');
 }

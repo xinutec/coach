@@ -1,12 +1,12 @@
-import { Component, computed, effect, inject, signal } from "@angular/core";
-import { MatButtonModule } from "@angular/material/button";
-import { MatIconModule } from "@angular/material/icon";
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
-import { CoachApi } from "../../coach-api";
-import { WorkoutSet, displayName } from "../../models";
-import { NonEmpty } from "../../shared/non-empty";
-import { AllExercisesStore, SetsStore } from "../../stores/catalog";
-import { MovementGroup, byMovement } from "./group";
+import { CoachApi } from '../../coach-api';
+import { WorkoutSet, displayName } from '../../models';
+import { NonEmpty } from '../../shared/non-empty';
+import { AllExercisesStore, SetsStore } from '../../stores/catalog';
+import { MovementGroup, byMovement } from './group';
 
 interface DayGroup {
   key: string;
@@ -16,9 +16,9 @@ interface DayGroup {
 }
 
 @Component({
-  selector: "app-history",
-  templateUrl: "./history.html",
-  styleUrl: "./history.scss",
+  selector: 'app-history',
+  templateUrl: './history.html',
+  styleUrl: './history.scss',
   imports: [MatButtonModule, MatIconModule],
 })
 export class HistoryPage {
@@ -42,13 +42,13 @@ export class HistoryPage {
 
   // logged_at is stored UTC; append 'Z' so the browser renders local time.
   private local(loggedAt: string): Date {
-    return new Date(loggedAt + "Z");
+    return new Date(loggedAt + 'Z');
   }
 
   /** Weekday + day + month, plus the year only when it isn't the current one. */
   private dayLabel(d: Date): string {
-    const opts: Intl.DateTimeFormatOptions = { weekday: "short", day: "numeric", month: "short" };
-    if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+    const opts: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
     return d.toLocaleDateString([], opts);
   }
 
@@ -110,7 +110,7 @@ export class HistoryPage {
 
   name(id: number): string {
     const e = this.exMap().get(id);
-    return e ? displayName(e) : "Exercise";
+    return e ? displayName(e) : 'Exercise';
   }
 
   detail(s: WorkoutSet): string {
@@ -122,13 +122,13 @@ export class HistoryPage {
     // would render every farmer's walk as its weight alone.
     if (s.distanceM != null) parts.push(`${s.distanceM} m`);
     if (s.rpe != null) parts.push(`RPE ${s.rpe}`);
-    return parts.join(" · ");
+    return parts.join(' · ');
   }
 
   time(s: WorkoutSet): string {
     return this.local(s.loggedAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
+      hour: '2-digit',
+      minute: '2-digit',
     });
   }
 

@@ -7,9 +7,9 @@
 
 /** An embeddable YouTube video: its id, and where in the clip the movement starts. */
 export interface YoutubeRef {
-	id: string;
-	/** Seconds into the video to start at (0 = from the top). */
-	startS: number;
+  id: string;
+  /** Seconds into the video to start at (0 = from the top). */
+  startS: number;
 }
 
 const VIDEO_ID = /^[\w-]{11}$/;
@@ -22,26 +22,26 @@ const CLOCK = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/;
  * serve a frame that renders an error where a video should be.
  */
 export function parseYoutube(url: string): YoutubeRef | null {
-	let u: URL;
-	try {
-		u = new URL(url);
-	} catch {
-		return null;
-	}
-	if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
 
-	const host = u.hostname.replace(/^(www|m)\./, "");
-	let id: string | null = null;
-	if (host === "youtu.be") {
-		id = u.pathname.slice(1);
-	} else if (host === "youtube.com" || host === "youtube-nocookie.com") {
-		if (u.pathname === "/watch") id = u.searchParams.get("v");
-		else if (u.pathname.startsWith("/embed/")) id = u.pathname.slice("/embed/".length);
-		else if (u.pathname.startsWith("/shorts/")) id = u.pathname.slice("/shorts/".length);
-	}
-	if (id === null || !VIDEO_ID.test(id)) return null;
+  const host = u.hostname.replace(/^(www|m)\./, '');
+  let id: string | null = null;
+  if (host === 'youtu.be') {
+    id = u.pathname.slice(1);
+  } else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    if (u.pathname === '/watch') id = u.searchParams.get('v');
+    else if (u.pathname.startsWith('/embed/')) id = u.pathname.slice('/embed/'.length);
+    else if (u.pathname.startsWith('/shorts/')) id = u.pathname.slice('/shorts/'.length);
+  }
+  if (id === null || !VIDEO_ID.test(id)) return null;
 
-	return { id, startS: parseStart(u.searchParams.get("t")) };
+  return { id, startS: parseStart(u.searchParams.get('t')) };
 }
 
 /**
@@ -70,23 +70,23 @@ export function parseYoutube(url: string): YoutubeRef | null {
  * off; if a video insists on captions anyway, only the IFrame API can unload them.)
  */
 export function embedUrl(ref: YoutubeRef): string {
-	const p = new URLSearchParams({
-		start: String(ref.startS),
-		autoplay: "1",
-		mute: "1",
-		controls: "0",
-		cc_load_policy: "0",
-		iv_load_policy: "3",
-		rel: "0",
-		playsinline: "1",
-	});
-	return `https://www.youtube-nocookie.com/embed/${ref.id}?${p}`;
+  const p = new URLSearchParams({
+    start: String(ref.startS),
+    autoplay: '1',
+    mute: '1',
+    controls: '0',
+    cc_load_policy: '0',
+    iv_load_policy: '3',
+    rel: '0',
+    playsinline: '1',
+  });
+  return `https://www.youtube-nocookie.com/embed/${ref.id}?${p}`;
 }
 
 function parseStart(t: string | null): number {
-	if (t === null) return 0;
-	const m = CLOCK.exec(t);
-	if (!m) return 0;
-	const [, h, min, s] = m;
-	return Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(s ?? 0);
+  if (t === null) return 0;
+  const m = CLOCK.exec(t);
+  if (!m) return 0;
+  const [, h, min, s] = m;
+  return Number(h ?? 0) * 3600 + Number(min ?? 0) * 60 + Number(s ?? 0);
 }

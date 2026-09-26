@@ -14,32 +14,37 @@
     <div class="pair">
       <!-- The fields are the metric: a carry is a weight and a time, and asking it
            for reps is what produced "Farmers walk, 5 reps at 6 kg". -->
-      @if (ex.metric === "reps" || ex.metric === "weighted_reps") {
+      @if (ex.metric === 'reps' || ex.metric === 'weighted_reps') {
         <mat-form-field appearance="outline">
           <!-- One set of a single-arm movement is both arms, and the number is what
                each arm did. The field has to say which, or the log and the
                prescription quietly mean different things. -->
-          <mat-label>{{ ex.unilateral ? "Reps (each side)" : "Reps" }}</mat-label>
+          <mat-label>{{ ex.unilateral ? 'Reps (each side)' : 'Reps' }}</mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="reps" />
         </mat-form-field>
       }
-      @if (ex.metric === "weighted_reps" || ex.metric === "weighted_hold" || ex.metric === "weighted_distance") {
+      @if (
+        ex.metric === 'weighted_reps' ||
+        ex.metric === 'weighted_hold' ||
+        ex.metric === 'weighted_distance'
+      ) {
         <mat-form-field appearance="outline">
           <mat-label>Load (kg)</mat-label>
           <input matInput type="number" inputmode="decimal" [(ngModel)]="loadKg" />
         </mat-form-field>
       }
-      @if (ex.metric === "hold" || ex.metric === "weighted_hold") {
+      @if (ex.metric === 'hold' || ex.metric === 'weighted_hold') {
         <mat-form-field appearance="outline">
           <mat-label>
-            {{ ex.metric === "weighted_hold" ? "Carry (s)" : "Hold (s)" }}{{ ex.unilateral ? " each side" : "" }}
+            {{ ex.metric === 'weighted_hold' ? 'Carry (s)' : 'Hold (s)'
+            }}{{ ex.unilateral ? ' each side' : '' }}
           </mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="holdS" />
         </mat-form-field>
       }
-      @if (ex.metric === "weighted_distance") {
+      @if (ex.metric === 'weighted_distance') {
         <mat-form-field appearance="outline">
-          <mat-label>Distance (m){{ ex.unilateral ? " each side" : "" }}</mat-label>
+          <mat-label>Distance (m){{ ex.unilateral ? ' each side' : '' }}</mat-label>
           <input matInput type="number" inputmode="numeric" [(ngModel)]="distanceM" />
         </mat-form-field>
       }
@@ -80,12 +85,8 @@
     @if (logged() > 0) {
       <span class="logged-count">{{ logged() }} logged</span>
     }
-    <button mat-button (click)="done()">{{ logged() > 0 ? "Done" : "Cancel" }}</button>
-    <button
-      mat-flat-button
-      [disabled]="saving() || exerciseId() === null"
-      (click)="save()"
-    >
+    <button mat-button (click)="done()">{{ logged() > 0 ? 'Done' : 'Cancel' }}</button>
+    <button mat-flat-button [disabled]="saving() || exerciseId() === null" (click)="save()">
       Log set
     </button>
   </div>

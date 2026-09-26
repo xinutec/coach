@@ -1,0 +1,11 @@
+dist/
+node_modules/
+.angular/
+test-results/
+playwright-report/
+ui-snapshots/
+# Written by ts-rs and by scripts/stamp-version.mjs; formatting would fight them.
+src/app/generated/
+src/app/build-info.ts
+# Written by pnpm.
+pnpm-lock.yaml

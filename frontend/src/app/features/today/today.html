@@ -26,7 +26,7 @@
   <!-- The coach speaking: one sentence, readiness/deload woven in server-side. -->
   <mat-card class="reason" [class.is-nudge]="p.nudge">
     <mat-card-content>
-      <mat-icon>{{ p.nudge ? "notifications_active" : "self_improvement" }}</mat-icon>
+      <mat-icon>{{ p.nudge ? 'notifications_active' : 'self_improvement' }}</mat-icon>
       <span>{{ p.reason }}</span>
     </mat-card-content>
   </mat-card>
@@ -35,9 +35,9 @@
     <!-- Past the window the coach said "this rolls to tomorrow" — the plan must
          agree: it's a preview, with no "Next up" pressure and no burn-down. -->
     <div class="plan-head">
-      <h3>{{ p.window === "after" ? "Tomorrow's session" : "Today's session" }}</h3>
+      <h3>{{ p.window === 'after' ? "Tomorrow's session" : "Today's session" }}</h3>
       <span class="plan-count">
-        @if (p.window === "after") {
+        @if (p.window === 'after') {
           {{ planSets(p) }} sets
         } @else {
           {{ planDone(p) }} / {{ planSets(p) }} sets
@@ -94,154 +94,175 @@
               "
               (click)="openLog(s)"
             >
-              <mat-icon>{{ s.logged.length >= s.sets ? "add" : "check" }}</mat-icon>
+              <mat-icon>{{ s.logged.length >= s.sets ? 'add' : 'check' }}</mat-icon>
             </button>
           </mat-card-content>
         } @else {
-        <mat-card-content>
-          <div class="s-head">
-            <!-- The picture is the fastest answer to "what is this movement?" — tap
+          <mat-card-content>
+            <div class="s-head">
+              <!-- The picture is the fastest answer to "what is this movement?" — tap
                  it for the full sheet: bigger image, muscles worked, demo video. -->
-            <button
-              type="button"
-              class="s-thumb"
-              [attr.aria-label]="'Show ' + s.exerciseName"
-              (click)="openDetail(s)"
-            >
-              @if (hasImage(s.exerciseId)) {
-                <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
-              } @else {
-                <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
-              }
-            </button>
-            <div class="s-titles">
-              <div class="s-pills">
-                <!-- "Next up" points at the first item with sets still to do —
-                     never at something already finished this session. -->
-                @if (isNextUp(i)) {
-                  <span class="pill next-pill">Next up</span>
+              <button
+                type="button"
+                class="s-thumb"
+                [attr.aria-label]="'Show ' + s.exerciseName"
+                (click)="openDetail(s)"
+              >
+                @if (hasImage(s.exerciseId)) {
+                  <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+                } @else {
+                  <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
                 }
-                <!-- No "Done" or "Warm-up" pill here: both of those states render
+              </button>
+              <div class="s-titles">
+                <div class="s-pills">
+                  <!-- "Next up" points at the first item with sets still to do —
+                     never at something already finished this session. -->
+                  @if (isNextUp(i)) {
+                    <span class="pill next-pill">Next up</span>
+                  }
+                  <!-- No "Done" or "Warm-up" pill here: both of those states render
                      as a compact row instead, so a full card is always unfinished
                      work or a calibration. -->
-                @if (s.kind === "assess") {
-                  <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
-                }
+                  @if (s.kind === 'assess') {
+                    <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
+                  }
+                </div>
+                <h3>
+                  <button type="button" class="s-name" (click)="openDetail(s)">
+                    {{ s.exerciseName }}
+                  </button>
+                </h3>
               </div>
-              <h3><button type="button" class="s-name" (click)="openDetail(s)">{{ s.exerciseName }}</button></h3>
             </div>
-          </div>
-          @if (s.substitutedFor; as sub) {
-            <p class="s-sub">
-              <mat-icon>swap_horiz</mat-icon>
-              {{ substitutionNote(sub) }}
-            </p>
-          }
-          @if (s.kind === "assess") {
-            <p class="s-assess">{{ assessInstruction(s) }}</p>
-            @if (askLoadKg(s.ask); as start) {
-              <p class="s-detail">Start around {{ start }} kg</p>
+            @if (s.substitutedFor; as sub) {
+              <p class="s-sub">
+                <mat-icon>swap_horiz</mat-icon>
+                {{ substitutionNote(sub) }}
+              </p>
             }
-          } @else {
-            <!-- A single-arm movement counts per side: one set is both arms, and the
+            @if (s.kind === 'assess') {
+              <p class="s-assess">{{ assessInstruction(s) }}</p>
+              @if (askLoadKg(s.ask); as start) {
+                <p class="s-detail">Start around {{ start }} kg</p>
+              }
+            } @else {
+              <!-- A single-arm movement counts per side: one set is both arms, and the
                  reps/seconds are what each one does. Saying "3 × 10" without that
                  is half a session or a double one depending on how you read it. -->
-            <p class="s-detail">
-              @if (s.logged.length > 0) {
-                {{ s.logged.length }}/{{ s.sets }} sets
-              } @else {
-                {{ s.sets }} set{{ s.sets === 1 ? "" : "s" }}
-              }
-              <!-- One arm per shape the ask can take, so this can't render a
+              <p class="s-detail">
+                @if (s.logged.length > 0) {
+                  {{ s.logged.length }}/{{ s.sets }} sets
+                } @else {
+                  {{ s.sets }} set{{ s.sets === 1 ? '' : 's' }}
+                }
+                <!-- One arm per shape the ask can take, so this can't render a
                    rep range for a carry or a load for a bodyweight lift. The low
                    end is the day's aim (demonstrated ability ± the day's
                    adjustment), the high end the style ceiling — "3–12" read as a
                    floor of 3, which invites the minimum. -->
-              @switch (s.ask.kind) {
-                @case ("weighted") {
-                  @if (s.ask.repLow === s.ask.repHigh) {
-                    · {{ s.ask.repLow }} reps
-                  } @else {
-                    · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                @switch (s.ask.kind) {
+                  @case ('weighted') {
+                    @if (s.ask.repLow === s.ask.repHigh) {
+                      · {{ s.ask.repLow }} reps
+                    } @else {
+                      · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                    }
+                    · {{ s.ask.loadKg }} kg
                   }
-                  · {{ s.ask.loadKg }} kg
-                }
-                @case ("bodyweight") {
-                  @if (s.ask.repLow === s.ask.repHigh) {
-                    · {{ s.ask.repLow }} reps
-                  } @else {
-                    · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                  @case ('bodyweight') {
+                    @if (s.ask.repLow === s.ask.repHigh) {
+                      · {{ s.ask.repLow }} reps
+                    } @else {
+                      · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                    }
+                  }
+                  @case ('hold') {
+                    · {{ s.ask.holdS }}s hold
+                  }
+                  @case ('weightedHold') {
+                    · {{ s.ask.loadKg }} kg · {{ s.ask.holdS }}s hold
+                  }
+                  @case ('weightedDistance') {
+                    · {{ s.ask.loadKg }} kg · {{ s.ask.distanceM }} m carry
                   }
                 }
-                @case ("hold") {
-                  · {{ s.ask.holdS }}s hold
+                @if (perSide(s.exerciseId)) {
+                  <span class="per-side">each side</span>
                 }
-                @case ("weightedHold") {
-                  · {{ s.ask.loadKg }} kg · {{ s.ask.holdS }}s hold
-                }
-                @case ("weightedDistance") {
-                  · {{ s.ask.loadKg }} kg · {{ s.ask.distanceM }} m carry
-                }
-              }
-              @if (perSide(s.exerciseId)) {
-                <span class="per-side">each side</span>
-              }
-            </p>
-            <!-- Part-done: what the sets you've already put in actually were.
+              </p>
+              <!-- Part-done: what the sets you've already put in actually were.
                  The line above is the ask and stays the ask — this is the
                  answer to "what did I do last set?", which was otherwise a trip
                  to History mid-movement. -->
-            @if (s.logged.length) {
-              <p class="s-logged">
-                <mat-icon class="tick">check</mat-icon>
-                {{ loggedSummary(s) }}
-              </p>
+              @if (s.logged.length) {
+                <p class="s-logged">
+                  <mat-icon class="tick">check</mat-icon>
+                  {{ loggedSummary(s) }}
+                </p>
+              }
             }
-          }
-          <div class="s-actions">
-            <button mat-flat-button (click)="openLog(s)">
-              <mat-icon>{{ s.kind === "assess" ? "science" : "add" }}</mat-icon>
-              {{ s.kind === "assess" ? "Log the calibration set" : "Log this set" }}
-            </button>
-            @if (s.explanation) {
-              <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
-                {{ isWhyOpen(s.exerciseId) ? "Hide" : "Why this?" }}
+            <div class="s-actions">
+              <button mat-flat-button (click)="openLog(s)">
+                <mat-icon>{{ s.kind === 'assess' ? 'science' : 'add' }}</mat-icon>
+                {{ s.kind === 'assess' ? 'Log the calibration set' : 'Log this set' }}
               </button>
-            }
-          </div>
-          @if (s.explanation; as e) {
-            @if (isWhyOpen(s.exerciseId)) {
-              <ul class="why-list">
-                <li>Targets {{ s.group }}</li>
-                @for (line of explanationLines(e); track line) {
-                  <li>{{ line }}</li>
-                }
-                <!-- The one set the estimate rests on. Ability is a max, so a
+              @if (s.explanation) {
+                <button type="button" class="why-toggle" (click)="toggleWhy(s.exerciseId)">
+                  {{ isWhyOpen(s.exerciseId) ? 'Hide' : 'Why this?' }}
+                </button>
+              }
+            </div>
+            @if (s.explanation; as e) {
+              @if (isWhyOpen(s.exerciseId)) {
+                <ul class="why-list">
+                  <li>Targets {{ s.group }}</li>
+                  @for (line of explanationLines(e); track line) {
+                    <li>{{ line }}</li>
+                  }
+                  <!-- The one set the estimate rests on. Ability is a max, so a
                      single wrong number is a ceiling nothing later can lower —
                      and it is usually an old set, out of reach of anything that
                      only offers the latest one. Name it, and offer the fix. -->
-                @if (e.estimateFrom; as src) {
-                  <!-- Plain text buttons (the same `.why-toggle` the reasoning
+                  @if (e.estimateFrom; as src) {
+                    <!-- Plain text buttons (the same `.why-toggle` the reasoning
                        uses), not Material ones: a mat-button's padding pushed
                        this line out of the list's rhythm, and a filled one made
                        the *destructive* choice the loudest thing on the card —
                        and sat it under the FAB at phone width. Removing a set is
                        a rare escape hatch, so it should be quiet, and "Keep"
                        should never be the harder option to pick. -->
-                  <li>
-                    From your set on {{ describeSource(src) }}&nbsp;
-                    @if (confirmRemoveSetId() === src.setId) {
-                      <button type="button" class="why-toggle" (click)="confirmRemoveSetId.set(null)">Keep</button
-                      >&nbsp;·&nbsp;<button type="button" class="why-toggle" (click)="removeSourceSet(src.setId)">Remove</button>
-                    } @else {
-                      <button type="button" class="why-toggle" (click)="confirmRemoveSetId.set(src.setId)">Not right?</button>
-                    }
-                  </li>
-                }
-              </ul>
+                    <li>
+                      From your set on {{ describeSource(src) }}&nbsp;
+                      @if (confirmRemoveSetId() === src.setId) {
+                        <button
+                          type="button"
+                          class="why-toggle"
+                          (click)="confirmRemoveSetId.set(null)"
+                        >
+                          Keep</button
+                        >&nbsp;·&nbsp;<button
+                          type="button"
+                          class="why-toggle"
+                          (click)="removeSourceSet(src.setId)"
+                        >
+                          Remove
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          class="why-toggle"
+                          (click)="confirmRemoveSetId.set(src.setId)"
+                        >
+                          Not right?
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
             }
-          }
-        </mat-card-content>
+          </mat-card-content>
         }
       </mat-card>
     }

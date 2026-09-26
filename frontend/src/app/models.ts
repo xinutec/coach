@@ -1,57 +1,57 @@
 // Barrel over the ts-rs–generated wire types (frontend/src/app/generated/),
 // regenerated from the Rust API types by scripts/gen-types.sh. Import from here.
 
-export * from "./generated/Ask";
-export * from "./generated/Band";
-export * from "./generated/Blocker";
-export * from "./generated/Category";
-export * from "./generated/Confidence";
-export * from "./generated/CurrentLocation";
-export * from "./generated/DetectedPlace";
-export * from "./generated/DoneSet";
-export * from "./generated/EstimateSource";
-export * from "./generated/Equipment";
-export * from "./generated/EquipmentOption";
-export * from "./generated/Exercise";
-export * from "./generated/ExerciseDetail";
-export * from "./generated/ExerciseId";
-export * from "./generated/Explanation";
-export * from "./generated/ExerciseMuscle";
-export * from "./generated/ExercisePatch";
-export * from "./generated/GroupBalance";
-export * from "./generated/Location";
-export * from "./generated/LocationPatch";
-export * from "./generated/Me";
-export * from "./generated/Metric";
-export * from "./generated/Mode";
-export * from "./generated/Muscle";
-export * from "./generated/MuscleLink";
-export * from "./generated/MuscleRole";
-export * from "./generated/NewExercise";
-export * from "./generated/NewLocation";
-export * from "./generated/NewSet";
-export * from "./generated/PacingNow";
-export * from "./generated/PacingState";
-export * from "./generated/Pattern";
-export * from "./generated/Plate";
-export * from "./generated/Position";
-export * from "./generated/Readiness";
-export * from "./generated/Region";
-export * from "./generated/SetId";
-export * from "./generated/Settings";
-export * from "./generated/TelemetryEvent";
-export * from "./generated/SettingsPatch";
-export * from "./generated/Substitution";
-export * from "./generated/Suggestion";
-export * from "./generated/SuggestionKind";
-export * from "./generated/WindowState";
-export * from "./generated/WorkoutSet";
+export * from './generated/Ask';
+export * from './generated/Band';
+export * from './generated/Blocker';
+export * from './generated/Category';
+export * from './generated/Confidence';
+export * from './generated/CurrentLocation';
+export * from './generated/DetectedPlace';
+export * from './generated/DoneSet';
+export * from './generated/EstimateSource';
+export * from './generated/Equipment';
+export * from './generated/EquipmentOption';
+export * from './generated/Exercise';
+export * from './generated/ExerciseDetail';
+export * from './generated/ExerciseId';
+export * from './generated/Explanation';
+export * from './generated/ExerciseMuscle';
+export * from './generated/ExercisePatch';
+export * from './generated/GroupBalance';
+export * from './generated/Location';
+export * from './generated/LocationPatch';
+export * from './generated/Me';
+export * from './generated/Metric';
+export * from './generated/Mode';
+export * from './generated/Muscle';
+export * from './generated/MuscleLink';
+export * from './generated/MuscleRole';
+export * from './generated/NewExercise';
+export * from './generated/NewLocation';
+export * from './generated/NewSet';
+export * from './generated/PacingNow';
+export * from './generated/PacingState';
+export * from './generated/Pattern';
+export * from './generated/Plate';
+export * from './generated/Position';
+export * from './generated/Readiness';
+export * from './generated/Region';
+export * from './generated/SetId';
+export * from './generated/Settings';
+export * from './generated/TelemetryEvent';
+export * from './generated/SettingsPatch';
+export * from './generated/Substitution';
+export * from './generated/Suggestion';
+export * from './generated/SuggestionKind';
+export * from './generated/WindowState';
+export * from './generated/WorkoutSet';
 
-import type { Exercise } from "./generated/Exercise";
+import type { Exercise } from './generated/Exercise';
 
 /** The full display name: variations are distinct movements ("Pull-up (L-sit)"
  *  is a hold, not a rep-out), so a bare shared base name is ambiguous. Matches
  *  the backend's suggestion naming. */
-export function displayName(e: Pick<Exercise, "name" | "variation">): string {
-	return e.variation ? `${e.name} (${e.variation})` : e.name;
+export function displayName(e: Pick<Exercise, 'name' | 'variation'>): string {
+  return e.variation ? `${e.name} (${e.variation})` : e.name;
 }

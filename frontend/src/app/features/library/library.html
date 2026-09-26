@@ -18,9 +18,7 @@
 @if (loading()) {
   <p class="hint">Loading…</p>
 } @else {
-  <p class="count">
-    {{ filtered().length }} exercise{{ filtered().length === 1 ? "" : "s" }}
-  </p>
+  <p class="count">{{ filtered().length }} exercise{{ filtered().length === 1 ? '' : 's' }}</p>
   <div class="grid">
     @for (e of filtered(); track e.id) {
       <button class="card" (click)="open(e)">

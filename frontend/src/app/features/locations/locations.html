@@ -1,8 +1,8 @@
 <h2>Locations</h2>
 <p class="hint">
-  A location is a place you train, defined by the kit available there. On Today,
-  pick where you are and the coach shows what you can do — swapping in an
-  equivalent when a goal needs kit you don't have.
+  A location is a place you train, defined by the kit available there. On Today, pick where you are
+  and the coach shows what you can do — swapping in an equivalent when a goal needs kit you don't
+  have.
 </p>
 
 @if (editingId() !== null) {
@@ -19,10 +19,7 @@
     @if (detectedPlaces().length) {
       <mat-form-field appearance="outline">
         <mat-label>Auto-select when I'm at</mat-label>
-        <mat-select
-          [ngModel]="formHealthPlaceId()"
-          (ngModelChange)="formHealthPlaceId.set($event)"
-        >
+        <mat-select [ngModel]="formHealthPlaceId()" (ngModelChange)="formHealthPlaceId.set($event)">
           <mat-option [value]="null">— not linked —</mat-option>
           @for (p of detectedPlaces(); track p.id) {
             <mat-option [value]="p.id">{{ p.label }}</mat-option>
@@ -58,9 +55,9 @@
       <div class="specifics">
         <div class="cat-name">Which ones?</div>
         <p class="hint spec-hint">
-          Add the exact weights, bar + plates, or bands you have — coach only ever
-          suggests a load you can actually build. Leave one blank and it will skip
-          that kit's exercises entirely rather than guess a weight at you.
+          Add the exact weights, bar + plates, or bands you have — coach only ever suggests a load
+          you can actually build. Leave one blank and it will skip that kit's exercises entirely
+          rather than guess a weight at you.
         </p>
         @for (slug of weightedSlugs(); track slug) {
           <div class="spec-row">
@@ -68,7 +65,10 @@
             <div class="chips">
               @for (w of weightsOf(slug); track w) {
                 <button type="button" class="chip on" (click)="removeWeight(slug, w)">
-                  {{ w }}@if (weightQtyOf(slug, w)) { <em>×{{ weightQtyOf(slug, w) }}</em> }
+                  {{ w }}
+                  @if (weightQtyOf(slug, w)) {
+                    <em>×{{ weightQtyOf(slug, w) }}</em>
+                  }
                   <mat-icon>close</mat-icon>
                 </button>
               }
@@ -80,7 +80,9 @@
                   inputmode="decimal"
                   min="0"
                   placeholder="kg"
-                  (keyup.enter)="addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''"
+                  (keyup.enter)="
+                    addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''
+                  "
                 />
                 <input
                   #wQ
@@ -89,7 +91,9 @@
                   inputmode="numeric"
                   min="1"
                   placeholder="×how many"
-                  (keyup.enter)="addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''"
+                  (keyup.enter)="
+                    addWeight(slug, wIn.value, wQ.value); wIn.value = ''; wQ.value = ''
+                  "
                 />
                 <button
                   type="button"
@@ -103,23 +107,49 @@
             </div>
             @if (!isStack(slug)) {
               <p class="hint spec-hint">
-                How many matters: a movement that uses two dumbbells can't be built from
-                a weight you own one of. Leave it blank if you have plenty.
+                How many matters: a movement that uses two dumbbells can't be built from a weight
+                you own one of. Leave it blank if you have plenty.
               </p>
             }
             <div class="spec-range">
               <span class="spec-range-label">
-                {{ isStack(slug) ? "fill the stack:" : "or fill a range:" }}
+                {{ isStack(slug) ? 'fill the stack:' : 'or fill a range:' }}
               </span>
-              <input #rF class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="from" />
+              <input
+                #rF
+                class="spec-in tiny"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                placeholder="from"
+              />
               <span class="spec-range-sep">–</span>
-              <input #rT class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="to" />
+              <input
+                #rT
+                class="spec-in tiny"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                placeholder="to"
+              />
               <span class="spec-range-sep">step</span>
-              <input #rS class="spec-in tiny" type="number" inputmode="decimal" min="0" placeholder="2.5" />
+              <input
+                #rS
+                class="spec-in tiny"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                placeholder="2.5"
+              />
               <button
                 type="button"
                 class="chip on"
-                (click)="addRange(slug, rF.value, rT.value, rS.value); rF.value = ''; rT.value = ''; rS.value = ''"
+                (click)="
+                  addRange(slug, rF.value, rT.value, rS.value);
+                  rF.value = '';
+                  rT.value = '';
+                  rS.value = ''
+                "
               >
                 Fill
               </button>
@@ -186,7 +216,10 @@
             <div class="chips">
               @for (p of platesOf(slug); track p.loadKg) {
                 <button type="button" class="chip on" (click)="removePlate(p)">
-                  {{ p.loadKg }}@if (p.qty) { <em>×{{ p.qty }}</em> }
+                  {{ p.loadKg }}
+                  @if (p.qty) {
+                    <em>×{{ p.qty }}</em>
+                  }
                   <mat-icon>close</mat-icon>
                 </button>
               }
@@ -220,9 +253,9 @@
               </span>
             </div>
             <p class="hint spec-hint">
-              Plates go on both ends or not at all, so a disc you own one of is dead
-              weight — and two dumbbells share the discs between them, which is why a
-              both-arms press tops out lighter than a single-dumbbell one.
+              Plates go on both ends or not at all, so a disc you own one of is dead weight — and
+              two dumbbells share the discs between them, which is why a both-arms press tops out
+              lighter than a single-dumbbell one.
             </p>
           </div>
         }
@@ -273,7 +306,9 @@
           <span class="pill accent"><mat-icon>star</mat-icon> Default</span>
         }
         @if (loc.healthPlaceId !== null) {
-          <span class="pill"><mat-icon>my_location</mat-icon> {{ placeLabel(loc.healthPlaceId) }}</span>
+          <span class="pill"
+            ><mat-icon>my_location</mat-icon> {{ placeLabel(loc.healthPlaceId) }}</span
+          >
         }
         <span class="spacer"></span>
         <button mat-icon-button aria-label="Edit" (click)="startEdit(loc)">
@@ -295,20 +330,20 @@
         <div class="spec-view">
           <span class="spec-view-name">{{ equipLabel(o.slug) }}:</span>
           @if (o.weights.length) {
-            <span>{{ o.weights.join(", ") }} kg</span>
+            <span>{{ o.weights.join(', ') }} kg</span>
           }
           @if (o.barKg !== null) {
             <span>{{ o.barKg }} kg bar</span>
           }
           @if (o.labels.length) {
-            <span>{{ o.labels.join(", ") }}</span>
+            <span>{{ o.labels.join(', ') }}</span>
           }
         </div>
       }
       @if (loc.plates.length) {
         <div class="spec-view">
           <span class="spec-view-name">Plates:</span>
-          <span>{{ loc.plates.join(", ") }} kg</span>
+          <span>{{ loc.plates.join(', ') }} kg</span>
         </div>
       }
     </div>

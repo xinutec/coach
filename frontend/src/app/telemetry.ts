@@ -1,7 +1,7 @@
-import { DOCUMENT, Injectable, inject } from "@angular/core";
-import { NavigationEnd, Router } from "@angular/router";
-import { TelemetryCore } from "@xinutec/ui-harness/telemetry";
-import { filter } from "rxjs";
+import { DOCUMENT, Injectable, inject } from '@angular/core';
+import { NavigationEnd, Router } from '@angular/router';
+import { TelemetryCore } from '@xinutec/ui-harness/telemetry';
+import { filter } from 'rxjs';
 
 /**
  * The Angular binding for the fleet's activity trace.
@@ -18,7 +18,7 @@ import { filter } from "rxjs";
  * else there. Instrumented once, from the app shell, so no screen knows the
  * trace exists and no new control can be missed by forgetting to annotate it.
  */
-@Injectable({ providedIn: "root" })
+@Injectable({ providedIn: 'root' })
 export class Telemetry {
   private readonly router = inject(Router);
   private readonly doc = inject(DOCUMENT);
@@ -30,10 +30,10 @@ export class Telemetry {
 
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe((e) => this.core.record("nav", e.urlAfterRedirects, null));
+      .subscribe((e) => this.core.record('nav', e.urlAfterRedirects, null));
 
     // Capture phase, so the tap is seen even where a handler stops propagation.
-    this.doc.addEventListener("click", (ev) => this.core.recordTap(ev.target, this.router.url), {
+    this.doc.addEventListener('click', (ev) => this.core.recordTap(ev.target, this.router.url), {
       capture: true,
     });
 

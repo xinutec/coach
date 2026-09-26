@@ -165,6 +165,13 @@ in  { name = "coach"
         , env = G.nonInteractive
         , timeout_s = 900
         }
+      , G.Check::{
+        , name = "frontend formatting"
+        , cwd = "frontend"
+        , argv = G.inDevShell [ "pnpm", "run", "format:check" ]
+        , env = G.nonInteractive
+        , timeout_s = 900
+        }
       , {-  The Playwright specs, type-checked. Nothing else reads them:
             Playwright transforms them with esbuild, which strips types rather
             than checking them, and `tsconfig.app.json` reaches only what
