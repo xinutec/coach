@@ -59,5 +59,9 @@
  "arm_swing_crossovers": {
   "view": "front",
   "spec": "cross_open@0,cross_in@8,cross_open@16"
+ },
+ "scapular_pushup": {
+  "view": "left",
+  "spec": "plank_spread@0,plank_mid@6,plank_squeeze@12,plank_mid@18,plank_spread@24"
  }
 }

@@ -13,6 +13,10 @@ without it. As a rule of thumb measured on the cat-cow poses, the search buys
 about 0.9cm of spread per degree of tip, so with the 5 degree cap anything past
 roughly 4cm of raw spread cannot be rescued.
 
+`span` is how far apart the contacts are across the floor. The keys of one rep
+must agree on it (animate.py refuses a rep that slides more than 2cm), so tune
+each key to the same span here rather than finding out after a render.
+
 `candidates.json` is `{name: {bone: [x,y,z], ..., "_floor": [bone, ...]}}` — the
 same shape as an entry in poses.json plus the contacts it rests on. Nothing is
 written to poses.json; this is the step BEFORE that.
@@ -89,7 +93,7 @@ for name, spec in candidates.items():
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
 
-    tilt = before = spread = sink = 0.0
+    tilt = before = spread = sink = reach = 0.0
     who, verdict = "", None
     if contacts:
         if "--no-solve" in argv:
@@ -99,6 +103,7 @@ for name, spec in candidates.items():
             tilt, before, spread = plant.solve_tilt(bpy, body, arm, contacts)
         plant.drop(bpy, body, arm, FLOOR_Z, contacts)
         sink, who = plant.sunk(bpy, body, FLOOR_Z)
+        reach = plant.span(bpy, body, contacts)
         # Without the search, "needs too much tip" is not a verdict this run can
         # reach; only the raw spread and what is through the floor mean anything.
         if "--no-solve" not in argv:
@@ -106,7 +111,7 @@ for name, spec in candidates.items():
     faults, _pairs = collide.find_faults(bpy, body, arm, allow=set())
     line = (f"[{name}] tilt {tilt:+6.2f}  spread {before * 100:6.1f}->"
             f"{spread * 100:5.2f}cm  through {sink * 100:5.2f}cm({who})  "
-            f"collide {len(faults)}")
+            f"collide {len(faults)}  span {reach * 100:6.1f}cm")
     if verdict:
         bad += 1
         print(line + f"\n    REFUSED {verdict}")

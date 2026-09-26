@@ -1,5 +1,5 @@
 {
- "_comment": "Per-bone XYZ euler rotations in degrees on the MB-Lab rig. The rig's rest is a T-pose, so every pose states its own arms. Figure faces -Y. Measured on this rig: upperarm_L -Z / upperarm_R +Z brings the arm down to the side, upperarm X swings it forward, lowerarm Z is elbow flexion; thigh_* +X is hip flexion and calf_* -X is knee flexion. The renderer stands the figure on the floor itself, so no pose needs a root offset. upperarm Z past about -50 swings the hand inward as it descends rather than straight down, so arms-at-sides is not reachable on Z alone and 'stand' is an A-pose, as the \u00e9corch\u00e9 is. check-pose.py rejects anything that collides. A HINGE tips the pelvis forward and counter-rotates the thighs to keep the legs under it; measured, that counter-rotation has the SAME sign as the pelvis (pelvis +42 wants thigh +45), because the thigh's local X runs opposite to the pelvis's. Guessing the sign gives a figure lying flat in mid-air.",
+ "_comment": "Per-bone XYZ euler rotations in degrees on the MB-Lab rig. The rig's rest is a T-pose, so every pose states its own arms. Figure faces -Y. Measured on this rig: upperarm_L -Z / upperarm_R +Z brings the arm down to the side, upperarm X swings it forward, lowerarm Z is elbow flexion; thigh_* +X is hip flexion and calf_* -X is knee flexion. The renderer stands the figure on the floor itself, so no pose needs a root offset. upperarm Z past about -50 swings the hand inward as it descends rather than straight down, so arms-at-sides is not reachable on Z alone and 'stand' is an A-pose, as the écorché is. check-pose.py rejects anything that collides. A HINGE tips the pelvis forward and counter-rotates the thighs to keep the legs under it; measured, that counter-rotation has the SAME sign as the pelvis (pelvis +42 wants thigh +45), because the thigh's local X runs opposite to the pelvis's. Guessing the sign gives a figure lying flat in mid-air.",
  "tpose": {},
  "stand": {
   "upperarm_L": [
@@ -780,12 +780,12 @@
    0
   ],
   "calf_L": [
-   -95,
+   -85,
    0,
    0
   ],
   "calf_R": [
-   -95,
+   -85,
    0,
    0
   ],
@@ -829,11 +829,29 @@
    "hand_R",
    "calf_L",
    "calf_R"
+  ],
+  "plank_spread": [
+   "hand_L",
+   "hand_R",
+   "toes_L",
+   "toes_R"
+  ],
+  "plank_squeeze": [
+   "hand_L",
+   "hand_R",
+   "toes_L",
+   "toes_R"
+  ],
+  "plank_mid": [
+   "hand_L",
+   "hand_R",
+   "toes_L",
+   "toes_R"
   ]
  },
  "cat": {
   "root": [
-   90,
+   86,
    0,
    0
   ],
@@ -858,22 +876,22 @@
    0
   ],
   "upperarm_L": [
-   50,
+   60,
    0,
    0
   ],
   "upperarm_R": [
-   50,
+   60,
    0,
    0
   ],
   "thigh_L": [
-   80,
+   76,
    0,
    0
   ],
   "thigh_R": [
-   80,
+   76,
    0,
    0
   ],
@@ -906,11 +924,21 @@
    -45,
    0,
    0
+  ],
+  "lowerarm_L": [
+   20,
+   0,
+   0
+  ],
+  "lowerarm_R": [
+   20,
+   0,
+   0
   ]
  },
  "cow": {
   "root": [
-   90,
+   88,
    0,
    0
   ],
@@ -935,22 +963,109 @@
    0
   ],
   "upperarm_L": [
-   85,
+   95,
    0,
    0
   ],
   "upperarm_R": [
-   85,
+   95,
    0,
    0
   ],
   "thigh_L": [
-   80,
+   78,
    0,
    0
   ],
   "thigh_R": [
-   80,
+   78,
+   0,
+   0
+  ],
+  "calf_L": [
+   -90,
+   0,
+   0
+  ],
+  "calf_R": [
+   -90,
+   0,
+   0
+  ],
+  "hand_L": [
+   95,
+   0,
+   0
+  ],
+  "hand_R": [
+   95,
+   0,
+   0
+  ],
+  "foot_L": [
+   -45,
+   0,
+   0
+  ],
+  "foot_R": [
+   -45,
+   0,
+   0
+  ],
+  "lowerarm_L": [
+   -20,
+   0,
+   0
+  ],
+  "lowerarm_R": [
+   -20,
+   0,
+   0
+  ]
+ },
+ "allfours": {
+  "root": [
+   88,
+   0,
+   0
+  ],
+  "spine01": [
+   0,
+   0,
+   0
+  ],
+  "spine02": [
+   0,
+   0,
+   0
+  ],
+  "spine03": [
+   0,
+   0,
+   0
+  ],
+  "neck": [
+   0,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   74,
+   0,
+   0
+  ],
+  "upperarm_R": [
+   74,
+   0,
+   0
+  ],
+  "thigh_L": [
+   78,
+   0,
+   0
+  ],
+  "thigh_R": [
+   78,
    0,
    0
   ],
@@ -985,59 +1100,19 @@
    0
   ]
  },
- "allfours": {
+ "plank_spread": {
   "root": [
-   90,
-   0,
-   0
-  ],
-  "spine01": [
-   0,
-   0,
-   0
-  ],
-  "spine02": [
-   0,
-   0,
-   0
-  ],
-  "spine03": [
-   0,
-   0,
-   0
-  ],
-  "neck": [
-   0,
+   74,
    0,
    0
   ],
   "upperarm_L": [
-   68,
+   80,
    0,
    0
   ],
   "upperarm_R": [
-   68,
-   0,
-   0
-  ],
-  "thigh_L": [
    80,
-   0,
-   0
-  ],
-  "thigh_R": [
-   80,
-   0,
-   0
-  ],
-  "calf_L": [
-   -90,
-   0,
-   0
-  ],
-  "calf_R": [
-   -90,
    0,
    0
   ],
@@ -1052,14 +1127,148 @@
    0
   ],
   "foot_L": [
-   -45,
+   -60,
    0,
    0
   ],
   "foot_R": [
-   -45,
+   -60,
    0,
    0
+  ],
+  "toes_L": [
+   30,
+   0,
+   0
+  ],
+  "toes_R": [
+   30,
+   0,
+   0
+  ],
+  "clavicle_L": [
+   12,
+   0,
+   -2
+  ],
+  "clavicle_R": [
+   12,
+   0,
+   2
+  ]
+ },
+ "plank_mid": {
+  "root": [
+   74,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   80,
+   0,
+   0
+  ],
+  "upperarm_R": [
+   80,
+   0,
+   0
+  ],
+  "hand_L": [
+   95,
+   0,
+   0
+  ],
+  "hand_R": [
+   95,
+   0,
+   0
+  ],
+  "foot_L": [
+   -60,
+   0,
+   0
+  ],
+  "foot_R": [
+   -60,
+   0,
+   0
+  ],
+  "toes_L": [
+   30,
+   0,
+   0
+  ],
+  "toes_R": [
+   30,
+   0,
+   0
+  ],
+  "clavicle_L": [
+   -4,
+   0,
+   4
+  ],
+  "clavicle_R": [
+   -4,
+   0,
+   -4
+  ]
+ },
+ "plank_squeeze": {
+  "root": [
+   74,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   80,
+   0,
+   0
+  ],
+  "upperarm_R": [
+   80,
+   0,
+   0
+  ],
+  "hand_L": [
+   95,
+   0,
+   0
+  ],
+  "hand_R": [
+   95,
+   0,
+   0
+  ],
+  "foot_L": [
+   -60,
+   0,
+   0
+  ],
+  "foot_R": [
+   -60,
+   0,
+   0
+  ],
+  "toes_L": [
+   30,
+   0,
+   0
+  ],
+  "toes_R": [
+   30,
+   0,
+   0
+  ],
+  "clavicle_L": [
+   -20,
+   0,
+   6
+  ],
+  "clavicle_R": [
+   -20,
+   0,
+   -6
   ]
  }
 }

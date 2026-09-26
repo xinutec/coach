@@ -234,9 +234,11 @@ if do_check and floor_bones:
     # each, which is why this can run over every frame at all.
     worst_spread = worst_sink = 0.0
     worst_f = worst_who = None
+    spans = {}
     for f in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(f)
         bpy.context.view_layer.update()
+        spans[f] = plant.span(bpy, body, floor_bones)
         _zs, spread = plant.measure(bpy, body, floor_bones)
         sink, who = plant.sunk(bpy, body, FLOOR_Z)
         if spread > worst_spread or sink > worst_sink:
@@ -248,8 +250,15 @@ if do_check and floor_bones:
                  f"{worst_spread * 100:.1f}cm apart and {worst_who} is "
                  f"{worst_sink * 100:.1f}cm through it — the keys plant, the path "
                  "between them does not")
+    slide = max(spans.values()) - min(spans.values())
+    if slide > plant.SLIDE_TOLERANCE:
+        wide, narrow = max(spans, key=spans.get), min(spans, key=spans.get)
+        sys.exit(f"the contacts slide {slide * 100:.1f}cm across the floor: "
+                 f"{spans[narrow] * 100:.1f}cm apart at frame {narrow}, "
+                 f"{spans[wide] * 100:.1f}cm at frame {wide}")
     print(f"checked {scene.frame_end - scene.frame_start + 1} frames on the floor: "
-          f"contacts within {worst_spread * 1000:.1f}mm, nothing through it")
+          f"contacts within {worst_spread * 1000:.1f}mm, sliding {slide * 1000:.1f}mm, "
+          "nothing through it")
 
 if do_check:
     # A frame between two keys is not a named pose, so it inherits the

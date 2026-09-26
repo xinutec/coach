@@ -242,6 +242,12 @@ Hence two guards:
   tip is the figure rotating as a whole, reported as a fault in the POSE.
 - **A through-floor check that NAMES the part.** "head is 9cm under the ground"
   is the answer; "something is" sends you looking at the whole figure.
+- **A slide check (2cm).** Heights say a contact is ON the floor, not WHERE:
+  hands can slide across the floor between keys while every height passes.
+  `plant.span` is the widest horizontal distance between contact centroids (a
+  flat palm's lowest vertex jumps from wrist to fingertip with a fraction of a
+  degree of tilt), and every frame of a rep must hold it to within 2cm. Match
+  it at the keys while authoring: `try-pose.py` prints it.
 
 **The rig cannot lift a hip with one bone.** The hierarchy is `root → pelvis →
 {thigh, spine01} → spine02 → spine03 → neck → head`, and each contact's measured
@@ -265,9 +271,16 @@ head falls 21.2cm; `spine03` and `neck` put the head back without touching the
 shoulder contact. Four bones, one linear solve.
 
 The same topology forces counter-rotation on all fours: arching the spine moves
-the hands, so the arms must compensate, and only the magnitude is free. Too much
-compensation cancels the visible curve — check that the two keys of a pair
-actually look different.
+the shoulders, so the arms must compensate, and only the magnitude is free. Too
+much compensation cancels the visible curve — check that the two keys of a pair
+actually look different. Arms alone cannot also hold the hands' distance from
+the knees; a pelvic tuck can: rotate `root` and move the thighs by the same
+amount (same sign, as in the hinge) so the knees stay put.
+
+**Scapular movement is clavicle X.** In a plank, clavicle X raises and sinks the
+upper back between the arms (6cm for −20°) while barely moving the hands;
+clavicle Z and Y mostly swing the hands along the floor. A little Z cancels X's
+residual slide.
 
 ⚠ **A hip height is a difference.** "Hips 14.1cm" with the hips flat on the
 ground is the mean pelvis vertex of a thick body, not a lift.

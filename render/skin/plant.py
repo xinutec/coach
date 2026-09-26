@@ -50,6 +50,10 @@ SEARCH_STEPS = 90
 # +15.9 degrees into a straight ramp with the head 9cm underground. A pose that is right needs well under a
 # degree, so anything past this is reported as a fault in the POSE.
 MAX_TILT_DEG = 5.0
+# How far the contacts of one rep may drift apart or together between frames.
+# A hand that stays put in life slides across the floor in the render when a key
+# moves the arm's attachment, and every height check still passes.
+SLIDE_TOLERANCE = 0.02
 
 
 def contacts(poses, name):
@@ -127,6 +131,28 @@ def contact_heights(body, mat, me, bones):
     verts = me.vertices
     return [min((mat @ verts[i].co).z for i in _contact_verts(body, bone))
             for bone in bones]
+
+
+def span(bpy, body, bones):
+    """The widest horizontal distance between two contacts.
+
+    Heights say a contact is ON the floor, not WHERE. Moving the whole figure
+    leaves this unchanged; a hand sliding across the floor between two keys
+    changes it — and nothing else measured here can see that.
+
+    Each contact is placed at its vertices' centroid, which is fixed to its bone.
+    Its lowest vertex is not: on a flat palm a fraction of a degree of tilt moves
+    the lowest point from wrist to fingertip, which would read as a slide.
+    """
+    mat, me = evaluated(bpy, body)
+    verts = me.vertices
+    pts = []
+    for bone in bones:
+        idx = _contact_verts(body, bone)
+        cos = [mat @ verts[i].co for i in idx]
+        pts.append((sum(c.x for c in cos) / len(cos), sum(c.y for c in cos) / len(cos)))
+    return max(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+               for a in pts for b in pts)
 
 
 def measure(bpy, body, bones):
