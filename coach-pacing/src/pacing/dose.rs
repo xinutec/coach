@@ -21,6 +21,7 @@
 //!   keeps a returning athlete off their pre-illness numbers, enforced by the
 //!   compiler rather than by a code path that a later edit could bypass.
 
+use crate::num::whole;
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
@@ -91,7 +92,7 @@ pub fn reserve(advance: bool) -> f64 {
 /// an e1RM at a target reserve. The same number said in the other unit: a rep left
 /// in reserve is a rep not asked for.
 pub fn eased_reps(advance: bool) -> i32 {
-    (reserve(advance) - TARGET_RIR) as i32
+    whole(libm::round(reserve(advance) - TARGET_RIR))
 }
 
 /// The load whose top set of `reps` reps (leaving `rir` in reserve) matches an
@@ -159,8 +160,8 @@ pub fn weighted_ask(
             return (inv.lightest(), range.low);
         };
         let reserve = reserve(advance);
-        let load = inv.snap(load_for(e, range.high as f64, reserve));
-        let low = (libm::floor(reps_at(e, load, reserve)) as i32).clamp(1, range.high);
+        let load = inv.snap(load_for(e, f64::from(range.high), reserve));
+        let low = whole(libm::floor(reps_at(e, load, reserve))).clamp(1, range.high);
         return (load, low);
     };
 
@@ -188,7 +189,7 @@ pub fn weighted_ask(
         // already justify. Both candidates are weights the athlete owns.
         let stepped = inv.next_above(inv.snap(r.load));
         let load = match e1rm {
-            Some(e) => stepped.max(inv.snap(load_for(e, range.high as f64, reserve(advance)))),
+            Some(e) => stepped.max(inv.snap(load_for(e, f64::from(range.high), reserve(advance)))),
             None => stepped,
         };
         return (load, range.low);

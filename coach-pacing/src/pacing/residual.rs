@@ -20,6 +20,7 @@
 //! than its first, which is fatigue and not a miss, so a day is judged on its best set —
 //! what the estimate is a claim about.
 
+use crate::num::{count, whole};
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
@@ -136,11 +137,13 @@ impl Residual {
     /// nothing was ever beaten. Zero for a movement with no ledger yet: a fresh
     /// movement progresses eagerly, there is nothing to consolidate.
     pub fn sessions_since_beat(&self) -> i32 {
-        self.outcomes
-            .iter()
-            .rev()
-            .take_while(|(_, o)| *o != Outcome::Beat)
-            .count() as i32
+        count(
+            self.outcomes
+                .iter()
+                .rev()
+                .take_while(|(_, o)| *o != Outcome::Beat)
+                .count(),
+        )
     }
     /// Is today a day to ask for more? Immediately after a beat (an earned climb
     /// keeps climbing), and periodically after enough quiet sessions; the sessions
@@ -359,9 +362,9 @@ fn judge(
             // Volume for a carry is weight × time; the weight is the coach's
             // choice, so a shortfall lives entirely in the clock.
             return Some(sized(
-                band(done as f64, asked as f64),
-                load * done as f64,
-                load * asked as f64,
+                band(f64::from(done), f64::from(asked)),
+                load * f64::from(done),
+                load * f64::from(asked),
             ));
         }
     }
@@ -383,8 +386,8 @@ fn judge(
             // expressible in, and `band`'s margin absorbs the rounding.
             return Some(sized(
                 band(face(load, done), face(ask_load, ask_reps)),
-                load * done as f64,
-                ask_load * ask_reps as f64,
+                load * f64::from(done),
+                ask_load * f64::from(ask_reps),
             ));
         }
     } else if let Some(e) = predicted.e1rm {
@@ -403,11 +406,11 @@ fn judge(
             } else {
                 libm::floor(raw)
             };
-            let asked = (aim as i32).clamp(1, rep_range(mode, true).high);
+            let asked = whole(aim).clamp(1, rep_range(mode, true).high);
             return Some(sized(
                 reps_band(done, asked),
-                load * done as f64,
-                load * asked as f64,
+                load * f64::from(done),
+                load * f64::from(asked),
             ));
         }
     }
@@ -429,7 +432,11 @@ fn judge(
             };
             let asked = aim.clamp(1, rep_range(mode, false).high);
             // Reps *are* the volume here — there is no load to weight them by.
-            return Some(sized(reps_band(done, asked), done as f64, asked as f64));
+            return Some(sized(
+                reps_band(done, asked),
+                f64::from(done),
+                f64::from(asked),
+            ));
         }
     }
 
@@ -447,9 +454,9 @@ fn judge(
             };
             let secs = secs.max(HOLD_STEP_S);
             return Some(sized(
-                band(done as f64, secs as f64),
-                done as f64,
-                secs as f64,
+                band(f64::from(done), f64::from(secs)),
+                f64::from(done),
+                f64::from(secs),
             ));
         }
     }
@@ -460,7 +467,7 @@ fn judge(
 /// is judged on its best: the estimate is a claim about what the athlete *can* do,
 /// not about what the third set of a session looks like.
 fn face(load: f64, reps: i32) -> f64 {
-    load * (1.0 + reps as f64 / 30.0)
+    load * (1.0 + f64::from(reps) / 30.0)
 }
 
 /// Reps are the unit the ask is written in, and they're integers — so compliance is

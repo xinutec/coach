@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { capitalise } from '../../shared/format';
 import { FormsModule } from '@angular/forms';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { MatButtonModule } from '@angular/material/button';
@@ -63,9 +64,7 @@ export class LibraryPage {
   equipLabel(slug: string): string {
     return this.equipmentNames().get(slug) ?? slug;
   }
-  patternLabel(p: string): string {
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  }
+  readonly capitalise = capitalise;
   imageUrl(id: number): string {
     return this.api.exerciseImageUrl(id);
   }

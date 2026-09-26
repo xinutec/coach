@@ -17,6 +17,7 @@
 //! All coefficients below are labelled heuristics, tunable — targets are anchored
 //! to the user's own history to avoid false-precision absolute landmarks.
 
+use crate::num::{count, whole};
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
@@ -178,7 +179,7 @@ const ANCHOR_WEEKS: f64 = 2.0;
 fn confirm_need(confidence: Confidence, sessions_recent: i32) -> f64 {
     match confidence {
         Confidence::Medium => {
-            CONFIRM_UNIT * (ability::HIGH_SESSIONS - sessions_recent).max(0) as f64
+            CONFIRM_UNIT * f64::from((ability::HIGH_SESSIONS - sessions_recent).max(0))
         }
         Confidence::High | Confidence::Low | Confidence::None => 0.0,
     }
@@ -473,7 +474,7 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
                 // Open from the stale estimate, with reserve — a safe build-up.
                 Some(e) => inv.snap(load_for(
                     e,
-                    ASSESS_WEIGHTED_REPS as f64,
+                    f64::from(ASSESS_WEIGHTED_REPS),
                     LOW_READINESS_EXTRA_RIR,
                 )),
                 None => inv.lightest(),
@@ -1035,7 +1036,7 @@ fn build_warmup(
         if let Some(ex) = ex_by_id.get(&w.exercise_id) {
             for (g, r) in &ex.groups {
                 if *r != MuscleRole::Stabilizer {
-                    *load.entry(*g).or_default() += w.sets as f64 * role_credit(*r);
+                    *load.entry(*g).or_default() += f64::from(w.sets) * role_credit(*r);
                 }
             }
         }
@@ -1072,7 +1073,7 @@ fn build_warmup(
     let mut out: Vec<Suggestion> = Vec::new();
     let mut gaps: Vec<String> = Vec::new();
     for (g, _) in &want {
-        if out.len() as i32 >= drill_cap {
+        if count(out.len()) >= drill_cap {
             break;
         }
         if covered.contains(g) {
@@ -1165,7 +1166,7 @@ fn build_warmup(
 /// Evaluate the coach verdict for `now` (local time).
 pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let s = &input.settings;
-    let hour = now.hour() as i32;
+    let hour = i32::try_from(now.hour()).unwrap_or_default();
     let window = if hour < s.window_start_hour {
         WindowState::Before
     } else if hour < s.window_end_hour {
@@ -1203,7 +1204,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         _ => "90 s",
     };
     let spacing_ok = last_ex.is_some_and(|e| e.warmup)
-        || minutes_since_last_set.is_none_or(|m| m >= s.min_rest_min as i64);
+        || minutes_since_last_set.is_none_or(|m| m >= i64::from(s.min_rest_min));
 
     // --- the session in progress, if one is ---
     //
@@ -1395,7 +1396,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     };
     // Only reported (and true) on the no-biometric fallback path.
     let deload = input.readiness.is_none() && volume_deload;
-    let days_scale = (input.days_per_week as f64 / 4.0).clamp(0.5, 2.0);
+    let days_scale = (f64::from(input.days_per_week) / 4.0).clamp(0.5, 2.0);
 
     // Both numbers below are computed twice per group — once for the plan, once
     // for the live balance view, differing only in which sets they count. Naming
@@ -1471,12 +1472,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // each observed week pulls it toward what he actually does, so there is no
     // cliff at the first logged set. With no history this is exactly the anchor.
     let avg_weekly_sets =
-        (raw_hist as f64 + ANCHOR_WEEKLY_SETS * ANCHOR_WEEKS) / (observed_weeks + ANCHOR_WEEKS);
+        (f64::from(raw_hist) + ANCHOR_WEEKLY_SETS * ANCHOR_WEEKS) / (observed_weeks + ANCHOR_WEEKS);
     // Scale the day's set count by the same recovery factor as the group targets,
     // so a low-readiness day is fewer sets, not just lighter ones.
-    let day_target_sets =
-        (libm::round(avg_weekly_sets / input.days_per_week.max(1) as f64 * recovery_scale) as i32)
-            .clamp(3, 15);
+    let day_target_sets = whole(libm::round(
+        avg_weekly_sets / f64::from(input.days_per_week.max(1)) * recovery_scale,
+    ))
+    .clamp(3, 15);
 
     // Novel movements already introduced today spend their novelty slots for the
     // whole day, not just their own session — otherwise finishing a morning's
@@ -1494,7 +1496,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 .and_modify(|t| *t = (*t).min(s.logged_at))
                 .or_insert(s.logged_at);
         }
-        first_seen.values().filter(|t| t.date() == today).count() as i32
+        count(first_seen.values().filter(|t| t.date() == today).count())
     };
     let novelty_cap = (NOVELTY_CAP - novel_introduced).max(0);
 
@@ -1567,7 +1569,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     }
     for item in &mut plan {
         let queue = logged.entry(item.exercise_id).or_default();
-        let take = queue.len().min(item.sets.max(0) as usize);
+        let take = queue.len().min(usize::try_from(item.sets).unwrap_or(0));
         item.logged = queue
             .drain(..take)
             .map(|s| DoneSet {
@@ -1646,12 +1648,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     };
 
     // Burn-down vs window elapsed → nudge when behind (never dump the day at night).
-    let now_min = (hour * 60 + now.minute() as i32) as f64;
-    let win_start = (s.window_start_hour * 60) as f64;
-    let win_end = (s.window_end_hour * 60).max(s.window_start_hour * 60 + 1) as f64;
+    let now_min = f64::from(hour * 60 + i32::try_from(now.minute()).unwrap_or_default());
+    let win_start = f64::from(s.window_start_hour * 60);
+    let win_end = f64::from((s.window_end_hour * 60).max(s.window_start_hour * 60 + 1));
     let elapsed = ((now_min - win_start) / (win_end - win_start)).clamp(0.0, 1.0);
     let has_work = suggestion.is_some() && done_today < day_target_sets;
-    let behind = has_work && (done_today as f64) < elapsed * day_target_sets as f64;
+    let behind = has_work && f64::from(done_today) < elapsed * f64::from(day_target_sets);
     // `within_window` already implies before the end, so no separate cutoff check.
     let nudge = within_window && has_work && spacing_ok && behind;
 

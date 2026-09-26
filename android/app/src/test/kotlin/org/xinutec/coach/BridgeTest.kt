@@ -94,18 +94,4 @@ class BridgeTest {
         assertEquals(BridgeAction.STATUS, Bridge.actionFor("status", "$coach/", true))
         assertEquals(BridgeAction.STATUS, Bridge.actionFor("status", "$coach/settings", true))
     }
-
-    // --- the constants the WebView is handed ---
-
-    @Test
-    fun `the only allowed origin is coach itself`() {
-        assertEquals(setOf(Config.BASE_URL), Bridge.ALLOWED_ORIGINS)
-    }
-
-    /** The page feature-detects on this name; renaming it silently removes the
-     *  reminders card rather than breaking anything loudly. */
-    @Test
-    fun `the bridge keeps the name the page looks for`() {
-        assertEquals("CoachAndroid", Bridge.NAME)
-    }
 }

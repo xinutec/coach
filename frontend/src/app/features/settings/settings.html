@@ -24,7 +24,7 @@
         <mat-label>Mode</mat-label>
         <mat-select [(ngModel)]="f.mode">
           @for (m of modes; track m) {
-            <mat-option [value]="m">{{ label(m) }}</mat-option>
+            <mat-option [value]="m">{{ capitalise(m) }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -39,7 +39,7 @@
       <mat-select [(ngModel)]="f.emphasis">
         <mat-option [value]="null">None — balanced</mat-option>
         @for (r of regions; track r) {
-          <mat-option [value]="r">{{ label(r) }}</mat-option>
+          <mat-option [value]="r">{{ capitalise(r) }}</mat-option>
         }
       </mat-select>
     </mat-form-field>

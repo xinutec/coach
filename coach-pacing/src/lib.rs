@@ -28,6 +28,11 @@
 //   * `integer_division` — the uses are deliberate ceilings and days-to-weeks
 //     with constant non-zero divisors. The lint is about accidental truncation,
 //     not division by zero.
+//   * `cast_precision_loss` — the `i64 as f64` sites are day counts and seconds,
+//     far below the 2⁵³ where an `f64` stops being exact.
+//
+// Casts are denied in the directions that can lose a value; `num` is the one
+// place that converts, and says why each conversion is sound.
 #![deny(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -37,7 +42,11 @@
     clippy::todo,
     clippy::unimplemented,
     clippy::exit,
-    clippy::infinite_loop
+    clippy::infinite_loop,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_sign_loss
 )]
 
 extern crate alloc;
@@ -57,4 +66,5 @@ pub(crate) mod prelude {
 
 pub mod domain;
 pub mod health;
+pub mod num;
 pub mod pacing;

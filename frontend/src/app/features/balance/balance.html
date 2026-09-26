@@ -8,7 +8,7 @@
   <mat-progress-bar mode="indeterminate" />
 } @else {
   @for (r of byRegion(); track r.region) {
-    <h3>{{ regionLabel(r.region) }}</h3>
+    <h3>{{ capitalise(r.region) }}</h3>
     @for (g of r.groups; track g.group) {
       <div class="bal-row" [class.recovering]="g.recovering">
         <div class="bal-line">

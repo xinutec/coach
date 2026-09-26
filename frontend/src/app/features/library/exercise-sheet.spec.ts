@@ -318,11 +318,6 @@ describe('what the sheet says about a movement', () => {
     expect(page.secondary(d).map((m) => m.slug)).toEqual(['biceps', 'core']);
   });
 
-  it('capitalises the pattern for display', () => {
-    const page = sheet().componentInstance;
-    expect(page.patternLabel('pull')).toBe('Pull');
-  });
-
   it('shows no loop when the exercise has none', () => {
     sheet(detail({ hasLoop: false }));
     // Queried off `document`, as the fullscreen panes above are: the

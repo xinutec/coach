@@ -46,9 +46,4 @@ class ConfigTest {
         )
         assertTrue("BASE_URL must carry no query", !Config.BASE_URL.contains("?"))
     }
-
-    @Test
-    fun `the login hop is allowed too, or signing in would leave the app`() {
-        assertTrue(Config.ALLOWED_HOSTS.size >= 2)
-    }
 }

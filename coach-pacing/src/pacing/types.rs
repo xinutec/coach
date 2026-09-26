@@ -575,8 +575,7 @@ impl Suggestion {
     ///
     /// [`logged`]: Suggestion::logged
     pub fn done(&self) -> i32 {
-        // A plan never holds more sets than an i32 can count.
-        self.logged.len() as i32
+        crate::num::count(self.logged.len())
     }
 }
 

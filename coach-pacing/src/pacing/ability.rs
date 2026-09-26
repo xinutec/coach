@@ -27,6 +27,7 @@
 //! decides whether the engine prescribes from the estimate or asks for a fresh
 //! assessment.
 
+use crate::num::{count, whole};
 use crate::prelude::*;
 
 use crate::domain::{ExerciseId, SetId};
@@ -204,13 +205,13 @@ fn better_carry(cur: Option<Carry>, c: Carry) -> Option<Carry> {
 /// Reps left in reserve implied by an RPE (rir = 10 − rpe, floored at 0). A
 /// missing RPE is taken at face value (0 reserve).
 fn rir(rpe: Option<i32>) -> f64 {
-    rpe.map(|r| (10 - r).max(0) as f64).unwrap_or(0.0)
+    rpe.map(|r| f64::from((10 - r).max(0))).unwrap_or(0.0)
 }
 
 /// Epley 1RM extended for reps-in-reserve: what the set implies you could lift
 /// once. `reps + rir` is the effective rep count taken to failure.
 fn epley(load: f64, reps: i32, rpe: Option<i32>) -> f64 {
-    load * (1.0 + (reps as f64 + rir(rpe)) / 30.0)
+    load * (1.0 + (f64::from(reps) + rir(rpe)) / 30.0)
 }
 
 /// Staleness multiplier for a set `age_days` old: 1.0 within the grace window,
@@ -268,7 +269,7 @@ impl Bests {
             }
             // Bodyweight reps: reps, no load → effective-rep estimate.
             (None, Some(reps)) => {
-                let v = (reps as f64 + rir(s.rpe)) * d;
+                let v = (f64::from(reps) + rir(s.rpe)) * d;
                 if self.reps.is_none_or(|m: f64| v > m) {
                     self.reps_src = Some(source_of(s));
                 }
@@ -278,7 +279,7 @@ impl Bests {
         }
         // A hold set (isometric) carries hold_s regardless of the above.
         if let Some(h) = s.hold_s {
-            let v = h as f64 * d;
+            let v = f64::from(h) * d;
             if self.hold.is_none_or(|m: f64| v > m) {
                 self.hold_src = Some(source_of(s));
             }
@@ -292,7 +293,7 @@ impl Bests {
                 self.carry,
                 Carry {
                     load: load * d,
-                    secs: libm::floor(h as f64 * d) as i32,
+                    secs: whole(libm::floor(f64::from(h) * d)),
                 },
             );
         }
@@ -301,7 +302,7 @@ impl Bests {
         if let (Some(load), Some(m)) = (s.load_kg, s.distance_m) {
             let c = CarryDistance {
                 load: load * d,
-                metres: libm::floor(m as f64 * d) as i32,
+                metres: whole(libm::floor(f64::from(m) * d)),
             };
             self.carry_m = Some(match self.carry_m {
                 Some(b) if (b.load, b.metres) >= (c.load, c.metres) => b,
@@ -341,7 +342,7 @@ fn carry_m_under_ceiling(
             load: c.load.min(CAP_MULTIPLE * k.load),
             metres: c
                 .metres
-                .min(libm::floor(CAP_MULTIPLE * k.metres as f64) as i32),
+                .min(whole(libm::floor(CAP_MULTIPLE * f64::from(k.metres)))),
         }),
         _ => carry,
     }
@@ -354,7 +355,9 @@ fn carry_under_ceiling(carry: Option<Carry>, ceiling: Option<Carry>) -> Option<C
     match (carry, ceiling) {
         (Some(c), Some(k)) => Some(Carry {
             load: c.load.min(CAP_MULTIPLE * k.load),
-            secs: c.secs.min(libm::floor(CAP_MULTIPLE * k.secs as f64) as i32),
+            secs: c
+                .secs
+                .min(whole(libm::floor(CAP_MULTIPLE * f64::from(k.secs)))),
         }),
         _ => carry,
     }
@@ -459,7 +462,7 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     let carry = carry_under_ceiling(all.carry, recent.carry);
     let carry_m = carry_m_under_ceiling(all.carry_m, recent.carry_m);
 
-    let sessions_recent = recent_days.len() as i32;
+    let sessions_recent = count(recent_days.len());
     let confidence = if sessions_recent >= HIGH_SESSIONS {
         Confidence::High
     } else if sessions_recent >= MEDIUM_SESSIONS {
@@ -471,8 +474,8 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
     Ability {
         e1rm,
         // Floor reps (conservative — never claim a rep you can't show).
-        best_reps: best_reps.map(|r| libm::floor(r) as i32),
-        best_hold: best_hold.map(|h| libm::round(h) as i32),
+        best_reps: best_reps.map(|r| whole(libm::floor(r))),
+        best_hold: best_hold.map(|h| whole(libm::round(h))),
         carry,
         carry_m,
         confidence,

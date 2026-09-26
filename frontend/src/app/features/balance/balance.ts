@@ -1,4 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
+import { capitalise } from '../../shared/format';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { GroupBalance, Region } from '../../models';
@@ -38,9 +39,7 @@ export class BalancePage {
     this.pacing.refresh();
   }
 
-  regionLabel(r: string): string {
-    return r.charAt(0).toUpperCase() + r.slice(1);
-  }
+  readonly capitalise = capitalise;
   pct(current: number, target: number): number {
     return target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
   }

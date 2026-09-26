@@ -1,4 +1,5 @@
 import { Overlay, type OverlayRef } from '@angular/cdk/overlay';
+import { capitalise } from '../../shared/format';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -151,7 +152,5 @@ export class ExerciseSheet {
   secondary(d: ExerciseDetail) {
     return d.muscles.filter((m) => m.role !== 'primary');
   }
-  patternLabel(p: string): string {
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  }
+  readonly capitalise = capitalise;
 }

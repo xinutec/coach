@@ -163,12 +163,6 @@ describe('the numbers on a row', () => {
     expect(page.round0(9.6)).toBe('10');
     expect(page.round0(9.4)).toBe('9');
   });
-
-  it('capitalises a region for its heading', () => {
-    const page = balance([]);
-    expect(page.regionLabel('shoulders')).toBe('Shoulders');
-    expect(page.regionLabel('core')).toBe('Core');
-  });
 });
 
 describe('still recovering', () => {

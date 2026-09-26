@@ -64,6 +64,27 @@ production. The gate runs that row through `with-test-db`, which brings up an
 ephemeral MariaDB and tears it down again; CI gets a `mariadb` service. The
 tests fail loudly without a server rather than skipping.
 
+## Conventions
+
+The gate enforces what it can: formatting (rustfmt, prettier), clippy, the pacing
+core's totality and cast lints, generated wire types, the layout harness. The rest
+is judgement:
+
+- **Types carry the rules.** A row id is a newtype; a group of optional fields
+  where only some combinations are legal is a sum type (`Ask`, `LoggedSet`, `Dose`);
+  input is parsed at the boundary into a checked type, never asserted with `as`.
+  Wire types are generated from Rust (`scripts/gen-types.sh`), never hand-written.
+- **Comments say why, in a sentence or two.** Not what the code does, and no
+  history, dates or counts, which rot. A long rationale belongs in `docs/`, with
+  the comment pointing at it; findings are cited by their `docs/field-test.md` id.
+- **Tests go through the public surface**: `evaluate` for the engine, routes and
+  real SQL for the server, components for the UI; property tests for invariants.
+  No test that restates a constant, and a shared helper is tested once, in
+  `frontend/src/app/shared/`.
+- **Renders are measured, then looked at.** See `docs/anatomy-renders.md`: probe
+  the rig instead of guessing axes, judge Blender by its output rather than its exit
+  status, and record every shipped loop in `render/skin/loops.json`.
+
 ## Train from the command line
 
 `scripts/coachctl.py` does what the app does — reads the plan, logs sets, registers

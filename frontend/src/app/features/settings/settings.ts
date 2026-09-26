@@ -1,4 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { capitalise } from '../../shared/format';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -81,9 +82,7 @@ export class SettingsPage {
 
   readonly modes = ['balanced', 'strength', 'skills', 'conditioning'] as const;
   readonly regions = ['chest', 'back', 'shoulders', 'arms', 'forearms', 'core', 'legs'] as const;
-  label(s: string): string {
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  }
+  readonly capitalise = capitalise;
 
   // Signal so a zoneless view refreshes when the async load/save resolves. The
   // form fields two-way-bind to the held object's properties (mutating them in

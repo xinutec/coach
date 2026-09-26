@@ -10,7 +10,7 @@
   <button mat-button [class.on]="pattern() === null" (click)="pattern.set(null)">All</button>
   @for (p of patterns; track p) {
     <button mat-button [class.on]="pattern() === p" (click)="togglePattern(p)">
-      {{ patternLabel(p) }}
+      {{ capitalise(p) }}
     </button>
   }
 </div>
@@ -30,7 +30,7 @@
         <div class="body">
           <div class="name">{{ displayName(e) }}</div>
           <div class="chips">
-            <span class="pill accent">{{ patternLabel(e.pattern) }}</span>
+            <span class="pill accent">{{ capitalise(e.pattern) }}</span>
             @if (e.equipment.length === 0) {
               <span class="pill">Bodyweight</span>
             }

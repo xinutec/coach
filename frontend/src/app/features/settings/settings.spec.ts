@@ -292,16 +292,3 @@ describe('checking for an update', () => {
     expect(checkNow).not.toHaveBeenCalled();
   });
 });
-
-describe('labels', () => {
-  it('capitalises what the taxonomy spells in lower case', () => {
-    const { page } = settingsPage();
-    expect(page.modes.map((m) => page.label(m))).toEqual([
-      'Balanced',
-      'Strength',
-      'Skills',
-      'Conditioning',
-    ]);
-    expect(page.label('')).toBe('');
-  });
-});

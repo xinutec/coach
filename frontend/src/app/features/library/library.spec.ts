@@ -232,12 +232,6 @@ describe('what a card says', () => {
     expect(page.equipLabel('kettlebell')).toBe('kettlebell');
   });
 
-  it('capitalises a pattern for display without touching the value', () => {
-    const { page } = library();
-    expect(page.patternLabel('push')).toBe('Push');
-    expect(page.patternLabel('legs')).toBe('Legs');
-  });
-
   it("points the thumbnail at the exercise's own image", () => {
     const { page } = library();
     expect(page.imageUrl(3)).toBe('/api/exercises/3/image');
