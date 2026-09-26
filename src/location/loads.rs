@@ -23,6 +23,8 @@
 //!
 //! `qty: None` / `slots: None` mean "plenty" — a gym rack.
 
+use coach_pacing::num::natural;
+
 /// A plate size you own, and how many discs of it — *in total*, across all the
 /// implements that share the pool. `None` = plenty (a gym rack).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -35,11 +37,12 @@ pub struct Plate {
 /// total step) so a bar still has a sane increment rather than pegging at the
 /// empty-bar weight.
 const DEFAULT_PLATE_KG: f64 = 1.25;
-/// Cap the per-side sum we enumerate (kg). `implement + 2 * this` bounds the
-/// heaviest suggested total well past anything realistic, keeping the set finite.
-const MAX_PER_SIDE_KG: f64 = 150.0;
 /// Work in centikilograms (integer) so plate arithmetic is exact and hashable.
 const CENTI: f64 = 100.0;
+/// Cap the per-side sum we enumerate: 150 kg, in centikilograms. `implement + 2 *
+/// this` bounds the heaviest suggested total well past anything realistic,
+/// keeping the set finite.
+const MAX_PER_SIDE_CENTI: usize = 15_000;
 
 /// Total loads (kg, ascending) buildable on **one** implement of weight
 /// `implement`, when the movement uses `implements` of them (2 = a pair of
@@ -68,19 +71,19 @@ pub fn reachable_loads(
     let per_side: Vec<(usize, u32)> = src
         .iter()
         .filter_map(|p| {
-            let kg = (p.kg * CENTI).round() as i64;
-            if kg <= 0 {
+            let kg = natural((p.kg * CENTI).round());
+            if kg == 0 {
                 return None;
             }
             let pairs = match p.qty {
                 Some(q) => q / implements / 2,
                 None => u32::MAX, // plenty
             };
-            (pairs > 0).then_some((kg as usize, pairs))
+            (pairs > 0).then_some((kg, pairs))
         })
         .collect();
 
-    let cap = (MAX_PER_SIDE_KG * CENTI) as usize;
+    let cap = MAX_PER_SIDE_CENTI;
     // Bounded knapsack, minimising *discs used* per reachable per-side sum: a sum
     // is only really buildable if some combination reaching it also fits in the
     // sleeve's slots, and the disc-minimal combination is the one most likely to.
@@ -91,7 +94,7 @@ pub fn reachable_loads(
         // More pairs than fit under the cap can never be used, so the "plenty" case
         // (u32::MAX) collapses to the same bound — and the unbounded knapsack is a
         // single forward pass rather than a loop over four billion phantom discs.
-        let usable = (cap / size) as u32;
+        let usable = u32::try_from(cap / size).unwrap_or(u32::MAX);
         if pairs >= usable {
             for s in size..=cap {
                 if discs[s - size] != UNREACHABLE && discs[s - size] + 1 < discs[s] {

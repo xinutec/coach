@@ -212,7 +212,7 @@ pub async fn create(pool: &MySqlPool, e: &NewExercise) -> Result<ExerciseDetail>
         .await;
         match res {
             Ok(r) => {
-                let id = r.last_insert_id() as i64;
+                let id = crate::db::inserted_id(&r)?;
                 set_equipment(pool, id, &e.equipment).await?;
                 let links: Vec<(String, &str)> = e
                     .muscles

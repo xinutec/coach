@@ -90,7 +90,7 @@ pub fn render(raw: &[u8], content_type: &str, slug: &str) -> Result<Rendered> {
         .into_decoder()
         .with_context(|| format!("decoding {slug}"))?;
     let (w, h) = decoder.dimensions();
-    let crops_badly = w as f64 / (h.max(1) as f64) < CROPS_BADLY_BELOW
+    let crops_badly = f64::from(w) / f64::from(h.max(1)) < CROPS_BADLY_BELOW
         || PAD_ALWAYS.iter().any(|(s, _)| *s == slug);
     let may_be_transparent = decoder.color_type().has_alpha();
     if !crops_badly && !may_be_transparent {
@@ -157,17 +157,22 @@ fn flatten_onto_white(img: &DynamicImage) -> RgbaImage {
     out
 }
 
+/// A computed length in whole pixels.
+fn px(x: f64) -> u32 {
+    u32::try_from(coach_pacing::num::natural(x.round())).unwrap_or(u32::MAX)
+}
+
 /// Fit the whole figure into a 16:9 canvas: scale to fit, centre, pad with white.
 /// Padding rather than cropping is the point — the figure is the content.
 fn pad_to_aspect(src: &RgbaImage) -> RgbaImage {
-    let target_h = (TARGET_W as f64 / ASPECT).round() as u32;
+    let target_h = px(f64::from(TARGET_W) / ASPECT);
     let scale = f64::min(
-        TARGET_W as f64 / src.width() as f64,
-        target_h as f64 / src.height() as f64,
+        f64::from(TARGET_W) / f64::from(src.width()),
+        f64::from(target_h) / f64::from(src.height()),
     );
     let (w, h) = (
-        ((src.width() as f64 * scale).round() as u32).max(1),
-        ((src.height() as f64 * scale).round() as u32).max(1),
+        px(f64::from(src.width()) * scale).max(1),
+        px(f64::from(src.height()) * scale).max(1),
     );
     let fitted = imageops::resize(src, w, h, imageops::FilterType::Triangle);
 
@@ -175,8 +180,8 @@ fn pad_to_aspect(src: &RgbaImage) -> RgbaImage {
     imageops::overlay(
         &mut canvas,
         &fitted,
-        ((TARGET_W - w) / 2) as i64,
-        ((target_h - h) / 2) as i64,
+        i64::from((TARGET_W - w) / 2),
+        i64::from((target_h - h) / 2),
     );
     canvas
 }

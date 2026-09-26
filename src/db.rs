@@ -27,6 +27,13 @@ pub async fn connect(database_url: &str) -> Result<MySqlPool> {
     Ok(pool)
 }
 
+/// The id MariaDB assigned to the row just inserted, as the `i64` the BIGINT keys
+/// use. An id past `i64::MAX` is not one this schema can hold.
+pub fn inserted_id(res: &sqlx::mysql::MySqlQueryResult) -> anyhow::Result<i64> {
+    use anyhow::Context as _;
+    i64::try_from(res.last_insert_id()).context("insert id past i64::MAX")
+}
+
 /// Apply embedded migrations from `migrations/`. Idempotent; safe on every boot.
 pub async fn migrate(pool: &MySqlPool) -> Result<()> {
     sqlx::migrate!()

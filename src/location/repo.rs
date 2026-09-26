@@ -67,7 +67,7 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<
     .bind(n.health_place_id)
     .execute(pool)
     .await?;
-    let id = res.last_insert_id() as i64;
+    let id = crate::db::inserted_id(&res)?;
     set_equipment(pool, id, &n.equipment).await?;
     set_options(pool, id, &n.equipment_options).await?;
     set_plates(pool, id, &n.plates).await?;
@@ -303,7 +303,7 @@ async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[Plate]) -> Res
         .bind(location_id)
         .bind(p.equipment.as_deref())
         .bind(p.load_kg)
-        .bind(p.qty.map(|q| q as i32))
+        .bind(p.qty.map(i32::try_from).transpose()?)
         .execute(&mut *tx)
         .await?;
     }
@@ -439,8 +439,8 @@ async fn insert_option(
     .bind(kind)
     .bind(load)
     .bind(label)
-    .bind(qty.map(|q| q as i32))
-    .bind(plate_slots.map(|q| q as i32))
+    .bind(qty.map(i32::try_from).transpose()?)
+    .bind(plate_slots.map(i32::try_from).transpose()?)
     .bind(slug)
     .execute(&mut **tx)
     .await?;

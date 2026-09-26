@@ -34,7 +34,7 @@ fn rendered(w: u32, h: u32, slug: &str) -> (u32, u32, bool) {
 }
 
 fn is_hero_shaped(w: u32, h: u32) -> bool {
-    ((w as f64 / h as f64) - HERO).abs() < 0.01
+    ((f64::from(w) / f64::from(h)) - HERO).abs() < 0.01
 }
 
 #[test]

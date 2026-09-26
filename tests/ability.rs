@@ -26,8 +26,8 @@ fn at(days_ago: i64) -> NaiveDateTime {
 
 /// RPE-aware Epley for a set, matching the model — for computing expected values.
 fn e1rm(load: f64, reps: i32, rpe: Option<i32>) -> f64 {
-    let rir = rpe.map(|r| (10 - r).max(0) as f64).unwrap_or(0.0);
-    load * (1.0 + (reps as f64 + rir) / 30.0)
+    let rir = rpe.map(|r| f64::from((10 - r).max(0))).unwrap_or(0.0);
+    load * (1.0 + (f64::from(reps) + rir) / 30.0)
 }
 
 fn weighted(id: i64, days_ago: i64, load: f64, reps: i32, rpe: Option<i32>) -> SetRec {

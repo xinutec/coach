@@ -1,4 +1,4 @@
-//! The two numeric conversions the engine makes, named so each says once why it
+//! The numeric conversions coach makes, named so each says once why it
 //! is sound rather than a bare `as` saying nothing at every call site.
 
 /// A count as the `i32` the wire and the schema use. Saturating: nothing here
@@ -17,4 +17,14 @@ pub fn count(n: usize) -> i32 {
 )]
 pub fn whole(x: f64) -> i32 {
     x as i32
+}
+
+/// The same for a size or an index: negative and NaN become 0.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "saturating by definition; callers round first"
+)]
+pub fn natural(x: f64) -> usize {
+    x as usize
 }

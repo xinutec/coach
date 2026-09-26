@@ -28,7 +28,7 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &ValidSet) -> Result<Wor
     .bind(&n.note)
     .execute(pool)
     .await?;
-    get(pool, user_id, res.last_insert_id() as i64)
+    get(pool, user_id, crate::db::inserted_id(&res)?)
         .await?
         .ok_or_else(|| anyhow!("set vanished after insert"))
 }

@@ -888,11 +888,6 @@ fn the_card_reports_what_you_lifted_not_only_how_many_sets() {
         .iter()
         .find(|s| s.exercise_id == ExerciseId(1))
         .expect("push-up planned");
-    assert_eq!(
-        item.done() as usize,
-        item.logged.len(),
-        "one entry per done set"
-    );
     assert_eq!(item.done(), 2, "both of today's sets counted");
     assert_eq!(
         item.logged.iter().map(|d| d.reps).collect::<Vec<_>>(),
@@ -2042,7 +2037,7 @@ fn row_sessions(loads_by_week: &[f64]) -> Vec<SetRec> {
     let mut h = Vec::new();
     for (i, &load) in loads_by_week.iter().enumerate() {
         // Oldest first; the last entry is the most recent (2 days ago).
-        let d = 2 + (loads_by_week.len() - 1 - i) as i64 * 7;
+        let d = 2 + i64::try_from(loads_by_week.len() - 1 - i).unwrap() * 7;
         h.push(wset(5, days_ago(d), load, 5));
     }
     h
@@ -2910,7 +2905,7 @@ fn strength_row(h: Vec<SetRec>) -> PacingInput {
         groups: back_only(),
         exercise_loads: BTreeMap::from([(
             ExerciseId(5),
-            (8..=40).map(|i| i as f64 * 2.5).collect(),
+            (8..=40).map(|i| f64::from(i) * 2.5).collect(),
         )]),
         ..input(Mode::Strength, vec![barbell_row()], h, None, Some(vec![3]))
     }

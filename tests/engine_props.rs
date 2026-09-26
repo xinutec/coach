@@ -152,7 +152,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
 // A sorted, deduped, ascending weight ladder (possibly empty).
 fn owned_strategy() -> impl Strategy<Value = Vec<f64>> {
     prop::collection::vec(1u32..40, 0..6).prop_map(|v| {
-        let mut w: Vec<f64> = v.into_iter().map(|x| (x as f64) * 2.5).collect();
+        let mut w: Vec<f64> = v.into_iter().map(|x| f64::from(x) * 2.5).collect();
         w.sort_by(f64::total_cmp);
         w.dedup();
         w

@@ -37,6 +37,7 @@ pub async fn upsert(
     bytes: &[u8],
     etag: &str,
 ) -> Result<()> {
+    let byte_size = i32::try_from(bytes.len())?;
     sqlx::query!(
         "INSERT INTO exercise_loops (exercise_id, content_type, bytes, byte_size, etag) \
          VALUES (?, ?, ?, ?, ?) \
@@ -46,7 +47,7 @@ pub async fn upsert(
         exercise_id,
         content_type,
         bytes,
-        bytes.len() as i32,
+        byte_size,
         etag
     )
     .execute(pool)

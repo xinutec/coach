@@ -380,7 +380,7 @@ async fn a_cable_stack_carries_a_load() {
             equipment_options: vec![EquipmentOption {
                 slug: "cable_machine".into(),
                 // A stack: pin positions, 5 kg apart.
-                weights: (1..=18).map(|i| i as f64 * 5.0).collect(),
+                weights: (1..=18).map(|i| f64::from(i) * 5.0).collect(),
                 ..Default::default()
             }],
             plates: vec![],
@@ -652,7 +652,7 @@ async fn a_transparent_diagram_is_rendered_but_a_photograph_is_left_alone() {
     // The diagram: served opaque, at the hero's shape.
     let img = by_slug(&pool, "curl_biceps_dumbbell_standing").await;
     let decoded = image::load_from_memory(&img.bytes).expect("decoding the served diagram");
-    let aspect = decoded.width() as f64 / decoded.height() as f64;
+    let aspect = f64::from(decoded.width()) / f64::from(decoded.height());
     assert!(
         (aspect - 16.0 / 9.0).abs() < 0.01,
         "the diagram is served at {}×{} — the 16:9 hero will crop it",

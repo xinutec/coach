@@ -93,6 +93,13 @@ unsafe_code = "forbid"
 dbg_macro = "deny"
 todo = "deny"
 unimplemented = "deny"
+# Casts that can lose a value go through `coach_pacing::num` or a `try_from`, so
+# each conversion says why it is sound. Precision loss (i64 as f64) is allowed:
+# the values are day counts and seconds, far below 2⁵³.
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
 
 [lints]
 workspace = true

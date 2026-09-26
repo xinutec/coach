@@ -215,7 +215,7 @@ pub async fn context(
                 }
                 continue;
             };
-            let l = loads::loads_for(kit, implements as u32);
+            let l = loads::loads_for(kit, u32::try_from(implements).unwrap_or(1));
             // Loadable in principle, but not enough of it to go round (one handle
             // can't do a two-dumbbell press) — a different problem from no weights.
             if l.is_empty() && !short_kit.contains(&(*eq, implements)) {

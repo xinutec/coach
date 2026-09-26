@@ -384,7 +384,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
                 .await
                 .with_context(|| format!("inserting exercise {}", ex.slug))?;
                 inserted += 1;
-                res.last_insert_id() as i64
+                crate::db::inserted_id(&res)?
             }
         };
 

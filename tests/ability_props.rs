@@ -20,8 +20,8 @@ fn base() -> NaiveDateTime {
 /// The undecayed RPE-aware Epley estimate for a set — the ceiling ability must
 /// never exceed (ability decays each set, then takes the max).
 fn raw_e1rm(load: f64, reps: i32, rpe: Option<i32>) -> f64 {
-    let rir = rpe.map(|r| (10 - r).max(0) as f64).unwrap_or(0.0);
-    load * (1.0 + (reps as f64 + rir) / 30.0)
+    let rir = rpe.map(|r| f64::from((10 - r).max(0))).unwrap_or(0.0);
+    load * (1.0 + (f64::from(reps) + rir) / 30.0)
 }
 
 // Weighted sets: (days_ago, load, reps, rpe?) all on one exercise (id 1).

@@ -21,6 +21,7 @@
 //!     group can take light work; nothing below the effective-recovery gate
 //!     (deficit × recovery) is ever prescribed.
 
+use coach_pacing::num::whole;
 use std::collections::BTreeMap;
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
@@ -60,9 +61,9 @@ impl Athlete {
     /// — the same lossy signal a real logger produces.
     fn lift(&self, load: f64, target: i32) -> (i32, i32) {
         let capacity = reps_to_failure(self.true_e1rm, load);
-        let done = target.min(capacity.floor() as i32).max(1);
-        let reserve = (capacity - done as f64).max(0.0);
-        let rpe = (10.0 - reserve).round().clamp(1.0, 10.0) as i32;
+        let done = target.min(whole(capacity.floor())).max(1);
+        let reserve = (capacity - f64::from(done)).max(0.0);
+        let rpe = whole((10.0 - reserve).round().clamp(1.0, 10.0));
         (done, rpe)
     }
 

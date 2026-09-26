@@ -68,6 +68,7 @@ use coach::pacing::types::{Ask, PacingState, Readiness, SetRec, Suggestion, Sugg
 use coach::pacing::{ability, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
 use coach_pacing::domain::{ExerciseId, SetId};
+use coach_pacing::num::{natural, whole};
 
 /// When the athlete checks the app and (if told to) trains. Inside a default
 /// training window; sets are logged from shortly after.
@@ -295,7 +296,7 @@ impl Behaviour {
     /// How many of the day's work cards actually get done.
     fn cards_done(self, offered: usize) -> usize {
         match self {
-            Self::Partial => ((offered as f64 * PARTIAL_FRACTION).ceil() as usize).max(1),
+            Self::Partial => natural((offered as f64 * PARTIAL_FRACTION).ceil()).max(1),
             _ => offered,
         }
     }
@@ -430,12 +431,15 @@ impl Athlete {
         let start = t.start_scale();
         let b = self.base.entry(exercise_id).or_insert_with(|| Base {
             e1rm: seed.and_then(|a| a.e1rm).unwrap_or(DEFAULT_E1RM) * start,
-            reps: ((seed.and_then(|a| a.best_reps).unwrap_or(DEFAULT_REPS) as f64 * start).round()
-                as i32)
-                .max(1),
-            hold_s: ((seed.and_then(|a| a.best_hold).unwrap_or(DEFAULT_HOLD_S) as f64 * start)
-                .round() as i32)
-                .max(5),
+            reps: whole(
+                (f64::from(seed.and_then(|a| a.best_reps).unwrap_or(DEFAULT_REPS)) * start).round(),
+            )
+            .max(1),
+            hold_s: whole(
+                (f64::from(seed.and_then(|a| a.best_hold).unwrap_or(DEFAULT_HOLD_S)) * start)
+                    .round(),
+            )
+            .max(5),
             carry: seed
                 .and_then(|a| a.carry)
                 .map(|c| (c.load, c.secs))
@@ -449,16 +453,22 @@ impl Athlete {
         let idle_endurance = (1.0 - self.detrained * DETRAIN_ENDURANCE_MULT).max(0.5);
         Base {
             e1rm: b.e1rm * t.strength(w) * hurt * idle,
-            reps: ((b.reps as f64 + t.reps(w)) * hurt * idle_endurance)
-                .round()
-                .max(1.0) as i32,
-            hold_s: ((b.hold_s as f64 + t.hold(w)) * hurt * idle_endurance)
-                .round()
-                .max(5.0) as i32,
+            reps: whole(
+                ((f64::from(b.reps) + t.reps(w)) * hurt * idle_endurance)
+                    .round()
+                    .max(1.0),
+            ),
+            hold_s: whole(
+                ((f64::from(b.hold_s) + t.hold(w)) * hurt * idle_endurance)
+                    .round()
+                    .max(5.0),
+            ),
             carry: (
                 b.carry.0 * t.strength(w) * hurt * idle,
-                (((b.carry.1 as f64 + t.hold(w) / 2.0) * hurt * idle_endurance).round()).max(5.0)
-                    as i32,
+                whole(
+                    (((f64::from(b.carry.1) + t.hold(w) / 2.0) * hurt * idle_endurance).round())
+                        .max(5.0),
+                ),
             ),
         }
     }
@@ -471,7 +481,7 @@ fn reps_at(e1rm: f64, load: f64) -> i32 {
     if load <= 0.0 {
         return 0;
     }
-    (30.0 * (e1rm / load - 1.0)).floor().max(0.0) as i32
+    whole((30.0 * (e1rm / load - 1.0)).floor().max(0.0))
 }
 
 /// One performed set: what gets logged, and how to describe it in the trace.
@@ -543,7 +553,7 @@ fn perform(
             hold_s: ask,
         } => {
             let load = behaviour.load_used(asked_load, loads);
-            let cap = ((truth.carry.1 as f64 * truth.carry.0 / load).floor() as i32).max(5);
+            let cap = whole((f64::from(truth.carry.1) * truth.carry.0 / load).floor()).max(5);
             let did = behaviour.hold_target(ask).min(cap);
             Performed {
                 reps: None,
@@ -573,7 +583,7 @@ fn perform(
         // lands on the heaviest owned weight that still leaves ~1 rep in reserve at
         // that count.
         Ask::BuildUp { reps, .. } => {
-            let target = truth.e1rm / (1.0 + (reps as f64 + 1.0) / 30.0);
+            let target = truth.e1rm / (1.0 + (f64::from(reps) + 1.0) / 30.0);
             let mut owned: Vec<f64> = loads.cloned().unwrap_or_default();
             owned.sort_by(f64::total_cmp);
             let load = owned
@@ -594,7 +604,7 @@ fn perform(
         // Loaded carry assessment: carry the given start for as long as form holds.
         Ask::LoadedCarry { start_kg: start } => {
             let secs =
-                ((truth.carry.1 as f64 * truth.carry.0 / start).floor() as i32).clamp(5, 120);
+                whole((f64::from(truth.carry.1) * truth.carry.0 / start).floor()).clamp(5, 120);
             Performed {
                 reps: None,
                 load_kg: Some(start),
@@ -612,7 +622,7 @@ fn perform(
             distance_m: ask,
         } => {
             let load = behaviour.load_used(asked_load, loads);
-            let cap = ((truth.carry.1 as f64 * truth.carry.0 / load / 3.0).floor() as i32).max(5);
+            let cap = whole((f64::from(truth.carry.1) * truth.carry.0 / load / 3.0).floor()).max(5);
             let did = behaviour.hold_target(ask).min(cap);
             Performed {
                 reps: None,
@@ -627,8 +637,8 @@ fn perform(
             }
         }
         Ask::LoadedDistance { start_kg: start } => {
-            let metres =
-                ((truth.carry.1 as f64 * truth.carry.0 / start / 3.0).floor() as i32).clamp(5, 60);
+            let metres = whole((f64::from(truth.carry.1) * truth.carry.0 / start / 3.0).floor())
+                .clamp(5, 60);
             Performed {
                 reps: None,
                 load_kg: Some(start),
@@ -911,7 +921,7 @@ async fn main() -> Result<()> {
                     hist.push(SetRec {
                         // Simulated sets are never written back, so a real row id
                         // would be a fiction; they only need to not collide.
-                        id: SetId(-(sets_logged as i64 + 1)),
+                        id: SetId(-(i64::try_from(sets_logged).unwrap_or(i64::MAX) + 1)),
                         exercise_id: s.exercise_id,
                         logged_at: t,
                         reps: p.reps,
