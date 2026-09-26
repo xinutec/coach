@@ -63,5 +63,9 @@
  "scapular_pushup": {
   "view": "left",
   "spec": "plank_spread@0,plank_mid@6,plank_squeeze@12,plank_mid@18,plank_spread@24"
+ },
+ "kneeling_lat_reach": {
+  "view": "front",
+  "spec": "lat_center@0,lat_reach_right@12,lat_center@24,lat_reach_left@36,lat_center@48"
  }
 }

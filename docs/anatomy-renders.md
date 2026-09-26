@@ -247,7 +247,9 @@ Hence two guards:
   `plant.span` is the widest horizontal distance between contact centroids (a
   flat palm's lowest vertex jumps from wrist to fingertip with a fraction of a
   degree of tilt), and every frame of a rep must hold it to within 2cm. Match
-  it at the keys while authoring: `try-pose.py` prints it.
+  it at the keys while authoring: `try-pose.py` prints it. A pose whose hands
+  travel by design (the lat reach walks them sideways) is named in `_slide`
+  with its reason, like `_contact`: measured and reported, not refused.
 
 **The rig cannot lift a hip with one bone.** The hierarchy is `root → pelvis →
 {thigh, spine01} → spine02 → spine03 → neck → head`, and each contact's measured
@@ -281,6 +283,13 @@ amount (same sign, as in the hinge) so the knees stay put.
 upper back between the arms (6cm for −20°) while barely moving the hands;
 clavicle Z and Y mostly swing the hands along the floor. A little Z cancels X's
 residual slide.
+
+**A sideways reach is spine Z.** Face down, spine Z swings the upper body and
+both hands across the floor together (12–15cm per 10° per spine bone); spine Y
+rolls it, one hand up and one down, so a little Y levels what Z leaves. Moving
+the arms instead makes them collide with the head. The rig's rest arm points
+sideways, so arms reaching forward along the floor need upper-arm Z as well as
+X (180, ∓60).
 
 ⚠ **A hip height is a difference.** "Hips 14.1cm" with the hips flat on the
 ground is the mean pelvis vertex of a thick body, not a lift.

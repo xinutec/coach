@@ -847,6 +847,24 @@
    "hand_R",
    "toes_L",
    "toes_R"
+  ],
+  "lat_center": [
+   "hand_L",
+   "hand_R",
+   "calf_L",
+   "calf_R"
+  ],
+  "lat_reach_right": [
+   "hand_L",
+   "hand_R",
+   "calf_L",
+   "calf_R"
+  ],
+  "lat_reach_left": [
+   "hand_L",
+   "hand_R",
+   "calf_L",
+   "calf_R"
   ]
  },
  "cat": {
@@ -1270,5 +1288,226 @@
    0,
    -6
   ]
+ },
+ "lat_center": {
+  "root": [
+   119,
+   0,
+   0
+  ],
+  "thigh_L": [
+   150,
+   0,
+   0
+  ],
+  "thigh_R": [
+   150,
+   0,
+   0
+  ],
+  "calf_L": [
+   -120,
+   0,
+   0
+  ],
+  "calf_R": [
+   -120,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   180,
+   0,
+   -60
+  ],
+  "upperarm_R": [
+   180,
+   0,
+   60
+  ],
+  "foot_L": [
+   -60,
+   0,
+   0
+  ],
+  "foot_R": [
+   -60,
+   0,
+   0
+  ],
+  "neck": [
+   -25,
+   0,
+   0
+  ],
+  "hand_L": [
+   0,
+   10,
+   15
+  ],
+  "hand_R": [
+   0,
+   -10,
+   -15
+  ]
+ },
+ "lat_reach_right": {
+  "root": [
+   119,
+   0,
+   0
+  ],
+  "thigh_L": [
+   150,
+   0,
+   0
+  ],
+  "thigh_R": [
+   150,
+   0,
+   0
+  ],
+  "calf_L": [
+   -120,
+   0,
+   0
+  ],
+  "calf_R": [
+   -120,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   180,
+   0,
+   -60
+  ],
+  "upperarm_R": [
+   180,
+   0,
+   60
+  ],
+  "foot_L": [
+   -60,
+   0,
+   0
+  ],
+  "foot_R": [
+   -60,
+   0,
+   0
+  ],
+  "neck": [
+   -25,
+   0,
+   0
+  ],
+  "hand_L": [
+   0,
+   10,
+   15
+  ],
+  "hand_R": [
+   0,
+   -10,
+   -15
+  ],
+  "spine01": [
+   0,
+   3,
+   7
+  ],
+  "spine02": [
+   0,
+   3,
+   7
+  ],
+  "spine03": [
+   0,
+   3,
+   7
+  ]
+ },
+ "lat_reach_left": {
+  "root": [
+   119,
+   0,
+   0
+  ],
+  "thigh_L": [
+   150,
+   0,
+   0
+  ],
+  "thigh_R": [
+   150,
+   0,
+   0
+  ],
+  "calf_L": [
+   -120,
+   0,
+   0
+  ],
+  "calf_R": [
+   -120,
+   0,
+   0
+  ],
+  "upperarm_L": [
+   180,
+   0,
+   -60
+  ],
+  "upperarm_R": [
+   180,
+   0,
+   60
+  ],
+  "foot_L": [
+   -60,
+   0,
+   0
+  ],
+  "foot_R": [
+   -60,
+   0,
+   0
+  ],
+  "neck": [
+   -25,
+   0,
+   0
+  ],
+  "hand_L": [
+   0,
+   10,
+   15
+  ],
+  "hand_R": [
+   0,
+   -10,
+   -15
+  ],
+  "spine01": [
+   0,
+   -3,
+   -7
+  ],
+  "spine02": [
+   0,
+   -3,
+   -7
+  ],
+  "spine03": [
+   0,
+   -3,
+   -7
+  ]
+ },
+ "_slide": {
+  "_comment": "Poses whose contacts TRAVEL across the floor on purpose, and why. A rep including one is still measured for sliding, but not refused for it: the same explicit, named exemption as _contact, so the rule stays at full strength for every other pose.",
+  "lat_reach_right": "the hands walk across the floor to the side; that is the stretch",
+  "lat_reach_left": "the hands walk across the floor to the side; that is the stretch"
  }
 }

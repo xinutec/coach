@@ -251,7 +251,14 @@ if do_check and floor_bones:
                  f"{worst_sink * 100:.1f}cm through it — the keys plant, the path "
                  "between them does not")
     slide = max(spans.values()) - min(spans.values())
-    if slide > plant.SLIDE_TOLERANCE:
+    # A pose whose hands travel by design (a lat reach walks them sideways) is
+    # named in `_slide` with its reason, like `_contact`; the rep is measured
+    # and reported, not refused.
+    slides_by_design = [n for _, n in keys if n in poses.get("_slide", {})]
+    if slides_by_design:
+        print(f"contacts slide {slide * 100:.1f}cm by design: "
+              + poses["_slide"][slides_by_design[0]])
+    elif slide > plant.SLIDE_TOLERANCE:
         wide, narrow = max(spans, key=spans.get), min(spans, key=spans.get)
         sys.exit(f"the contacts slide {slide * 100:.1f}cm across the floor: "
                  f"{spans[narrow] * 100:.1f}cm apart at frame {narrow}, "
