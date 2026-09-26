@@ -20,8 +20,10 @@
 //! and signed, it also survives the pod restarting mid-login.
 //!
 //! Residual risk, accepted deliberately: when NC returns an empty `state` the cookie
-//! is the only binding, so a login-CSRF would become possible for someone who can land
-//! a callback in the victim's browser inside the 10-minute window. The alternative is a login that cannot be performed at all.
+//! is the only binding, so a login-CSRF would become possible for someone on the VPN
+//! (coach is served nowhere else) who can land a callback in the victim's browser
+//! inside the 10-minute window. The alternative is a login that cannot be performed
+//! at all.
 
 use chrono::{DateTime, Duration, Utc};
 use rand::Rng;

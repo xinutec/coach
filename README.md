@@ -2,7 +2,8 @@
 
 Personal exercise/training tracker with an **adaptive pacing coach**. A sibling
 of `life`: Rust (axum) backend + Angular frontend + its own MariaDB, served from
-one image and deployed to k3s on isis. Public at `coach.xinutec.org`, gated by
+one image and deployed to k3s on isis. Served at `coach.xinutec.org` on the
+WireGuard VPN only (isis's front door has no public listener for it), gated by
 Nextcloud OAuth login.
 
 There's no stored plan or program. On every request the pacing engine recomputes

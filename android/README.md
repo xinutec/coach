@@ -5,7 +5,9 @@ no address bar, a home-screen icon — **plus** a native **home geofence** that 
 you to train when you're home.
 
 The site is behind Nextcloud-identity login; the WebView keeps the session cookie,
-so it's a one-time sign-in.
+so it's a one-time sign-in. It is served on the WireGuard VPN only, so the app —
+and the reminder's `GET /api/pacing/now` — work only while the phone's VPN is up;
+a reminder that fires without it finds no server and stays silent.
 
 ## Two layers
 
