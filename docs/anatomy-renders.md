@@ -42,8 +42,9 @@ The payoff is not coverage; sourced pictures already cover the catalog. It is:
   Attribution.
 - **Illustration quality, not biomechanics.** Muscles need to *read* correctly in
   a pose, not simulate.
-- **Renders are judged by Pippijn.** Pose quality is a visual call; the loop is
-  render → deliver → critique. Nothing ships to the catalog unreviewed.
+- **Renders are judged by looking.** Pose quality is a visual call, made on the
+  frames against the floor slab, at both ends of every rep; Pippijn has the final
+  say on how they look.
 - **Supplement, never replace.** The photograph stays exactly as it is and the
   loop is a second artifact beside it. The sourced pictures show what to do and
   took real work to gather.
