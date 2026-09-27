@@ -15,6 +15,12 @@ html {
       density: 0,
     )
   );
+  // The top bar in the bottom nav's tint, so both frame the page alike.
+  @include mat.toolbar-overrides(
+    (
+      container-background-color: var(--mat-sys-surface-container),
+    )
+  );
 }
 
 // Universal border-box reset (fleet convention, DL-ANGULAR-BOX-SIZING-RESET):

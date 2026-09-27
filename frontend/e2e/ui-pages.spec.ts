@@ -2,10 +2,12 @@ import { expect, type Page, test } from '@playwright/test';
 // The fleet-shared harness, published as @xinutec/ui-harness (source repo
 // ~/Code/ui-harness). Ships compiled JS, so it loads straight from node_modules.
 import {
+  expectBackClosesOverlay,
   expectNoHorizontalOverflow,
   expectNoOccludedControls,
   expectNoTextOverlaps,
   expectRecoversFromMissingBundle,
+  expectUpInTheBar,
   expectViewportIsPhone,
 } from '@xinutec/ui-harness';
 
@@ -572,6 +574,20 @@ test('locations is reachable from the UI @ phone', async ({ page }) => {
   await page.getByRole('link', { name: /Locations/i }).click();
   await page.waitForURL('**/locations');
   await page.getByRole('heading', { name: 'Locations' }).waitFor();
+  // Up returns to the screen that opened it.
+  await expectUpInTheBar(page);
+  await page.locator('ui-scaffold').getByRole('button', { name: 'back' }).click();
+  await page.waitForURL('**/settings');
+});
+
+// Sheets open through the scaffold's `Sheets`, which gives each one a history
+// entry: the phone's back gesture closes the sheet, not the screen under it.
+test('back closes a sheet and stays on the screen @ phone', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/today');
+  await expectBackClosesOverlay(page, () => page.locator('.add-fab').click());
+  await page.goto('/library');
+  await expectBackClosesOverlay(page, () => page.locator('.card').first().click());
 });
 
 // The FAB-under-nav bug lives at ≥768px (tablet/landscape), where the phone

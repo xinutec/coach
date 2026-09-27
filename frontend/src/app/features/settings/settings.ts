@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
+import { scaffoldTitle } from '@xinutec/ui-scaffold';
 
 import { BUILD_INFO } from '../../build-info';
 import { CoachApi } from '../../coach-api';
@@ -98,6 +99,7 @@ export class SettingsPage {
   readonly remindersHasHome = signal(false);
 
   constructor() {
+    scaffoldTitle(() => 'Settings');
     this.api.settings().subscribe((s) => this.form.set(s));
     this.refreshReminders();
   }

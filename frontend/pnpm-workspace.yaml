@@ -4,7 +4,8 @@
 # work without one.
 #
 # @xinutec/ui-harness ships TypeScript and builds itself in `prepare`, so pnpm
-# must be allowed to run it. The key is the resolved codeload URL rather than
+# must be allowed to run it. (@xinutec/ui-scaffold, from the same repo, ships
+# its build and needs no entry.) The key is the resolved codeload URL rather than
 # the package name, because pnpm keys a git dependency by its full spec — so
 # this line has to move whenever the harness commit does.
 #
@@ -18,7 +19,7 @@ allowBuilds:
   esbuild: true
   lmdb: true
   msgpackr-extract: true
-  '@xinutec/ui-harness@https://codeload.github.com/xinutec/ui-harness/tar.gz/e692c0546c8edcbabb5e07163dd52791b84d8586': true
+  '@xinutec/ui-harness@https://codeload.github.com/xinutec/ui-harness/tar.gz/23b871c4268a467a9f5fb906191607fbf1962093': true
 
 # Carried across from package.json's npm-format `overrides`, which pnpm does not
 # read. Here and nowhere else: two lists of one constraint drift.

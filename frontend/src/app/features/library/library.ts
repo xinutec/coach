@@ -1,11 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { capitalise } from '../../shared/format';
 import { FormsModule } from '@angular/forms';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
-import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { scaffoldTitle, Sheets } from '@xinutec/ui-scaffold';
 
 import { CoachApi } from '../../coach-api';
 import { Exercise, displayName } from '../../models';
@@ -19,11 +19,11 @@ const PATTERNS = ['push', 'pull', 'legs', 'core'] as const;
   selector: 'app-library',
   templateUrl: './library.html',
   styleUrl: './library.scss',
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule],
+  imports: [FormsModule, MatButtonToggleModule, MatFormFieldModule, MatIconModule, MatInputModule],
 })
 export class LibraryPage {
   private api = inject(CoachApi);
-  private sheet = inject(MatBottomSheet);
+  private sheet = inject(Sheets);
   private exercisesStore = inject(ExercisesStore);
   private equipmentStore = inject(EquipmentStore);
 
@@ -54,6 +54,7 @@ export class LibraryPage {
   });
 
   constructor() {
+    scaffoldTitle(() => 'Exercise library');
     this.exercisesStore.refresh();
     this.equipmentStore.refresh();
   }
@@ -67,9 +68,6 @@ export class LibraryPage {
   readonly capitalise = capitalise;
   imageUrl(id: number): string {
     return this.api.exerciseImageUrl(id);
-  }
-  togglePattern(p: string): void {
-    this.pattern.set(this.pattern() === p ? null : p);
   }
   open(e: Exercise): void {
     this.sheet.open(ExerciseSheet, { data: { exerciseId: e.id } });

@@ -1,11 +1,11 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
+import { Sheets } from '@xinutec/ui-scaffold';
 import { CoachApi } from '../../coach-api';
 import type {
   Band,
@@ -37,7 +37,7 @@ import { LogSheet, type LogPrefill, type LogSheetData } from '../log/log-sheet';
 })
 export class Today {
   private api = inject(CoachApi);
-  private sheet = inject(MatBottomSheet);
+  private sheet = inject(Sheets);
   private exercisesStore = inject(ExercisesStore);
   private locationsStore = inject(LocationsStore);
 

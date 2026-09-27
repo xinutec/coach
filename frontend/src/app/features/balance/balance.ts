@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { capitalise } from '../../shared/format';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { scaffoldTitle } from '@xinutec/ui-scaffold';
 
 import { GroupBalance, Region } from '../../models';
 import { PacingStore } from '../../stores/catalog';
@@ -36,6 +37,7 @@ export class BalancePage {
   });
 
   constructor() {
+    scaffoldTitle(() => 'Balance');
     this.pacing.refresh();
   }
 

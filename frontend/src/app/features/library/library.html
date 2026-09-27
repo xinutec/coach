@@ -1,19 +1,21 @@
-<h2>Exercise library</h2>
-
 <mat-form-field appearance="outline" class="search">
   <mat-icon matPrefix>search</mat-icon>
   <mat-label>Search exercises</mat-label>
   <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" />
 </mat-form-field>
 
-<div class="filters">
-  <button mat-button [class.on]="pattern() === null" (click)="pattern.set(null)">All</button>
+<mat-button-toggle-group
+  class="filters"
+  aria-label="Movement pattern"
+  hideSingleSelectionIndicator
+  [value]="pattern() ?? ''"
+  (change)="pattern.set($event.value || null)"
+>
+  <mat-button-toggle value="">All</mat-button-toggle>
   @for (p of patterns; track p) {
-    <button mat-button [class.on]="pattern() === p" (click)="togglePattern(p)">
-      {{ capitalise(p) }}
-    </button>
+    <mat-button-toggle [value]="p">{{ capitalise(p) }}</mat-button-toggle>
   }
-</div>
+</mat-button-toggle-group>
 
 @if (loading()) {
   <p class="hint">Loading…</p>

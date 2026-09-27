@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { scaffoldTitle } from '@xinutec/ui-scaffold';
 import { CoachApi } from '../../coach-api';
 import type { Category, Equipment, Location } from '../../models';
 import { EquipmentStore, LocationsStore, PlacesStore } from '../../stores/catalog';
@@ -102,6 +103,7 @@ export class LocationsPage {
   });
 
   constructor() {
+    scaffoldTitle(() => 'Locations');
     this.reload();
   }
 

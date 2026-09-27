@@ -1,9 +1,9 @@
 @if (loading()) {
   <mat-progress-bar mode="indeterminate" />
 } @else if (me(); as m) {
-  <mat-toolbar class="topbar">
-    <span class="title">Coach</span>
-    <span class="spacer"></span>
+  <!-- The fleet's bar (@xinutec/ui-scaffold): the screen's name, and an arrow up on
+       a screen a route declares a parent for. The account menu is app-wide. -->
+  <ui-scaffold title="Coach">
     <button mat-icon-button class="acct-btn" [matMenuTriggerFor]="menu" aria-label="Account">
       @if (m.avatarUrl && !avatarError()) {
         <img class="avatar" [src]="m.avatarUrl" alt="" (error)="avatarError.set(true)" />
@@ -17,7 +17,7 @@
         <mat-icon>logout</mat-icon><span>Sign out</span>
       </button>
     </mat-menu>
-  </mat-toolbar>
+  </ui-scaffold>
 
   <main class="content">
     <router-outlet />

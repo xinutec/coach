@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { Sheets } from '@xinutec/ui-scaffold';
 import { of } from 'rxjs';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -67,7 +67,7 @@ function library(
         },
       },
       {
-        provide: MatBottomSheet,
+        provide: Sheets,
         useValue: {
           open: (_component: unknown, config: Opened) => {
             opened.push(config);
@@ -172,35 +172,17 @@ describe('searching', () => {
 describe('the pattern buttons', () => {
   it('narrows to one pattern', () => {
     const { page } = library();
-    page.togglePattern('pull');
+    page.pattern.set('pull');
     expect(names(page)).toEqual(['Pull-up (bar)', 'Pull-up (L-sit)']);
-  });
-
-  it('clears the filter when the button already on is tapped again', () => {
-    const { page } = library();
-    page.togglePattern('pull');
-    page.togglePattern('pull');
-    expect(page.pattern()).toBeNull();
-    expect(page.filtered().length).toBe(CATALOG.length);
-  });
-
-  /** Tapping a second pattern replaces the first rather than adding to it —
-   *  one pattern at a time is what the template's `[class.on]` draws. */
-  it('switches to the new pattern rather than combining them', () => {
-    const { page } = library();
-    page.togglePattern('pull');
-    page.togglePattern('legs');
-    expect(page.pattern()).toBe('legs');
-    expect(names(page)).toEqual(['Goblet squat']);
   });
 
   it('combines with the search box rather than overriding it', () => {
     const { page } = library();
     page.search.set('pull-up');
-    page.togglePattern('push');
+    page.pattern.set('push');
     expect(names(page)).toEqual([]);
 
-    page.togglePattern('push');
+    page.pattern.set(null);
     expect(names(page)).toEqual(['Pull-up (bar)', 'Pull-up (L-sit)']);
   });
 

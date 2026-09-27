@@ -7,14 +7,7 @@
 }
 
 .filters {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
   margin-bottom: 0.5rem;
-
-  .on {
-    background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
-  }
 }
 
 .count {

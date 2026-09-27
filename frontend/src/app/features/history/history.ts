@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { scaffoldTitle } from '@xinutec/ui-scaffold';
 
 import { CoachApi } from '../../coach-api';
 import { WorkoutSet, displayName } from '../../models';
@@ -75,6 +76,7 @@ export class HistoryPage {
   });
 
   constructor() {
+    scaffoldTitle(() => 'History');
     this.reload();
     // Open the most recent day once its data arrives (per visit — a fresh
     // component starts collapsed, then this opens the newest group one time).

@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatToolbarModule } from '@angular/material/toolbar';
+import { Scaffold } from '@xinutec/ui-scaffold';
 
 import { CoachApi } from './coach-api';
 import { Me } from './models';
@@ -31,7 +31,7 @@ interface NavItem {
     MatIconModule,
     MatMenuModule,
     MatProgressBarModule,
-    MatToolbarModule,
+    Scaffold,
   ],
 })
 export class App {

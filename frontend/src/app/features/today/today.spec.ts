@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { MatBottomSheet } from '@angular/material/bottom-sheet';
+import { Sheets } from '@xinutec/ui-scaffold';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -113,7 +113,7 @@ function card(exercises: Exercise[] = []): Today {
           exerciseImageUrl: (id: number) => `/api/exercises/${id}/image`,
         },
       },
-      { provide: MatBottomSheet, useValue: { open: vi.fn() } },
+      { provide: Sheets, useValue: { open: vi.fn() } },
     ],
   });
   return TestBed.runInInjectionContext(() => new Today());
