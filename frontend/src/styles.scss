@@ -1,5 +1,4 @@
-// Angular Material 3 theme. Orange palette distinguishes coach from life
-// (green), home (teal), health (violet) and recall (azure).
+// Angular Material 3 theme; orange sets coach apart from the fleet's other apps.
 @use '@angular/material' as mat;
 
 html {
@@ -40,8 +39,7 @@ body {
   font: var(--mat-sys-body-medium);
 }
 
-// Page + section headings on the M3 type scale — one definition, no per-screen
-// font-size improvisation.
+// Headings on the M3 type scale, defined once.
 h2 {
   font: var(--mat-sys-title-large);
   margin: 0.5rem 0 0.75rem;

@@ -80,7 +80,7 @@ mat-card {
 .suggestion {
   margin-bottom: 0.6rem;
 
-  // The head of the plan — the thing to do next — gets a touch more presence.
+  // The item to do next gets a touch more presence.
   &.next {
     border-left: 3px solid var(--mat-sys-primary);
   }
@@ -280,8 +280,7 @@ mat-card {
   }
 }
 
-// Kit the coach left out of the plan (its weights aren't registered here). Quiet
-// — it's an FYI with an action, not a set to do.
+// A notice: quiet, an FYI rather than a set to do.
 .notice {
   display: flex;
   align-items: flex-start;

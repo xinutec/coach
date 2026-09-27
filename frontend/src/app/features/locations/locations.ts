@@ -64,7 +64,6 @@ export class LocationsPage {
   private equipmentStore = inject(EquipmentStore);
   private placesStore = inject(PlacesStore);
 
-  // Shared catalogs, retained across tab switches (see CachedResource).
   readonly locations = computed(() => this.locationsStore.value() ?? []);
   readonly equipment = computed(() => this.equipmentStore.value() ?? []);
   // health-detected places for the link picker (empty when the integration is off).
@@ -192,12 +191,9 @@ export class LocationsPage {
     return this.BAR_PRESETS[slug] ?? [20];
   }
 
-  /** Selected kit that carries a load — each gets a discrete-weights editor. A
-   *  dumbbell can be *both*: an adjustable handle you load, and a plain 5 kg one
-   *  you don't. The two sets union.
-   *
-   *  This is the catalog's `weighted` flag, not the free-weight category: a cable
-   *  stack's pin positions are exactly a list of discrete weights. */
+  /** Selected kit that carries a load (the catalog's `weighted` flag, so a cable
+   *  stack too), each with a discrete-weights editor. A dumbbell can also be a
+   *  loadable handle; the two editors sit side by side. */
   readonly weightedSlugs = computed(() =>
     [...this.formEquip()].filter(
       (s) => this.equipment().find((e) => e.slug === s)?.weighted ?? false,

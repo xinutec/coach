@@ -42,26 +42,21 @@ export class Today {
   private locationsStore = inject(LocationsStore);
 
   readonly pacing = signal<PacingNow | null>(null);
-  // Shared catalogs, retained across tab switches (see CachedResource).
   readonly exercises = computed(() => this.exercisesStore.value() ?? []);
   readonly locations = computed(() => this.locationsStore.value() ?? []);
   readonly loading = signal(true);
   private didInit = false;
 
-  // The location whose kit bounds the session. Initialised to the default, then
-  // upgraded to the auto-detected one (best-effort) unless the user has picked.
-  // `null` only while locations are loading, or if there are none at all — the
-  // engine then declines to plan rather than guessing what's doable.
+  // The location whose kit bounds the session: the default, then the detected one
+  // unless the athlete picked. `null` while loading, or with no locations at all.
   readonly selectedLocationId = signal<number | null>(null);
   readonly autoDetected = signal(false);
   private userPickedLocation = false;
 
   constructor() {
     this.loadAll();
-    // The first pacing verdict needs the locations list (to pick the default
-    // location). Wait for it, then initialise once. Retained catalogs make this
-    // instant on a revisit; a cold load waits for the fetch. (Stores set
-    // `loaded` even on failure, so this still fires and clears `loading`.)
+    // The first verdict needs the locations list to pick the default. Stores set
+    // `loaded` even on failure, so this still fires and clears `loading`.
     effect(() => {
       if (this.didInit || !this.locationsStore.loaded()) return;
       this.didInit = true;
@@ -131,13 +126,10 @@ export class Today {
     });
   }
 
-  /** The set whose removal is awaiting confirmation, if any. Removing a set is
-   *  destructive, so it takes a second deliberate tap — but it stays inline, so
-   *  correcting a number is still a two-tap job rather than a hunt through
-   *  history for a set logged weeks ago. */
+  /** The set whose removal awaits a second tap. Inline, so correcting a number
+   *  doesn't mean hunting through history for it. */
   readonly confirmRemoveSetId = signal<number | null>(null);
 
-  /** The opening weight an assessment names, for the template. */
   readonly askLoadKg = askLoadKg;
 
   /** The set behind the estimate, in the terms it was logged in. */
@@ -182,7 +174,6 @@ export class Today {
     this.reloadPacing();
   }
 
-  /** Display name of the selected location for the status line. */
   readonly locationName = computed(() => {
     const id = this.selectedLocationId();
     const name = id == null ? undefined : this.locations().find((l) => l.id === id)?.name;
@@ -208,10 +199,7 @@ export class Today {
   explanationLines(e: Explanation): string[] {
     const lines: string[] = [];
     if (e.confirming) {
-      // Its muscles are already covered this week — it's here to turn a shaky
-      // first estimate into a trusted one, which is worth more right now than a
-      // brand-new movement. Say that; a near-zero deficit line would just read
-      // as "why is this even here?".
+      // Say why it's here; a near-zero deficit line would read as "why is this here?".
       lines.push(
         "Locking in your baseline — a couple more clean sessions and I'll trust this number",
       );
@@ -267,12 +255,9 @@ export class Today {
   }
 
   /**
-   * What you actually did, in the order you did it.
-   *
-   * A bare count ("1 / 2 sets") answers the wrong question: on set two you want
-   * to know what set one was. Reps alone read better with the unit said once at
-   * the end ("9 · 6 reps"); anything carrying a load, a clock or a distance names
-   * its own ("22.5 kg × 7 · 24 kg × 6", "24 kg 10 m").
+   * What you did, in order: on set two you want to know what set one was. Reps say
+   * the unit once ("9 · 6 reps"); a load, clock or distance names its own
+   * ("22.5 kg × 7 · 24 kg × 6", "24 kg 10 m").
    */
   loggedSummary(s: Suggestion): string {
     if (!s.logged.length) return '';
@@ -322,11 +307,7 @@ export class Today {
     return dose || 'Mobility';
   }
 
-  /**
-   * The calibration instruction for an `assess` suggestion — what to actually do
-   * so the logged set measures your ability. The ask names the calibration, so
-   * nothing is inferred from the catalog and nothing is defaulted.
-   */
+  /** The calibration instruction for an `assess` suggestion, from its ask. */
   assessInstruction(s: Suggestion): string {
     const ex = this.exercises().find((e) => e.id === s.exerciseId);
     const side = ex?.unilateral ? ' Both sides — the numbers are per side.' : '';
@@ -362,9 +343,7 @@ export class Today {
     return this.exercises().find((e) => e.id === id)?.unilateral ?? false;
   }
 
-  /** What the coach would have given you, and what stopped it — naming the kit, so
-   *  the swap is something you can fix rather than a shrug. The two blockers want
-   *  different actions: buy/bring the kit, or go and register its weights. */
+  /** What the coach would have given you, and what stopped it, so you can fix it. */
   substitutionNote(sub: Substitution): string {
     const kit = sub.blocker.kit.join(', ');
     return sub.blocker.kind === 'absent'
@@ -372,12 +351,8 @@ export class Today {
       : `Swapped in for ${sub.ideal} — no weights registered for ${kit}`;
   }
 
-  /**
-   * Show the movement in full — picture, muscles, demo video. The same sheet the
-   * Library opens: "what does this look like again?" is asked standing in the gym
-   * mid-warm-up, not while browsing the catalog, so it has to be reachable from
-   * the plan card itself.
-   */
+  /** The Library's detail sheet, from the plan card: "what does this look like
+   *  again?" is asked mid-warm-up, not while browsing. */
   openDetail(s: Suggestion): void {
     this.sheet.open(ExerciseSheet, { data: { exerciseId: s.exerciseId } });
   }
@@ -426,12 +401,8 @@ export class Today {
     this.sheet.open(LogSheet, { data });
   }
 
-  /** The header's arithmetic is the plan's own — summed from the cards, never
-   *  the engine's day-size estimate, which can disagree with them (R2-2).
-   *
-   *  Work sets only. Warm-ups credit no volume and count toward nothing the
-   *  coach scores; they show as their own checked-off rows but aren't the
-   *  session's measure. */
+  /** The work items the header counts: summed from the cards, never the engine's
+   *  day-size estimate, which can disagree with them (R2-2). */
   private work(p: PacingNow): Suggestion[] {
     return p.plan.filter((s) => s.kind !== 'warmup');
   }

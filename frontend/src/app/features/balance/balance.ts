@@ -19,7 +19,6 @@ const REGION_ORDER: Region[] = ['chest', 'back', 'shoulders', 'arms', 'forearms'
 export class BalancePage {
   private pacing = inject(PacingStore);
 
-  // Retained across tab switches, refreshed in the background (see CachedResource).
   readonly groups = computed<GroupBalance[]>(() => this.pacing.value()?.groups ?? []);
   readonly loading = computed(() => !this.pacing.loaded());
 

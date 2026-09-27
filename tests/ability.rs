@@ -250,9 +250,8 @@ fn never_trained_is_absent_and_reads_as_none() {
 
 // ---- provenance: which set set the estimate ---------------------------------
 
-/// The estimate must name the set it came from. Ability is a max, so one wrong
-/// number is a ceiling nothing later can lower — and it is only correctable if
-/// the app can say which set produced it.
+/// The estimate must name the set it came from: one wrong number can hold it up
+/// for weeks, and is only correctable if the app can say which set it was.
 #[test]
 fn the_estimate_names_the_set_it_came_from() {
     let best = SetRec {

@@ -27,7 +27,6 @@ export class HistoryPage {
   private setsStore = inject(SetsStore);
   private allExercisesStore = inject(AllExercisesStore);
 
-  // Retained across tab switches, refreshed in the background (see CachedResource).
   readonly sets = computed(() => this.setsStore.value() ?? []);
   readonly exMap = computed(
     () => new Map((this.allExercisesStore.value() ?? []).map((e) => [e.id, e])),

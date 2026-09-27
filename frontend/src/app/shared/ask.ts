@@ -1,12 +1,6 @@
 /**
- * Reading an {@link Ask} — the tagged prescription the verdict carries.
- *
- * These helpers are *derived* from the variant rather than stored beside it, so
- * they cannot contradict the rest of the ask — there is no weighted lift here
- * that has lost its load. Prefer switching on
- * `ask.kind` where the display genuinely differs per variant; reach for these
- * only when a single number is wanted regardless of shape, as when prefilling
- * the log sheet's fields.
+ * One number out of an {@link Ask}, whatever its shape, as the log sheet's prefill
+ * wants. Where the display differs per variant, switch on `ask.kind` instead.
  */
 import type { Ask } from '../models';
 

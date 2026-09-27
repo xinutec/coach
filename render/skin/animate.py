@@ -180,7 +180,7 @@ floor_bones = floor_sets.pop()
 
 # ⚠ SOLVE AT THE KEYS, VERIFY EVERY FRAME.
 #
-# Levelling is a search, around 130 pose evaluations, so solving it per frame
+# Levelling is a search of about a hundred pose evaluations, so solving it per frame
 # would cost more than the render does. Solving at the keys and letting the
 # F-curve interpolate the correction is cheap, and it is also the more honest
 # shape: the tip belongs to the pose, and one re-solved per frame would wander

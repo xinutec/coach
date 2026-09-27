@@ -24,12 +24,10 @@ object Geofencing {
      * boundary — DWELL (with the loiter below) is the one that keeps a walk past
      * the door from being read as arriving.
      *
-     * Stated once because it is used twice, at opposite ends of the same
-     * mechanism: [arm] registers these with Play Services, and
-     * [GeofenceBroadcastReceiver] filters incoming events by them. Two lists that
-     * must agree and are written apart drift — registering a transition the
-     * receiver drops is a reminder that silently never fires, and there is no
-     * error anywhere to notice.
+     * Stated once for both ends: [arm] registers these, and
+     * [GeofenceBroadcastReceiver] filters by them. Two lists would drift, and a
+     * registered transition the receiver drops is a reminder that silently never
+     * fires.
      */
     const val TRANSITIONS = Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_DWELL
 

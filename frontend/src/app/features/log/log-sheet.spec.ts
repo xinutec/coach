@@ -9,7 +9,7 @@ import { LogSheet, type LogSheetData } from './log-sheet';
 
 /** Every number the engine reasons from enters through this sheet. Ability is a
  *  max over decayed sets, so a wrong value here is not a wrong screen — it is a
- *  PR the model cannot unlearn, and it goes on shaping prescriptions for weeks.
+ *  PR that goes on shaping prescriptions for weeks.
  *
  *  Two cases below guard field-test findings: a stale value behind a hidden
  *  field must not ride along (R2-1), and the sheet must not dismiss itself

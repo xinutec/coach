@@ -253,7 +253,7 @@ only thing that computes one.
 
 **A number the athlete never lifted is asked about once.** Ability is a max over
 history, so a mistyped load is not a bad day the model averages away — it becomes
-a PR the engine cannot unlearn. It decays only to the 60 % floor, the block reset
+a PR the engine is slow to unlearn. It decays only to the 60 % floor, the block reset
 fires on an 8-week gap that never comes while he keeps training, and the ledger's
 deepest correction ("re-open the measurement") produces a *lower* number that the
 max discards. The recent-work ceiling bounds how long that lasts — three sessions,

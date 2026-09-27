@@ -55,10 +55,8 @@ internal object Bridge {
      * same silence. Answering them differently would tell a frame that got this
      * far which of its guesses was closest.
      *
-     * [data] is nullable because a non-text `WebMessageCompat` has no string to
-     * read; it falls through the `when` like any other word we don't know,
-     * rather than being special-cased on a message type whose exact null
-     * behaviour varies by androidx.webkit version.
+     * [data] is null for a non-text message, which falls through like any unknown
+     * word.
      */
     fun actionFor(data: String?, sourceOrigin: String?, isMainFrame: Boolean): BridgeAction? {
         if (!isMainFrame) return null

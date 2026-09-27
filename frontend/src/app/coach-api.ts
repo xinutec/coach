@@ -46,7 +46,6 @@ export class CoachApi {
     return this.http.post<void>('/api/telemetry', events);
   }
 
-  // Exercise catalog
   exercises(includeInactive = false): Observable<Exercise[]> {
     const q = includeInactive ? '?includeInactive=true' : '';
     return this.http.get<Exercise[]>(`/api/exercises${q}`);
@@ -70,7 +69,6 @@ export class CoachApi {
     return `/api/exercises/${id}/loop`;
   }
 
-  // Reference catalogs
   equipment(): Observable<Equipment[]> {
     return this.http.get<Equipment[]>('/api/equipment');
   }
@@ -78,7 +76,6 @@ export class CoachApi {
     return this.http.get<Muscle[]>('/api/muscles');
   }
 
-  // Training locations
   locations(): Observable<Location[]> {
     return this.http.get<Location[]>('/api/locations');
   }
@@ -100,7 +97,6 @@ export class CoachApi {
     return this.http.get<CurrentLocation>('/api/location/current');
   }
 
-  // Micro-log
   sets(limit = 50): Observable<WorkoutSet[]> {
     return this.http.get<WorkoutSet[]>(`/api/sets?limit=${limit}`);
   }
@@ -111,7 +107,6 @@ export class CoachApi {
     return this.http.delete<void>(`/api/sets/${id}`);
   }
 
-  // Pacing settings + the live verdict
   settings(): Observable<Settings> {
     return this.http.get<Settings>('/api/settings');
   }

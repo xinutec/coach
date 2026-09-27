@@ -53,10 +53,8 @@
   } @else if (d.hasImage) {
     <img class="hero" [src]="imageUrl(d.id)" [alt]="d.name" />
   } @else {
-    <!-- A movement can be in the catalog before anyone has found a demo for it —
-         better to track it honestly than to leave it out (or point it at some
-         video that isn't actually the movement). This says so rather than
-         rendering a hole. -->
+    <!-- A movement can be catalogued before anyone found a true demo of it; say so rather than
+         render a hole. -->
     <div class="hero placeholder">
       <mat-icon>fitness_center</mat-icon>
       <span>No picture yet</span>

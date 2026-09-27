@@ -56,7 +56,6 @@ export class CachedResource<T> {
         if (r.ok) this._value.set(r.value);
         this._loaded.set(true);
         this._refreshing.set(false);
-        // Error only when the fetch failed and we have nothing cached to show.
         this._error.set(!r.ok && this._value() === null);
       });
   }

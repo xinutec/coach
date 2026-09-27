@@ -42,10 +42,7 @@ interface LegacyCoachAndroidBridge {
   setupReminders(): void;
   disableReminders(): void;
 }
-// Declared on Window rather than asserted at the read. An ambient declaration is
-// what a foreign API contract is *for*: it says the shape once, in one place, so
-// the reads are ordinary typed property accesses instead of a cast each site has
-// to get right.
+// Declared on Window once, so each read is typed rather than a cast.
 declare global {
   interface Window {
     CoachAndroid?: CoachAndroidBridge | LegacyCoachAndroidBridge;

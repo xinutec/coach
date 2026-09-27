@@ -1,6 +1,6 @@
 //! The log-time plausibility guard: a load far beyond anything the athlete owns
-//! is a mistyped field, and the ability model (a max over history) cannot
-//! unlearn it. These pin the decision rule; the query that finds the heaviest
+//! is a mistyped field, and the ability model (a max over history) would hold
+//! it for weeks. These pin the decision rule; the query that finds the heaviest
 //! buildable weight is covered by the DB tests.
 
 use coach::location::owned::{IMPLAUSIBLE_FACTOR, implausible};

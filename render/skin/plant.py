@@ -47,8 +47,8 @@ SEARCH_STEPS = 90
 # The search will happily level any two contacts by rotating the whole figure,
 # and a body rotated as a rigid whole satisfies "both contacts on the floor" just
 # as well as one actually resting on them: a bridge with a wrong torso levels at
-# +15.9 degrees into a straight ramp with the head 9cm underground. A pose that is right needs well under a
-# degree, so anything past this is reported as a fault in the POSE.
+# +15.9 degrees into a straight ramp with the head 9cm underground. A pose that is
+# right needs well under a degree, so anything past this is a fault in the POSE.
 MAX_TILT_DEG = 5.0
 # How far the contacts of one rep may drift apart or together between frames.
 # A hand that stays put in life slides across the floor in the render when a key
@@ -103,10 +103,9 @@ def evaluated(bpy, body):
 
 # Which vertices belong to which contact bone, cached across a run.
 #
-# ⚠ This cache is what makes the solver usable at all. Scanning all 276,437
-# vertices and their group memberships in Python costs about a second; the
-# search evaluates the pose ~110 times per solve, so measuring from scratch each
-# time turned a solve into minutes of work for an answer that never changes.
+# ⚠ This cache is what makes the solver usable at all. Scanning every vertex and
+# its group memberships in Python costs about a second, and a solve evaluates the
+# pose about a hundred times, for an answer that never changes.
 # Weights do not move when a bone rotates — only positions do.
 _VERTS = {}
 

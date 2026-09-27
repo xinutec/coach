@@ -27,12 +27,8 @@ export interface LogSheetData {
   onLogged?: () => void;
 }
 
-/** The server's error body is `{"error": "..."}` (src/error.rs) — but a failure
- *  can also come from the ingress or the network, where the body is HTML, a
- *  differently-shaped JSON, or nothing at all. So read the message rather than
- *  assert it: `err as { error?: { error?: string } }` is a claim the compiler
- *  cannot check, and anything that isn't a string smuggled through it renders on
- *  the sheet as "[object Object]" — the athlete is told nothing, twice over. */
+/** The server's `{"error": "..."}` message, read rather than asserted: the ingress
+ *  or the network can answer with HTML, other JSON, or nothing. */
 function serverMessage(err: unknown): string | null {
   if (typeof err !== 'object' || err === null) return null;
   const body: unknown = (err as { error?: unknown }).error;
@@ -88,14 +84,11 @@ export class LogSheet {
   readonly distanceM = signal<number | null>(this.data.prefill?.distanceM ?? null);
   readonly note = signal('');
   readonly saving = signal(false);
-  /** The server's objection to the last attempt (e.g. a value outside human
-   *  range) — shown in the sheet. A silently swallowed rejection looks exactly
-   *  like a logged set, which is worse than the bad value it refused. */
+  /** The server's objection to the last attempt, shown: a swallowed rejection
+   *  looks exactly like a logged set. */
   readonly error = signal<string | null>(null);
-  /** The server asking "are you sure?" about a load far past anything he owns
-   *  (409). Not an error — the set is fine if he means it — so it offers a way
-   *  through rather than just refusing, and a typo gets caught before the
-   *  ability model swallows it as a PR it can never unlearn. */
+  /** The server asking "are you sure?" about a load far past anything owned (409):
+   *  a typo caught before the ability model takes it as a PR. */
   readonly confirmLoad = signal<string | null>(null);
   /** Sets logged since the sheet opened — the run this sheet represents. */
   readonly logged = signal(0);

@@ -71,15 +71,8 @@ export class ExerciseSheet {
    *  reads as a broken tap — so the still stays up, with a spinner, until this. */
   readonly frameReady = signal(false);
 
-  /**
-   * Turning the phone sideways to watch something is the gesture everyone already
-   * has, so landscape gives the demo the whole screen.
-   *
-   * It has to be the *viewport* it fills, not true fullscreen: `requestFullscreen`
-   * demands transient user activation, and a rotation isn't one — the browser
-   * would refuse. In the installed app there's no browser chrome, so filling the
-   * viewport is the same picture.
-   */
+  /** Landscape gives the demo the whole viewport. Not true fullscreen, which needs
+   *  a user activation a rotation isn't; in the app the two look the same. */
   readonly landscape = signal(false);
 
   constructor() {

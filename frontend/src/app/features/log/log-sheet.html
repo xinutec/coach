@@ -48,12 +48,8 @@
           <input matInput type="number" inputmode="numeric" [(ngModel)]="distanceM" />
         </mat-form-field>
       }
-      <!-- No "Effort (RPE)" field. The app asks what *happened* — reps, load,
-           seconds — never for a self-rating out of ten. A trainer reads the effort
-           himself; he doesn't stop you to ask for a number, least of all while
-           you're re-learning your own body. The model infers effort from the gap
-           between what it predicted and what you did (see docs/trainer.md, "The
-           athlete reports what happened, not how it felt"). -->
+      <!-- No "Effort (RPE)" field: the app asks what happened, never for a self-rating out of
+           ten. See docs/trainer.md, "The athlete reports what happened, not how it felt". -->
     </div>
   }
 

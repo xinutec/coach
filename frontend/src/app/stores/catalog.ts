@@ -4,14 +4,10 @@ import { CachedResource } from '../shared/cached-resource';
 import { CoachApi } from '../coach-api';
 import { DetectedPlace, Equipment, Exercise, Location, PacingNow, WorkoutSet } from '../models';
 
-/** Root-scoped caches for the server read-catalogs the routed tabs show. Being
- *  singletons, they retain their data across a tab switch (the component is
- *  destroyed, the store isn't) and let every view of the same data share one
- *  fetch. Each is just a loader — all the retain/refresh/error logic lives once
- *  in {@link CachedResource}. Call `.refresh()` on entering a view and after a
- *  mutation; read `.value()` / `.loaded()` in the template. */
+/** Root-scoped caches of the server's read-catalogs, shared by every view that
+ *  reads them and kept across tab switches; see {@link CachedResource}. */
 
-/** Active exercises — Today (suggestions) and Library (the list). */
+/** Active exercises. */
 @Injectable({ providedIn: 'root' })
 export class ExercisesStore extends CachedResource<Exercise[]> {
   constructor() {
@@ -20,7 +16,7 @@ export class ExercisesStore extends CachedResource<Exercise[]> {
   }
 }
 
-/** All exercises incl. retired — History's id→exercise lookup needs inactive ones. */
+/** All exercises, retired ones included, for naming old sets. */
 @Injectable({ providedIn: 'root' })
 export class AllExercisesStore extends CachedResource<Exercise[]> {
   constructor() {
@@ -29,7 +25,7 @@ export class AllExercisesStore extends CachedResource<Exercise[]> {
   }
 }
 
-/** Equipment reference — Today, Library and Locations. */
+/** The equipment catalog. */
 @Injectable({ providedIn: 'root' })
 export class EquipmentStore extends CachedResource<Equipment[]> {
   constructor() {
@@ -38,7 +34,7 @@ export class EquipmentStore extends CachedResource<Equipment[]> {
   }
 }
 
-/** Training locations — Today and Locations. */
+/** The athlete's training locations. */
 @Injectable({ providedIn: 'root' })
 export class LocationsStore extends CachedResource<Location[]> {
   constructor() {
@@ -47,7 +43,7 @@ export class LocationsStore extends CachedResource<Location[]> {
   }
 }
 
-/** Health-sync detected places — Locations (link a location to one). */
+/** Places health-sync detected, to link a location to. */
 @Injectable({ providedIn: 'root' })
 export class PlacesStore extends CachedResource<DetectedPlace[]> {
   constructor() {
@@ -56,7 +52,7 @@ export class PlacesStore extends CachedResource<DetectedPlace[]> {
   }
 }
 
-/** Recent workout sets — History. */
+/** Recent workout sets. */
 @Injectable({ providedIn: 'root' })
 export class SetsStore extends CachedResource<WorkoutSet[]> {
   constructor() {
@@ -65,8 +61,8 @@ export class SetsStore extends CachedResource<WorkoutSet[]> {
   }
 }
 
-/** The default (no location/mode) pacing verdict — Balance. Today fetches its
- *  own, parameterised by the selected location + mode, so it stays local. */
+/** The verdict at the default location. Today fetches its own, for the
+ *  location it has selected. */
 @Injectable({ providedIn: 'root' })
 export class PacingStore extends CachedResource<PacingNow> {
   constructor() {

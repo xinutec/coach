@@ -27,7 +27,6 @@ export class LibraryPage {
   private exercisesStore = inject(ExercisesStore);
   private equipmentStore = inject(EquipmentStore);
 
-  // Shared catalogs, retained across tab switches (see CachedResource).
   readonly exercises = computed(() => this.exercisesStore.value() ?? []);
   readonly loading = computed(() => !this.exercisesStore.loaded());
   // Signals (not plain fields) because the filtered view is a computed over them.

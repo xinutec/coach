@@ -1,6 +1,6 @@
 //! What the athlete owns to load a movement with, to check a *logged* load against: a
 //! load far beyond anything buildable is a mistyped field, and since ability is a max
-//! it would become a PR the engine cannot unlearn.
+//! it would become a PR that holds the estimate up for weeks.
 
 use std::collections::HashSet;
 

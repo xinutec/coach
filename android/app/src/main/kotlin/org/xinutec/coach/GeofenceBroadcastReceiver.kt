@@ -8,8 +8,8 @@ import com.google.android.gms.location.GeofencingEvent
 /**
  * Fired by Play Services when the home boundary is crossed. On a settle-at-home
  * (ENTER/DWELL) it asks the backend whether now is a good moment and posts a
- * reminder only if so — the backend already applies the window / night-cutoff /
- * spacing gates, so this stays a thin trigger.
+ * reminder only if so — the backend already applies the window and spacing
+ * gates, so this stays a thin trigger.
  *
  * The work runs off a `goAsync()` background thread (a quick authenticated GET),
  * so no foreground service is needed.

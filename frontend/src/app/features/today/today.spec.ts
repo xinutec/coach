@@ -447,9 +447,8 @@ describe('a swap the athlete can act on', () => {
 });
 
 describe('the set behind an estimate', () => {
-  // Ability is a max, so one mistyped set becomes a ceiling nothing later can
-  // lower — and the offending set is usually weeks old. The card has to name it
-  // in the terms it was logged in, or correcting it is an archaeology problem.
+  // One mistyped set can hold the estimate up for weeks, and is usually weeks old:
+  // the card names it in the terms it was logged in, so it can be found.
   it('names it in the terms it was logged in', () => {
     const t = card();
     const when = new Date('2026-07-14T16:00:00Z').toLocaleDateString(undefined, {

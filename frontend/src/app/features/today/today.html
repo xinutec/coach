@@ -191,10 +191,7 @@
                   <span class="per-side">each side</span>
                 }
               </p>
-              <!-- Part-done: what the sets you've already put in actually were.
-                 The line above is the ask and stays the ask — this is the
-                 answer to "what did I do last set?", which was otherwise a trip
-                 to History mid-movement. -->
+              <!-- Part-done: what the sets already in were. The line above stays the ask. -->
               @if (s.logged.length) {
                 <p class="s-logged">
                   <mat-icon class="tick">check</mat-icon>
@@ -220,18 +217,12 @@
                   @for (line of explanationLines(e); track line) {
                     <li>{{ line }}</li>
                   }
-                  <!-- The one set the estimate rests on. Ability is a max, so a
-                     single wrong number is a ceiling nothing later can lower —
-                     and it is usually an old set, out of reach of anything that
-                     only offers the latest one. Name it, and offer the fix. -->
+                  <!-- The one set the estimate rests on, usually an old one out of reach of
+                       anything that offers only the latest. Name it, and offer the fix. -->
                   @if (e.estimateFrom; as src) {
-                    <!-- Plain text buttons (the same `.why-toggle` the reasoning
-                       uses), not Material ones: a mat-button's padding pushed
-                       this line out of the list's rhythm, and a filled one made
-                       the *destructive* choice the loudest thing on the card —
-                       and sat it under the FAB at phone width. Removing a set is
-                       a rare escape hatch, so it should be quiet, and "Keep"
-                       should never be the harder option to pick. -->
+                    <!-- Plain text buttons, like the reasoning toggle: removing a set is a rare
+                         escape hatch, so the destructive choice must not be the loudest thing
+                         on the card. -->
                     <li>
                       From your set on {{ describeSource(src) }}&nbsp;
                       @if (confirmRemoveSetId() === src.setId) {
@@ -268,9 +259,8 @@
     }
   }
 
-  <!-- Kit the coach had to leave out (no weights registered for it). It drops
-       those lifts rather than guessing a load, so it says so — otherwise the drop
-       just looks like a hole in the plan. -->
+  <!-- What the athlete should know that isn't a set: kit left out for want of registered
+       weights, warm-up gaps, ladder steps. -->
   @for (n of p.notices; track n) {
     <p class="notice"><mat-icon>info</mat-icon> {{ n }}</p>
   }
