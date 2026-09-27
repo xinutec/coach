@@ -25,17 +25,15 @@ use crate::domain::Mode;
 // Here, beside `Dose`, because the ledger reads them too (`residual::judge`): one copy,
 // so the coach and the ledger cannot disagree about what was asked.
 
-/// Reps in reserve the working load targets at the top of the rep range. `0` =
-/// prescribe to demonstrated capacity: a load whose top-of-range reps match your
-/// estimated e1RM. Progression is then *earned* — the load only steps up when
-/// logged sets raise the e1RM enough to cross the next owned weight — never a
-/// blind +2.5 kg the reps don't support.
+/// Reps in reserve the working load targets at the top of the rep range. `0`
+/// prescribes to demonstrated capacity, so the load steps only when logged sets
+/// raise the e1RM past the next owned weight.
 pub const TARGET_RIR: f64 = 0.0;
 /// Extra reps-in-reserve when the coach is easing off — a low-readiness day, or
 /// the miss-response holding/backing off. A lighter working load, fewer reps
 /// asked at a given one.
 pub const LOW_READINESS_EXTRA_RIR: f64 = 2.0;
-/// Seconds added to a hold when progressing (bounded properly in a later stage).
+/// Seconds added to a hold when progressing.
 pub const HOLD_STEP_S: i32 = 5;
 /// A loaded carry's working duration, and the ceiling it climbs to before the
 /// weight steps instead. Double progression, with seconds where the reps go: a
@@ -144,11 +142,8 @@ pub fn weighted_ask(
         if lower < r.load - 1e-9 {
             return (lower, r.reps.clamp(1, range.high));
         }
-        // Already on the lightest weight owned: there is nothing lighter to send
-        // them to, so the reps have to come down instead. The range *floor* is a
-        // style preference and does not apply here — a set the athlete has no way
-        // to finish is not a style, and pinning the ask at the floor on the
-        // lightest bell is how a genuine regression ends up re-asked forever.
+        // Already on the lightest weight: the reps come down instead, past the
+        // range floor, or a genuine regression is re-asked forever.
         return (lower, (r.reps - 1).clamp(1, range.high));
     }
     if r.reps >= range.high && probe {
@@ -201,11 +196,9 @@ pub fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
     RepTarget { low, high }
 }
 
-/// The discrete weights available for one exercise's kit at this location —
-/// sorted ascending, deduped, and **never empty**. Non-emptiness is the shape of
-/// the struct rather than a rule the constructor promises to have checked: the
-/// first rung is held separately, so every query has a weight to return and none
-/// of them can panic on an empty ladder.
+/// The weights one exercise can be built with here: ascending, deduped, and
+/// **never empty**, by shape: the first rung is held separately, so every query
+/// has a weight to return.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Inventory {
     /// The lightest weight owned — the ladder always has this one.
@@ -224,10 +217,6 @@ impl Inventory {
         loads.sort_by(f64::total_cmp);
         loads.dedup();
         let mut rungs = loads.into_iter();
-        // No weight at all is the one honest failure: the exercise isn't loadable
-        // here. Splitting the first rung off is what puts "non-empty" in the
-        // shape of the type — every query below then has an answer to return,
-        // with no `unwrap` standing in for a comment about the constructor.
         let lightest = rungs.next()?;
         Some(Inventory {
             lightest,
@@ -243,10 +232,8 @@ impl Inventory {
 
     /// Snap a target load to the nearest weight owned here (ties → lighter).
     pub fn snap(&self, target: f64) -> f64 {
-        // Folding from the lightest rung (rather than `min_by` over the whole
-        // ladder) keeps the result a plain `f64`: the starting value *is* an
-        // answer, so there is no empty case to unwrap. A strict `<` keeps the
-        // earlier — lighter — rung when two are equidistant.
+        // Folding from the lightest rung leaves no empty case; the strict `<` keeps
+        // the lighter of two equidistant rungs.
         self.rungs().fold(self.lightest, |best, w| {
             if (w - target).abs() < (best - target).abs() {
                 w
@@ -268,19 +255,14 @@ impl Inventory {
         self.heavier.last().copied().unwrap_or(self.lightest)
     }
 
-    /// The next weight up from `load`, or the heaviest owned when there is none —
-    /// the rung a carry steps to once it has topped out its time. At the top of
-    /// the rack there is nowhere further to go, and saying so is better than
-    /// inventing a weight.
+    /// The next weight up from `load`, or the heaviest owned when there is none.
     pub fn next_above(&self, load: f64) -> f64 {
         self.rungs()
             .find(|w| *w > load + 1e-9)
             .unwrap_or_else(|| self.heaviest())
     }
 
-    /// The next weight *down* from `load` — the rung a lift backs off to after
-    /// repeated misses. At the lightest weight owned there is nowhere further down,
-    /// and the answer is that weight rather than a lighter one you don't have.
+    /// The next weight down from `load`, or the lightest owned when there is none.
     pub fn next_below(&self, load: f64) -> f64 {
         self.rungs()
             .rfind(|w| *w < load - 1e-9)
@@ -300,8 +282,7 @@ pub struct RepTarget {
 /// something.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Dose {
-    /// A weighted lift *has* a load. Not `Option<f64>` — a weighted set with no
-    /// weight isn't a lighter prescription, it's a nonsense one.
+    /// A weighted lift *has* a load: a weighted set with none is nonsense, not light.
     Weighted {
         load: f64,
         reps: RepTarget,
@@ -312,15 +293,12 @@ pub enum Dose {
     Hold {
         secs: i32,
     },
-    /// A loaded carry: both, because a carry is both. Same reasoning as `Weighted`
-    /// — a farmer's walk with no weight is not a light farmer's walk, and one with
-    /// no duration is not a short one. Neither field is optional.
+    /// A loaded carry: a weight and a duration, neither optional.
     WeightedHold {
         load: f64,
         secs: i32,
     },
-    /// A carry measured by distance. Same reasoning again — a farmer's walk with
-    /// no weight is not a light one, and one with no distance is not a short one.
+    /// A carry measured by distance: a weight and metres.
     WeightedDistance {
         load: f64,
         metres: i32,
@@ -332,9 +310,8 @@ pub enum Dose {
 /// from it (G3). Never a guessed number dressed up as a prescription.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Measure {
-    /// Build up to a hard-but-clean set of `reps` and log load/reps/RPE. `start`
-    /// is a safe opening weight — from a stale estimate when there is one, else
-    /// the lightest weight owned here.
+    /// Build up to a hard-but-clean set of `reps` and log it. `start` is a safe
+    /// opening weight: from a stale estimate when there is one, else the lightest.
     BuildUp { start: f64, reps: i32 },
     /// As many clean reps as you have — stop at form breakdown.
     Amrap,

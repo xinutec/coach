@@ -28,21 +28,16 @@ window: WindowState, spacingOk: boolean, minutesSinceLastSet: number | null,
  */
 dayTargetSets: number, dayDoneSets: number, groups: Array<GroupBalance>, 
 /**
- * The head of `plan` — "next up" — kept for the nudge + the Android trigger.
+ * The first unfinished work item (not a warm-up), for the nudge.
  */
 suggestion: Suggestion | null, 
 /**
- * The ordered session for today: a greedy set-cover of the day's muscle-group
- * need (see [`super::cover`]), so each exercise appears **once** with the set
- * count it earned, ordered by training tier (skill/hold → heavy compound →
- * accessory → core). Recomputed statelessly each call, so logging a set
- * reshapes it live.
+ * Today's session in training order: the warm-up, then the cover's picks (see
+ * [`super::cover`]), each once with the sets it earned.
  */
 plan: Array<Suggestion>, 
 /**
- * Things the athlete should know that aren't a set to do — chiefly kit that
- * can't be prescribed because its weights aren't registered here. The engine
- * drops those exercises rather than guessing a load; saying so is what keeps
- * the drop from looking like a silent gap in the plan.
+ * What the athlete should know that isn't a set: kit left out for want of
+ * registered weights, warm-up gaps, ladder steps.
  */
 notices: Array<string>, };

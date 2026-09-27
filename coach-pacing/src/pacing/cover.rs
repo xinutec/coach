@@ -96,10 +96,8 @@ impl ByGroup<f64> {
 pub struct Candidate {
     /// Exercise id — carried only to break ties deterministically.
     pub id: ExerciseId,
-    /// The movement family (the catalog's base name). Variations of one movement
-    /// train the same thing the same way, so a session takes at most one entry
-    /// per family — the second cousin is redundant stimulus wearing a different
-    /// label, and its slot goes to whatever else still pays (R3-3).
+    /// The movement family (the catalog's base name); a session takes one entry per
+    /// family, since cousins train the same thing the same way (R3-3).
     pub family: String,
     /// What ONE set pays into each group (role credit × that group's recovery).
     pub credit: ByGroup<f64>,
@@ -110,15 +108,10 @@ pub struct Candidate {
     /// so it opens the gate for a just-trained group without inflating later sets. Zero
     /// for never-done movements (novelty, priced by `credit`) and trusted ones.
     pub confirm: f64,
-    /// Never trained — a brand-new movement, subject to the per-session novelty cap
-    /// so a calibration day introduces a few movements to learn, not a scattershot
-    /// of one-off sets across everything at once.
+    /// Never trained: counts against the session's novelty cap.
     pub novel: bool,
-    /// Fewest sets to take *once this exercise is picked at all* — the minimum
-    /// effective dose. A movement worth setting up for is worth more than one set,
-    /// so the cover commits rather than spreading the day thin across eight
-    /// movements at a single set each. (A calibration set is the exception: `min`
-    /// = `cap` = 1, because measuring the same thing twice tells you nothing new.)
+    /// Fewest sets to take once this exercise is picked at all: its minimum effective
+    /// dose (1 for a calibration set).
     pub min: i32,
     /// Most sets of this exercise the session may take.
     pub cap: i32,
@@ -159,9 +152,7 @@ pub struct Chosen<'a, T> {
     /// contributes. Excludes the confirmation bonus, so the explanation stays
     /// truthful about how much of the week's group deficit this actually pays.
     pub pays: f64,
-    /// This pick earned its place by confirming a baseline, not by paying down
-    /// volume — its coverage `pays` was below the bar and [`Candidate::confirm`]
-    /// carried it in. The reason the coach gives for it differs accordingly.
+    /// Carried in by [`Candidate::confirm`], its coverage `pays` being below the bar.
     pub confirming: bool,
     /// Which slice position this pick came from. Private, and deliberately so: it
     /// is identity while the loop runs, not part of what a pick *means*.
@@ -181,10 +172,7 @@ pub fn select<'a, T: Ranked>(
     novelty_cap: i32,
 ) -> Vec<Chosen<'a, T>> {
     let mut need = need.clone();
-    // The picks so far, in the order they were first taken — both the working
-    // state and the result. One structure keyed by nothing but its own order,
-    // rather than parallel arrays indexed by candidate, so there is no set of
-    // vectors to keep in step (and no index to get wrong).
+    // The picks so far, in first-taken order: the working state and the result.
     let mut picked: Vec<Chosen<'a, T>> = Vec::new();
     let mut left = budget.max(0);
     // Never-done movements introduced so far — bounded by `novelty_cap`.
@@ -218,11 +206,8 @@ pub fn select<'a, T: Ranked>(
             if entering && families.contains(cand.family.as_str()) {
                 continue;
             }
-            // Entering a movement means committing to its full minimum dose; a
-            // budget remainder too small for that must not start it ("Push-up —
-            // 1 set"). The spare set instead tops up a
-            // movement already in the session — re-ranked below like any other —
-            // or goes honestly unspent.
+            // A remainder too small for the minimum dose must not start a movement
+            // ("Push-up — 1 set"); it tops up one already in, or goes unspent.
             if entering && left < cand.min.min(cand.cap) {
                 continue;
             }
@@ -278,9 +263,6 @@ pub fn select<'a, T: Ranked>(
                     index: pick.index,
                     sets: take,
                     pays: pick.cover,
-                    // It earned its place on confirmation, not volume, when coverage
-                    // alone couldn't have cleared the bar. That's the reason the
-                    // coach will give.
                     confirming: pick.cover < MIN_PAY && pick.pay >= MIN_PAY,
                 });
                 take

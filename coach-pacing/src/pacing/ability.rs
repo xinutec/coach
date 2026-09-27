@@ -41,10 +41,8 @@ const CONFIDENCE_WEEKS: i64 = 6;
 /// from a pre-break PR. Longer than an ordinary week off, shorter than the detraining
 /// timescale.
 const BLOCK_GAP_WEEKS: i64 = 8;
-/// Recent sessions (distinct days) needed for `High` / `Medium` confidence.
-/// `pub` so the engine's confirmation-need can measure "sessions still owed before
-/// this is trusted" against the *same* bar that grants the trust — the two must not
-/// drift.
+/// Recent sessions (distinct days) needed for `High` confidence; also the bar the
+/// engine's confirmation need counts down to.
 pub const HIGH_SESSIONS: i32 = 3;
 const MEDIUM_SESSIONS: i32 = 1;
 /// Ability may not exceed this multiple of what the athlete has shown in their last
@@ -92,9 +90,7 @@ pub struct Ability {
     pub best_reps: Option<i32>,
     /// Decayed best hold (seconds) — isometric work.
     pub best_hold: Option<i32>,
-    /// Decayed best loaded carry — a weight *and* a time, because a carry is both
-    /// and neither number means anything alone. `None` for an exercise never
-    /// carried under load.
+    /// Decayed best loaded carry. `None` for an exercise never carried under load.
     pub carry: Option<Carry>,
     /// Decayed best distance carry — the metre-measured half.
     pub carry_m: Option<CarryDistance>,
@@ -137,11 +133,8 @@ pub struct CarryDistance {
     pub metres: i32,
 }
 
-/// The better of two carries: the heavier weight wins, and at equal weight the
-/// longer time. Weight first because that is the direction progression runs —
-/// time climbs to a ceiling, then the load steps and the clock resets (see
-/// `engine::prescribe`), so a longer carry at a lighter weight is not an
-/// improvement on a shorter one at a heavier.
+/// The better of two carries: the heavier weight, then the longer time. Weight
+/// first, as progression runs: the clock resets when the load steps.
 fn better_carry(cur: Option<Carry>, c: Carry) -> Option<Carry> {
     Some(match cur {
         Some(b) if (b.load, b.secs) >= (c.load, c.secs) => b,
@@ -201,7 +194,6 @@ impl Bests {
     /// Fold in one set, already scaled by `d` — its own staleness.
     fn feed(&mut self, s: &SetRec, d: f64) {
         match (s.load_kg, s.reps) {
-            // Weighted: load + reps → an e1RM estimate.
             (Some(load), Some(reps)) => {
                 let v = epley(load, reps, s.rpe) * d;
                 if self.e1rm.is_none_or(|m: f64| v > m) {
@@ -209,7 +201,6 @@ impl Bests {
                 }
                 self.e1rm = max_opt(self.e1rm, v);
             }
-            // Bodyweight reps: reps, no load → effective-rep estimate.
             (None, Some(reps)) => {
                 let v = (f64::from(reps) + rir(s.rpe)) * d;
                 if self.reps.is_none_or(|m: f64| v > m) {
@@ -342,10 +333,8 @@ pub fn estimate(sets: &[&SetRec], now: NaiveDateTime) -> Ability {
         cut
     };
 
-    // The newest `CAP_SESSIONS` training days inside the block — the window the
-    // ceiling reads. Days rather than sets: five sets in one session are one piece
-    // of evidence about today's ceiling, not five, and counting sets would let a
-    // single high-volume day stand in for the run of sessions this is meant to see.
+    // The newest `CAP_SESSIONS` training days inside the block: the ceiling's window.
+    // Days, not sets, so one high-volume day can't stand in for a run of sessions.
     let cap_cut: Option<NaiveDate> = {
         let mut days: Vec<NaiveDate> = Vec::new();
         for s in &sets {

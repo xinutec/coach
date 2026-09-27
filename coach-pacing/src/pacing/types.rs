@@ -1,7 +1,5 @@
-//! Dynamic-coach engine input (plain data, assembled from repos) and output
-//! (wire types). The engine [`super::engine::evaluate`] is a pure function over
-//! these: it computes what to do now from **history + the active mode**, with no
-//! program. Rolling muscle-group volume + recovery + progression, location-aware.
+//! The engine's input (plain data, assembled from repos) and its output (wire types).
+//! [`super::engine::evaluate`] is a pure function from one to the other.
 
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
@@ -48,16 +46,12 @@ pub struct ExerciseInfo {
     pub groups: Vec<(GroupId, MuscleRole)>,
 }
 
-/// A logged set in the trailing history window (rich enough for volume,
-/// progression, and the ability estimate). `rpe` (when logged) makes the e1RM
-/// estimate effort-aware — a set left with reps in reserve implies more strength
-/// than a grinding one at the same load.
+/// A logged set in the trailing history window. `rpe`, where history has one (the
+/// app never asks), makes the e1RM effort-aware.
 #[derive(Clone)]
 pub struct SetRec {
-    /// The `workout_sets` row this came from. Carried so the engine can point at
-    /// the *specific* set behind an estimate — a number the athlete can only
-    /// correct if the app can tell him which set produced it. Identifying it by
-    /// timestamp instead would risk offering to delete the wrong row.
+    /// The `workout_sets` row, so the card can name the exact set behind an
+    /// estimate; a timestamp could point at the wrong row.
     pub id: SetId,
     pub exercise_id: ExerciseId,
     pub logged_at: NaiveDateTime,
@@ -104,27 +98,22 @@ pub struct PacingInput {
     pub days_per_week: i32,
     pub emphasis: Option<Region>,
     pub exercises: Vec<ExerciseInfo>,
-    /// Trailing history (≈6 months) — every set's reps/load/hold/rpe, feeding
-    /// both rolling volume and the ability estimate (which decays old sets).
+    /// Trailing history, feeding rolling volume and the ability estimate.
     pub history: Vec<SetRec>,
     pub last_set_at: Option<NaiveDateTime>,
     pub settings: PacingSettings,
     pub groups: Vec<GroupMeta>,
-    /// The kit at the athlete's location. `None` = no location known, so the
-    /// engine can't say what's doable and won't guess: the verdict carries no
-    /// plan and asks for a location. Degradation narrows the claim, never widens it.
+    /// The kit at the athlete's location. `None` (no location known) plans nothing
+    /// and asks for one, rather than guessing what's doable.
     pub kit: Option<Kit>,
     /// The loads each exercise can be built with here: per *exercise*, since a pair of
     /// dumbbells splits the discs and a weight you own one of can't serve a
     /// two-dumbbell press. Absent or empty means not loadable here, so not selectable
     /// ([`super::dose::Inventory`]).
     pub exercise_loads: BTreeMap<ExerciseId, Vec<f64>>,
-    /// Equipment id → its display name, so a blocked substitution can name the kit
-    /// it's missing instead of saying "its kit isn't here" and leaving the athlete
-    /// to guess which piece.
+    /// Equipment names, so a blocked substitution names the missing piece.
     pub equipment_names: BTreeMap<EquipmentId, String>,
-    /// Kit the coach had to leave out, and why — surfaced on the verdict so a drop
-    /// reads as something to fix rather than a hole in the plan.
+    /// Kit the coach had to leave out, and why.
     pub notices: Vec<String>,
     /// Biometric readiness (from health), if available. `None` → the engine falls
     /// back to the volume-spike deload heuristic.
@@ -139,7 +128,7 @@ pub struct PacingInput {
     pub readiness_history: BTreeMap<NaiveDate, Readiness>,
 }
 
-/// How recovered the user is right now, from biometrics (health-derived).
+/// How recovered the athlete is today, from health's biometrics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
@@ -219,7 +208,7 @@ pub enum PacingState {
 pub struct GroupBalance {
     pub group: String,
     pub region: Region,
-    /// Effective sets over the trailing 7 days (primary 1.0, secondary 0.5).
+    /// Effective sets over the trailing 7 days.
     pub current: f64,
     pub target: f64,
     /// (target − current)/target, clamped 0..1.
@@ -227,10 +216,8 @@ pub struct GroupBalance {
     pub recovering: bool,
 }
 
-/// Whether a suggestion is a normal prescription or a calibration task. When the
-/// engine's ability estimate for the chosen exercise is untrusted (never done,
-/// or only stale data), it can't prescribe honestly — so it asks you to measure:
-/// the logged set *is* the assessment, and the next verdict prescribes from it.
+/// What kind of item a suggestion is. An untrusted estimate (never done, or only
+/// stale data) can't be prescribed from, so the item measures instead.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "snake_case")]
@@ -256,8 +243,7 @@ pub enum SuggestionKind {
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum Ask {
     /// A weighted lift: climb from `rep_low` to `rep_high` at this load, then the
-    /// load steps. The load is not optional — a weighted set without a weight is
-    /// not a lighter prescription, it is a nonsense one.
+    /// load steps.
     Weighted {
         load_kg: f64,
         rep_low: i32,
@@ -430,16 +416,11 @@ pub struct Explanation {
     pub deficit: f64,
     /// Recovery fraction for the group (0 = just hammered, 1 = fully recovered).
     pub recovery: f64,
-    /// Effective sets of genuine need this exercise's first set paid down — the
-    /// number the cover actually ranked and gated it on (`deficit` and `recovery`
-    /// are the human-readable factors behind it). An item is only planned when
-    /// this clears [`super::cover::MIN_PAY`], so the trace proves the gate held.
+    /// Effective sets of need this exercise's first set paid down: what the cover
+    /// ranked and gated it on (at least [`super::cover::MIN_PAY`]).
     pub pays: f64,
-    /// This movement is in today's plan to *confirm its baseline*, not to pay down
-    /// group volume — its muscles are already covered for the week, but the estimate
-    /// isn't trusted yet, so another session on it is worth more than a new movement.
-    /// The card leads with that instead of a near-zero deficit that would read as
-    /// "why is this even here?".
+    /// In the plan to confirm an untrusted estimate, not to pay down volume its
+    /// muscles already have.
     pub confirming: bool,
     /// How much the engine trusts its ability estimate for this exercise.
     pub confidence: Confidence,
@@ -449,17 +430,13 @@ pub struct Explanation {
     /// one mistyped set becomes a ceiling, usually weeks old.
     pub estimate_from: Option<EstimateSource>,
     /// Sessions in a row the athlete has come in under this estimate. Non-zero means
-    /// the prescription was held back or stepped down on purpose, and the card can
-    /// say so — "eased off" reads as a decision; the same number twice in a row
-    /// after a bad session reads as the coach not listening.
+    /// the prescription was held or stepped down on purpose, and the card says so.
     pub misses: i32,
     /// The biometric readiness band that scaled today's volume, if health had data.
     pub readiness: Option<Band>,
 }
 
-/// Why the coach couldn't give you the movement it wanted to, in the athlete's
-/// terms. The two cases are different problems with different fixes, so they're
-/// different variants rather than one vague "kit isn't here".
+/// Why the coach couldn't give the movement it wanted: two problems, two fixes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "kind", content = "kit")]
@@ -577,17 +554,12 @@ pub struct PacingNow {
     pub day_target_sets: i32,
     pub day_done_sets: i32,
     pub groups: Vec<GroupBalance>,
-    /// The head of `plan` — "next up" — kept for the nudge + the Android trigger.
+    /// The first unfinished work item (not a warm-up), for the nudge.
     pub suggestion: Option<Suggestion>,
-    /// The ordered session for today: a greedy set-cover of the day's muscle-group
-    /// need (see [`super::cover`]), so each exercise appears **once** with the set
-    /// count it earned, ordered by training tier (skill/hold → heavy compound →
-    /// accessory → core). Recomputed statelessly each call, so logging a set
-    /// reshapes it live.
+    /// Today's session in training order: the warm-up, then the cover's picks (see
+    /// [`super::cover`]), each once with the sets it earned.
     pub plan: Vec<Suggestion>,
-    /// Things the athlete should know that aren't a set to do — chiefly kit that
-    /// can't be prescribed because its weights aren't registered here. The engine
-    /// drops those exercises rather than guessing a load; saying so is what keeps
-    /// the drop from looking like a silent gap in the plan.
+    /// What the athlete should know that isn't a set: kit left out for want of
+    /// registered weights, warm-up gaps, ladder steps.
     pub notices: Vec<String>,
 }

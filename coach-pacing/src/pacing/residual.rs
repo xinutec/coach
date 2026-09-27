@@ -84,10 +84,8 @@ pub struct Residual {
     /// Misses at the end of the ledger. This is what the engine acts on: a miss
     /// answered by the next session's success is history, not a trend.
     pub consecutive_misses: i32,
-    /// The weight the coach is currently working this lift at, and the reps shown
-    /// there — carried forward across the walk, because it is a fact about what
-    /// the coach *asked*, not about what the athlete can do. `None` for a movement
-    /// that carries no load, or one with no loaded session yet. See [`Rung`].
+    /// Where the coach is working this lift: a fact about what it asked, carried
+    /// forward. `None` without a loaded session. See [`Rung`].
     pub rung: Option<Rung>,
 }
 
@@ -180,10 +178,8 @@ fn ledger(
         }
     }
 
-    // Walked forward, because each session is judged against what the engine
-    // believed *and asked* that morning — and the ask depends on the ledger up to
-    // that point (a hold, a back-off, a probe). `led` therefore is, at every step,
-    // exactly the feedback the engine held when it wrote that day's prescription.
+    // Walked forward: each day's ask depends on the ledger so far, so `led` is at every
+    // step the feedback the engine held when it wrote that day's prescription.
     let mut led = Residual::default();
     for day in &sessions {
         // What the engine knew that morning: strictly-earlier sets, estimated at the
@@ -209,10 +205,8 @@ fn ledger(
         // day was anything but full-effort.
         let recovered = readiness_advances(readiness.get(&day.date()).map(|r| r.score()));
 
-        // The weighted ask that morning, from the *same* function that wrote the
-        // card. Computed before judging, because it is what the session is judged
-        // against; and kept afterwards, because it is what the next morning's ask
-        // climbs from.
+        // The weighted ask that morning, from the function that wrote the card: what
+        // the session is judged against, and what the next ask climbs from.
         let asked =
             inv.map(|i| dose::weighted_ask(i, predicted.e1rm, led.rung, mode, &led, recovered));
 
@@ -281,9 +275,6 @@ fn judge(
     // so a plain hold comparison below would silently claim it and judge a walk
     // by its clock alone.
     if let Some(c) = predicted.carry {
-        // Take the two fields a carry is judged on up front, so the comparison
-        // works on values instead of re-asserting the filter's promise at every
-        // use. A set missing either simply isn't a carry.
         let best = today
             .iter()
             .filter_map(|s| Some((s.load_kg?, s.hold_s?)))
@@ -304,8 +295,6 @@ fn judge(
             } else {
                 c.secs
             };
-            // Volume for a carry is weight × time; the weight is the coach's
-            // choice, so a shortfall lives entirely in the clock.
             return Some(sized(
                 band(f64::from(done), f64::from(asked)),
                 load * f64::from(done),

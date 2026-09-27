@@ -38,8 +38,8 @@ use super::types::{
 
 /// Cold-start hold (seconds) when an isometric has no history yet.
 const COLD_HOLD_S: i32 = 20;
-/// A calibration set for a weighted lift: build up to a hard-but-clean set of
-/// this many reps and log load/reps/RPE — the measurement the estimate needs.
+/// A calibration set for a weighted lift: build up to a hard-but-clean set of this
+/// many reps; the logged load and reps are the measurement.
 const ASSESS_WEIGHTED_REPS: i32 = 5;
 /// Sets for a warm-up item (mobility drill or ramp-in) — one is enough to prep.
 const WARMUP_SETS: i32 = 1;
@@ -68,15 +68,12 @@ const RAMP_FRACTION: f64 = 0.5;
 /// effective dose. Setting up for a lift and doing one set of it wastes the setup;
 /// below this the day fragments into eight movements you barely touch.
 const MIN_WORK_SETS: i32 = 2;
-/// Most sets of one exercise a single session will ever take: past this, more of
-/// the same movement buys little the next movement wouldn't buy more of. (A
-/// calibration set is capped at 1 instead — measuring the same thing twice in a
-/// session tells you nothing the first didn't.)
+/// Most sets of one exercise in a session: past this, the next movement buys more.
+/// A calibration set is capped at 1; a second measurement adds nothing.
 const MAX_SETS_PER_EXERCISE: i32 = 4;
-/// Effective sets one muscle group can usefully absorb in a single session — the
-/// ceiling on how much of its weekly deficit today is allowed to chase. Same
-/// scale as `RECOVERY_SETS`: beyond it you're digging a recovery hole, not
-/// training. This is what stops the cover pouring the whole day into one group.
+/// Effective sets one muscle group can usefully absorb in a session: the most of
+/// its weekly deficit today may chase, so the cover can't pour the day into one
+/// group. Same scale as `RECOVERY_SETS`.
 const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 
 /// Confirmation need (effective sets) per session a started movement still owes before
@@ -85,11 +82,9 @@ const MAX_GROUP_SETS_PER_DAY: f64 = 3.0;
 /// nothing more than an estimate not yet trusted.
 const CONFIRM_UNIT: f64 = 5.0;
 
-/// Longest silence between two sets that still counts as the same session. The
-/// athlete's real in-session gaps run to ~80 minutes (a home session spread over
-/// an afternoon); a morning and an evening visit are two sessions. This is what
-/// makes "the plan is committed at the session's first set" decidable from
-/// history alone — the engine stays a pure function.
+/// Longest gap between two sets of one session. Real in-session gaps run to ~80
+/// minutes; a morning and an evening visit are two sessions. It is what lets the
+/// plan be committed at the session's first set from history alone.
 const SESSION_GAP_MIN: i64 = 120;
 
 /// Most never-done movements one session introduces. On day two every untried group
@@ -122,11 +117,8 @@ const RECOVERED_FRACTION: f64 = 0.85; // ≥ this recovery fraction → shown as
 /// opened, and those are not declines.
 const NEGLECT_MIN_OFFERS: usize = 4;
 
-/// Readiness at or below this is not a light day, it is a day off (R6-5).
-///
-/// `recovery_scale` bottoms out at 0.75, so scaling volume cannot express "not
-/// today"; only declining to plan can, so that is a separate decision rather
-/// than a smaller number.
+/// Readiness at or below this is a day off, not a light day (R6-5): `recovery_scale`
+/// bottoms out at 0.75, so only declining to plan can say "not today".
 const READINESS_REST_BELOW: f64 = 0.15;
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
@@ -384,10 +376,7 @@ fn prescribe(
                 secs: CARRY_BASE_S,
             },
         },
-        // The same double progression in metres: hold the weight and climb the
-        // distance; once the distance tops out, take the next weight up and start
-        // it again. Identical shape to the timed carry above — deliberately, so a
-        // carry progresses the same way whichever unit it is measured in.
+        // The same double progression, in metres.
         Loaded::WeightedDistance(inv) => match ability.carry_m {
             Some(c) if back_off => Dose::WeightedDistance {
                 load: inv.next_below(inv.snap(c.load)),
@@ -495,12 +484,10 @@ fn neglected(
         history.iter().map(|s| s.logged_at.date()).collect();
     let mut out = alloc::collections::BTreeSet::new();
     for (ex, days) in offers {
-        // Days he trained and this was on the card.
         let offered = days.iter().filter(|d| trained.contains(d)).count();
         if offered < NEGLECT_MIN_OFFERS {
             continue;
         }
-        // ...and did he ever actually do it on one of them?
         let performed = history
             .iter()
             .any(|s| s.exercise_id == *ex && days.contains(&s.logged_at.date()));
@@ -561,9 +548,7 @@ struct Cand<'a> {
     loaded: Loaded,
     /// The group this set pays into most — the label the plan item carries.
     label: Option<GroupIx>,
-    /// How the cover scores this one. Held here rather than in a second vector
-    /// the caller has to keep in step: `cover::select` ranks these and hands the
-    /// winners straight back, so the exercise and its score can't come apart.
+    /// How the cover scores this one; held with the exercise so the two can't come apart.
     scored: Candidate,
 }
 
@@ -674,9 +659,7 @@ fn candidates<'a>(
         if ex.warmup || !kit.has_all(&ex.equipment) {
             continue;
         }
-        // Not loadable here (no registered weights, or not enough implements to go
-        // round) → no honest load exists, so it isn't selectable. The service, which
-        // knows *why*, says so in the verdict's notices.
+        // No honest load here; the service says why in the notices.
         let Some(loaded) = loadable(ex, &input.exercise_loads) else {
             continue;
         };
@@ -736,21 +719,15 @@ fn candidates<'a>(
             1.0
         };
         let confirm = confirm_need(confidence, sessions) * prime_recovery;
-        // The next rung of a ladder the athlete has outgrown: measuring it is a
-        // need of its own (the same reasoning as confirmation), so it qualifies
-        // even when the group's volume is already covered — gated by the same
-        // recovery physiology.
+        // The next rung of an outgrown ladder qualifies even when its group is covered.
         let confirm = if ladder_targets.contains(&ex.id) {
             confirm.max(LADDER_CONFIRM * prime_recovery)
         } else {
             confirm
         };
         let novel = matches!(confidence, Confidence::None);
-        // The freshness term rewards variety — but a movement you're *confirming* is
-        // one you deliberately want to repeat, and having just done it must not drag
-        // its rank down below the never-done movements it should be beating. While a
-        // baseline is still firming up, treat the movement as wanted (like a new
-        // one), not as "already done recently".
+        // Freshness rewards variety, but a movement being confirmed is meant to be
+        // repeated: having just done it must not rank it below never-done ones.
         let novelty = if confirm > 0.0 { 1.0 } else { recency(ex.id) };
         cands.push(Cand {
             ex,
@@ -772,66 +749,58 @@ fn candidates<'a>(
     (cands, ladder_notes)
 }
 
-/// The next rung up the variation ladder from `ex` (difficulty `d`): the
-/// easiest *harder* doable variation sharing its pattern and a primary muscle
-/// group. The nearest rung, not the top — outgrowing incline push-ups earns
-/// push-ups, not planche. Ties break to the lower id, so it stays deterministic.
-fn harder_sibling<'a>(
-    ex: &ExerciseInfo,
-    d: i32,
+/// Doable variations of `ex` on its ladder: the same pattern, a shared primary
+/// group, and a difficulty `d` compares against.
+fn rungs<'a>(
+    ex: &'a ExerciseInfo,
     input: &'a PacingInput,
-    kit: &Kit,
-) -> Option<&'a ExerciseInfo> {
-    input
-        .exercises
-        .iter()
-        .filter(|y| {
-            y.id != ex.id
-                && !y.warmup
-                && y.pattern == ex.pattern
-                && y.difficulty.is_some_and(|yd| yd > d)
-                && y.groups.iter().any(|(g, r)| {
-                    *r == MuscleRole::Primary
-                        && ex
-                            .groups
-                            .iter()
-                            .any(|(xg, xr)| *xr == MuscleRole::Primary && xg == g)
-                })
-                && kit.has_all(&y.equipment)
-                && loadable(y, &input.exercise_loads).is_some()
-        })
-        .min_by_key(|y| (y.difficulty, y.id))
+    kit: &'a Kit,
+) -> impl Iterator<Item = (i32, &'a ExerciseInfo)> {
+    let primary = |e: &ExerciseInfo, g: &GroupId| {
+        e.groups
+            .iter()
+            .any(|(eg, r)| *r == MuscleRole::Primary && eg == g)
+    };
+    input.exercises.iter().filter_map(move |y| {
+        let yd = y.difficulty?;
+        (y.id != ex.id
+            && !y.warmup
+            && y.pattern == ex.pattern
+            && y.groups
+                .iter()
+                .any(|(g, _)| primary(y, g) && primary(ex, g))
+            && kit.has_all(&y.equipment)
+            && loadable(y, &input.exercise_loads).is_some())
+        .then_some((yd, y))
+    })
 }
 
-/// The next rung down from `ex`: the hardest easier doable variation sharing its
-/// pattern and a primary group (dips → push-ups, not a wall push-up); ties to the lower
-/// id. The mirror of [`harder_sibling`].
-fn easier_sibling<'a>(
-    ex: &ExerciseInfo,
+/// The next rung up from `ex` (difficulty `d`): the nearest, not the top — outgrowing
+/// incline push-ups earns push-ups, not planche. Ties to the lower id.
+fn harder_sibling<'a>(
+    ex: &'a ExerciseInfo,
     d: i32,
     input: &'a PacingInput,
-    kit: &Kit,
+    kit: &'a Kit,
 ) -> Option<&'a ExerciseInfo> {
-    input
-        .exercises
-        .iter()
-        .filter(|y| {
-            y.id != ex.id
-                && !y.warmup
-                && y.pattern == ex.pattern
-                && y.difficulty.is_some_and(|yd| yd < d)
-                && y.groups.iter().any(|(g, r)| {
-                    *r == MuscleRole::Primary
-                        && ex
-                            .groups
-                            .iter()
-                            .any(|(xg, xr)| *xr == MuscleRole::Primary && xg == g)
-                })
-                && kit.has_all(&y.equipment)
-                && loadable(y, &input.exercise_loads).is_some()
-        })
-        // Hardest of the easier rungs (nearest down); lower id breaks a difficulty tie.
-        .max_by_key(|y| (y.difficulty, core::cmp::Reverse(y.id)))
+    rungs(ex, input, kit)
+        .filter(|(yd, _)| *yd > d)
+        .min_by_key(|(yd, y)| (*yd, y.id))
+        .map(|(_, y)| y)
+}
+
+/// The next rung down: the hardest easier one (dips → push-ups, not a wall push-up).
+/// Ties to the lower id.
+fn easier_sibling<'a>(
+    ex: &'a ExerciseInfo,
+    d: i32,
+    input: &'a PacingInput,
+    kit: &'a Kit,
+) -> Option<&'a ExerciseInfo> {
+    rungs(ex, input, kit)
+        .filter(|(yd, _)| *yd < d)
+        .max_by_key(|(yd, y)| (*yd, core::cmp::Reverse(y.id)))
+        .map(|(_, y)| y)
 }
 
 /// The best exercise for this group as a primary that is **actually blocked here** (kit
@@ -985,7 +954,6 @@ fn build_warmup(
                 rep_low: WARMUP_REPS,
                 rep_high: WARMUP_REPS,
             },
-            // A carry's warm-up drill is still just a hold: prep, unloaded.
             Metric::Hold | Metric::WeightedHold | Metric::WeightedDistance => Ask::Hold {
                 hold_s: WARMUP_HOLD_S,
             },
@@ -1034,10 +1002,6 @@ fn build_warmup(
         });
     }
 
-    // `gaps` (collected above) are loaded groups with no drill in the catalog.
-    // Named, not silently skipped: a group with no drill produces no card, which
-    // reads exactly like "you don't need one" — the athlete needs to know it's a
-    // hole in the catalog, not a judgement.
     gaps.sort();
     (out, gaps)
 }
@@ -1054,8 +1018,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         WindowState::After
     };
     let within_window = window == WindowState::Within;
-    // Past the window's end: coach goes quiet and defers to tomorrow (the single
-    // evening line; you can still train + log, it just won't nudge).
 
     let minutes_since_last_set = input.last_set_at.map(|t| (now - t).num_minutes());
 
@@ -1122,8 +1084,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         None => input.history.clone(),
     };
 
-    // Per-exercise ability (RPE-aware e1RM / best reps / best hold, decayed for
-    // staleness) — the basis every prescription derives from. Computed once.
+    // Per-exercise ability, decayed for staleness: what every prescription derives from.
     let abilities = ability::abilities(&planning, plan_at);
     // How well those estimates have been describing him lately: for each session, what
     // the engine believed beforehand versus what he actually did. Recomputed from
@@ -1207,8 +1168,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 baseline_first =
                     Some(baseline_first.map_or(set.logged_at, |f| f.min(set.logged_at)));
             }
-            // Unrecovered contribution: full when fresh, linearly gone by the
-            // region's horizon (a set past it no longer holds the group back).
             let horizon = region_of.get(g).copied().map_or(48.0, recovery_horizon);
             if age_h < horizon {
                 *unrecovered.entry(*g).or_default() += credit * (1.0 - age_h / horizon);
@@ -1292,10 +1251,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
         groups.deficit[ix] = deficit_of(target, cur);
         groups.recovery[ix] = recovery;
-        // What today chases: the sets still owed this week, capped at what one
-        // session can usefully give the group, and discounted by its recovery.
-        // In *effective set* units — the same units an exercise's credit pays in,
-        // which is what makes the cover's subtraction mean something physical.
+        // In effective sets, the unit an exercise's credit pays in, so the cover's
+        // subtraction means something physical.
         groups.need[ix] = (target - cur).clamp(0.0, MAX_GROUP_SETS_PER_DAY) * recovery;
 
         // The balance view is feedback, not planning: it counts the session's
@@ -1312,21 +1269,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             recovering: live_rec < RECOVERED_FRACTION,
         });
     }
-    // Balance view: most-in-deficit first, then by group name so equal deficits
-    // (every group on a cold start) order deterministically instead of echoing the
-    // order `input.groups` happened to arrive in — the verdict must not depend on a
-    // repo query's row order.
+    // Most-in-deficit first, then by name: equal deficits (a cold start) must not
+    // echo the repo query's row order.
     balances.sort_by(|a, b| {
         b.deficit
             .total_cmp(&a.deficit)
             .then_with(|| a.group.cmp(&b.group))
     });
 
-    // --- session-size target from personal weekly volume (sizes the plan) ---
-    //
-    // A shrinkage estimate, not a switch: the weekly rate starts *as* the anchor and
-    // each observed week pulls it toward what he actually does, so there is no
-    // cliff at the first logged set. With no history this is exactly the anchor.
+    // --- session-size target from personal weekly volume (see ANCHOR_WEEKLY_SETS) ---
     let avg_weekly_sets =
         (f64::from(raw_hist) + ANCHOR_WEEKLY_SETS * ANCHOR_WEEKS) / (observed_weeks + ANCHOR_WEEKS);
     // Scale the day's set count by the same recovery factor as the group targets,
@@ -1433,9 +1384,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             warmup_gaps.join(", ")
         ));
     }
-    // The variation ladder's step-ups (G7) — coaching, so it gets said. Only
-    // alongside a session, same as every other notice: on a rest day there is
-    // no plan for the step to be part of.
+    // The ladder's steps (G7), like every notice, only alongside a session.
     if !plan.is_empty() {
         notices.extend(ladder_notes);
     }
@@ -1494,7 +1443,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let elapsed = ((now_min - win_start) / (win_end - win_start)).clamp(0.0, 1.0);
     let has_work = suggestion.is_some() && done_today < day_target_sets;
     let behind = has_work && f64::from(done_today) < elapsed * f64::from(day_target_sets);
-    // `within_window` already implies before the end, so no separate cutoff check.
     let nudge = within_window && has_work && spacing_ok && behind;
 
     // One day-state clause, woven into the sentence the coach speaks rather than a
@@ -1518,11 +1466,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             // a day of only prep closes nothing.
             "That's the session — nice work.".to_string()
         } else if resting {
-            // A rest day the coach *chose*, which is a different sentence from
-            // having nothing left to give: it has to name the reason, or a plan
-            // that simply vanished reads as the app being broken. Still an
-            // invitation rather than an instruction — he can train anyway, and
-            // the log is always open.
+            // A rest day the coach chose names its reason, or a vanished plan reads
+            // as a broken app. An invitation: the log stays open.
             "Your recovery's low today — I'd take the day off. Log anything you do.".to_string()
         } else if state == PacingState::Rest {
             "You're balanced and recovered — rest up, or an easy optional set.".to_string()
@@ -1539,10 +1484,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             s.window_start_hour, s.window_end_hour
         )
     } else if !spacing_ok {
-        // Less than the rest interval since the last set — that's *between sets*,
-        // not between sessions (a fresh set always puts us inside the session
-        // window). Name the rest's length and what's next instead of waving the
-        // athlete off.
+        // Between sets: name the rest and what follows it.
         match next_item.as_ref().or(suggestion.as_ref()) {
             Some(next) => format!("Rest {rest_hint} — then: {}.", next_phrase(next)),
             None => String::new(),

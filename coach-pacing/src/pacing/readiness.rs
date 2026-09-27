@@ -1,8 +1,6 @@
-//! Coach owns the readiness judgment. health-sync hands over *raw* recovery data
-//! (latest value + a trailing baseline per biometric); this pure function turns
-//! that into a single 0..1 score + a band, which the engine uses to autoregulate
-//! volume + progression. Kept separate + pure so the formula is tunable and
-//! unit-tested without a network or a DB.
+//! Coach owns the readiness judgment: health-sync hands over raw recovery data
+//! (latest value + a trailing baseline per biometric), and this turns it into a
+//! 0..1 score and a band.
 //!
 //! Per signal we need a real baseline (`n >= MIN_BASELINE_N`, `sd > 0`) before we
 //! trust a z-score; signals without one are dropped and the weights renormalise

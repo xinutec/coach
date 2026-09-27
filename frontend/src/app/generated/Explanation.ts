@@ -18,18 +18,13 @@ deficit: number,
  */
 recovery: number, 
 /**
- * Effective sets of genuine need this exercise's first set paid down — the
- * number the cover actually ranked and gated it on (`deficit` and `recovery`
- * are the human-readable factors behind it). An item is only planned when
- * this clears [`super::cover::MIN_PAY`], so the trace proves the gate held.
+ * Effective sets of need this exercise's first set paid down: what the cover
+ * ranked and gated it on (at least [`super::cover::MIN_PAY`]).
  */
 pays: number, 
 /**
- * This movement is in today's plan to *confirm its baseline*, not to pay down
- * group volume — its muscles are already covered for the week, but the estimate
- * isn't trusted yet, so another session on it is worth more than a new movement.
- * The card leads with that instead of a near-zero deficit that would read as
- * "why is this even here?".
+ * In the plan to confirm an untrusted estimate, not to pay down volume its
+ * muscles already have.
  */
 confirming: boolean, 
 /**
@@ -47,9 +42,7 @@ e1rm: number | null,
 estimateFrom: EstimateSource | null, 
 /**
  * Sessions in a row the athlete has come in under this estimate. Non-zero means
- * the prescription was held back or stepped down on purpose, and the card can
- * say so — "eased off" reads as a decision; the same number twice in a row
- * after a bad session reads as the coach not listening.
+ * the prescription was held or stepped down on purpose, and the card says so.
  */
 misses: number, 
 /**

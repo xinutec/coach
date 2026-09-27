@@ -6,7 +6,7 @@ import type { Region } from "./Region";
  */
 export type GroupBalance = { group: string, region: Region, 
 /**
- * Effective sets over the trailing 7 days (primary 1.0, secondary 0.5).
+ * Effective sets over the trailing 7 days.
  */
 current: number, target: number, 
 /**

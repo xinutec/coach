@@ -321,22 +321,15 @@ pub enum Metric {
     Reps,
     WeightedReps,
     Hold,
-    /// A loaded carry or hold: **weight and time together** (a farmer's walk, a
-    /// waiter walk, an overhead carry). `Hold` has no load and `WeightedReps` no
-    /// clock. Progression is the weighted lift's double progression with seconds
-    /// where the reps go: climb the time, then step the weight.
+    /// A loaded carry or hold: **weight and time together** (a farmer's walk, an
+    /// overhead carry).
     WeightedHold,
-    /// A loaded carry measured by **distance**: weight and metres, e.g. a fixed
-    /// 10 m carried heavier over weeks. Same double progression, with metres
-    /// where the seconds go.
+    /// A loaded carry measured by **distance**: weight and metres.
     WeightedDistance,
 }
 impl Metric {
-    /// Does a set of this movement carry a weight?
-    ///
-    /// An exhaustive `match`, not `matches!` over the variants that do: a new
-    /// metric must fail to compile here rather than silently answer `false`.
-    /// Call sites ask this instead of testing variants themselves.
+    /// Does a set of this movement carry a weight? An exhaustive `match`, so a new
+    /// metric fails to compile here rather than answer `false`.
     pub fn takes_load(self) -> bool {
         match self {
             Metric::Reps | Metric::Hold => false,
