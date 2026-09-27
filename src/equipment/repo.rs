@@ -1,4 +1,4 @@
-//! Equipment catalog queries (global). SQL as `&'static str` literals.
+//! Equipment catalog queries (global).
 
 use anyhow::Result;
 use sqlx::MySqlPool;

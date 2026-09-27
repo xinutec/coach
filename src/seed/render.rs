@@ -52,10 +52,8 @@ pub struct Rendered {
 /// rendering — which is the common case, and keeps a re-seed from rewriting every
 /// photograph in the bundle.
 pub fn render(raw: &[u8], content_type: &str, slug: &str) -> Result<Rendered> {
-    // Decide from the *header* first. Most of the bundle is landscape photographs
-    // with no alpha channel at all, and fully decoding all of them just to learn
-    // that they need nothing done is the difference between a seed that takes a
-    // moment and one that takes a minute.
+    // Decide from the header first: decoding every photograph to learn it needs
+    // nothing turns a seed of a moment into a minute.
     let decoder = ImageReader::new(Cursor::new(raw))
         .with_guessed_format()
         .with_context(|| format!("reading {slug}"))?

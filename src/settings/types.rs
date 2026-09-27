@@ -18,16 +18,15 @@ pub use coach_pacing::domain::Mode;
 pub struct Settings {
     pub timezone: String,
     pub window_start_hour: i32,
-    /// The single evening line: coach nudges inside `[start, end)`; after `end`
-    /// it goes quiet and rolls remaining volume to tomorrow (you can still train
-    /// + log any time — the window only governs whether coach nudges you).
+    /// Coach nudges inside `[start, end)`; after `end` it goes quiet and rolls what's
+    /// left to tomorrow. Logging is open any time.
     pub window_end_hour: i32,
     pub min_rest_min: i32,
     /// The active coach mode.
     pub mode: Mode,
     /// Roughly how many days a week you train — scales the weekly volume budget.
     pub days_per_week: i32,
-    /// Optional region to bias volume toward (×1.5); `null` = no emphasis.
+    /// Optional region to bias volume toward; `null` = no emphasis.
     pub emphasis: Option<Region>,
 }
 

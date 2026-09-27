@@ -72,19 +72,14 @@ pub struct Exercise {
     pub pattern: Pattern,
     pub metric: Metric,
     pub unilateral: bool,
-    /// Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
-    /// Set by the catalog, not inferred from equipment.
+    /// Gymnastic skill work, favoured in Skills mode. Set by the catalog.
     pub skill: bool,
     /// A mobility/activation move: the warm-up block draws from these, and they
     /// credit no training volume.
     pub warmup: bool,
-    /// Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo): the
-    /// engine orders it first, before strength compounds, so quality isn't
-    /// degraded by prior fatigue. Catalog-authoritative.
+    /// Maximal-intent ballistic work, which the engine leads with.
     pub power: bool,
-    /// How many of the implement this movement uses — one dumbbell (goblet squat,
-    /// single-arm row) or two (dumbbell bench press). Decides how a finite disc
-    /// budget is shared out, and so which loads are actually buildable.
+    /// How many of the implement this movement uses; two share the discs.
     pub implements: i32,
     /// How hard this variation is (1–5) relative to its pattern + primary group
     /// — the rung it occupies on the variation ladder (G7).

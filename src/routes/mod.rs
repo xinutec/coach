@@ -70,7 +70,6 @@ fn spa(index: &str, path: &str) -> axum::response::Response {
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/me", get(api::me))
-        // Exercise catalog
         .route("/exercises", get(exercises::list).post(exercises::create))
         .route(
             "/exercises/{id}",
@@ -78,7 +77,6 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/exercises/{id}/image", get(exercises::image))
         .route("/exercises/{id}/loop", get(exercises::demo_loop))
-        // Reference catalogs
         .route("/equipment", get(equipment::list))
         .route("/muscles", get(muscles::list))
         // Training locations (equipment inventories you can be "at")
@@ -90,10 +88,8 @@ pub fn router(state: AppState) -> Router {
         // health-sync bridge: detected places (for linking) + current location
         .route("/places/detected", get(places::detected))
         .route("/location/current", get(places::current))
-        // Micro-log
         .route("/sets", get(workout::list).post(workout::create))
         .route("/sets/{id}", delete(workout::delete))
-        // Pacing settings + the live pacing verdict
         .route("/settings", get(settings::get).patch(settings::patch))
         .route("/pacing/now", get(pacing::now))
         // What the person did, folded into the same log as what the API saw.
@@ -106,11 +102,8 @@ pub fn router(state: AppState) -> Router {
                 .on_response(DefaultOnResponse::new().level(Level::INFO)),
         );
 
-    // The commit this binary was built from, baked in at image-build time (the
-    // Dockerfile passes CI's GIT_SHA). Public and unauthenticated so a deploy can
-    // *prove* the running pod contains the commit it just pushed, rather than
-    // inferring it from "the rollout succeeded" — which only says a pod came up,
-    // not which image it came up on. `dev` for a local build.
+    // The commit this binary was built from (CI's GIT_SHA; `dev` locally). Public, so
+    // a deploy can prove which image the pod runs: a finished rollout doesn't say.
     let version = state.cfg.git_sha.clone();
     let mut app = Router::new()
         .route("/healthz", get(|| async { "ok" }))

@@ -8,8 +8,7 @@ import type { Pattern } from "./Pattern";
  */
 export type Exercise = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, unilateral: boolean, 
 /**
- * Gymnastic skill work (rings/parallettes/lever) — biased in Skills mode.
- * Set by the catalog, not inferred from equipment.
+ * Gymnastic skill work, favoured in Skills mode. Set by the catalog.
  */
 skill: boolean, 
 /**
@@ -18,15 +17,11 @@ skill: boolean,
  */
 warmup: boolean, 
 /**
- * Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo): the
- * engine orders it first, before strength compounds, so quality isn't
- * degraded by prior fatigue. Catalog-authoritative.
+ * Maximal-intent ballistic work, which the engine leads with.
  */
 power: boolean, 
 /**
- * How many of the implement this movement uses — one dumbbell (goblet squat,
- * single-arm row) or two (dumbbell bench press). Decides how a finite disc
- * budget is shared out, and so which loads are actually buildable.
+ * How many of the implement this movement uses; two share the discs.
  */
 implements: number, 
 /**

@@ -68,10 +68,8 @@ pub struct CurrentPlace {
 // the `coach-pacing` core and are re-exported here for the fetchers below.
 pub use coach_pacing::health::{Recovery, Stat};
 
-/// The same raw recovery, but *as of* a named past day
-/// (`/internal/recovery/history`). The prediction-error ledger needs it: the coach
-/// eases the ask on an under-recovered morning, and judging that session as though
-/// it had been full-effort records the athlete's compliance as a failure.
+/// The same raw recovery *as of* a past day (`/internal/recovery/history`), for the
+/// ledger to judge an eased session as eased.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DayRecovery {

@@ -1,5 +1,4 @@
 //! Workout-set queries. Soft-deletes (deleted_at) so history stays intact.
-//! SQL is `&'static str` literal (sqlx 0.9 SqlSafeStr); no interpolation.
 
 use anyhow::{Result, anyhow};
 use chrono::NaiveDateTime;

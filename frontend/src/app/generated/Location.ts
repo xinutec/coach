@@ -9,9 +9,7 @@ export type Location = { id: number, name: string, isDefault: boolean, equipment
  */
 equipmentOptions: Array<EquipmentOption>, 
 /**
- * Plates available at this location — coach only suggests totals it can
- * actually build from a bar/handle + the plates that fit it, in the numbers
- * you own.
+ * Plates available at this location.
  */
 plates: Array<Plate>, 
 /**

@@ -1,5 +1,5 @@
 //! Location queries. Per-user (scoped by `user_id`), soft-deleted. At most one
-//! default location per user. SQL as `&'static str` literals.
+//! default location per user.
 
 use std::collections::HashMap;
 

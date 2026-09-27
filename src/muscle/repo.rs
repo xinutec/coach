@@ -1,4 +1,4 @@
-//! Muscle taxonomy queries (global). SQL as `&'static str` literals.
+//! Muscle taxonomy queries (global).
 
 use anyhow::Result;
 use sqlx::MySqlPool;

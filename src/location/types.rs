@@ -79,9 +79,7 @@ pub struct Location {
     /// Specifics for equipment that has them (weights/band variants/bar weight).
     /// Only equipment with at least one option appears here.
     pub equipment_options: Vec<EquipmentOption>,
-    /// Plates available at this location — coach only suggests totals it can
-    /// actually build from a bar/handle + the plates that fit it, in the numbers
-    /// you own.
+    /// Plates available at this location.
     pub plates: Vec<Plate>,
     /// health-sync focus_place this location is linked to (for auto-select), if any.
     #[cfg_attr(feature = "ts", ts(type = "number | null"))]

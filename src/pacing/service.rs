@@ -1,7 +1,5 @@
-//! Assemble the dynamic engine's input from the DB and run it. All timezone
-//! handling lives here: `logged_at` is stored UTC, everything the engine sees is
-//! the user's local tz. No program is loaded — the engine works off history +
-//! the active mode.
+//! Assemble the engine's input from the DB and run it. All timezone handling lives
+//! here: `logged_at` is stored UTC, and the engine sees the user's local time.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -29,10 +27,8 @@ use super::types::{
 };
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
 
-/// How far back to load set history. Wide enough that the ability model's
-/// staleness decay (which floors around ~30 weeks idle) sees a returning
-/// athlete's recent-ish PRs; the engine's own 7-day / 8-week windows filter
-/// within it. A set older than this simply doesn't inform today's estimate.
+/// How far back to load set history: about as far as the ability model's decay
+/// reaches before it floors, so a returning athlete's recent-ish PRs count.
 const HISTORY_WEEKS: i64 = 26;
 
 /// The history-independent engine context for a user + location: their timezone,
@@ -48,9 +44,7 @@ pub struct PacingContext {
     pub emphasis: Option<Region>,
     pub exercises: Vec<ExerciseInfo>,
     pub groups: Vec<GroupMeta>,
-    /// The kit where the athlete is training. `None` only when they have no
-    /// location at all — the engine then declines to plan rather than guessing
-    /// what's doable.
+    /// The kit where the athlete is training; `None` only with no location at all.
     pub kit: Option<Kit>,
     /// Buildable loads per *exercise* (not per equipment — a two-dumbbell movement
     /// gets half the discs). Empty = not loadable here.
@@ -61,10 +55,8 @@ pub struct PacingContext {
     pub equipment_names: BTreeMap<EquipmentId, String>,
 }
 
-/// Load the history-independent context: settings + tz, the active mode, the
-/// exercise catalog with its flags/equipment/groups, the muscle groups, and the
-/// location's available equipment + owned weights (for load snapping). Everything
-/// a verdict needs *except* the set history and the instant.
+/// Load the history-independent context: everything a verdict needs except the
+/// set history and the instant.
 pub async fn context(
     pool: &MySqlPool,
     user_id: &str,
@@ -79,9 +71,7 @@ pub async fn context(
     };
     let mode = s.mode;
 
-    // Where are we training? An explicit location, else the default one. Only a
-    // user with *no* locations at all gets `None` — and then the engine declines
-    // to plan rather than assuming an empty gym or, worse, a fully-stocked one.
+    // An explicit location, else the default one.
     let location = match location_id {
         Some(id) => Some(id),
         None => location_repo::list(pool, user_id)
@@ -121,7 +111,6 @@ pub async fn context(
         .map(|e| EquipmentId(e.id))
         .collect();
 
-    // Exercise metadata: equipment ids, muscle-group contributions, flags.
     let equip_by_ex = ex_repo::equipment_by_exercise(pool).await?;
     let groups_by_ex = ex_repo::muscle_groups_by_exercise(pool).await?;
     let exercises: Vec<ExerciseInfo> = ex_repo::list(pool, false)
@@ -162,10 +151,8 @@ pub async fn context(
         })
         .collect();
 
-    // What each exercise can actually be loaded with here. A movement using *two*
-    // dumbbells only gets half the discs per dumbbell, and can't use a fixed weight
-    // you own one of — so this can't be a per-equipment answer. Empty = not
-    // loadable, and the engine leaves the lift out rather than guessing a weight.
+    // What each exercise can be loaded with here: per exercise, since two dumbbells
+    // share the discs and can't use a fixed weight you own one of.
     let implements_by_ex: HashMap<ExerciseId, i32> = ex_repo::list(pool, false)
         .await?
         .into_iter()
@@ -314,11 +301,8 @@ pub fn input_from(
     }
 }
 
-/// The coach verdict for the user right now. `location_id` makes the suggestion
-/// location-aware; the mode is the user's saved setting (the coach's brief, not
-/// a per-call choice). `readiness` is the biometric recovery signal
-/// (health-derived, best-effort — `None` when unavailable, and the engine
-/// degrades gracefully).
+/// The coach verdict for the user right now, at `location_id` (else their default)
+/// and in their saved mode. `readiness` is best-effort.
 pub async fn now(
     pool: &MySqlPool,
     user_id: &str,

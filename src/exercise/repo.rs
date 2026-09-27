@@ -1,7 +1,5 @@
-//! Exercise catalog queries. The catalog is global (not per-user).
-//! SQL is written as `&'static str` literals (sqlx 0.9's SqlSafeStr guard);
-//! no user data is ever interpolated into a query string. Enum columns are read
-//! as strings and converted; equipment/muscles are joined from the M:N tables.
+//! Exercise catalog queries. The catalog is global (not per-user). Enum columns are
+//! read as strings and converted; equipment/muscles are joined from the M:N tables.
 
 use std::collections::HashMap;
 

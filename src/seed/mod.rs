@@ -91,19 +91,14 @@ struct SeedExercise {
     skill: bool,
     #[serde(default)]
     warmup: bool,
-    /// Maximal-intent ballistic work (jumps, throws, Olympic lifts, plyo) — the
-    /// engine orders it first, before strength compounds, so it's measured/trained
-    /// fresh. `false` for everything the flag isn't explicitly authored on.
+    /// Maximal-intent ballistic work, which the engine leads with.
     #[serde(default)]
     power: bool,
-    /// Relative difficulty 1–5 *within a movement family* (pattern + primary
-    /// group) — orders variations so the engine can offer the next-harder one
-    /// (G7) and seed a first estimate for a harder sibling. `None` = unrated.
+    /// Difficulty 1–5 within pattern + primary group: the variation ladder's rung (G7).
     #[serde(default)]
     difficulty: Option<i32>,
-    /// How many of the implement the movement uses — a goblet squat takes one
-    /// dumbbell, a dumbbell bench press takes two. Decides how a finite disc
-    /// budget is shared out, so it decides which loads are buildable.
+    /// How many of the implement the movement uses: a dumbbell bench press takes two,
+    /// which share the discs.
     #[serde(default = "one")]
     implements: i32,
     cue: Option<String>,
@@ -120,10 +115,8 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
 }
 
 /// Fingerprint the catalog bundle: every `*.json` in the dir **and every file in
-/// `images/` and `loops/`**, in path order, each hashed under its own name. Any edit to any of
-/// them changes the digest, so the seed runs — which is the whole point of the
-/// gate. A file outside the digest is an edit skipped forever, and for an image
-/// the skip is silent: the app keeps serving the old picture.
+/// `images/` and `loops/`**, in path order, each hashed under its own name. A file
+/// left out would be an edit skipped forever, silently for a picture.
 fn bundle_hash(dir: &Path) -> Result<String> {
     let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .with_context(|| format!("reading {}", dir.display()))?
@@ -207,7 +200,6 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Fingerprint the whole bundle; an unchanged hash means nothing to do.
     let catalog_hash = bundle_hash(dir)?;
     let stored_hash: Option<String> =
         sqlx::query_scalar("SELECT catalog_hash FROM catalog_state WHERE id = 1")
@@ -260,10 +252,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
         .await?;
     }
 
-    // Exercises: insert new ones, and for existing ones reconcile the M:N links +
-    // *every* scalar the catalog carries — it is the source of truth for all of
-    // them. `is_active` is untouched: the retired `*_legacy` rows aren't in the
-    // catalog, so this loop never sees them.
+    // Exercises: insert new ones, reconcile existing ones (see the module note).
     let existing: HashMap<String, i64> = sqlx::query_as("SELECT slug, id FROM exercises")
         .fetch_all(pool)
         .await?
@@ -369,10 +358,7 @@ pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
             let path = dir.join("images").join(&img.file);
             let raw =
                 std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
-            // The bundle is the source and keeps its alpha; what goes in the DB is
-            // what the app can display. An anatomy diagram (transparent line-art,
-            // portrait) is composited onto white and padded to 16:9; a photograph is
-            // stored exactly as it came. See seed::render.
+            // Stored as the app displays it; see [`render`].
             let r = render::render(&raw, &img.content_type, &ex.slug)?;
             let etag = hex::encode(Sha256::digest(&r.bytes));
             if image_etag.get(&id) != Some(&etag) {

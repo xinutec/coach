@@ -4,9 +4,8 @@ import type { Region } from "./Region";
 
 export type Settings = { timezone: string, windowStartHour: number, 
 /**
- * The single evening line: coach nudges inside `[start, end)`; after `end`
- * it goes quiet and rolls remaining volume to tomorrow (you can still train
- * + log any time — the window only governs whether coach nudges you).
+ * Coach nudges inside `[start, end)`; after `end` it goes quiet and rolls what's
+ * left to tomorrow. Logging is open any time.
  */
 windowEndHour: number, minRestMin: number, 
 /**
@@ -18,6 +17,6 @@ mode: Mode,
  */
 daysPerWeek: number, 
 /**
- * Optional region to bias volume toward (×1.5); `null` = no emphasis.
+ * Optional region to bias volume toward; `null` = no emphasis.
  */
 emphasis: Region | null, };
