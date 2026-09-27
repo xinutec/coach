@@ -36,7 +36,9 @@ import plant  # noqa: E402  the sys.path line above puts the siblings on the pat
 import floor as floormod  # noqa: E402  the sys.path line above puts the siblings on the path
 
 argv = sys.argv[sys.argv.index("--") + 1:]
-positional = [a for a in argv if not a.startswith("--")]
+# `--stills` takes a value; every other flag stands alone.
+positional = [a for i, a in enumerate(argv)
+              if not a.startswith("--") and (i == 0 or argv[i - 1] != "--stills")]
 do_check = "--no-check" not in argv
 
 HERE = Path(__file__).resolve().parent
