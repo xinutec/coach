@@ -2333,6 +2333,105 @@ fn the_warmup_preps_the_sessions_heaviest_groups_first() {
     );
 }
 
+// R8-4: the movement that opens the session is warmed up, even when heavier groups
+// would fill the block. Round 8's first day back led with a snatch after three
+// upper-body drills and nothing for the hips.
+#[test]
+fn the_opening_movement_is_warmed_up() {
+    // Day one back, as round 8 met it: six upper-body movements last done months ago
+    // (so measured again, one set each, in pairs per group) and a never-done jump,
+    // which leads. Three upper groups carry two sets each and fill a three-drill
+    // block on load alone; the jump's quads carry one.
+    let h: Vec<SetRec> = (1..=6).map(|id| bset(id, days_ago(140), 8)).collect();
+    let bw = |id, name: &str, group| {
+        ex(
+            id,
+            name,
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(group, MuscleRole::Primary)],
+        )
+    };
+    let jump = ExerciseInfo {
+        is_power: true,
+        ..ex(
+            9,
+            "Broad jump",
+            Pattern::Legs,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(30, MuscleRole::Primary)],
+        )
+    };
+    let exercises = vec![
+        bw(1, "Push-up", 10),
+        bw(2, "Dip", 10),
+        bw(3, "Pull-up", 20),
+        bw(4, "Row", 20),
+        bw(5, "Curl", 40),
+        bw(6, "Chin curl", 40),
+        jump,
+        warmup_ex(90, "Chest opener", 10),
+        warmup_ex(91, "Lat opener", 20),
+        warmup_ex(92, "Biceps opener", 40),
+        warmup_ex(93, "Leg swings", 30),
+    ];
+    let out = evaluate(
+        &PacingInput {
+            groups: r2_groups(),
+            days_per_week: 2,
+            ..input(Mode::Balanced, exercises, h, None, None)
+        },
+        now(),
+    );
+    let first_work = out
+        .plan
+        .iter()
+        .find(|s| s.kind != SuggestionKind::Warmup)
+        .unwrap();
+    assert_eq!(first_work.exercise_name, "Broad jump", "{:?}", out.plan);
+    assert!(
+        out.plan
+            .iter()
+            .any(|s| s.kind == SuggestionKind::Warmup && s.group == "Quadriceps"),
+        "the session opens with a jump and the quads go in cold: {:?}",
+        out.plan
+            .iter()
+            .map(|s| (&s.exercise_name, &s.group, s.kind))
+            .collect::<Vec<_>>()
+    );
+}
+
+// R8-5: the day's set count can be met by work the plan didn't ask for while one
+// of its cards is still open. The sentence names that card rather than calling the
+// day done over it.
+#[test]
+fn a_met_target_with_a_card_open_names_the_card() {
+    let mut h = Vec::new();
+    for d in [2, 4, 9] {
+        h.push(bset(1, days_ago(d), 10)); // push-up: trusted chest work
+    }
+    for m in 0..12 {
+        h.push(bset(3, hours_ago(3) + Duration::minutes(m), 10)); // unplanned squats
+    }
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(out.day_done_sets >= out.day_target_sets, "{out:?}");
+    let open = out
+        .plan
+        .iter()
+        .find(|s| s.kind != SuggestionKind::Warmup && s.done() < s.sets)
+        .expect("a card still open");
+    assert!(
+        out.reason.contains(&open.exercise_name),
+        "{:?} leaves {} unmentioned",
+        out.reason,
+        open.exercise_name
+    );
+}
+
 // R2-3c: a group the session hammers as a *secondary* still gets its warm-up —
 // coverage follows the plan's load, not just its primary labels.
 #[test]
@@ -3152,6 +3251,7 @@ fn topping_the_distance_takes_the_next_bell_and_restarts_it() {
     // which is the whole point of a double progression — you do not carry ever
     // further at a weight that has stopped being hard.
     let h = vec![
+        carry_set(5, 12, 12.0, 30),
         carry_set(5, 9, 12.0, 30),
         carry_set(5, 6, 12.0, 30),
         carry_set(5, 3, 12.0, 30),

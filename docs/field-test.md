@@ -1066,3 +1066,115 @@ and a "return ramp" built now would be a feature answering a question the data
 does not yet ask. What this round buys is that the question can now be asked at
 all: the instrument exists, the dose-response is measured, and the day the
 estimator gets accurate this table is the place to look first.
+
+# Round 8 — do what it says, do more, do less, come back after months
+
+Round 8 walked the app by hand through the real server, from the real history as it
+stands: the last logged set nine weeks before the walk. So the first day was a real
+long-break return, the case round 7 left open. It also swept the matrix again, and
+added two athletes the matrix never had: **`heavier`** takes the bell above the one on
+the card, **`sandbagger`** stops two reps (or five seconds) short of every ask.
+
+**The engine had not moved.** Round 7's engine (`5ec0a74`) and this round's, on the
+same history and catalog, produce byte-identical traces in every cell tried: the
+casts, comment passes and the shared ladder filter changed no decision.
+
+## R8-1. The first work after a measurement asked for one more than the max — FIXED
+
+Round 1's first finding, one session later. An AMRAP is a maximum; the next session
+asked for it **plus one, for two sets**. Across the matrix, the first work session
+after an AMRAP asked above it in **237 of 334** cases, and **214** of those missed.
+Nearly every bodyweight movement opened its working life with a planned failure,
+which the ledger then recorded and held progression on.
+
+The cause was a rule, not a threshold: with no ledger yet, `sessions_since_beat` is
+0, which read as "just beat the estimate", so a probe was due. A fresh movement was
+meant to "progress eagerly"; but its only evidence is a measurement at the limit.
+Fix: with no ledger, no probe; the first work consolidates at the measured best.
+
+## R8-2. A lift's rung survived a two-year break — FIXED
+
+A row re-measured at 5 × 7.5 kg was next asked **6 × 10 kg**, and routed (1–2 reps).
+The ability estimate starts a new block after an 8-week gap, but the miss ledger
+replayed all history and carried the pre-break rung (the weight the coach last sent
+the athlete to, in 2024) forward. Fix: the ledger restarts at the same break, from
+the same constant; the first session after it is a measurement again.
+
+## R8-3. A distance carry was never judged — FIXED
+
+The ledger had no branch for carries measured in metres (added in July). A walk cut
+short never counted, and since an empty ledger meant "probe due", every session
+asked for more metres. R8-1's fix exposed it: the test for stepping the weight at
+the distance ceiling had passed on the accident. Distance carries are now judged
+like timed ones, and step on the same cadence.
+
+## R8-4. The warm-up skipped the movement the session opens with — FIXED
+
+The first day back opened with a dumbbell snatch after three upper-body drills. The
+block takes the heaviest-loaded groups up to its cap, and one ballistic calibration
+set loads its groups less than two measured movements per upper-body group. The
+opening movement now has its groups served first; the drills still show heaviest
+group first (R2-3b).
+
+## R8-5. "On top of it" over an open card — FIXED
+
+Unplanned extra sets met the day's count while a card was still undone, and the
+sentence called the day done over it. That branch only runs with a card open, so it
+now names it: "Still open if you want it: …".
+
+## R8-6. Two reps over the ask, at its weight, was not a beat — FIXED
+
+Curls done 12 against an ask of 10, at the asked 7.5 kg, twice, were scored "met":
+through Epley two extra reps are exactly +5%, and a beat needs more than the margin
+that absorbs plate rounding. So the card held at 10 for three more sessions. At the
+asked weight nothing was rounded; more reps than asked is now a beat there. A
+shortfall keeps the margin: the simulator has no performance noise, so it cannot
+price a stricter miss.
+
+## What the new athletes showed
+
+- **Heavier:** the card follows up the rack only on evidence. Curls taken at 10 kg
+  against a 9 kg card moved the card to 10 kg once the reps there proved it; a
+  snatch taken a bell too heavy routed four sessions running and the card stayed at
+  the safe weight. It never says anything about those routs, though.
+- **Sandbagger:** the coach believes what it is told. Belief sank to 1 pull-up while
+  the athlete could do 8, and every probe was failed on purpose. The asks stay safe;
+  no coach can see ability that is never shown. Not a defect.
+
+## The numbers
+
+Missed cards over eight weeks, and the final week's underclaim (how far belief sits
+below the truth), before and after R8-1 to R8-6:
+
+| cell | missed cards | underclaim |
+|---|---|---|
+| improver, compliant | 32 → **0** | 29.9% → 29.2% |
+| improver, rough week | 31 → **0** | 31.7% → 29.8% |
+| improver, improviser | 29 → **0** | 30.9% → 29.0% |
+| improver, skipper | 10 → **0** | 27.5% → 29.8% |
+| improver, partial | 26 → **0** | 29.5% → 31.8% |
+| improver, layoff | 17 → **0** | 32.5% → 34.0% |
+| improver, overachiever | 40 → 17 | 10.6% → 8.3% |
+| improver, heavier | 51 → 24 | 28.6% → 26.9% |
+| strong, compliant | 13 → **0** | 36.3% → 35.9% |
+| plateauer, compliant | 48 → 14 | 12.9% → 12.8% |
+| novice, compliant | 35 → 10 | 43.8% → 44.4% |
+| bad week | 32 → 10 | 35.1% → 32.3% |
+| injured | 43 → 17 | 27.9% → 28.8% |
+
+No cell overclaims more than before. The misses left are the ones that should be
+there: an injury, a bad week, a plateau, a sandbagger. On the real history the
+back-test moves only the first work after a measurement, down by the probe it no
+longer adds; no weighted ask changed.
+
+## Still open
+
+- **A compliant athlete is believed at about 70% of their ability after eight
+  weeks** (underclaim ~30%). Round 7 named this the margin that protects a return;
+  the flip side is slow progress. Tightening it is a decision, not a fix.
+- **The first day back after months is eight near-maximal tests**: every card an
+  AMRAP or a build-up to a hard set. Safe in load, since nothing is prescribed, but
+  heavy in effort for a first day. Whether a return should measure short of the
+  limit is Pippijn's call.
+- **The substitution note can name the wrong stand-in**: "instead of RDL" (trap bar,
+  absent) sat on a snatch chosen for breadth, while `RDL (dumbbell)` was doable.

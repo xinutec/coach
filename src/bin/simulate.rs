@@ -13,7 +13,8 @@
 //!   `injured` (one group hurt in week 2).
 //! - **Behaviour** (`SIM_BEHAVIOUR`): `compliant`, `skipper` (three days a week),
 //!   `partial` (leaves after 60 % of the cards), `overachiever`, `improviser` (the bell
-//!   below the one on the card), `layoff` (a fortnight on, three weeks away).
+//!   below the one on the card), `heavier` (the bell above it), `sandbagger` (stops
+//!   short of every ask), `layoff` (a fortnight on, three weeks away).
 //!
 //! `SIM_RECOVERY` drives the biometric readiness the coach reads each morning; with
 //! `roughweek`, a compliant eased session must not read as a miss (R5-2).
@@ -24,7 +25,8 @@
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin simulate
 //!   SIM_WEEKS     — how many weeks to walk forward (default 8)
 //!   SIM_ATHLETE   — improver | plateauer | badweek | novice | strong | injured
-//!   SIM_BEHAVIOUR — compliant | skipper | partial | overachiever | improviser | layoff
+//!   SIM_BEHAVIOUR — compliant | skipper | partial | overachiever | improviser |
+//!                   heavier | sandbagger | layoff
 //!   SIM_RECOVERY  — untracked | rested | roughweek (default untracked)
 //!   SIM_USER      — user id (default pippijn)
 //!   SIM_LOCATION  — location by name (default: the user's default)
@@ -219,6 +221,10 @@ enum Behaviour {
     Overachiever,
     /// Reaches for the bell below the one on the card.
     Improviser,
+    /// Reaches for the bell above the one on the card.
+    Heavier,
+    /// Stops short of every ask, whatever is left in the tank.
+    Sandbagger,
     /// Trains a fortnight, disappears for three weeks, comes back.
     Layoff,
 }
@@ -228,6 +234,10 @@ enum Behaviour {
 /// not a different athlete.
 const OVER_REPS: i32 = 2;
 const OVER_HOLD_S: i32 = 5;
+/// What the sandbagger leaves on the table: the mirror of the overachiever, so a
+/// shortfall the coach reads as a miss is not one the athlete's ability explains.
+const UNDER_REPS: i32 = 2;
+const UNDER_HOLD_S: i32 = 5;
 /// How much of the plan the quitter gets through before life intervenes.
 const PARTIAL_FRACTION: f64 = 0.6;
 /// The layoff: away from `LAYOFF_FROM` until `LAYOFF_TO` (sim days, 0-based).
@@ -240,6 +250,8 @@ sim_axis!(Behaviour {
     Partial => "partial",
     Overachiever => "overachiever",
     Improviser => "improviser",
+    Heavier => "heavier",
+    Sandbagger => "sandbagger",
     Layoff => "layoff",
 });
 
@@ -267,6 +279,7 @@ impl Behaviour {
     fn rep_target(self, ask: i32) -> i32 {
         match self {
             Self::Overachiever => ask + OVER_REPS,
+            Self::Sandbagger => (ask - UNDER_REPS).max(1),
             _ => ask,
         }
     }
@@ -275,6 +288,7 @@ impl Behaviour {
     fn hold_target(self, ask: i32) -> i32 {
         match self {
             Self::Overachiever => ask + OVER_HOLD_S,
+            Self::Sandbagger => (ask - UNDER_HOLD_S).max(1),
             _ => ask,
         }
     }
@@ -283,15 +297,14 @@ impl Behaviour {
     /// the ask at the load *logged* (R5-1), so an improvised weight must come
     /// out honest rather than as a shortfall — this is the case that proves it.
     fn load_used(self, asked: f64, owned: Option<&Vec<f64>>) -> f64 {
-        if self != Self::Improviser {
-            return asked;
-        }
         let mut ws: Vec<f64> = owned.cloned().unwrap_or_default();
         ws.sort_by(f64::total_cmp);
-        ws.iter()
-            .copied()
-            .rfind(|w| *w < asked - 1e-9)
-            .unwrap_or(asked)
+        match self {
+            Self::Improviser => ws.iter().copied().rfind(|w| *w < asked - 1e-9),
+            Self::Heavier => ws.iter().copied().find(|w| *w > asked + 1e-9),
+            _ => None,
+        }
+        .unwrap_or(asked)
     }
 }
 

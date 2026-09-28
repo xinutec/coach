@@ -57,6 +57,8 @@ CELLS=(
   improver:partial:untracked
   improver:overachiever:untracked
   improver:improviser:untracked
+  improver:heavier:untracked
+  improver:sandbagger:untracked
   improver:layoff:untracked
   # readiness, and the crosses worth their run time
   improver:compliant:roughweek

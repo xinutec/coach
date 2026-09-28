@@ -18,8 +18,8 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 
 use super::ability::{self, Ability};
 use super::dose::{
-    self, CARRY_BASE_S, CARRY_TOP_S, HOLD_STEP_S, Inventory, Rung, readiness_advances, rep_range,
-    reserve,
+    self, CARRY_BASE_M, CARRY_BASE_S, CARRY_TOP_M, CARRY_TOP_S, DISTANCE_STEP_M, HOLD_STEP_S,
+    Inventory, Rung, readiness_advances, rep_range, reserve,
 };
 use super::types::{Readiness, SetRec};
 use crate::domain::ExerciseId;
@@ -107,8 +107,7 @@ impl Residual {
         self.consecutive_misses > 0
     }
     /// Sessions since the athlete last beat the estimate — every one of them, when
-    /// nothing was ever beaten. Zero for a movement with no ledger yet: a fresh
-    /// movement progresses eagerly, there is nothing to consolidate.
+    /// nothing was ever beaten.
     pub fn sessions_since_beat(&self) -> i32 {
         count(
             self.outcomes
@@ -122,6 +121,11 @@ impl Residual {
     /// keeps climbing), and periodically after enough quiet sessions; the sessions
     /// in between consolidate at the demonstrated best.
     pub fn probe_due(&self) -> bool {
+        // With no ledger, the only evidence is the measurement: a max to consolidate
+        // at, not a floor to climb from (R8-1).
+        if self.outcomes.is_empty() {
+            return false;
+        }
         let n = self.sessions_since_beat();
         n == 0 || n % PROBE_EVERY == 0
     }
@@ -181,7 +185,18 @@ fn ledger(
     // Walked forward: each day's ask depends on the ledger so far, so `led` is at every
     // step the feedback the engine held when it wrote that day's prescription.
     let mut led = Residual::default();
+    let block_gap = Duration::weeks(ability::BLOCK_GAP_WEEKS);
+    let mut prev: Option<NaiveDateTime> = None;
     for day in &sessions {
+        // After a break the estimate starts a new block, and so does the ledger: the
+        // rung and misses from before it describe someone else (R8-2). The session
+        // after the break is a measurement again.
+        let after_break = prev.is_some_and(|p| *day - p > block_gap);
+        prev = Some(*day);
+        if after_break {
+            led = Residual::default();
+            continue;
+        }
         // What the engine knew that morning: strictly-earlier sets, estimated at the
         // moment the session began. The very first session has nothing to predict
         // from — it *was* the measurement — so it produces no outcome.
@@ -303,6 +318,30 @@ fn judge(
         }
     }
 
+    // A distance carry, judged the same way in metres. Without this it was never
+    // judged at all: a short walk never counted, and every session probed (R8-3).
+    if let Some(c) = predicted.carry_m {
+        let best = today
+            .iter()
+            .filter_map(|s| Some((s.load_kg?, s.distance_m?)))
+            .max_by(|(a_load, a_m), (b_load, b_m)| a_load.total_cmp(b_load).then(a_m.cmp(b_m)));
+        if let Some((load, done)) = best {
+            let stepped = (load - c.load).abs() > 1e-9;
+            let asked = if stepped {
+                CARRY_BASE_M
+            } else if probe {
+                (c.metres + DISTANCE_STEP_M).min(CARRY_TOP_M)
+            } else {
+                c.metres
+            };
+            return Some(sized(
+                band(f64::from(done), f64::from(asked)),
+                load * f64::from(done),
+                load * f64::from(asked),
+            ));
+        }
+    }
+
     // Weighted work, judged against the ask the coach actually wrote — reps at a
     // rung, handed in from the same `dose::weighted_ask` that wrote it.
     if let Some((ask_load, ask_reps)) = asked_weighted {
@@ -313,13 +352,21 @@ fn judge(
                 face(*a_load, *a_reps).total_cmp(&face(*b_load, *b_reps))
             });
         if let Some((load, done)) = best {
-            // Compared as work, not as a rep count. The ask names a weight, so
-            // "same reps, lighter bell" is not compliance — counting reps alone
-            // would let the athlete walk the coach down the rack — and "fewer reps,
-            // heavier bell" is not a failure. Epley is the one unit both are
+            // More reps than asked, at the asked weight, is a beat: through Epley two
+            // over is only the +5% the margin forgives (R8-6). A shortfall keeps the
+            // margin, since the simulator cannot price a stricter miss.
+            // At another weight, compared as work, not as a rep count. The ask names
+            // a weight, so "same reps, lighter bell" is not compliance — counting reps
+            // alone would let the athlete walk the coach down the rack — and "fewer
+            // reps, heavier bell" is not a failure. Epley is the one unit both are
             // expressible in, and `band`'s margin absorbs the rounding.
+            let outcome = if (load - ask_load).abs() < 1e-9 && done > ask_reps {
+                Outcome::Beat
+            } else {
+                band(face(load, done), face(ask_load, ask_reps))
+            };
             return Some(sized(
-                band(face(load, done), face(ask_load, ask_reps)),
+                outcome,
                 load * f64::from(done),
                 ask_load * f64::from(ask_reps),
             ));

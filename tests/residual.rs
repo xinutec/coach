@@ -144,6 +144,49 @@ fn a_probe_is_earned_not_daily() {
     assert!(r.probe_due(), "an earned climb keeps climbing");
 }
 
+// R8-1: a measurement is a max. With only the measuring session behind it, the first
+// work consolidates there; asking one more, for two sets, planned a miss (214 of 334
+// first sessions after an AMRAP, round 8).
+#[test]
+fn the_first_work_after_a_measurement_consolidates() {
+    let r = ledger_for(vec![wset(0, 40.0, 5)]);
+    assert!(r.outcomes.is_empty());
+    assert!(
+        !r.probe_due(),
+        "a measured max is not a floor to climb from"
+    );
+}
+
+// R8-2: a break the ability estimate treats as a new block restarts the ledger too.
+// The rung and misses from before it describe someone else: two years on, a lift
+// re-measured at 7.5 kg was asked 6 reps at the pre-break 10 kg, and routed.
+#[test]
+fn a_long_break_restarts_the_ledger() {
+    let r = ledger_for(vec![
+        wset(0, 60.0, 5),
+        wset(7, 60.0, 5),
+        wset(14, 50.0, 3), // a miss, before the break
+        wset(14 + 7 * 20, 30.0, 5),
+    ]);
+    assert!(r.outcomes.is_empty(), "{:?}", r.outcomes);
+    assert_eq!(r.consecutive_misses, 0);
+    assert!(r.rung.is_none(), "{:?}", r.rung);
+}
+
+// R8-6: two reps over the ask at the asked weight is a beat. Through Epley it is
+// +5%, inside the margin that absorbs plate rounding for a *different* weight, and
+// round 8's curls done 12 against 10 were scored "met" and held three sessions.
+#[test]
+fn reps_over_the_ask_at_its_weight_are_a_beat() {
+    let r = ledger_for(vec![wset(0, 40.0, 5), wset(2, 35.0, 12)]);
+    assert_eq!(
+        r.outcomes.last().map(|(_, o)| *o),
+        Some(Outcome::Beat),
+        "{:?}",
+        r.outcomes
+    );
+}
+
 // R4-1: a month of steady sessions with nothing beaten is a plateau — the signal
 // that this movement has stopped producing progress and the variation ladder
 // (G7) should offer the next rung.
@@ -233,8 +276,4 @@ fn the_first_session_is_never_a_miss() {
     let r = ledger_for(vec![wset(0, 40.0, 5)]);
     assert!(r.outcomes.is_empty());
     assert_eq!(r.consecutive_misses, 0);
-    assert!(
-        r.probe_due(),
-        "a fresh movement progresses eagerly — there is nothing to consolidate yet"
-    );
 }

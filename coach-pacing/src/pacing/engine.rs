@@ -917,14 +917,25 @@ fn build_warmup(
     let drill_cap = ((work_sets + WARMUP_SETS_PER_DRILL - 1) / WARMUP_SETS_PER_DRILL)
         .clamp(WARMUP_MIN_DRILLS, WARMUP_MAX_DRILLS);
 
+    // The opening movement's group is served first: it goes in fresh, often
+    // explosively, and the cap must not trade it for heavier groups later on (R8-4).
+    // One slot, its label's; the drills still show heaviest group first (below).
+    let opener: Option<GroupId> = work.first().and_then(|w| {
+        group_name
+            .iter()
+            .find(|(_, name)| **name == w.group)
+            .map(|(g, _)| *g)
+    });
+    let (first, rest): (Vec<_>, Vec<_>) = want.iter().partition(|(g, _)| Some(*g) == opener);
+
     let mut covered: alloc::collections::BTreeSet<GroupId> = alloc::collections::BTreeSet::new();
-    let mut out: Vec<Suggestion> = Vec::new();
+    let mut out: Vec<(f64, GroupId, Suggestion)> = Vec::new();
     let mut gaps: Vec<String> = Vec::new();
-    for (g, _) in &want {
+    for (g, l) in first.into_iter().chain(rest) {
         if count(out.len()) >= drill_cap {
             break;
         }
-        if covered.contains(g) {
+        if covered.contains(&g) {
             continue;
         }
         // The drill for this group: warms it as a primary, and of those, the one
@@ -932,7 +943,7 @@ fn build_warmup(
         // ties by exercise id.
         let pick = drills
             .iter()
-            .filter(|e| primaries(e).contains(g))
+            .filter(|e| primaries(e).contains(&g))
             .max_by_key(|e| {
                 let cover = primaries(e)
                     .iter()
@@ -941,7 +952,7 @@ fn build_warmup(
                 (cover, core::cmp::Reverse(e.id))
             });
         let Some(e) = pick else {
-            gaps.push(group_name.get(g).cloned().unwrap_or_default());
+            gaps.push(group_name.get(&g).cloned().unwrap_or_default());
             continue;
         };
         for p in primaries(e) {
@@ -958,20 +969,26 @@ fn build_warmup(
                 hold_s: WARMUP_HOLD_S,
             },
         };
-        out.push(Suggestion {
-            exercise_id: e.id,
-            exercise_name: e.name.clone(),
-            pattern: e.pattern,
-            kind: SuggestionKind::Warmup,
-            sets: WARMUP_SETS,
-            logged: Vec::new(),
-            ask,
-            // The group this slot is *for* — never a second card for one group.
-            group: group_name.get(g).cloned().unwrap_or_default(),
-            substituted_for: None,
-            explanation: None,
-        });
+        out.push((
+            l,
+            g,
+            Suggestion {
+                exercise_id: e.id,
+                exercise_name: e.name.clone(),
+                pattern: e.pattern,
+                kind: SuggestionKind::Warmup,
+                sets: WARMUP_SETS,
+                logged: Vec::new(),
+                ask,
+                // The group this slot is *for* — never a second card for one group.
+                group: group_name.get(&g).cloned().unwrap_or_default(),
+                substituted_for: None,
+                explanation: None,
+            },
+        ));
     }
+    out.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let mut out: Vec<Suggestion> = out.into_iter().map(|(_, _, s)| s).collect();
 
     // Ramp-in: the first weighted work item gets one light set (~half load) to
     // groove the movement before the working sets.
@@ -1475,7 +1492,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             "Nothing doable here right now.".to_string()
         }
     } else if !has_work {
-        "You're on top of it today — nice work.".to_string()
+        // The count is met, but only this branch has a card still open: name it,
+        // or the sentence calls the day done over it (R8-5).
+        match next_item.as_ref().or(suggestion.as_ref()) {
+            Some(next) => format!(
+                "You're on top of it today — nice work. Still open if you want it: {}.",
+                next_phrase(next)
+            ),
+            None => "You're on top of it today — nice work.".to_string(),
+        }
     } else if window == WindowState::After {
         "It's late — this rolls to tomorrow.".to_string()
     } else if window == WindowState::Before {

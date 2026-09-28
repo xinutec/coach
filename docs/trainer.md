@@ -87,7 +87,8 @@ order:
 - **Training-block reset.** A gap longer than `BLOCK_GAP_WEEKS` (8) splits an
   exercise's history into blocks, and only the most-recent block estimates ability.
   After a layoff or a health setback your level is read from your *return*, never
-  from a pre-break PR that no longer describes you.
+  from a pre-break PR that no longer describes you. The miss ledger restarts at the
+  same break, so neither does the weight the coach last sent you to.
 - **Confidence.** `High` ≥ 3 sessions in the last 6 weeks, `Medium` 1–2, `Low`
   only-stale data, `None` never done. Confidence — not a default — decides whether
   the engine prescribes or measures.
@@ -210,7 +211,9 @@ what the athlete managed, and only the second is something a coach reacts to.
 
 And the +1 rep, the +5 s, the next
 bell is **earned**: by a session that beat the ask, or periodically after every third
-quiet session — the sessions in between consolidate at the demonstrated best.
+quiet session — the sessions in between consolidate at the demonstrated best. The
+first work after a measurement consolidates too: a maximum is not a floor to climb
+from. More reps than asked, at the asked weight, is a beat.
 Matching your best while failing the ask moves nothing (ability is a max), so without
 the cadence the same failing +1 would be re-asked every session.
 
@@ -278,9 +281,9 @@ The plan is ordered by training tier: warm-up → skill and hold work while the
 nervous system is fresh → heavy compound weighted work → accessories → core and
 conditioning finishers.
 
-The **warm-up block** leads it: mobility drills for the committed session's
-heaviest-loaded groups (one drill per group, so drills don't stack) plus a half-load
-ramp-in of the first weighted lift. The block is **sized to the session** — one
+The **warm-up block** leads it: mobility drills for the group of the movement the
+session opens with and then its heaviest-loaded groups (one drill per group, so
+drills don't stack), plus a half-load ramp-in of the first weighted lift. The block is **sized to the session** — one
 drill per ~3 committed sets, never more than 6 — because with a drill for every
 group, every loaded group would claim a slot and the warm-up outgrows the work it
 warms up for; the tail groups get their prep from general movement and the

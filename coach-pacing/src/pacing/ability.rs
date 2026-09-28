@@ -40,7 +40,7 @@ const CONFIDENCE_WEEKS: i64 = 6;
 /// block estimates ability: after a real break the level is read from the return, not
 /// from a pre-break PR. Longer than an ordinary week off, shorter than the detraining
 /// timescale.
-const BLOCK_GAP_WEEKS: i64 = 8;
+pub(crate) const BLOCK_GAP_WEEKS: i64 = 8;
 /// Recent sessions (distinct days) needed for `High` confidence; also the bar the
 /// engine's confirmation need counts down to.
 pub const HIGH_SESSIONS: i32 = 3;
