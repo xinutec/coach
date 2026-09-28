@@ -11,8 +11,10 @@ authored one. The check costs more than the render does; --no-check skips it
 while iterating on timing, never for anything that ships.
 
     blender -b <labelled.blend> --python animate.py -- \\
-        <slug> <view> <out.mp4> <pose@frame,...> [--no-check]
-    blender -b <labelled.blend> --python animate.py -- <slug> <out.mp4>
+        <slug> <view> <out.mp4> <pose@frame,...> [--no-check] [--stills <dir>]
+    blender -b <labelled.blend> --python animate.py -- <slug> <out.mp4> [--stills <dir>]
+
+--stills writes the keys and the midpoints between them as PNGs, for review.
 
 e.g.  squat_goblet left out/squat.mp4 stand@0,squat@12,stand@24
       glute_bridge out/bridge.mp4          (view and keys from loops.json)

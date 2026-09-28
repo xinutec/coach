@@ -82,9 +82,9 @@ index, not a position, so the colours travel with the deformation.
 - **The layer underneath.** First-hit alone gives a covered muscle no skin. So
   every covered part of a muscle also claims its nearest skin, which is where it
   shows through; no depth budget is tuned, and a hamstring can never land on the
-  front of the thigh. Footprints are closed per catalog slug (grow 3 rings, shrink
-  3, drop islands under 150 vertices) and split back among the slug's atlas
-  pieces. `NOT_LAYERED` names a slug whose covered part is tendon: the biceps'
+  front of the thigh. Footprints are closed per catalog slug (grown and shrunk by
+  `LAYER_RINGS`, islands under `MIN_ISLAND` dropped) and split back among the
+  slug's atlas pieces. `NOT_LAYERED` names a slug whose covered part is tendon: the biceps'
   origin under the deltoid would paint a curl as shoulder work.
 
 - **Subdivide before labelling.** `label-body.py` applies the body's subdivision

@@ -257,7 +257,7 @@ if muscle_verts == 0:
     sys.exit("every body vertex resolved to bone — is the alignment inverted?")
 
 # ---- the layer underneath ----------------------------------------------------
-# First-hit gives a muscle under another no skin at all (erector spinae, iliopsoas,
+# First-hit gives a muscle under another little or no skin (erector spinae, iliopsoas,
 # quadratus lumborum, rhomboids). So each muscle also claims the skin it lies
 # CLOSEST to, where it shows through and where a hand finds it, for the parts of
 # it another muscle covers. The direction comes from the anatomy, not a depth
@@ -391,5 +391,8 @@ for m in body.modifiers:
 print("deformation stack restored:",
       [(m.type, m.show_render) for m in body.modifiers])
 
+# slim.blend autopacks, and the save would then try to embed MB-Lab's textures,
+# raising where the addon is not installed. The render replaces the skin shader.
+bpy.data.use_autopack = False
 bpy.ops.wm.save_as_mainfile(filepath=out_blend, compress=True)
 print(f"WROTE {out_blend}")
