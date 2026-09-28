@@ -16,11 +16,9 @@ found by convention, so a bad loop cannot cost an exercise the picture it alread
 has. The seeder reports both on every boot: `… image(s) and … loop(s) added`.
 
 **What the colouring guarantees.** It comes from the catalog, so it is never
-invented. It is not complete: the labelling gives a body vertex the muscle its
-inward ray reaches first, so a muscle lying under another is barely carried, and
-several exercises colour a primary faintly or not at all. A loop therefore ships
-on the strength of its MOVEMENT — the photograph beside it carries the exercise.
-Showing deep muscle areas properly is a separate piece of work.
+invented. A muscle lying under another is shown on the skin it lies closest to,
+so the erector spinae, the rhomboids and the deep quadriceps colour where a hand
+would find them. The exceptions are named in `label-body.py` (`NOT_LAYERED`).
 
 ## Why
 
@@ -80,6 +78,14 @@ ray leaves the body, and `muscle_map.json` resolves a catalog slug onto those
 names exactly as it does for the écorché meshes. The catalog still decides what
 is red, and the thing that bends is one continuous surface. A label is a vertex
 index, not a position, so the colours travel with the deformation.
+
+- **The layer underneath.** First-hit alone gives a covered muscle no skin. So
+  every covered part of a muscle also claims its nearest skin, which is where it
+  shows through; no depth budget is tuned, and a hamstring can never land on the
+  front of the thigh. Footprints are closed per catalog slug (grow 3 rings, shrink
+  3, drop islands under 150 vertices) and split back among the slug's atlas
+  pieces. `NOT_LAYERED` names a slug whose covered part is tendon: the biceps'
+  origin under the deltoid would paint a curl as shoulder work.
 
 - **Subdivide before labelling.** `label-body.py` applies the body's subdivision
   modifier first (17,996 → 276,437 vertices), after clearing MB-Lab's facial

@@ -5,9 +5,11 @@ regions can be recoloured per exercise. Painting those regions by hand would
 hand the colouring back to an artist's opinion, which is the one thing this
 pipeline exists to avoid — the écorché's whole claim is that the catalog decides
 what is red. So the regions are DERIVED instead: the two figures are scaled onto
-each other in the same pose, and every body vertex takes the name of the nearest
-Z-Anatomy muscle vertex. muscle_map.json then resolves a catalog slug onto those
-same names, exactly as it does for the écorché meshes.
+each other in the same pose, and every body vertex takes the name of the first
+Z-Anatomy muscle a ray straight in from the skin meets. A muscle lying under
+another then also claims the skin it is closest to (the layer underneath).
+muscle_map.json resolves a catalog slug onto those same names, exactly as it
+does for the écorché meshes.
 
 Skeleton meshes go into the lookup too, under BONE. Without them a vertex over
 the shin or the top of the skull — where there is no muscle at all — would claim
@@ -22,6 +24,7 @@ arms-down pose come from ../rigging/transfer-rig.py, which established both
 against this same asset pair; the transfer runs the other way round here.
 """
 import bpy
+import json
 import math
 import sys
 from pathlib import Path
@@ -252,6 +255,126 @@ print(f"labelled {len(posed) - unlabelled}/{len(posed)} body vertices "
 print("largest regions:", sorted(tally.items(), key=lambda kv: -kv[1])[:8])
 if muscle_verts == 0:
     sys.exit("every body vertex resolved to bone — is the alignment inverted?")
+
+# ---- the layer underneath ----------------------------------------------------
+# First-hit gives a muscle under another no skin at all (erector spinae, iliopsoas,
+# quadratus lumborum, rhomboids). So each muscle also claims the skin it lies
+# CLOSEST to, where it shows through and where a hand finds it, for the parts of
+# it another muscle covers. The direction comes from the anatomy, not a depth
+# budget: the hamstrings' nearest skin is the back of the thigh, so no ray from
+# the front reaches them (#1565). Uncovered parts already have their first-hit
+# skin, so superficial borders do not move.
+body.data.calc_loop_triangles()
+skin_tris = [tuple(t.vertices) for t in body.data.loop_triangles]
+skin = BVHTree.FromPolygons([p[:] for p in posed], skin_tris, all_triangles=True)
+footprint = {}
+for o in muscles:
+    name = za.base(o.name)
+    fp = footprint.setdefault(name, set())
+    mw = o.matrix_world
+    for v in o.data.vertices:
+        co = mw @ v.co
+        loc, _, ti, dist = skin.find_nearest(co)
+        if ti is None or dist < 1e-4:
+            continue
+        way = (loc - co).normalized()
+        # Covered: something other than this muscle lies on the way out.
+        start, left, covered = co + way * 1e-4, dist, False
+        for _ in range(4):
+            hit = bvh.ray_cast(start, way, left)
+            if hit[2] is None:
+                break
+            if labels[hit[2]] != name:
+                covered = True
+                break
+            step = (hit[0] - start).length + 1e-4
+            start, left = start + way * step, left - step
+        if covered:
+            fp.add(min(skin_tris[ti], key=lambda i: (posed[i] - loc).length_squared))
+
+# A footprint lands as scattered points; close it into a region. Grow by
+# LAYER_RINGS rings of neighbours and shrink back by as many, which fills the gaps
+# without moving the outline, then drop islands too small to read as a muscle.
+LAYER_RINGS = 3
+MIN_ISLAND = 150
+nbrs = [[] for _ in posed]
+for e in body.data.edges:
+    a, b = e.vertices
+    nbrs[a].append(b)
+    nbrs[b].append(a)
+
+
+def closed(s):
+    for _ in range(LAYER_RINGS):
+        s = s | {n for v in s for n in nbrs[v]}
+    for _ in range(LAYER_RINGS):
+        s = {v for v in s if all(n in s for n in nbrs[v])}
+    return s
+
+
+def islands(s):
+    left, out = set(s), []
+    while left:
+        stack, comp = [left.pop()], set()
+        while stack:
+            v = stack.pop()
+            comp.add(v)
+            for n in nbrs[v]:
+                if n in left:
+                    left.remove(n)
+                    stack.append(n)
+        out.append(comp)
+    return out
+
+
+# Closed per CATALOG muscle, not per atlas mesh: the erector spinae is nine meshes,
+# and its lumbar pieces are each too small a fragment to survive the island filter
+# alone. Each vertex of the closed region then goes to the piece whose own
+# projected points are nearest across the skin, so a slug naming only some pieces
+# still colours only theirs. A mesh no slug maps is never coloured, so skipped.
+muscle_map = json.loads((Path(__file__).resolve().parent.parent / "muscle_map.json").read_text())
+# Where what lies underneath is tendon, not the muscle a person would picture.
+NOT_LAYERED = {
+    "biceps_brachii": "its origin tendons run under the deltoid; painted there, "
+                      "a curl reads as shoulder work",
+}
+added = {}
+for slug, names in muscle_map.items():
+    if slug in NOT_LAYERED:
+        continue
+    seeds = {n: footprint.get(n, set()) for n in names}
+    region = set()
+    for comp in islands(closed(set().union(*seeds.values()))):
+        if len(comp) >= MIN_ISLAND:
+            region |= comp
+    owner, frontier = {}, []
+    for n, fp in seeds.items():
+        for v in fp & region:
+            owner[v] = n
+            frontier.append(v)
+    while frontier:
+        nxt = []
+        for v in frontier:
+            for w in nbrs[v]:
+                if w in region and w not in owner:
+                    owner[w] = owner[v]
+                    nxt.append(w)
+        frontier = nxt
+    for n in names:
+        mine = sorted(v for v, o in owner.items() if o == n)
+        if not mine:
+            continue
+        g = groups.get(n) or body.vertex_groups.new(name=za.GROUP_PREFIX + n)
+        groups[n] = g
+        g.add(mine, 1.0, "REPLACE")
+        added[n] = added.get(n, 0) + len(mine)
+print(f"layer underneath: {len(added)} atlas muscles gained skin; largest:",
+      sorted(added.items(), key=lambda kv: -kv[1])[:8])
+for slug in ("erector_spinae", "iliopsoas", "quadratus_lumborum", "rhomboids",
+             "vastus_intermedius", "transversus_abdominis"):
+    names = muscle_map.get(slug, [])
+    print(f"  {slug}: first-hit {sum(tally.get(n, 0) for n in names)}, "
+          f"underneath {sum(added.get(n, 0) for n in names)}")
 
 # Put the deformation stack back before saving. It is switched off above only
 # so the evaluated mesh keeps its vertex count while distances are measured —
