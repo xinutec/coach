@@ -26,8 +26,8 @@ use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{
     CARRY_BASE_M, CARRY_BASE_S, CARRY_TOP_M, CARRY_TOP_S, DISTANCE_STEP_M, Dose, HOLD_STEP_S,
-    Inventory, Known, LOW_READINESS_EXTRA_RIR, Measure, RepTarget, load_for, readiness_advances,
-    rep_range, weighted_ask,
+    Inventory, Known, LOW_READINESS_EXTRA_RIR, Measure, RETURN_RESERVE_REPS, RepTarget, load_for,
+    readiness_advances, rep_range, weighted_ask,
 };
 use super::residual::{self, Residual};
 use super::types::{
@@ -407,7 +407,12 @@ fn prescribe(
 /// number (G3). The logged result feeds the ability model, so the next verdict
 /// prescribes from it. `stale` is any decayed estimate we have — good enough to
 /// open a build-up safely, not good enough to prescribe from.
-fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
+fn assess(loaded: &Loaded, stale: Option<&Ability>, returning: bool) -> Measure {
+    let (leave, leave_s, leave_m) = if returning {
+        (RETURN_RESERVE_REPS, HOLD_STEP_S, DISTANCE_STEP_M)
+    } else {
+        (0, 0, 0)
+    };
     match loaded {
         Loaded::Weighted(inv) => {
             let start = match stale.and_then(|a| a.e1rm) {
@@ -422,10 +427,11 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
             Measure::BuildUp {
                 start,
                 reps: ASSESS_WEIGHTED_REPS,
+                leave,
             }
         }
-        Loaded::Reps => Measure::Amrap,
-        Loaded::Hold => Measure::MaxHold,
+        Loaded::Reps => Measure::Amrap { leave },
+        Loaded::Hold => Measure::MaxHold { leave_s },
         // Both numbers are the measurement, so both are open: carry this, and tell
         // me how long you lasted. The opening weight comes from a stale carry when
         // there is one — never from the e1RM of some other lift.
@@ -433,12 +439,14 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>) -> Measure {
             start: stale
                 .and_then(|a| a.carry_m.map(|c| inv.snap(c.load)))
                 .unwrap_or_else(|| inv.lightest()),
+            leave_m,
         },
         Loaded::WeightedHold(inv) => Measure::LoadedCarry {
             start: match stale.and_then(|a| a.carry) {
                 Some(c) => inv.snap(c.load),
                 None => inv.lightest(),
             },
+            leave_s,
         },
     }
 }
@@ -1433,8 +1441,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 Ask::Hold { hold_s } => format!("{hold_s}s"),
                 Ask::WeightedHold { .. }
                 | Ask::BuildUp { .. }
-                | Ask::Amrap
-                | Ask::MaxHold
+                | Ask::Amrap { .. }
+                | Ask::MaxHold { .. }
                 | Ask::LoadedCarry { .. }
                 | Ask::WeightedDistance { .. }
                 | Ask::LoadedDistance { .. } => "easy prep".to_string(),
@@ -1574,6 +1582,14 @@ fn plan_session(
 ) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
     let skipped = neglected(&input.offers, history);
     let (cands, ladder_notes) = candidates(input, kit, abilities, residuals, groups, history, now);
+    // The first day back after a long break — the same break that starts a new block
+    // — measures short of the limit: after months away, a first day of near-maximal
+    // tests is a lot.
+    let returning = history
+        .iter()
+        .map(|s| s.logged_at)
+        .max()
+        .is_some_and(|last| now - last > Duration::weeks(ability::BLOCK_GAP_WEEKS));
     let chosen = cover::select(&cands, &groups.need, budget, novelty_cap);
 
     // Hold progression on a low-readiness day.
@@ -1600,7 +1616,7 @@ fn plan_session(
             ),
             None => (
                 SuggestionKind::Assess,
-                Ask::from(assess(&c.loaded, ability)),
+                Ask::from(assess(&c.loaded, ability, returning)),
             ),
         };
 

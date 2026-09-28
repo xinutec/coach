@@ -1167,14 +1167,18 @@ there: an injury, a bad week, a plateau, a sandbagger. On the real history the
 back-test moves only the first work after a measurement, down by the probe it no
 longer adds; no weighted ask changed.
 
+## R8-7. The first day back measured to the limit — CHANGED (Pippijn's call)
+
+The first day after nine weeks away was eight near-maximal tests. On the first day
+back after a break longer than `BLOCK_GAP_WEEKS`, each measurement now stops short:
+two reps on an AMRAP or a build-up, one progression step on a hold or a carry. The
+card says why. The set is read as it stands, so the estimate starts low and the
+probes climb from there.
+
 ## Still open
 
 - **A compliant athlete is believed at about 70% of their ability after eight
   weeks** (underclaim ~30%). Round 7 named this the margin that protects a return;
-  the flip side is slow progress. Tightening it is a decision, not a fix.
-- **The first day back after months is eight near-maximal tests**: every card an
-  AMRAP or a build-up to a hard set. Safe in load, since nothing is prescribed, but
-  heavy in effort for a first day. Whether a return should measure short of the
-  limit is Pippijn's call.
+  the flip side is slow progress. Pippijn's call (2026-09-28): leave it for now.
 - **The substitution note can name the wrong stand-in**: "instead of RDL" (trap bar,
   absent) sat on a snatch chosen for breadth, while `RDL (dumbbell)` was doable.

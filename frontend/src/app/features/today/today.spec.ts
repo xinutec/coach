@@ -247,7 +247,9 @@ describe('the dose on a compact row', () => {
 
   it('falls back to naming the drill when there is no dose to state', () => {
     const t = card();
-    expect(t.compactDose(suggestion({ kind: 'warmup', ask: { kind: 'amrap' } }))).toBe('Mobility');
+    expect(t.compactDose(suggestion({ kind: 'warmup', ask: { kind: 'amrap', leave: 0 } }))).toBe(
+      'Mobility',
+    );
   });
 
   it('reports the sets once the item is finished', () => {
@@ -386,35 +388,57 @@ describe('why this?', () => {
 
 describe('a calibration instruction', () => {
   const asks: Ask[] = [
-    { kind: 'amrap' },
-    { kind: 'maxHold' },
-    { kind: 'loadedCarry', startKg: 24 },
-    { kind: 'loadedDistance', startKg: 24 },
-    { kind: 'buildUp', startKg: 40, reps: 5 },
+    { kind: 'amrap', leave: 0 },
+    { kind: 'maxHold', leaveS: 0 },
+    { kind: 'loadedCarry', startKg: 24, leaveS: 0 },
+    { kind: 'loadedDistance', startKg: 24, leaveM: 0 },
+    { kind: 'buildUp', startKg: 40, reps: 5, leave: 0 },
+  ];
+  // The first day back after a long break: each leaves a reserve.
+  const back: Ask[] = [
+    { kind: 'amrap', leave: 2 },
+    { kind: 'maxHold', leaveS: 5 },
+    { kind: 'loadedCarry', startKg: 24, leaveS: 5 },
+    { kind: 'loadedDistance', startKg: 24, leaveM: 5 },
+    { kind: 'buildUp', startKg: 40, reps: 5, leave: 2 },
   ];
 
   it('asks for the load and the reps, never for a rating out of ten', () => {
     const t = card();
-    for (const ask of asks) {
+    for (const ask of [...asks, ...back]) {
       const line = t.assessInstruction(suggestion({ kind: 'assess', ask }));
       expect(line).not.toMatch(/rpe|how did (that|it) feel|out of ten|rate/i);
       expect(line).toMatch(/log/i);
     }
   });
 
+  it('names the reserve on the first day back, and only then', () => {
+    const t = card();
+    for (const ask of back) {
+      const line = t.assessInstruction(suggestion({ kind: 'assess', ask }));
+      expect(line).toMatch(/2 more|2 left|5s|5 m/);
+      expect(line).toContain('First day back');
+    }
+    for (const ask of asks) {
+      expect(t.assessInstruction(suggestion({ kind: 'assess', ask }))).not.toContain(
+        'First day back',
+      );
+    }
+  });
+
   it('names the rep target the build-up asked for rather than inventing one', () => {
     const t = card();
-    const ask: Ask = { kind: 'buildUp', startKg: 40, reps: 3 };
+    const ask: Ask = { kind: 'buildUp', startKg: 40, reps: 3, leave: 0 };
     expect(t.assessInstruction(suggestion({ kind: 'assess', ask }))).toContain('clean set of 3');
   });
 
   it('distinguishes the carry measured in seconds from the one measured in metres', () => {
     const t = card();
     const secs = t.assessInstruction(
-      suggestion({ kind: 'assess', ask: { kind: 'loadedCarry', startKg: 24 } }),
+      suggestion({ kind: 'assess', ask: { kind: 'loadedCarry', startKg: 24, leaveS: 0 } }),
     );
     const metres = t.assessInstruction(
-      suggestion({ kind: 'assess', ask: { kind: 'loadedDistance', startKg: 24 } }),
+      suggestion({ kind: 'assess', ask: { kind: 'loadedDistance', startKg: 24, leaveM: 0 } }),
     );
     expect(secs).toContain('seconds');
     expect(metres).toContain('distance');
@@ -422,9 +446,9 @@ describe('a calibration instruction', () => {
 
   it('says the numbers are per side on a single-arm movement', () => {
     const t = card([exercise(1, { unilateral: true })]);
-    expect(t.assessInstruction(suggestion({ kind: 'assess', ask: { kind: 'amrap' } }))).toContain(
-      'per side',
-    );
+    expect(
+      t.assessInstruction(suggestion({ kind: 'assess', ask: { kind: 'amrap', leave: 0 } })),
+    ).toContain('per side');
   });
 });
 

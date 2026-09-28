@@ -555,9 +555,9 @@ fn perform(
         }
         // Build-up: work up to a hard-but-clean set of the asked reps. The athlete
         // lands on the heaviest owned weight that still leaves ~1 rep in reserve at
-        // that count.
-        Ask::BuildUp { reps, .. } => {
-            let target = truth.e1rm / (1.0 + (f64::from(reps) + 1.0) / 30.0);
+        // that count, plus whatever the card asked to leave.
+        Ask::BuildUp { reps, leave, .. } => {
+            let target = truth.e1rm / (1.0 + (f64::from(reps + leave) + 1.0) / 30.0);
             let mut owned: Vec<f64> = loads.cloned().unwrap_or_default();
             owned.sort_by(f64::total_cmp);
             let load = owned
@@ -576,9 +576,13 @@ fn perform(
             }
         }
         // Loaded carry assessment: carry the given start for as long as form holds.
-        Ask::LoadedCarry { start_kg: start } => {
-            let secs =
-                whole((f64::from(truth.carry.1) * truth.carry.0 / start).floor()).clamp(5, 120);
+        Ask::LoadedCarry {
+            start_kg: start,
+            leave_s,
+        } => {
+            let secs = (whole((f64::from(truth.carry.1) * truth.carry.0 / start).floor())
+                - leave_s)
+                .clamp(5, 120);
             Performed {
                 reps: None,
                 load_kg: Some(start),
@@ -610,8 +614,12 @@ fn perform(
                 missed: did < ask,
             }
         }
-        Ask::LoadedDistance { start_kg: start } => {
-            let metres = whole((f64::from(truth.carry.1) * truth.carry.0 / start / 3.0).floor())
+        Ask::LoadedDistance {
+            start_kg: start,
+            leave_m,
+        } => {
+            let metres = (whole((f64::from(truth.carry.1) * truth.carry.0 / start / 3.0).floor())
+                - leave_m)
                 .clamp(5, 60);
             Performed {
                 reps: None,
@@ -622,22 +630,28 @@ fn perform(
                 missed: false,
             }
         }
-        Ask::MaxHold => Performed {
-            reps: None,
-            load_kg: None,
-            hold_s: Some(truth.hold_s),
-            distance_m: None,
-            note: format!("max hold {}s", truth.hold_s),
-            missed: false,
-        },
-        Ask::Amrap => Performed {
-            reps: Some(truth.reps),
-            load_kg: None,
-            hold_s: None,
-            distance_m: None,
-            note: format!("AMRAP {}", truth.reps),
-            missed: false,
-        },
+        Ask::MaxHold { leave_s } => {
+            let secs = (truth.hold_s - leave_s).max(1);
+            Performed {
+                reps: None,
+                load_kg: None,
+                hold_s: Some(secs),
+                distance_m: None,
+                note: format!("max hold {secs}s"),
+                missed: false,
+            }
+        }
+        Ask::Amrap { leave } => {
+            let reps = (truth.reps - leave).max(1);
+            Performed {
+                reps: Some(reps),
+                load_kg: None,
+                hold_s: None,
+                distance_m: None,
+                note: format!("AMRAP {reps}"),
+                missed: false,
+            }
+        }
     }
 }
 

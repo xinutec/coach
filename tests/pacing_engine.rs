@@ -2432,6 +2432,40 @@ fn a_met_target_with_a_card_open_names_the_card() {
     );
 }
 
+// The first day back after a long break measures short of the limit: a first day of
+// near-maximal tests is a lot after months away (round 8, Pippijn's call). Only that
+// day; a movement gone stale in an active week still measures to the limit.
+fn push_up_measure(history: Vec<SetRec>) -> coach::pacing::types::Ask {
+    let out = evaluate(
+        &input(Mode::Balanced, catalog(), history, None, None),
+        now(),
+    );
+    out.plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Assess && s.exercise_name == "Push-up")
+        .unwrap_or_else(|| panic!("push-up is measured: {:?}", out.plan))
+        .ask
+}
+
+#[test]
+fn a_return_after_a_long_break_measures_short_of_the_limit() {
+    let h = (0..3).map(|d| bset(1, days_ago(70 + d), 10)).collect();
+    assert_eq!(
+        push_up_measure(h),
+        coach::pacing::types::Ask::Amrap { leave: 2 }
+    );
+}
+
+#[test]
+fn a_stale_movement_in_an_active_week_measures_to_the_limit() {
+    let mut h: Vec<SetRec> = (0..3).map(|d| bset(1, days_ago(70 + d), 10)).collect();
+    h.push(bset(3, days_ago(2), 10)); // squats two days ago: not a return
+    assert_eq!(
+        push_up_measure(h),
+        coach::pacing::types::Ask::Amrap { leave: 0 }
+    );
+}
+
 // R2-3c: a group the session hammers as a *secondary* still gets its warm-up —
 // coverage follows the plan's load, not just its primary labels.
 #[test]
@@ -3287,7 +3321,7 @@ fn an_unknown_carry_is_measured_in_metres_rather_than_guessed() {
         .expect("the carry is planned");
     assert_eq!(item.kind, SuggestionKind::Assess);
     match item.ask {
-        coach::pacing::types::Ask::LoadedDistance { start_kg } => {
+        coach::pacing::types::Ask::LoadedDistance { start_kg, .. } => {
             assert_eq!(start_kg, 12.0, "it opens at the lightest bell owned");
         }
         other => panic!("expected a distance calibration, got {other:?}"),

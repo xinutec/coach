@@ -308,23 +308,30 @@ pub enum Dose {
 /// A calibration set — what the engine asks for when it *doesn't* trust its
 /// estimate. The logged result is the measurement; the next verdict prescribes
 /// from it (G3). Never a guessed number dressed up as a prescription.
+///
+/// Each carries what to leave in reserve: nothing, except on the first day back
+/// after a long break, when the logged set is then read as it stands.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Measure {
-    /// Build up to a hard-but-clean set of `reps` and log it. `start` is a safe
-    /// opening weight: from a stale estimate when there is one, else the lightest.
-    BuildUp { start: f64, reps: i32 },
-    /// As many clean reps as you have — stop at form breakdown.
-    Amrap,
-    /// One max hold.
-    MaxHold,
-    /// Carry `start` for as long as form holds, and log the weight *and* the time
-    /// — both are the measurement. `start` is a safe opening weight, from a stale
-    /// carry when there is one, else the lightest owned.
-    LoadedCarry { start: f64 },
-    /// The same, measured in metres: carry `start` as far as form holds and log
-    /// the weight and the distance.
-    LoadedDistance { start: f64 },
+    /// Build up to a hard-but-clean set of `reps`, `leave` short of failure, and
+    /// log it. `start` is a safe opening weight: from a stale estimate when there is
+    /// one, else the lightest.
+    BuildUp { start: f64, reps: i32, leave: i32 },
+    /// As many clean reps as you have, stopping `leave` short of form breakdown.
+    Amrap { leave: i32 },
+    /// One max hold, stopping `leave_s` early.
+    MaxHold { leave_s: i32 },
+    /// Carry `start` for as long as form holds, less `leave_s`, and log the weight
+    /// *and* the time — both are the measurement. `start` is a safe opening weight,
+    /// from a stale carry when there is one, else the lightest owned.
+    LoadedCarry { start: f64, leave_s: i32 },
+    /// The same, measured in metres.
+    LoadedDistance { start: f64, leave_m: i32 },
 }
+
+/// Reps a measurement leaves in reserve on the first day back after a long break.
+/// Holds and carries leave one progression step (`HOLD_STEP_S`, `DISTANCE_STEP_M`).
+pub const RETURN_RESERVE_REPS: i32 = 2;
 
 /// An ability estimate the engine **trusts enough to prescribe from**. The only
 /// constructor is [`Known::of`], and prescription takes a `Known` by type, so no edit

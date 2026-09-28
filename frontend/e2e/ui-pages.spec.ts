@@ -246,7 +246,7 @@ const PACING = {
       kind: 'assess',
       sets: 1,
       logged: [],
-      ask: { kind: 'buildUp', startKg: 20, reps: 5 },
+      ask: { kind: 'buildUp', startKg: 20, reps: 5, leave: 0 },
       group: 'Quadriceps',
       substitutedFor: null,
       explanation: {

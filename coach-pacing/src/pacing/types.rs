@@ -255,20 +255,26 @@ pub enum Ask {
     Hold { hold_s: i32 },
     /// A loaded carry: both, because a carry is both.
     WeightedHold { load_kg: f64, hold_s: i32 },
-    /// Calibration — build up to a hard-but-clean set of `reps` and log what it
-    /// took. `start_kg` is a safe opening weight, never a prescription.
-    BuildUp { start_kg: f64, reps: i32 },
-    /// Calibration — as many clean reps as you have.
-    Amrap,
-    /// Calibration — one max hold.
-    MaxHold,
-    /// Calibration — carry `start_kg` for as long as form holds; the weight *and*
-    /// the time are the measurement.
-    LoadedCarry { start_kg: f64 },
+    /// Calibration — build up to a hard-but-clean set of `reps`, `leave` short of
+    /// failure, and log what it took. `start_kg` is a safe opening weight, never a
+    /// prescription.
+    BuildUp {
+        start_kg: f64,
+        reps: i32,
+        leave: i32,
+    },
+    /// Calibration — as many clean reps as you have, stopping `leave` short.
+    Amrap { leave: i32 },
+    /// Calibration — one max hold, stopping `leave_s` early.
+    MaxHold { leave_s: i32 },
+    /// Calibration — carry `start_kg` for as long as form holds, less `leave_s`;
+    /// the weight *and* the time are the measurement.
+    LoadedCarry { start_kg: f64, leave_s: i32 },
     /// A carry measured by distance: this weight, this far.
     WeightedDistance { load_kg: f64, distance_m: i32 },
-    /// Calibration — carry `start_kg` as far as form holds, logging both.
-    LoadedDistance { start_kg: f64 },
+    /// Calibration — carry `start_kg` as far as form holds, less `leave_m`, logging
+    /// both.
+    LoadedDistance { start_kg: f64, leave_m: i32 },
 }
 
 impl Ask {
@@ -280,9 +286,11 @@ impl Ask {
             | Ask::WeightedHold { load_kg, .. }
             | Ask::WeightedDistance { load_kg, .. } => Some(load_kg),
             Ask::BuildUp { start_kg, .. }
-            | Ask::LoadedCarry { start_kg }
-            | Ask::LoadedDistance { start_kg } => Some(start_kg),
-            Ask::Bodyweight { .. } | Ask::Hold { .. } | Ask::Amrap | Ask::MaxHold => None,
+            | Ask::LoadedCarry { start_kg, .. }
+            | Ask::LoadedDistance { start_kg, .. } => Some(start_kg),
+            Ask::Bodyweight { .. } | Ask::Hold { .. } | Ask::Amrap { .. } | Ask::MaxHold { .. } => {
+                None
+            }
         }
     }
 
@@ -294,8 +302,8 @@ impl Ask {
             Ask::BuildUp { reps, .. } => Some(reps),
             Ask::Hold { .. }
             | Ask::WeightedHold { .. }
-            | Ask::Amrap
-            | Ask::MaxHold
+            | Ask::Amrap { .. }
+            | Ask::MaxHold { .. }
             | Ask::LoadedCarry { .. }
             | Ask::WeightedDistance { .. }
             | Ask::LoadedDistance { .. } => None,
@@ -309,8 +317,8 @@ impl Ask {
             Ask::Weighted { .. }
             | Ask::Bodyweight { .. }
             | Ask::BuildUp { .. }
-            | Ask::Amrap
-            | Ask::MaxHold
+            | Ask::Amrap { .. }
+            | Ask::MaxHold { .. }
             | Ask::LoadedCarry { .. }
             | Ask::WeightedDistance { .. }
             | Ask::LoadedDistance { .. } => None,
@@ -326,8 +334,8 @@ impl Ask {
             | Ask::Hold { .. }
             | Ask::WeightedHold { .. }
             | Ask::BuildUp { .. }
-            | Ask::Amrap
-            | Ask::MaxHold
+            | Ask::Amrap { .. }
+            | Ask::MaxHold { .. }
             | Ask::LoadedCarry { .. }
             | Ask::LoadedDistance { .. } => None,
         }
@@ -340,8 +348,8 @@ impl Ask {
             Ask::BuildUp { reps, .. } => Some(reps),
             Ask::Hold { .. }
             | Ask::WeightedHold { .. }
-            | Ask::Amrap
-            | Ask::MaxHold
+            | Ask::Amrap { .. }
+            | Ask::MaxHold { .. }
             | Ask::LoadedCarry { .. }
             | Ask::WeightedDistance { .. }
             | Ask::LoadedDistance { .. } => None,
@@ -377,14 +385,21 @@ impl From<Dose> for Ask {
 impl From<Measure> for Ask {
     fn from(m: Measure) -> Self {
         match m {
-            Measure::BuildUp { start, reps } => Ask::BuildUp {
+            Measure::BuildUp { start, reps, leave } => Ask::BuildUp {
                 start_kg: start,
                 reps,
+                leave,
             },
-            Measure::Amrap => Ask::Amrap,
-            Measure::MaxHold => Ask::MaxHold,
-            Measure::LoadedCarry { start } => Ask::LoadedCarry { start_kg: start },
-            Measure::LoadedDistance { start } => Ask::LoadedDistance { start_kg: start },
+            Measure::Amrap { leave } => Ask::Amrap { leave },
+            Measure::MaxHold { leave_s } => Ask::MaxHold { leave_s },
+            Measure::LoadedCarry { start, leave_s } => Ask::LoadedCarry {
+                start_kg: start,
+                leave_s,
+            },
+            Measure::LoadedDistance { start, leave_m } => Ask::LoadedDistance {
+                start_kg: start,
+                leave_m,
+            },
         }
     }
 }

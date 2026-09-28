@@ -18,7 +18,10 @@ plan and nothing to drift out of sync; logging a set changes the next verdict.
 anchors, never as landmarks to hit.
 
 **When it doesn't know, it measures.** An untrusted estimate produces a
-*calibration set*, not a guessed number. The logged result is the measurement.
+*calibration set*, not a guessed number. The logged result is the measurement. On
+the first day back after a long break (the 8-week gap that starts a new block) each
+measurement stops short: two reps, or one step of a hold or carry. The set is read
+as it stands, so the estimate starts low and the probes climb from there.
 
 **Degrade narrowly.** Missing data (no biometrics, no location, no history) narrows
 the verdict, never widens it. Absent information is not permission: with no

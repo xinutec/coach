@@ -307,21 +307,36 @@ export class Today {
     return dose || 'Mobility';
   }
 
-  /** The calibration instruction for an `assess` suggestion, from its ask. */
+  /** The calibration instruction for an `assess` suggestion, from its ask. On the
+   *  first day back after a long break the ask leaves a reserve, and says so. */
   assessInstruction(s: Suggestion): string {
     const ex = this.exercises().find((e) => e.id === s.exerciseId);
     const side = ex?.unilateral ? ' Both sides — the numbers are per side.' : '';
-    switch (s.ask.kind) {
+    const back = 'First day back, so leave something in the tank.';
+    const a = s.ask;
+    switch (a.kind) {
       case 'maxHold':
-        return `Hold as long as your form stays clean — one honest max, then log the seconds.${side}`;
+        return a.leaveS
+          ? `Hold until it gets hard, and stop about ${a.leaveS}s before you'd have to — then log the seconds. ${back}${side}`
+          : `Hold as long as your form stays clean — one honest max, then log the seconds.${side}`;
       case 'loadedCarry':
-        return `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
+        return a.leaveS
+          ? `Carry it until it gets hard, stopping about ${a.leaveS}s early, then log the weight and the seconds. ${back}${side}`
+          : `Carry it as far as your form stays clean, then log the weight and the seconds — both are the measurement.${side}`;
       case 'loadedDistance':
-        return `Carry it as far as your form stays clean, then log the weight and the distance — both are the measurement.${side}`;
+        return a.leaveM
+          ? `Carry it until it gets hard, stopping about ${a.leaveM} m early, then log the weight and the distance. ${back}${side}`
+          : `Carry it as far as your form stays clean, then log the weight and the distance — both are the measurement.${side}`;
       // What happened, not how it felt: the instruction asks for the load and
       // the reps, never for a self-rating out of ten. See docs/trainer.md.
       case 'buildUp':
-        return `Build up to a hard-but-clean set of ${s.ask.reps}, then log the load and the reps.${side}`;
+        return a.leave
+          ? `Build up to a set of ${a.reps} you could do ${a.leave} more of, then log the load and the reps. ${back}${side}`
+          : `Build up to a hard-but-clean set of ${a.reps}, then log the load and the reps.${side}`;
+      case 'amrap':
+        return a.leave
+          ? `Clean reps until you have about ${a.leave} left, then stop and log it. ${back}${side}`
+          : `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
       default:
         return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
     }
