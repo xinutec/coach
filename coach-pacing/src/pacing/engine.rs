@@ -408,18 +408,11 @@ fn prescribe(
 /// prescribes from it. `stale` is any decayed estimate we have — good enough to
 /// open a build-up safely, not good enough to prescribe from.
 fn assess(loaded: &Loaded, stale: Option<&Ability>, returning: bool) -> Measure {
-    // Never below one rep or one step of what is believed: "stop with two left" is
-    // nothing to do for someone whose last best was two.
+    // The reserve holds however small the last best: capped to nothing, it would send
+    // the weakest movement to failure on the day everything else holds back. The card
+    // asks for at least one rep, which is what "two left" means to someone at two.
     let (leave, leave_s, leave_m) = if returning {
-        let best_reps = stale.and_then(|a| a.best_reps);
-        let best_hold = stale.and_then(|a| a.best_hold);
-        (
-            best_reps.map_or(RETURN_RESERVE_REPS, |b| {
-                RETURN_RESERVE_REPS.min(b - 1).max(0)
-            }),
-            best_hold.map_or(HOLD_STEP_S, |b| HOLD_STEP_S.min(b - HOLD_STEP_S).max(0)),
-            DISTANCE_STEP_M,
-        )
+        (RETURN_RESERVE_REPS, HOLD_STEP_S, DISTANCE_STEP_M)
     } else {
         (0, 0, 0)
     };
@@ -1451,7 +1444,15 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // What the athlete should literally do next — warm-ups very much included.
     // The banner speaks from this, so it can never disagree with the plan's
     // "Next up" pill, which points at the same item.
-    let next_item = plan.iter().find(|s| s.done() < s.sets).cloned();
+    // A warm-up skipped stops leading once the work has begun: telling someone three
+    // cards in to go and warm up is noise.
+    let work_begun = plan
+        .iter()
+        .any(|s| s.kind != SuggestionKind::Warmup && s.done() > 0);
+    let next_item = plan
+        .iter()
+        .find(|s| s.done() < s.sets && !(work_begun && s.kind == SuggestionKind::Warmup))
+        .cloned();
     // One phrasing for "do this next", kind-aware: a warm-up is named with its
     // dose, work with its remaining sets and muscle group.
     let next_phrase = |s: &Suggestion| -> String {
@@ -1588,10 +1589,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     }
 }
 
-/// The heaviest weight of the exercise's last session, when the card names a
-/// different one.
-fn off_card(history: &[SetRec], id: ExerciseId, card: Option<f64>) -> Option<f64> {
-    let card = card?;
+/// The heaviest weight of the exercise's last session, when the card it was given
+/// (`asked`, the ledger's rung) named a different one.
+fn off_card(history: &[SetRec], id: ExerciseId, asked: Option<f64>) -> Option<f64> {
+    let asked = asked?;
     let last = history
         .iter()
         .filter(|s| s.exercise_id == id)
@@ -1602,7 +1603,7 @@ fn off_card(history: &[SetRec], id: ExerciseId, card: Option<f64>) -> Option<f64
         .filter(|s| s.exercise_id == id && s.logged_at.date() == last.date())
         .filter_map(|s| s.load_kg)
         .fold(None, |m: Option<f64>, l| Some(m.map_or(l, |m| m.max(l))))?;
-    ((used - card).abs() > 1e-9).then_some(used)
+    ((used - asked).abs() > 1e-9).then_some(used)
 }
 
 /// Cover today's need with the kit present: greedy set-cover over the doable
@@ -1691,10 +1692,18 @@ fn plan_session(
                         }),
                         misses: feedback.consecutive_misses,
                         readiness: input.readiness.map(|r| r.band()),
-                        // A build-up's weight is where it starts, not a card to hold to.
+                        // Against the card last time (the rung), not today's, which may
+                        // have moved because it was earned. A build-up's weight is where
+                        // it starts, not a card, so only work cards compare.
                         off_card_kg: (kind == SuggestionKind::Work)
-                            .then(|| off_card(history, c.ex.id, ask.load_kg()))
+                            .then(|| off_card(history, c.ex.id, feedback.rung.map(|r| r.load)))
                             .flatten(),
+                        stepped_from_kg: match (kind, ask.load_kg(), feedback.rung) {
+                            (SuggestionKind::Work, Some(load), Some(r)) if load > r.load + 1e-9 => {
+                                Some(r.load)
+                            }
+                            _ => None,
+                        },
                     }),
                     (label_is_primary && stood_in.insert(ix))
                         .then(|| blocked_ideal(input, kit, &weight, groups.id[ix], c.ex.id))

@@ -50,7 +50,12 @@ misses: number,
  */
 readiness: Band | null, 
 /**
- * The weight the last session was done at, when it was not this card's: said,
- * so the card holding reads as a decision rather than as not noticing.
+ * The weight the last session was done at, when it was not the card it was
+ * given: said, so the card holding reads as a decision rather than as not
+ * noticing.
  */
-offCardKg: number | null, };
+offCardKg: number | null, 
+/**
+ * The weight this card stepped up from, because the reps at it earned it.
+ */
+steppedFromKg: number | null, };

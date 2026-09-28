@@ -1,4 +1,5 @@
 import { WorkoutSet } from '../../models';
+import { repUnit } from '../../shared/format';
 import { NonEmpty } from '../../shared/non-empty';
 
 /** One movement within a day: every set of it, and the one line that says what it
@@ -63,7 +64,7 @@ export function summarise(sets: readonly WorkoutSet[], unilateral: boolean): str
     `${sets.length} set${sets.length === 1 ? '' : 's'}`,
     range(
       (s) => s.reps,
-      (v) => `${v} reps`,
+      (v) => `${v} ${repUnit(v)}`,
     ),
     range(
       (s) => s.loadKg,

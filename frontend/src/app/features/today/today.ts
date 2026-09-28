@@ -20,6 +20,7 @@ import { askDistanceM, askHoldS, askLoadKg, askRepHigh, askRepLow } from '../../
 import { numberField, stringField } from '../../shared/narrow';
 import { ExercisesStore, LocationsStore } from '../../stores/catalog';
 import { ExerciseSheet } from '../library/exercise-sheet';
+import { repUnit } from '../../shared/format';
 import { LogSheet, type LogPrefill, type LogSheetData } from '../log/log-sheet';
 
 @Component({
@@ -231,6 +232,8 @@ export class Today {
     if (e.misses === 1) lines.push('Last session came up short — holding here rather than adding');
     else if (e.misses >= 2)
       lines.push(`${e.misses} sessions under target — backed the load off to rebuild`);
+    if (e.steppedFromKg !== null)
+      lines.push(`Up from ${e.steppedFromKg} kg — you topped the range at it last time`);
     if (e.offCardKg !== null)
       lines.push(
         `Last time was at ${e.offCardKg} kg, not this card's weight — it moves when the reps at its weight say so`,
@@ -277,7 +280,9 @@ export class Today {
       (d) => d.loadKg === null && d.holdS === null && d.distanceM === null,
     );
     const per = this.perSide(s.exerciseId) ? ' each side' : '';
-    return `${bits.join(' · ')}${repsOnly ? ' reps' : ''}${per}`;
+    const last = s.logged[s.logged.length - 1]?.reps ?? 0;
+    const unit = s.logged.length === 1 ? repUnit(last) : 'reps';
+    return `${bits.join(' · ')}${repsOnly ? ` ${unit}` : ''}${per}`;
   }
 
   /** The dose on a compact row: short enough for one line beside the name.
@@ -289,7 +294,9 @@ export class Today {
     if (repLow !== null) {
       // A warm-up's range is a single number; only a work item aims.
       bits.push(
-        s.kind === 'warmup' || repLow === askRepHigh(s.ask) ? `${repLow} reps` : `aim ${repLow}`,
+        s.kind === 'warmup' || repLow === askRepHigh(s.ask)
+          ? `${repLow} ${repUnit(repLow)}`
+          : `aim ${repLow}`,
       );
     }
     const loadKg = askLoadKg(s.ask);
@@ -433,10 +440,11 @@ export class Today {
   }
 
   /** The first plan item with sets still to do — what "Next up" points at and
-   *  what the bare + defaults to. Warm-ups count: done ones stop leading. */
+   *  what the bare + defaults to. Warm-ups count until the work begins; one
+   *  skipped then stops leading, as in the engine's sentence. */
   nextUp(): Suggestion | null {
     const p = this.pacing();
-    return p?.plan.find((s) => s.logged.length < s.sets) ?? null;
+    return p ? (p.plan[nextIndex(p.plan)] ?? null) : null;
   }
 
   /** Whether this plan item is the one to do now (by position, not id — a
@@ -444,6 +452,12 @@ export class Today {
   isNextUp(index: number): boolean {
     const p = this.pacing();
     if (p?.window !== 'within') return false;
-    return p.plan.findIndex((s) => s.logged.length < s.sets) === index;
+    return nextIndex(p.plan) === index;
   }
+}
+
+/** The plan item to do now, by position (see `nextUp`), or -1. */
+function nextIndex(plan: readonly Suggestion[]): number {
+  const begun = plan.some((s) => s.kind !== 'warmup' && s.logged.length > 0);
+  return plan.findIndex((s) => s.logged.length < s.sets && !(begun && s.kind === 'warmup'));
 }

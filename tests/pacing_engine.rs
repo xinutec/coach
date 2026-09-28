@@ -2505,14 +2505,15 @@ fn a_return_after_a_long_break_measures_short_of_the_limit() {
     );
 }
 
-// The reserve never takes the ask below one rep: "stop with two left" is nothing to
-// do for someone whose last known best was two.
+// The reserve holds however small the last best. Capped to nothing, it sent dips
+// (last best 2) to failure on the one day everything else held back (round 8, walked
+// in the app). The card asks for at least one rep.
 #[test]
-fn the_return_reserve_leaves_at_least_one_rep() {
+fn the_return_reserve_holds_on_a_tiny_best() {
     let h = (0..3).map(|d| bset(1, days_ago(70 + d), 2)).collect();
     assert_eq!(
         push_up_measure(h),
-        coach::pacing::types::Ask::Amrap { leave: 0 }
+        coach::pacing::types::Ask::Amrap { leave: 2 }
     );
 }
 
@@ -2741,6 +2742,31 @@ fn the_banner_names_the_warmup_when_thats_next() {
     assert!(
         out.reason.contains("Warm up first") && out.reason.contains("Chest opener"),
         "the banner and the plan agree on what's next: {:?}",
+        out.reason
+    );
+}
+
+// A warm-up skipped is not next once the work has begun. Walked in the app: three
+// work cards in, the banner still said "then: Biceps wall stretch".
+#[test]
+fn a_skipped_warmup_stops_leading_once_the_work_has_begun() {
+    let mut h: Vec<SetRec> = [2, 4, 9]
+        .iter()
+        .map(|d| bset(1, days_ago(*d), 10))
+        .collect();
+    h.push(bset(1, minutes_ago(5), 10)); // straight into the push-ups
+    let exercises = vec![catalog().remove(0), warmup_ex(100, "Chest opener", 10)];
+    let out = evaluate(&input(Mode::Balanced, exercises, h, None, None), now());
+    assert!(
+        out.plan
+            .iter()
+            .any(|s| s.kind == SuggestionKind::Warmup && s.done() == 0),
+        "precondition: the warm-up was skipped: {:?}",
+        out.plan
+    );
+    assert!(
+        out.reason.contains("Push-up") && !out.reason.contains("Chest opener"),
+        "{:?}",
         out.reason
     );
 }
@@ -3012,6 +3038,40 @@ fn a_session_at_the_cards_weight_names_nothing() {
     let card = row_card(wset(5, days_ago(2), 5.0, 6));
     assert_eq!(card.ask.load_kg(), Some(5.0));
     assert_eq!(card.explanation.and_then(|e| e.off_card_kg), None);
+}
+
+// Earning a step is not going off the card. Walked in the app: curls done 10 against
+// 7 at the asked 7.5 kg moved the card to 8.5 kg, and the note said "last time was at
+// 7.5 kg, not this card's weight", as if the athlete had strayed. The note compares
+// with the card they were given; the step says what it is.
+#[test]
+fn an_earned_step_is_named_and_is_not_off_the_card() {
+    let mut h: Vec<SetRec> = [9, 7, 5]
+        .iter()
+        .map(|d| wset(5, days_ago(*d), 5.0, 6))
+        .collect();
+    h.push(wset(5, days_ago(2), 5.0, 10));
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: BTreeMap::from([(ExerciseId(5), vec![4.0, 5.0, 6.0])]),
+            ..input(Mode::Balanced, vec![barbell_row()], h, None, None)
+        },
+        now(),
+    );
+    let card = out
+        .plan
+        .into_iter()
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
+        .expect("the row is prescribed");
+    assert_eq!(
+        card.ask.load_kg(),
+        Some(6.0),
+        "topping the range steps the weight"
+    );
+    let e = card.explanation.expect("a work card explains itself");
+    assert_eq!(e.off_card_kg, None);
+    assert_eq!(e.stepped_from_kg, Some(5.0));
 }
 
 // R4-3, answered by R5-1: a coarse rack must not manufacture a miss. With bells at

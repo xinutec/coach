@@ -1201,6 +1201,34 @@ sooner. A probe one rep over the max is how a probe is meant to fail. What the
 reserve is for, a gentler first day after months away, the simulator cannot see:
 its athlete is never sore. The reserve never asks below one rep of what is believed.
 
+## Walked in the app, as a person
+
+Four days through the real UI at phone size, from the real nine-week gap: warm-ups by
+their tick, calibrations through the sheet, a short set, extra reps, leaving early.
+The coaching held up: the first day back measured short, the next day consolidated
+at what was shown, an extra-reps day stepped the weight, and a card skipped by
+leaving early came back the next day. What only looking found:
+
+- **FIXED — the reserve capped to nothing sent dips to failure.** On the first day
+  back, the one movement with a last best of two read "stop at form breakdown" while
+  every other card held back. The reserve holds; the card asks for at least one.
+- **FIXED — an earned step read as going off the card.** Curls done 10 against 7
+  moved the card to 8.5 kg, and the note said "last time was at 7.5 kg, not this
+  card's weight". It compares with the card that was given now (the ledger's rung),
+  and the step says what it is: "Up from 7.5 kg — you topped the range at it last
+  time".
+- **FIXED — a skipped warm-up stayed "next".** Three work cards in, the banner said
+  "then: Biceps wall stretch". Once the work has begun, an unstarted warm-up stops
+  leading, in the engine's sentence and the app's badge alike.
+- **FIXED — "1 reps".**
+- **Open: a power lift gets a hypertrophy rep range.** The snatch was asked 2 × 10:
+  arithmetically in reach, but a ballistic lift is trained at 3–5 reps, where form
+  holds. Changes prescriptions, so it needs the matrix and Pippijn's view.
+- **Open, small:** the warm-up's tick looks like "done" before anything is done;
+  the sheet stays on a one-set warm-up after it is logged; a first-day-back close
+  could say the next session builds from these numbers; "aim 1, up to 12" reads
+  oddly at one rep.
+
 ## Still open
 
 - **A compliant athlete is believed at about 70% of their ability after eight

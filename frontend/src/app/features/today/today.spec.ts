@@ -67,6 +67,7 @@ function explanation(over: Partial<Explanation> = {}): Explanation {
     estimateFrom: null,
     misses: 0,
     offCardKg: null,
+    steppedFromKg: null,
     readiness: null,
     ...over,
   };
@@ -201,6 +202,27 @@ describe('what comes next', () => {
     expect(t.isNextUp(1)).toBe(false);
   });
 
+  it('passes over a skipped warm-up once the work has begun', () => {
+    const t = card();
+    const one = [{ reps: 5, loadKg: null, holdS: null, distanceM: null }];
+    t.pacing.set(
+      pacing({
+        plan: [
+          suggestion({ kind: 'warmup', exerciseName: 'Arm circles', sets: 1 }),
+          suggestion({
+            kind: 'work',
+            exerciseId: 2,
+            exerciseName: 'Push-up',
+            sets: 2,
+            logged: one,
+          }),
+        ],
+      }),
+    );
+    expect(t.nextUp()?.exerciseName).toBe('Push-up');
+    expect(t.isNextUp(1)).toBe(true);
+  });
+
   it('points at nothing outside the training window', () => {
     const t = card();
     t.pacing.set(pacing({ window: 'after', plan: [suggestion()] }));
@@ -316,6 +338,12 @@ describe('what you already did', () => {
     expect(t.loggedSummary(suggestion())).toBe('');
   });
 
+  it('says one rep, not "1 reps"', () => {
+    const t = card();
+    const one = [{ reps: 1, loadKg: null, holdS: null, distanceM: null }];
+    expect(t.loggedSummary(suggestion({ sets: 1, logged: one }))).toBe('1 rep');
+  });
+
   it('carries the per-side convention into the receipt', () => {
     const t = card([exercise(1, { unilateral: true })]);
     expect(
@@ -365,6 +393,14 @@ describe('why this?', () => {
       '3 sessions under target',
     );
     expect(t.explanationLines(explanation({ misses: 0 })).join(' ')).not.toContain('under target');
+  });
+
+  it('says an earned step up, and only then', () => {
+    const t = card();
+    expect(t.explanationLines(explanation({ steppedFromKg: 7.5 })).join(' ')).toContain(
+      'Up from 7.5 kg',
+    );
+    expect(t.explanationLines(explanation()).join(' ')).not.toContain('Up from');
   });
 
   it('names a session done off the card weight, and only then', () => {

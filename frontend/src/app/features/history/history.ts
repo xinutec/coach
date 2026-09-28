@@ -7,6 +7,7 @@ import { CoachApi } from '../../coach-api';
 import { WorkoutSet, displayName } from '../../models';
 import { NonEmpty } from '../../shared/non-empty';
 import { AllExercisesStore, SetsStore } from '../../stores/catalog';
+import { repUnit } from '../../shared/format';
 import { MovementGroup, byMovement } from './group';
 
 interface DayGroup {
@@ -116,7 +117,7 @@ export class HistoryPage {
 
   detail(s: WorkoutSet): string {
     const parts: string[] = [];
-    if (s.reps != null) parts.push(`${s.reps} reps`);
+    if (s.reps != null) parts.push(`${s.reps} ${repUnit(s.reps)}`);
     if (s.loadKg != null) parts.push(`${s.loadKg} kg`);
     if (s.holdS != null) parts.push(`${s.holdS}s`);
     // See `summarise` — a carry is measured in metres, and dropping them here

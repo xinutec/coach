@@ -449,9 +449,12 @@ pub struct Explanation {
     pub misses: i32,
     /// The biometric readiness band that scaled today's volume, if health had data.
     pub readiness: Option<Band>,
-    /// The weight the last session was done at, when it was not this card's: said,
-    /// so the card holding reads as a decision rather than as not noticing.
+    /// The weight the last session was done at, when it was not the card it was
+    /// given: said, so the card holding reads as a decision rather than as not
+    /// noticing.
     pub off_card_kg: Option<f64>,
+    /// The weight this card stepped up from, because the reps at it earned it.
+    pub stepped_from_kg: Option<f64>,
 }
 
 /// Why the coach couldn't give the movement it wanted: two problems, two fixes.
