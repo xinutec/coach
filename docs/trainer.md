@@ -297,9 +297,9 @@ left out by the size cap is triage, not ignorance, and carries no note.
 
 Where a group's top-ranked movement is genuinely blocked, the item carries a
 **substitution** naming the ideal and the blocker. It is set only when that movement
-is actually blocked — the cover routinely picks something other than a group's best
-exercise, and reporting that as missing kit would name things that are standing in
-front of you.
+is actually blocked, and no variation of it is doable here — the cover routinely
+picks something other than a group's best exercise, and reporting that as missing
+kit would name things that are standing in front of you.
 
 ## The catalog
 

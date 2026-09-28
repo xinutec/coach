@@ -31,7 +31,8 @@ URL="mysql://coach:coach@127.0.0.1:${PORT}/coach"
   exit 1
 }
 
-# Each cell is "athlete:behaviour:recovery". The sweep is deliberately not the
+# Each cell is "athlete:behaviour:recovery", with an optional fourth field: days
+# between the last real set and the walk (default 1). A long one is a return. The sweep is deliberately not the
 # full cross product: temperament and behaviour are independent axes, so varying
 # one at a time against a fixed other isolates which axis a finding belongs to,
 # and the handful of crosses at the end are the combinations that plausibly
@@ -65,6 +66,10 @@ CELLS=(
   novice:skipper:untracked
   injured:compliant:roughweek
   strong:overachiever:untracked
+  # a return after nine weeks away, as the real history stood in round 8
+  improver:compliant:untracked:63
+  novice:compliant:untracked:63
+  improver:overachiever:untracked:63
 )
 if [ -n "$override" ]; then
   # Word-split on purpose: the override is a space-separated list of the same
@@ -79,11 +84,12 @@ echo "Loading $DUMP into dev DB (127.0.0.1:${PORT}) ..." >&2
 mariadb -h127.0.0.1 -P"$PORT" -ucoach -pcoach coach <"$DUMP"
 
 for cell in "${CELLS[@]}"; do
-  IFS=: read -r athlete behaviour recovery <<<"$cell"
-  name="$athlete-$behaviour-$recovery"
+  IFS=: read -r athlete behaviour recovery away <<<"$cell"
+  name="$athlete-$behaviour-$recovery${away:+-away$away}"
   echo "  $name ..." >&2
   DATABASE_URL="$URL" \
   SIM_ATHLETE="$athlete" SIM_BEHAVIOUR="$behaviour" SIM_RECOVERY="$recovery" \
+  SIM_AWAY_DAYS="${away:-1}" \
     nix develop "$ROOT" --command cargo run --quiet --bin simulate \
     >"$OUT/$name.txt" 2>"$OUT/$name.err" || {
       echo "    FAILED — see $OUT/$name.err" >&2

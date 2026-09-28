@@ -66,6 +66,7 @@ function explanation(over: Partial<Explanation> = {}): Explanation {
     e1rm: null,
     estimateFrom: null,
     misses: 0,
+    offCardKg: null,
     readiness: null,
     ...over,
   };
@@ -364,6 +365,12 @@ describe('why this?', () => {
       '3 sessions under target',
     );
     expect(t.explanationLines(explanation({ misses: 0 })).join(' ')).not.toContain('under target');
+  });
+
+  it('names a session done off the card weight, and only then', () => {
+    const t = card();
+    expect(t.explanationLines(explanation({ offCardKg: 6 })).join(' ')).toContain('6 kg');
+    expect(t.explanationLines(explanation()).join(' ')).not.toContain('Last time was at');
   });
 
   it('states a readiness reading without ever urging intensity', () => {

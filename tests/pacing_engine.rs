@@ -721,6 +721,55 @@ fn location_substitutes_the_ideal() {
     assert_eq!(sub.blocker, Blocker::Absent(vec!["Barbell".to_string()]));
 }
 
+// A doable variation of the ideal means nothing real blocks it: the cover simply
+// preferred another movement, which is no substitution (round 8's "instead of RDL" on
+// a snatch, with the dumbbell RDL right there).
+#[test]
+fn no_substitution_is_claimed_while_a_variation_of_the_ideal_is_doable() {
+    let row = |id, name: &str, metric, equipment| ExerciseInfo {
+        family: "Row".into(),
+        ..ex(
+            id,
+            name,
+            Pattern::Pull,
+            metric,
+            false,
+            equipment,
+            vec![(20, MuscleRole::Primary)],
+        )
+    };
+    let exs = vec![
+        row(5, "Row (barbell)", Metric::WeightedReps, vec![101]),
+        row(7, "Row (dumbbell)", Metric::Reps, vec![]),
+        // Broader: it pays into more groups, as the snatch did.
+        ex(
+            2,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![
+                (20, MuscleRole::Primary),
+                (40, MuscleRole::Primary),
+                (50, MuscleRole::Primary),
+            ],
+        ),
+    ];
+    let inp = PacingInput {
+        groups: r2_groups(),
+        equipment_names: BTreeMap::from([(EquipmentId(101), "Barbell".to_string())]),
+        ..input(Mode::Strength, exs, vec![], None, Some(vec![]))
+    };
+    let out = evaluate(&inp, now());
+    let ring = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(2))
+        .unwrap_or_else(|| panic!("the ring row is picked: {:?}", out.plan));
+    assert!(ring.substituted_for.is_none(), "{:?}", ring.substituted_for);
+}
+
 #[test]
 fn substitution_prefers_the_ideal_exercise_metric() {
     // Lat pull down (reps, machine id 101 not here) must swap to another *reps*
@@ -2456,6 +2505,17 @@ fn a_return_after_a_long_break_measures_short_of_the_limit() {
     );
 }
 
+// The reserve never takes the ask below one rep: "stop with two left" is nothing to
+// do for someone whose last known best was two.
+#[test]
+fn the_return_reserve_leaves_at_least_one_rep() {
+    let h = (0..3).map(|d| bset(1, days_ago(70 + d), 2)).collect();
+    assert_eq!(
+        push_up_measure(h),
+        coach::pacing::types::Ask::Amrap { leave: 0 }
+    );
+}
+
 #[test]
 fn a_stale_movement_in_an_active_week_measures_to_the_limit() {
     let mut h: Vec<SetRec> = (0..3).map(|d| bset(1, days_ago(70 + d), 10)).collect();
@@ -2915,6 +2975,43 @@ fn a_movement_too_hard_to_build_steps_down_to_an_easier_sibling() {
         "the step back is said, not implied: {:?}",
         out.notices
     );
+}
+
+// Off the card: a session done at another weight than the card's is said, so the card
+// holding reads as a decision rather than a coach that did not notice (round 8's
+// heavier athlete routed at 6 kg four times against a 5 kg card, in silence).
+fn row_card(last: SetRec) -> Suggestion {
+    let mut h: Vec<SetRec> = [9, 7, 5]
+        .iter()
+        .map(|d| wset(5, days_ago(*d), 5.0, 6))
+        .collect();
+    h.push(last);
+    let out = evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: BTreeMap::from([(ExerciseId(5), vec![4.0, 5.0, 6.0])]),
+            ..input(Mode::Balanced, vec![barbell_row()], h, None, None)
+        },
+        now(),
+    );
+    out.plan
+        .into_iter()
+        .find(|s| s.exercise_id == ExerciseId(5) && s.kind == SuggestionKind::Work)
+        .expect("the row is prescribed")
+}
+
+#[test]
+fn a_session_off_the_cards_weight_is_named() {
+    let card = row_card(wset(5, days_ago(2), 6.0, 1));
+    assert_eq!(card.ask.load_kg(), Some(5.0), "the card holds");
+    assert_eq!(card.explanation.and_then(|e| e.off_card_kg), Some(6.0));
+}
+
+#[test]
+fn a_session_at_the_cards_weight_names_nothing() {
+    let card = row_card(wset(5, days_ago(2), 5.0, 6));
+    assert_eq!(card.ask.load_kg(), Some(5.0));
+    assert_eq!(card.explanation.and_then(|e| e.off_card_kg), None);
 }
 
 // R4-3, answered by R5-1: a coarse rack must not manufacture a miss. With bells at

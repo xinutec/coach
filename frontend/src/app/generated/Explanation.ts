@@ -48,4 +48,9 @@ misses: number,
 /**
  * The biometric readiness band that scaled today's volume, if health had data.
  */
-readiness: Band | null, };
+readiness: Band | null, 
+/**
+ * The weight the last session was done at, when it was not this card's: said,
+ * so the card holding reads as a decision rather than as not noticing.
+ */
+offCardKg: number | null, };

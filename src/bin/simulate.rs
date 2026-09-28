@@ -24,6 +24,8 @@
 //! Usage (dev DB seeded from a prod dump — see scripts/simulate.sh):
 //!   DATABASE_URL=mysql://coach:coach@127.0.0.1:3308/coach cargo run --bin simulate
 //!   SIM_WEEKS     — how many weeks to walk forward (default 8)
+//!   SIM_AWAY_DAYS — days between the last real set and the walk (default 1); the
+//!                   athlete detrains over them, and a long one is a return
 //!   SIM_ATHLETE   — improver | plateauer | badweek | novice | strong | injured
 //!   SIM_BEHAVIOUR — compliant | skipper | partial | overachiever | improviser |
 //!                   heavier | sandbagger | layoff
@@ -669,6 +671,13 @@ async fn main() -> Result<()> {
         .transpose()
         .context("SIM_WEEKS must be a number")?
         .unwrap_or(8);
+    let away: i64 = std::env::var("SIM_AWAY_DAYS")
+        .ok()
+        .map(|w| w.parse())
+        .transpose()
+        .context("SIM_AWAY_DAYS must be a number")?
+        .unwrap_or(1)
+        .max(1);
     let temperament = {
         let raw = std::env::var("SIM_ATHLETE").unwrap_or_else(|_| "improver".into());
         match Temperament::parse(&raw) {
@@ -746,13 +755,18 @@ async fn main() -> Result<()> {
         .map(|e| (e.id, e.name.clone()))
         .collect();
 
-    let sim_start = hist.last().unwrap().logged_at.date() + Duration::days(1);
-    let sim_start_dt = sim_start.and_hms_opt(SESSION_HOUR, 0, 0).unwrap();
+    let last_day = hist.last().unwrap().logged_at.date();
+    let sim_start = last_day + Duration::days(away);
 
-    // The athlete's true ability opens at what the history says they can do
-    // today — the engine and the athlete agree at t0, then the temperament
-    // takes over.
-    let opening = ability::abilities(&hist, sim_start_dt);
+    // The athlete's true ability opens at what the history says they could do the
+    // day after it ends — the engine and the athlete agree there — and then pays
+    // for any days away (below), which the engine is not told.
+    let opening = ability::abilities(
+        &hist,
+        (last_day + Duration::days(1))
+            .and_hms_opt(SESSION_HOUR, 0, 0)
+            .unwrap(),
+    );
 
     // The injury lands on one muscle group, and hits every movement that group
     // is the prime mover for. Shoulders by preference — a tweaked shoulder is
@@ -783,10 +797,13 @@ async fn main() -> Result<()> {
         idle_days: 0,
         detrained: 0.0,
     };
+    for _ in 1..away {
+        athlete.spend_day(false);
+    }
 
     println!(
         "# coach simulation — user {user}, {temperament:?} athlete, {behaviour:?} behaviour, \
-         {sleep:?} recovery, {weeks} weeks from {sim_start}"
+         {sleep:?} recovery, {weeks} weeks from {sim_start} ({away} day(s) after the last set)"
     );
     if temperament == Temperament::Injured {
         println!(

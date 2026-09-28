@@ -1175,10 +1175,34 @@ two reps on an AMRAP or a build-up, one progression step on a hold or a carry. T
 card says why. The set is read as it stands, so the estimate starts low and the
 probes climb from there.
 
+## R8-8. A substitution named the wrong stand-in — FIXED
+
+"Instead of RDL" (trap bar, absent) sat on a snatch the cover chose for breadth, with
+`RDL (dumbbell)` doable. A doable variation of the ideal means nothing real blocks
+it, so no substitution is claimed then; the variation itself, when chosen, still
+carries the note.
+
+## R8-9. A session off the card's weight went unmentioned — FIXED
+
+The heavier athlete routed at 6 kg four times against a 5 kg card, and the card held
+in silence. Holding was right: a heavier bell with fewer reps is not a failure, and
+the ledger only moves on the card's weight. The card now says so ("Last time was at
+6 kg, not this card's weight — it moves when the reps at its weight say so").
+
+## Measuring the return
+
+The simulator can now start a walk some days after the last real set
+(`SIM_AWAY_DAYS`); the athlete detrains over them and the engine is not told. Three
+cells return after 63 days, as the real history stood. With R8-1 to R8-6 in, the
+return is safe with or without R8-7's reserve: no compliant athlete misses a card.
+The reserve costs about one point of final belief, and the overachiever five early
+misses: it starts from a lower measurement, beats it, and probes past its limit
+sooner. A probe one rep over the max is how a probe is meant to fail. What the
+reserve is for, a gentler first day after months away, the simulator cannot see:
+its athlete is never sore. The reserve never asks below one rep of what is believed.
+
 ## Still open
 
 - **A compliant athlete is believed at about 70% of their ability after eight
   weeks** (underclaim ~30%). Round 7 named this the margin that protects a return;
   the flip side is slow progress. Pippijn's call (2026-09-28): leave it for now.
-- **The substitution note can name the wrong stand-in**: "instead of RDL" (trap bar,
-  absent) sat on a snatch chosen for breadth, while `RDL (dumbbell)` was doable.

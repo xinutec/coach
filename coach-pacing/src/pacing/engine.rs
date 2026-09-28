@@ -408,8 +408,18 @@ fn prescribe(
 /// prescribes from it. `stale` is any decayed estimate we have — good enough to
 /// open a build-up safely, not good enough to prescribe from.
 fn assess(loaded: &Loaded, stale: Option<&Ability>, returning: bool) -> Measure {
+    // Never below one rep or one step of what is believed: "stop with two left" is
+    // nothing to do for someone whose last best was two.
     let (leave, leave_s, leave_m) = if returning {
-        (RETURN_RESERVE_REPS, HOLD_STEP_S, DISTANCE_STEP_M)
+        let best_reps = stale.and_then(|a| a.best_reps);
+        let best_hold = stale.and_then(|a| a.best_hold);
+        (
+            best_reps.map_or(RETURN_RESERVE_REPS, |b| {
+                RETURN_RESERVE_REPS.min(b - 1).max(0)
+            }),
+            best_hold.map_or(HOLD_STEP_S, |b| HOLD_STEP_S.min(b - HOLD_STEP_S).max(0)),
+            DISTANCE_STEP_M,
+        )
     } else {
         (0, 0, 0)
     };
@@ -861,6 +871,23 @@ fn blocked_ideal(
             weight(a).total_cmp(&weight(b)).then(b.id.cmp(&a.id)) // lower id wins ties (reverse in max)
         })?;
     if ideal.id == chosen_id {
+        return None;
+    }
+    // A doable variation of the ideal means nothing real blocks it: picking another
+    // movement over that is the cover's preference, not a substitution. The
+    // variation itself, when chosen, is the stand-in the note should name (R8-8).
+    let chosen_family = input
+        .exercises
+        .iter()
+        .find(|e| e.id == chosen_id)
+        .map(|e| &e.family);
+    let variation_doable = input.exercises.iter().any(|e| {
+        e.family == ideal.family
+            && !e.warmup
+            && kit.has_all(&e.equipment)
+            && loadable(e, &input.exercise_loads).is_some()
+    });
+    if chosen_family != Some(&ideal.family) && variation_doable {
         return None;
     }
     Some(Substitution {
@@ -1561,6 +1588,23 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     }
 }
 
+/// The heaviest weight of the exercise's last session, when the card names a
+/// different one.
+fn off_card(history: &[SetRec], id: ExerciseId, card: Option<f64>) -> Option<f64> {
+    let card = card?;
+    let last = history
+        .iter()
+        .filter(|s| s.exercise_id == id)
+        .map(|s| s.logged_at)
+        .max()?;
+    let used = history
+        .iter()
+        .filter(|s| s.exercise_id == id && s.logged_at.date() == last.date())
+        .filter_map(|s| s.load_kg)
+        .fold(None, |m: Option<f64>, l| Some(m.map_or(l, |m| m.max(l))))?;
+    ((used - card).abs() > 1e-9).then_some(used)
+}
+
 /// Cover today's need with the kit present: greedy set-cover over the doable
 /// catalog, each chosen exercise prescribed (trusted ability) or assessed
 /// (untrusted), then ordered into a session and led by a warm-up block.
@@ -1647,6 +1691,10 @@ fn plan_session(
                         }),
                         misses: feedback.consecutive_misses,
                         readiness: input.readiness.map(|r| r.band()),
+                        // A build-up's weight is where it starts, not a card to hold to.
+                        off_card_kg: (kind == SuggestionKind::Work)
+                            .then(|| off_card(history, c.ex.id, ask.load_kg()))
+                            .flatten(),
                     }),
                     (label_is_primary && stood_in.insert(ix))
                         .then(|| blocked_ideal(input, kit, &weight, groups.id[ix], c.ex.id))

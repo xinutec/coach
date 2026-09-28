@@ -231,6 +231,10 @@ export class Today {
     if (e.misses === 1) lines.push('Last session came up short — holding here rather than adding');
     else if (e.misses >= 2)
       lines.push(`${e.misses} sessions under target — backed the load off to rebuild`);
+    if (e.offCardKg !== null)
+      lines.push(
+        `Last time was at ${e.offCardKg} kg, not this card's weight — it moves when the reps at its weight say so`,
+      );
     if (e.readiness) {
       // States the reading; never urges intensity ("push") — the athlete
       // decides how hard, same rule as the headline (see engine day_note).
@@ -335,7 +339,7 @@ export class Today {
           : `Build up to a hard-but-clean set of ${a.reps}, then log the load and the reps.${side}`;
       case 'amrap':
         return a.leave
-          ? `Clean reps until you have about ${a.leave} left, then stop and log it. ${back}${side}`
+          ? `Clean reps until you have about ${a.leave} left (at least one), then stop and log it. ${back}${side}`
           : `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
       default:
         return `As many clean reps as you can — stop at form breakdown, then log it.${side}`;
