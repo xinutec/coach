@@ -64,8 +64,8 @@
               [attr.aria-label]="'Show ' + s.exerciseName"
               (click)="openDetail(s)"
             >
-              @if (hasImage(s.exerciseId)) {
-                <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+              @if (imageVersion(s.exerciseId); as v) {
+                <img [src]="imageUrl(s.exerciseId, v)" alt="" loading="lazy" />
               } @else {
                 <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
               }
@@ -108,8 +108,8 @@
                 [attr.aria-label]="'Show ' + s.exerciseName"
                 (click)="openDetail(s)"
               >
-                @if (hasImage(s.exerciseId)) {
-                  <img [src]="imageUrl(s.exerciseId)" alt="" loading="lazy" />
+                @if (imageVersion(s.exerciseId); as v) {
+                  <img [src]="imageUrl(s.exerciseId, v)" alt="" loading="lazy" />
                 } @else {
                   <span class="thumb-placeholder"><mat-icon>fitness_center</mat-icon></span>
                 }

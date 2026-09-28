@@ -96,7 +96,7 @@ pub async fn image(
 /// GET /api/exercises/{id}/loop → the generated 3D demo loop (immutable).
 ///
 /// A 404 here is ordinary: most exercises have a photograph and no loop. The
-/// client asks only when `hasLoop` says there is one.
+/// client asks only when `loopVersion` says there is one.
 pub async fn demo_loop(
     State(app): State<AppState>,
     AuthUser(_user): AuthUser,

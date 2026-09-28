@@ -40,8 +40,8 @@ function detail(over: Partial<ExerciseDetail> = {}): ExerciseDetail {
     demoUrl: 'https://youtu.be/3S5rnnI7VSs?t=11',
     summary: null,
     difficulty: 3,
-    hasImage: true,
-    hasLoop: false,
+    imageVersion: 'img1',
+    loopVersion: null,
     imageCredit: null,
     equipment: [],
     muscles: [],
@@ -100,8 +100,8 @@ function sheet(d: ExerciseDetail | null = detail()) {
         provide: CoachApi,
         useValue: {
           exercise: () => of(d),
-          exerciseImageUrl: (id: number) => `/api/exercises/${id}/image`,
-          exerciseLoopUrl: (id: number) => `/api/exercises/${id}/loop`,
+          exerciseImageUrl: (id: number, v: string) => `/api/exercises/${id}/image?v=${v}`,
+          exerciseLoopUrl: (id: number, v: string) => `/api/exercises/${id}/loop?v=${v}`,
         },
       },
     ],
@@ -319,7 +319,7 @@ describe('what the sheet says about a movement', () => {
   });
 
   it('shows no loop when the exercise has none', () => {
-    sheet(detail({ hasLoop: false }));
+    sheet(detail({ loopVersion: null }));
     // Queried off `document`, as the fullscreen panes above are: the
     // fixture's own `nativeElement` is `any` and every query through it
     // trips the unsafe-any lint.
@@ -327,18 +327,20 @@ describe('what the sheet says about a movement', () => {
   });
 
   it('plays the loop beside the picture, not instead of it', () => {
-    sheet(detail({ hasImage: true, hasLoop: true }));
-    expect(document.querySelector('video.loop')?.getAttribute('src')).toBe('/api/exercises/7/loop');
+    sheet(detail({ imageVersion: 'img1', loopVersion: 'loop1' }));
+    expect(document.querySelector('video.loop')?.getAttribute('src')).toBe(
+      '/api/exercises/7/loop?v=loop1',
+    );
     // The whole point of the decision: a loop must never cost us the photo.
     // Not `img.hero` — with a demo video the still sits inside the play
     // button and carries no class of its own. The claim is that the
     // photograph is still on screen, wherever the hero puts it.
-    expect(document.querySelector('img[src="/api/exercises/7/image"]')).not.toBeNull();
+    expect(document.querySelector('img[src="/api/exercises/7/image?v=img1"]')).not.toBeNull();
   });
 
   /** CC-BY-SA: a render derived from Z-Anatomy must say so wherever it shows. */
   it('credits the anatomy the loop is rendered from', () => {
-    sheet(detail({ hasLoop: true }));
+    sheet(detail({ loopVersion: 'loop1' }));
     const credit = document.querySelector('.credit');
     expect(credit?.textContent).toContain('Z-Anatomy');
     expect(credit?.textContent).toContain('CC BY-SA 4.0');
@@ -373,12 +375,12 @@ describe('what the sheet says about a movement', () => {
   });
 
   it('credits nothing when there is no loop', () => {
-    sheet(detail({ hasLoop: false }));
+    sheet(detail({ loopVersion: null }));
     expect(document.querySelector('.credit')).toBeNull();
   });
 
   it("points the picture at the exercise's own image", () => {
     const page = sheet().componentInstance;
-    expect(page.imageUrl(7)).toBe('/api/exercises/7/image');
+    expect(page.imageUrl(7, 'img1')).toBe('/api/exercises/7/image?v=img1');
   });
 });

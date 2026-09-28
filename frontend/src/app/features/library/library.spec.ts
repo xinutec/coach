@@ -28,7 +28,7 @@ function exercise(id: number, over: Partial<Exercise> = {}): Exercise {
     difficulty: null,
     isActive: true,
     equipment: [],
-    hasImage: false,
+    imageVersion: null,
     ...over,
   };
 }
@@ -63,7 +63,7 @@ function library(
         useValue: {
           exercises: () => of(catalog),
           equipment: () => of(kit),
-          exerciseImageUrl: (id: number) => `/api/exercises/${id}/image`,
+          exerciseImageUrl: (id: number, v: string) => `/api/exercises/${id}/image?v=${v}`,
         },
       },
       {
@@ -216,7 +216,7 @@ describe('what a card says', () => {
 
   it("points the thumbnail at the exercise's own image", () => {
     const { page } = library();
-    expect(page.imageUrl(3)).toBe('/api/exercises/3/image');
+    expect(page.imageUrl(3, 'img1')).toBe('/api/exercises/3/image?v=img1');
   });
 });
 

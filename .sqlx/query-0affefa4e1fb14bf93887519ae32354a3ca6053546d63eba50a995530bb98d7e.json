@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, e.implements, e.difficulty, e.is_active as `is_active!: bool`, (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id WHERE xe.exercise_id = e.id) AS equipment_csv, EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` FROM exercises e ORDER BY e.pattern, e.name, e.variation",
+  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, e.implements, e.difficulty, e.is_active as `is_active!: bool`, (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id WHERE xe.exercise_id = e.id) AS equipment_csv, (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) AS image_version FROM exercises e WHERE e.is_active = 1 ORDER BY e.pattern, e.name, e.variation",
   "describe": {
     "columns": [
       {
@@ -224,12 +224,12 @@
       },
       {
         "ordinal": 14,
-        "name": "has_image!: i64",
+        "name": "image_version",
         "type_info": {
-          "type": "Long",
-          "flags": "NOT_NULL | BINARY",
-          "collation": 63,
-          "max_size": 1
+          "type": "VarString",
+          "flags": "",
+          "collation": 45,
+          "max_size": 64
         },
         "origin": "Expression"
       }
@@ -252,8 +252,8 @@
       true,
       false,
       true,
-      false
+      true
     ]
   },
-  "hash": "b6e44b859a16669e804ec1abd8191645f535185a2690eccaa2f733c515bf67c0"
+  "hash": "0affefa4e1fb14bf93887519ae32354a3ca6053546d63eba50a995530bb98d7e"
 }

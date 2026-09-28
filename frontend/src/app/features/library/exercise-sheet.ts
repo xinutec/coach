@@ -130,11 +130,11 @@ export class ExerciseSheet {
     this.frameReady.set(false);
   }
 
-  imageUrl(id: number): string {
-    return this.api.exerciseImageUrl(id);
+  imageUrl(id: number, version: string): string {
+    return this.api.exerciseImageUrl(id, version);
   }
-  loopUrl(id: number): string {
-    return this.api.exerciseLoopUrl(id);
+  loopUrl(id: number, version: string): string {
+    return this.api.exerciseLoopUrl(id, version);
   }
   displayName(d: ExerciseDetail): string {
     return d.variation ? `${d.name} (${d.variation})` : d.name;

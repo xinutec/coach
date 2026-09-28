@@ -1,6 +1,6 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, e.unilateral as `unilateral!: bool`, e.is_active as `is_active!: bool`, e.cue, e.demo_url, e.summary, e.difficulty, EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64`, EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) AS `has_loop!: i64`, e.image_credit, e.image_credit_url FROM exercises e WHERE e.id = ?",
+  "query": "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.unilateral as `unilateral!: bool`, e.skill as `skill!: bool`, e.warmup as `warmup!: bool`, e.power as `power!: bool`, e.implements, e.difficulty, e.is_active as `is_active!: bool`, (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id WHERE xe.exercise_id = e.id) AS equipment_csv, (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) AS image_version FROM exercises e WHERE e.id = ?",
   "describe": {
     "columns": [
       {
@@ -101,22 +101,6 @@
       },
       {
         "ordinal": 6,
-        "name": "position",
-        "type_info": {
-          "type": "String",
-          "flags": "ENUM",
-          "collation": 45,
-          "max_size": 52
-        },
-        "origin": {
-          "Table": {
-            "table": "coach.exercises",
-            "name": "position"
-          }
-        }
-      },
-      {
-        "ordinal": 7,
         "name": "unilateral!: bool",
         "type_info": {
           "type": "Tiny",
@@ -132,8 +116,8 @@
         }
       },
       {
-        "ordinal": 8,
-        "name": "is_active!: bool",
+        "ordinal": 7,
+        "name": "skill!: bool",
         "type_info": {
           "type": "Tiny",
           "flags": "NOT_NULL",
@@ -143,60 +127,60 @@
         "origin": {
           "Table": {
             "table": "coach.exercises",
-            "name": "is_active"
+            "name": "skill"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "warmup!: bool",
+        "type_info": {
+          "type": "Tiny",
+          "flags": "NOT_NULL",
+          "collation": 63,
+          "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercises",
+            "name": "warmup"
           }
         }
       },
       {
         "ordinal": 9,
-        "name": "cue",
+        "name": "power!: bool",
         "type_info": {
-          "type": "VarString",
-          "flags": "",
-          "collation": 45,
-          "max_size": 2048
+          "type": "Tiny",
+          "flags": "NOT_NULL",
+          "collation": 63,
+          "max_size": 1
         },
         "origin": {
           "Table": {
             "table": "coach.exercises",
-            "name": "cue"
+            "name": "power"
           }
         }
       },
       {
         "ordinal": 10,
-        "name": "demo_url",
+        "name": "implements",
         "type_info": {
-          "type": "VarString",
-          "flags": "",
-          "collation": 45,
-          "max_size": 2048
+          "type": "Tiny",
+          "flags": "NOT_NULL",
+          "collation": 63,
+          "max_size": 4
         },
         "origin": {
           "Table": {
             "table": "coach.exercises",
-            "name": "demo_url"
+            "name": "implements"
           }
         }
       },
       {
         "ordinal": 11,
-        "name": "summary",
-        "type_info": {
-          "type": "VarString",
-          "flags": "",
-          "collation": 45,
-          "max_size": 1020
-        },
-        "origin": {
-          "Table": {
-            "table": "coach.exercises",
-            "name": "summary"
-          }
-        }
-      },
-      {
-        "ordinal": 12,
         "name": "difficulty",
         "type_info": {
           "type": "Tiny",
@@ -212,58 +196,42 @@
         }
       },
       {
-        "ordinal": 13,
-        "name": "has_image!: i64",
+        "ordinal": 12,
+        "name": "is_active!: bool",
         "type_info": {
-          "type": "Long",
-          "flags": "NOT_NULL | BINARY",
+          "type": "Tiny",
+          "flags": "NOT_NULL",
           "collation": 63,
           "max_size": 1
+        },
+        "origin": {
+          "Table": {
+            "table": "coach.exercises",
+            "name": "is_active"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "equipment_csv",
+        "type_info": {
+          "type": "Blob",
+          "flags": "",
+          "collation": 45,
+          "max_size": 16777216
         },
         "origin": "Expression"
       },
       {
         "ordinal": 14,
-        "name": "has_loop!: i64",
+        "name": "image_version",
         "type_info": {
-          "type": "Long",
-          "flags": "NOT_NULL | BINARY",
-          "collation": 63,
-          "max_size": 1
+          "type": "VarString",
+          "flags": "",
+          "collation": 45,
+          "max_size": 64
         },
         "origin": "Expression"
-      },
-      {
-        "ordinal": 15,
-        "name": "image_credit",
-        "type_info": {
-          "type": "VarString",
-          "flags": "",
-          "collation": 45,
-          "max_size": 1020
-        },
-        "origin": {
-          "Table": {
-            "table": "coach.exercises",
-            "name": "image_credit"
-          }
-        }
-      },
-      {
-        "ordinal": 16,
-        "name": "image_credit_url",
-        "type_info": {
-          "type": "VarString",
-          "flags": "",
-          "collation": 45,
-          "max_size": 2048
-        },
-        "origin": {
-          "Table": {
-            "table": "coach.exercises",
-            "name": "image_credit_url"
-          }
-        }
       }
     ],
     "parameters": {
@@ -276,18 +244,16 @@
       true,
       false,
       false,
-      true,
       false,
       false,
-      true,
-      true,
-      true,
-      true,
       false,
+      false,
+      false,
+      true,
       false,
       true,
       true
     ]
   },
-  "hash": "21e7a808d82667819722ffd886914ea5670a271e6e4d6e3f7cadd3de94639558"
+  "hash": "a2488d221a5626fc589f8797e93cb00425104e7f94cd8378ec8d8bdd64ba2a38"
 }

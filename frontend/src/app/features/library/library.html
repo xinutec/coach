@@ -24,8 +24,8 @@
   <div class="grid">
     @for (e of filtered(); track e.id) {
       <button class="card" (click)="open(e)">
-        @if (e.hasImage) {
-          <img class="thumb" [src]="imageUrl(e.id)" alt="" loading="lazy" />
+        @if (e.imageVersion; as v) {
+          <img class="thumb" [src]="imageUrl(e.id, v)" alt="" loading="lazy" />
         } @else {
           <div class="thumb placeholder"><mat-icon>fitness_center</mat-icon></div>
         }

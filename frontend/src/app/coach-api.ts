@@ -59,14 +59,15 @@ export class CoachApi {
   patchExercise(id: number, body: ExercisePatch): Observable<ExerciseDetail> {
     return this.http.patch<ExerciseDetail>(`/api/exercises/${id}`, body);
   }
-  /** URL of an exercise's demo image blob (immutable; ETag-cached by the browser). */
-  exerciseImageUrl(id: number): string {
-    return `/api/exercises/${id}/image`;
+  /** An exercise's picture. Served as immutable, so the version is in the URL: a
+   *  new render is a new URL rather than a year of the old one. */
+  exerciseImageUrl(id: number, version: string): string {
+    return `/api/exercises/${id}/image?v=${version}`;
   }
-  /** The generated 3D demo loop. Only ask when `hasLoop` says there is one:
-   *  most exercises have a photograph and no loop, and a 404 here is ordinary. */
-  exerciseLoopUrl(id: number): string {
-    return `/api/exercises/${id}/loop`;
+  /** The generated 3D demo loop, versioned the same way. Ask only when there is
+   *  a `loopVersion`: most exercises have a photograph and no loop. */
+  exerciseLoopUrl(id: number, version: string): string {
+    return `/api/exercises/${id}/loop?v=${version}`;
   }
 
   equipment(): Observable<Equipment[]> {

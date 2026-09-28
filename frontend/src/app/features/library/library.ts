@@ -65,8 +65,8 @@ export class LibraryPage {
     return this.equipmentNames().get(slug) ?? slug;
   }
   readonly capitalise = capitalise;
-  imageUrl(id: number): string {
-    return this.api.exerciseImageUrl(id);
+  imageUrl(id: number, version: string): string {
+    return this.api.exerciseImageUrl(id, version);
   }
   open(e: Exercise): void {
     this.sheet.open(ExerciseSheet, { data: { exerciseId: e.id } });

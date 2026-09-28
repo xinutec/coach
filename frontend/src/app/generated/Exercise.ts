@@ -3,7 +3,7 @@ import type { Metric } from "./Metric";
 import type { Pattern } from "./Pattern";
 
 /**
- * Lightweight catalog list item. Equipment as slugs; `has_image` gates the
+ * Lightweight catalog list item. Equipment as slugs; `image_version` gates the
  * thumbnail without shipping the blob.
  */
 export type Exercise = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, unilateral: boolean, 
@@ -28,4 +28,9 @@ implements: number,
  * How hard this variation is (1–5) relative to its pattern + primary group
  * — the rung it occupies on the variation ladder (G7).
  */
-difficulty: number | null, isActive: boolean, equipment: Array<string>, hasImage: boolean, };
+difficulty: number | null, isActive: boolean, equipment: Array<string>, 
+/**
+ * The picture's version, `None` without one. It goes in the picture's URL, which
+ * is cached as immutable: a new render must be a new URL.
+ */
+imageVersion: string | null, };

@@ -57,7 +57,7 @@ db_str!(Position {
     Lunge => "lunge",
 });
 
-/// Lightweight catalog list item. Equipment as slugs; `has_image` gates the
+/// Lightweight catalog list item. Equipment as slugs; `image_version` gates the
 /// thumbnail without shipping the blob.
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -86,7 +86,9 @@ pub struct Exercise {
     pub difficulty: Option<i32>,
     pub is_active: bool,
     pub equipment: Vec<String>,
-    pub has_image: bool,
+    /// The picture's version, `None` without one. It goes in the picture's URL, which
+    /// is cached as immutable: a new render must be a new URL.
+    pub image_version: Option<String>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -107,7 +109,7 @@ pub(crate) struct ExerciseListRow {
     pub difficulty: Option<i8>,
     pub is_active: bool,
     pub equipment_csv: Option<String>,
-    pub has_image: i64,
+    pub image_version: Option<String>,
 }
 
 impl TryFrom<ExerciseListRow> for Exercise {
@@ -134,7 +136,7 @@ impl TryFrom<ExerciseListRow> for Exercise {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.split(',').map(str::to_string).collect())
                 .unwrap_or_default(),
-            has_image: r.has_image != 0,
+            image_version: r.image_version,
         })
     }
 }
@@ -196,8 +198,11 @@ pub struct ExerciseDetail {
     pub demo_url: Option<String>,
     pub summary: Option<String>,
     pub difficulty: Option<i32>,
-    pub has_image: bool,
-    pub has_loop: bool,
+    /// The picture's version, `None` without one. It goes in the picture's URL, which
+    /// is cached as immutable: a new render must be a new URL.
+    pub image_version: Option<String>,
+    /// The loop's version, `None` without one; see `image_version`.
+    pub loop_version: Option<String>,
     /// Who the picture is owed to, when its licence asks to be credited.
     pub image_credit: Option<ImageCredit>,
     pub equipment: Vec<Equipment>,
@@ -231,8 +236,8 @@ pub(crate) struct ExerciseDetailRow {
     /// `tinyint(4)` in the schema, so `i8` here and widened on the way out: the
     /// row type says what the column actually is, as a checked query requires.
     pub difficulty: Option<i8>,
-    pub has_image: i64,
-    pub has_loop: i64,
+    pub image_version: Option<String>,
+    pub loop_version: Option<String>,
     pub image_credit: Option<String>,
     pub image_credit_url: Option<String>,
 }

@@ -591,6 +591,55 @@ async fn a_picture_added_later_reaches_an_existing_movement() {
     );
 }
 
+/// A loop is cached as immutable, so a re-render must reach the client under a new
+/// URL: the version it carries has to follow the bytes.
+#[tokio::test]
+async fn a_re_rendered_loop_gets_a_new_version() {
+    let pool = fresh("loopver").await;
+    let all = ex_repo::list(&pool, false).await.unwrap();
+    let id = all
+        .iter()
+        .find(|e| e.slug == "glute_bridge")
+        .expect("glute_bridge")
+        .id;
+    let current = ex_repo::detail(&pool, id)
+        .await
+        .unwrap()
+        .unwrap()
+        .loop_version;
+    assert!(current.is_some(), "glute_bridge ships a loop");
+
+    // The render a phone cached last week.
+    sqlx::query(
+        "UPDATE exercise_loops SET bytes = 'old', etag = REPEAT('0', 64) WHERE exercise_id = ?",
+    )
+    .bind(id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let old = ex_repo::detail(&pool, id)
+        .await
+        .unwrap()
+        .unwrap()
+        .loop_version;
+    assert_ne!(old, current);
+
+    sqlx::query("UPDATE catalog_state SET catalog_hash = 'stale' WHERE id = 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    seed::run(&pool, &catalog_dir()).await.expect("re-seeding");
+    let new = ex_repo::detail(&pool, id)
+        .await
+        .unwrap()
+        .unwrap()
+        .loop_version;
+    assert_eq!(
+        new, current,
+        "the re-seeded loop kept the old render's version"
+    );
+}
+
 /// The catalog bundle is the **source** and keeps its alpha; what the app is served
 /// is what the app can display. A transparent portrait diagram (dark line-art,
 /// 241×338) would otherwise fail twice: invisible on a dark theme, and cropped by

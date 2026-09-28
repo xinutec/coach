@@ -327,14 +327,14 @@ export class Today {
     }
   }
 
-  imageUrl(id: number): string {
-    return this.api.exerciseImageUrl(id);
+  imageUrl(id: number, version: string): string {
+    return this.api.exerciseImageUrl(id, version);
   }
-  /** A movement can be catalogued before anyone has found a picture of it. Asking
-   *  for the image anyway renders a broken-image glyph on the plan card, which
-   *  reads as a bug rather than as "not photographed yet". */
-  hasImage(id: number): boolean {
-    return this.exercises().find((e) => e.id === id)?.hasImage ?? false;
+  /** The picture's version, or null for a movement catalogued before anyone found
+   *  a picture of it: asking anyway renders a broken-image glyph, which reads as a
+   *  bug rather than as "not photographed yet". */
+  imageVersion(id: number): string | null {
+    return this.exercises().find((e) => e.id === id)?.imageVersion ?? null;
   }
 
   /** A single-arm movement's numbers are **per side** (one set is both arms), as

@@ -67,7 +67,7 @@ const EXERCISES = [
     unilateral: false,
     isActive: true,
     equipment: ['pull_up_bar'],
-    hasImage: false,
+    imageVersion: null,
   },
   {
     id: 6,
@@ -79,7 +79,7 @@ const EXERCISES = [
     unilateral: false,
     isActive: true,
     equipment: ['gymnastic_rings'],
-    hasImage: false,
+    imageVersion: null,
   },
   {
     id: 11,
@@ -91,7 +91,7 @@ const EXERCISES = [
     unilateral: false,
     isActive: true,
     equipment: ['dumbbell'],
-    hasImage: false,
+    imageVersion: null,
   },
 ];
 
@@ -282,7 +282,7 @@ const DETAIL = {
   demoUrl: null,
   summary: null,
   difficulty: 3,
-  hasImage: false,
+  imageVersion: null,
   equipment: [
     { id: 2, slug: 'gymnastic_rings', name: 'Gymnastic rings', category: 'rig', loadable: false },
   ],
@@ -411,8 +411,8 @@ test('exercise sheet — a credited picture and loop render clean @ phone', asyn
     r.fulfill({
       json: {
         ...DETAIL,
-        hasImage: true,
-        hasLoop: true,
+        imageVersion: 'img1',
+        loopVersion: 'loop1',
         imageCredit: {
           text: 'Anatomy from Z-Anatomy (based on BodyParts3D), CC BY-SA 4.0',
           url: 'https://github.com/Z-Anatomy',

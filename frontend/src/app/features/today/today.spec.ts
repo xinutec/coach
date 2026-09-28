@@ -35,7 +35,7 @@ function exercise(id: number, over: Partial<Exercise> = {}): Exercise {
     difficulty: null,
     isActive: true,
     equipment: [],
-    hasImage: false,
+    imageVersion: null,
     ...over,
   };
 }
@@ -110,7 +110,7 @@ function card(exercises: Exercise[] = []): Today {
           locationCurrent: () => of({ locationId: null }),
           pacingNow: () => of(pacing()),
           deleteSet: () => of(undefined),
-          exerciseImageUrl: (id: number) => `/api/exercises/${id}/image`,
+          exerciseImageUrl: (id: number, v: string) => `/api/exercises/${id}/image?v=${v}`,
         },
       },
       { provide: Sheets, useValue: { open: vi.fn() } },

@@ -9,7 +9,16 @@ import type { Position } from "./Position";
 /**
  * Full exercise view: scalar fields + equipment + muscles.
  */
-export type ExerciseDetail = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, position: Position | null, unilateral: boolean, isActive: boolean, cue: string | null, demoUrl: string | null, summary: string | null, difficulty: number | null, hasImage: boolean, hasLoop: boolean, 
+export type ExerciseDetail = { id: number, slug: string, name: string, variation: string | null, pattern: Pattern, metric: Metric, position: Position | null, unilateral: boolean, isActive: boolean, cue: string | null, demoUrl: string | null, summary: string | null, difficulty: number | null, 
+/**
+ * The picture's version, `None` without one. It goes in the picture's URL, which
+ * is cached as immutable: a new render must be a new URL.
+ */
+imageVersion: string | null, 
+/**
+ * The loop's version, `None` without one; see `image_version`.
+ */
+loopVersion: string | null, 
 /**
  * Who the picture is owed to, when its licence asks to be credited.
  */

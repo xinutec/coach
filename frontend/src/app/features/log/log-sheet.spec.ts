@@ -31,7 +31,7 @@ function exercise(id: number, over: Partial<Exercise> = {}): Exercise {
     difficulty: null,
     isActive: true,
     equipment: [],
-    hasImage: false,
+    imageVersion: null,
     ...over,
   };
 }

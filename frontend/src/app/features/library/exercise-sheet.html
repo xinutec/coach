@@ -19,8 +19,8 @@
              wire, so the tap lands on something rather than on a black box. -->
         @if (!frameReady()) {
           <div class="loading">
-            @if (d.hasImage) {
-              <img [src]="imageUrl(d.id)" alt="" />
+            @if (d.imageVersion; as v) {
+              <img [src]="imageUrl(d.id, v)" alt="" />
             }
             <mat-spinner diameter="40" />
           </div>
@@ -45,13 +45,13 @@
       (click)="play()"
       [attr.aria-label]="'Play the ' + d.name + ' demo'"
     >
-      @if (d.hasImage) {
-        <img [src]="imageUrl(d.id)" alt="" />
+      @if (d.imageVersion; as v) {
+        <img [src]="imageUrl(d.id, v)" alt="" />
       }
       <span class="play-badge"><mat-icon>play_arrow</mat-icon></span>
     </button>
-  } @else if (d.hasImage) {
-    <img class="hero" [src]="imageUrl(d.id)" [alt]="d.name" />
+  } @else if (d.imageVersion; as v) {
+    <img class="hero" [src]="imageUrl(d.id, v)" [alt]="d.name" />
   } @else {
     <!-- A movement can be catalogued before anyone found a true demo of it; say so rather than
          render a hole. -->
@@ -62,7 +62,7 @@
   }
   <!-- What the picture's licence asks to be credited with (a render derived
        from Z-Anatomy is CC BY-SA). The catalog says which pictures owe one. -->
-  @if (d.hasImage && d.imageCredit; as credit) {
+  @if (d.imageVersion && d.imageCredit; as credit) {
     <p class="credit">
       @if (credit.url) {
         <a [href]="credit.url" target="_blank" rel="noopener">{{ credit.text }}</a>
@@ -75,10 +75,10 @@
        the sourced pictures show what to do and took real work to gather, and a
        loop that comes out badly must not be able to cost us one. Muted and
        inline so it cannot take over the screen or make noise. -->
-  @if (d.hasLoop) {
+  @if (d.loopVersion; as v) {
     <video
       class="hero loop"
-      [src]="loopUrl(d.id)"
+      [src]="loopUrl(d.id, v)"
       autoplay
       loop
       muted

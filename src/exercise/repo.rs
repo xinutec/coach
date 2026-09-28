@@ -22,8 +22,8 @@ use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId};
 // query takes only a string literal, so it cannot be shared. The compiler catches
 // a column added or dropped in one copy, because all three fill one
 // `ExerciseListRow`, but NOT a copy whose expression changes while its alias and
-// type stay put — an EXISTS re-pointed at another table is the same `i64` called
-// `has_image`. `every_read_path_agrees` in tests/db.rs is the guard for that:
+// type stay put — a subquery re-pointed at another table is the same string called
+// `image_version`. `every_read_path_agrees` in tests/db.rs is the guard for that:
 // the same exercise, fetched three ways, must come back identical.
 
 pub async fn list(pool: &MySqlPool, include_inactive: bool) -> Result<Vec<Exercise>> {
@@ -36,7 +36,7 @@ pub async fn list(pool: &MySqlPool, include_inactive: bool) -> Result<Vec<Exerci
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
             WHERE xe.exercise_id = e.id) AS equipment_csv, \
-         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` \
+         (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) AS image_version \
              FROM exercises e ORDER BY e.pattern, e.name, e.variation"
         )
         .fetch_all(pool)
@@ -50,7 +50,7 @@ pub async fn list(pool: &MySqlPool, include_inactive: bool) -> Result<Vec<Exerci
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
             WHERE xe.exercise_id = e.id) AS equipment_csv, \
-         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` \
+         (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) AS image_version \
              FROM exercises e WHERE e.is_active = 1 \
              ORDER BY e.pattern, e.name, e.variation"
         )
@@ -69,7 +69,7 @@ pub async fn get(pool: &MySqlPool, id: i64) -> Result<Option<Exercise>> {
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM exercise_equipment xe JOIN equipment eq ON eq.id = xe.equipment_id \
             WHERE xe.exercise_id = e.id) AS equipment_csv, \
-         EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) AS `has_image!: i64` FROM exercises e WHERE e.id = ?",
+         (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) AS image_version FROM exercises e WHERE e.id = ?",
         id
     )
     .fetch_optional(pool)
@@ -84,10 +84,10 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         "SELECT e.id, e.slug, e.name, e.variation, e.pattern, e.metric, e.position, \
                 e.unilateral as `unilateral!: bool`, e.is_active as `is_active!: bool`, \
                 e.cue, e.demo_url, e.summary, e.difficulty, \
-                EXISTS(SELECT 1 FROM exercise_images i WHERE i.exercise_id = e.id) \
-                  AS `has_image!: i64`, \
-                EXISTS(SELECT 1 FROM exercise_loops l WHERE l.exercise_id = e.id) \
-                  AS `has_loop!: i64`, \
+                (SELECT LEFT(i.etag, 16) FROM exercise_images i WHERE i.exercise_id = e.id) \
+                  AS image_version, \
+                (SELECT LEFT(l.etag, 16) FROM exercise_loops l WHERE l.exercise_id = e.id) \
+                  AS loop_version, \
                 e.image_credit, e.image_credit_url \
          FROM exercises e WHERE e.id = ?",
         id
@@ -146,8 +146,8 @@ pub async fn detail(pool: &MySqlPool, id: i64) -> Result<Option<ExerciseDetail>>
         demo_url: row.demo_url,
         summary: row.summary,
         difficulty: row.difficulty.map(i32::from),
-        has_image: row.has_image != 0,
-        has_loop: row.has_loop != 0,
+        image_version: row.image_version,
+        loop_version: row.loop_version,
         // A URL with no words has nothing to show, so it is no credit.
         image_credit: row.image_credit.map(|text| ImageCredit {
             text,
