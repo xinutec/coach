@@ -7,18 +7,15 @@ import {
   Equipment,
   Exercise,
   ExerciseDetail,
-  ExercisePatch,
   Location,
   LocationPatch,
   Me,
   Muscle,
-  NewExercise,
   NewLocation,
   NewSet,
   PacingNow,
   Settings,
   SettingsPatch,
-  TelemetryEvent,
   WorkoutSet,
 } from './models';
 
@@ -35,29 +32,12 @@ export class CoachApi {
     return this.http.post('/logout', {});
   }
 
-  /**
-   * Send a batch of client events to be logged.
-   *
-   * Fire-and-forget at the call site: the caller subscribes with an empty error
-   * handler, because a trace that surfaces its own failures is a trace that
-   * interferes with the app it observes.
-   */
-  sendTelemetry(events: readonly TelemetryEvent[]): Observable<void> {
-    return this.http.post<void>('/api/telemetry', events);
-  }
-
   exercises(includeInactive = false): Observable<Exercise[]> {
     const q = includeInactive ? '?includeInactive=true' : '';
     return this.http.get<Exercise[]>(`/api/exercises${q}`);
   }
   exercise(id: number): Observable<ExerciseDetail> {
     return this.http.get<ExerciseDetail>(`/api/exercises/${id}`);
-  }
-  createExercise(body: NewExercise): Observable<ExerciseDetail> {
-    return this.http.post<ExerciseDetail>('/api/exercises', body);
-  }
-  patchExercise(id: number, body: ExercisePatch): Observable<ExerciseDetail> {
-    return this.http.patch<ExerciseDetail>(`/api/exercises/${id}`, body);
   }
   /** An exercise's picture. Served as immutable, so the version is in the URL: a
    *  new render is a new URL rather than a year of the old one. */
