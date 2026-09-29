@@ -27,7 +27,7 @@ RUN GIT_SHA="$GIT_SHA" node scripts/stamp-version.mjs
 RUN pnpm exec ng build --configuration production
 
 # --- backend: build the Rust binary (deps cached in their own layer) ---
-FROM rust:1-bookworm AS backend
+FROM rust:1.98-bookworm AS backend
 WORKDIR /app
 # Both manifests: the root is a workspace, so cargo won't even *load* it without
 # every member's Cargo.toml present — the priming build below fails on a missing

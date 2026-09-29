@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
-    container: rust:1-bookworm
+    container: rust:1.98-bookworm
     # tests/db.rs runs the real queries against a real schema: a SELECT that
     # drifts from its FromRow struct compiles and 500s in prod. It creates its
     # own coach_test_* scratch databases here, and fails loudly rather
