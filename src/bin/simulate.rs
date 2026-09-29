@@ -30,7 +30,7 @@
 //!   SIM_BEHAVIOUR — compliant | skipper | partial | overachiever | improviser |
 //!                   heavier | sandbagger | layoff
 //!   SIM_RECOVERY  — untracked | rested | roughweek (default untracked)
-//!   SIM_USER      — user id (default pippijn)
+//!   SIM_USER      — user id (default $USER)
 //!   SIM_LOCATION  — location by name (default: the user's default)
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -664,7 +664,9 @@ async fn main() -> Result<()> {
     let url = std::env::var("DATABASE_URL").context(
         "set DATABASE_URL to a dev DB seeded with a prod dump (see scripts/simulate.sh)",
     )?;
-    let user = std::env::var("SIM_USER").unwrap_or_else(|_| "pippijn".into());
+    let user = std::env::var("SIM_USER")
+        .or_else(|_| std::env::var("USER"))
+        .context("set SIM_USER to the account to simulate")?;
     let weeks: i64 = std::env::var("SIM_WEEKS")
         .ok()
         .map(|w| w.parse())

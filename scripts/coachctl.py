@@ -7,7 +7,7 @@ are both bad: writing SQL into the production database bypasses every check the
 backend enforces (foreign keys, slug resolution, the validation in the repo
 layer) and would let a typo write a set for an exercise that doesn't exist; and
 minting an API token creates a second, weaker way in that has to be secured
-forever. This does neither. It borrows the session Pippijn already has in the
+forever. This does neither. It borrows the session the user already has in the
 signed-in ChromeDebug profile and issues the *same* same-origin `fetch` calls the
 web UI issues — POST /api/sets, PATCH /api/locations, GET /api/pacing/now. There
 is no new credential, no new endpoint, no privileged access, and no code path that

@@ -41,7 +41,7 @@ The payoff is not coverage; sourced pictures already cover the catalog. It is:
 - **Illustration quality, not biomechanics.** Muscles need to *read* correctly in
   a pose, not simulate.
 - **Renders are judged by looking.** Pose quality is a visual call, made on the
-  frames against the floor slab, at both ends of every rep; Pippijn has the final
+  frames against the floor slab, at both ends of every rep; the user has the final
   say on how they look.
 - **Supplement, never replace.** The photograph stays exactly as it is and the
   loop is a second artifact beside it. The sourced pictures show what to do and

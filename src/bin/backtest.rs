@@ -37,7 +37,9 @@ async fn main() -> Result<()> {
     let url = std::env::var("DATABASE_URL").context(
         "set DATABASE_URL to a dev DB seeded with a prod dump (see scripts/backtest.sh)",
     )?;
-    let user = std::env::var("BACKTEST_USER").unwrap_or_else(|_| "pippijn".into());
+    let user = std::env::var("BACKTEST_USER")
+        .or_else(|_| std::env::var("USER"))
+        .context("set BACKTEST_USER to the account to replay")?;
 
     let pool = coach::db::connect(&url).await?;
     // Reconcile the *committed* catalog into the dev DB first (hash-gated, same as

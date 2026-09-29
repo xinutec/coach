@@ -2482,7 +2482,7 @@ fn a_met_target_with_a_card_open_names_the_card() {
 }
 
 // The first day back after a long break measures short of the limit: a first day of
-// near-maximal tests is a lot after months away (round 8, Pippijn's call). Only that
+// near-maximal tests is a lot after months away (round 8, the user's call). Only that
 // day; a movement gone stale in an active week still measures to the limit.
 fn push_up_measure(history: Vec<SetRec>) -> coach::pacing::types::Ask {
     let out = evaluate(

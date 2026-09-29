@@ -130,8 +130,8 @@ running server `GET /version` and requires it to equal HEAD. A rollout that
 succeeds proves a pod came up, not which image it came up on; `/version` is what
 proves the deploy.
 
-The k8s manifests live in the home monorepo (`xinutec/pippijn`
-`code/kubes/coach/k8s/`, generated from `dhall/apps/coach.dhall`). First time
+The k8s manifests live in the home monorepo
+(`code/kubes/coach/k8s/`, generated from `dhall/apps/coach.dhall`). First time
 only, from that checkout, on isis as root:
 
 ```sh

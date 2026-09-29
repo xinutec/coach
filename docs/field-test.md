@@ -1,6 +1,6 @@
 # Field test — a simulated session, played as the athlete
 
-On 2026-07-16 Claude played a full workout through the production UI as Pippijn
+On 2026-07-16 Claude played a full workout through the production UI as the user
 would: warm-ups, calibrations, work sets, honest fatigue (a target missed by a
 rep late in the session), logged through the plan cards and the manual dialog.
 Eleven sets across eight movements. This file records what a human athlete runs
@@ -481,7 +481,7 @@ honest answer.
 # Round 6 — one athlete was never the test
 
 Rounds 4 and 5 ran three athletes: `improver`, `plateauer`, `badweek`. All three
-are the *same person* — Pippijn's own logged history — on three ability curves,
+are the *same person* — the user's own logged history — on three ability curves,
 and all three do exactly what the card says, on every day it says to. That is one
 cell of a two-axis space, and it is the cell least likely to break anything.
 
@@ -1167,7 +1167,7 @@ there: an injury, a bad week, a plateau, a sandbagger. On the real history the
 back-test moves only the first work after a measurement, down by the probe it no
 longer adds; no weighted ask changed.
 
-## R8-7. The first day back measured to the limit — CHANGED (Pippijn's call)
+## R8-7. The first day back measured to the limit — CHANGED (the user's call)
 
 The first day after nine weeks away was eight near-maximal tests. On the first day
 back after a break longer than `BLOCK_GAP_WEEKS`, each measurement now stops short:
@@ -1223,7 +1223,7 @@ leaving early came back the next day. What only looking found:
 - **FIXED — "1 reps".**
 - **Open: a power lift gets a hypertrophy rep range.** The snatch was asked 2 × 10:
   arithmetically in reach, but a ballistic lift is trained at 3–5 reps, where form
-  holds. Changes prescriptions, so it needs the matrix and Pippijn's view.
+  holds. Changes prescriptions, so it needs the matrix and the user's view.
 - **Open, small:** the warm-up's tick looks like "done" before anything is done;
   the sheet stays on a one-set warm-up after it is logged; a first-day-back close
   could say the next session builds from these numbers; "aim 1, up to 12" reads
@@ -1233,4 +1233,4 @@ leaving early came back the next day. What only looking found:
 
 - **A compliant athlete is believed at about 70% of their ability after eight
   weeks** (underclaim ~30%). Round 7 named this the margin that protects a return;
-  the flip side is slow progress. Pippijn's call (2026-09-28): leave it for now.
+  the flip side is slow progress. The user's call (2026-09-28): leave it for now.
