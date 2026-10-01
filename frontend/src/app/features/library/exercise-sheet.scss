@@ -83,7 +83,7 @@
       object-fit: cover;
     }
     mat-spinner {
-      // dev-lint: allow-hardcoded-color spinner over a photo, not over a themed surface
+      // spinner over a photo, not over a themed surface
       --mdc-circular-progress-active-indicator-color: #fff;
       position: relative;
     }
