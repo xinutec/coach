@@ -1224,10 +1224,16 @@ leaving early came back the next day. What only looking found:
 - **A power lift got a hypertrophy rep range.** The snatch was asked 2 × 10:
   arithmetically in reach, but a ballistic lift is trained at 3–5 reps, where form
   holds. Fixed in round 9 ([R9-1](#r9-1-every-lift-got-the-same-rep-range--fixed)).
-- **Open, small:** the warm-up's tick looks like "done" before anything is done;
-  the sheet stays on a one-set warm-up after it is logged; a first-day-back close
-  could say the next session builds from these numbers; "aim 1, up to 12" reads
-  oddly at one rep.
+- **Small ones, fixed in round 9:** the warm-up's tick looked like "done" before
+  anything was (now an empty circle to tick); the sheet stayed on a one-set warm-up
+  after it was logged (it now moves to the next plan item once an item is done,
+  and a run of work sets still stays put); the first-day-back close now says the
+  next session builds from these numbers; "aim 1, up to 12 reps" reads "aim 1 rep,
+  building to 12".
+- **Kept: Balance counts a three-rep set as a set.** "Chest 6 / 6" after a few
+  push-ups and a dip on a return looked generous, but each was a calibration taken
+  near the limit, and a set near the limit is a hard set whatever its count; hard
+  sets are the volume unit the targets are written in.
 
 ## Still open
 

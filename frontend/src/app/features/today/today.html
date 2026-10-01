@@ -97,7 +97,11 @@
               "
               (click)="openLog(s)"
             >
-              <mat-icon>{{ s.logged.length >= s.sets ? 'add' : 'check' }}</mat-icon>
+              <!-- An empty circle to tick, not a tick: a bare ✓ read as "done"
+                   before anything was. -->
+              <mat-icon>{{
+                s.logged.length >= s.sets ? 'add' : 'radio_button_unchecked'
+              }}</mat-icon>
             </button>
           </mat-card-content>
         } @else {
@@ -165,14 +169,15 @@
                 <!-- One arm per shape the ask can take, so this can't render a
                    rep range for a carry or a load for a bodyweight lift. The low
                    end is the day's aim (demonstrated ability ± the day's
-                   adjustment), the high end the style ceiling — "3–12" read as a
-                   floor of 3, which invites the minimum. -->
+                   adjustment), the high end where the weight or the variation
+                   steps up — "3–12" read as a floor of 3, which invites the
+                   minimum. -->
                 @switch (s.ask.kind) {
                   @case ('weighted') {
                     @if (s.ask.repLow === s.ask.repHigh) {
                       · {{ s.ask.repLow }} reps
                     } @else {
-                      · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                      · {{ aimLine(s.ask.repLow, s.ask.repHigh) }}
                     }
                     · {{ s.ask.loadKg }} kg
                   }
@@ -180,7 +185,7 @@
                     @if (s.ask.repLow === s.ask.repHigh) {
                       · {{ s.ask.repLow }} reps
                     } @else {
-                      · aim {{ s.ask.repLow }}, up to {{ s.ask.repHigh }} reps
+                      · {{ aimLine(s.ask.repLow, s.ask.repHigh) }}
                     }
                   }
                   @case ('hold') {

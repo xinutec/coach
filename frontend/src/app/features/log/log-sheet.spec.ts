@@ -141,7 +141,8 @@ describe('the exercise list', () => {
   it('never lists one movement twice', () => {
     const { sheet } = open({
       exercises: [exercise(1), exercise(2)],
-      planPrefills: [{ exerciseId: 1 }],
+      // A ramp-in and its work sets: two plan items, one movement.
+      planPrefills: [{ exerciseId: 1 }, { exerciseId: 1 }],
     });
     expect(sheet.exercises.map((e) => e.id)).toEqual([1, 2]);
   });
@@ -327,6 +328,57 @@ describe('after a set lands', () => {
     sheet.save();
     sheet.done();
     expect(dismissed).toEqual([2]);
+  });
+});
+
+describe('when the item is done', () => {
+  // A warm-up is one set: staying on it after it lands makes the athlete pick
+  // the next movement by hand, every time (round 8's walk). A run of work sets
+  // stays put until its last set.
+  const plan = [
+    { exerciseId: 1, reps: 10, sets: 1 },
+    { exerciseId: 2, reps: 8, sets: 2 },
+    { exerciseId: 3, reps: 6, sets: 2 },
+  ];
+  const three = [exercise(1), exercise(2), exercise(3)];
+
+  it('moves on to the next planned item', () => {
+    const planPrefills = plan.map((p) => ({ ...p }));
+    const { sheet } = open({ exercises: three, planPrefills, prefill: planPrefills[0] });
+    sheet.save();
+    expect([sheet.exerciseId(), sheet.reps()]).toEqual([2, 8]);
+  });
+
+  it('stays on a run until its last set', () => {
+    const planPrefills = plan.map((p) => ({ ...p }));
+    const { sheet } = open({ exercises: three, planPrefills, prefill: planPrefills[1] });
+    sheet.save();
+    expect(sheet.exerciseId()).toBe(2);
+    sheet.save();
+    expect([sheet.exerciseId(), sheet.reps()]).toEqual([3, 6]);
+  });
+
+  it('goes from a ramp-in to the work sets of the same lift, at their weight', () => {
+    const planPrefills = [
+      { exerciseId: 1, reps: 8, loadKg: 20, sets: 1 },
+      { exerciseId: 1, reps: 8, loadKg: 40, sets: 2 },
+    ];
+    const { sheet } = open({
+      exercises: [exercise(1, { metric: 'weighted_reps' })],
+      planPrefills,
+      prefill: planPrefills[0],
+    });
+    sheet.save();
+    expect(sheet.loadKg()).toBe(40);
+  });
+
+  it('stays where it is after the last item', () => {
+    const planPrefills = plan.map((p) => ({ ...p }));
+    const { sheet } = open({ exercises: three, planPrefills, prefill: planPrefills[2] });
+    sheet.save();
+    sheet.save();
+    sheet.save();
+    expect([sheet.exerciseId(), sheet.reps()]).toEqual([3, 6]);
   });
 });
 

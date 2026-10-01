@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CoachApi } from '../../coach-api';
 import type { Ask, Exercise, Explanation, PacingNow, Suggestion } from '../../models';
+import type { LogSheetData } from '../log/log-sheet';
 import { Today } from './today';
 
 /** The card is where the engine's verdict becomes something a person reads
@@ -107,6 +108,7 @@ function card(
   exercises: Exercise[] = [],
   api: Record<string, unknown> = {},
   snack: Record<string, unknown> = {},
+  sheets: Record<string, unknown> = {},
 ): Today {
   TestBed.configureTestingModule({
     providers: [
@@ -122,7 +124,7 @@ function card(
           ...api,
         },
       },
-      { provide: Sheets, useValue: { open: vi.fn() } },
+      { provide: Sheets, useValue: { open: vi.fn(), ...sheets } },
       { provide: MatSnackBar, useValue: { open: vi.fn(), ...snack } },
     ],
   });
@@ -649,5 +651,43 @@ describe('a new best', () => {
     );
     expect(t.bestSummary(suggestion({ newBest: { ...set, holdS: 45 } }))).toBe('New best: 45s');
     expect(t.bestSummary(suggestion())).toBe('');
+  });
+});
+
+describe('opening the log on a plan item', () => {
+  // The sheet moves on by itself once an item is done, so it is handed the plan's
+  // unfinished items with the sets each has left, and starts on the one tapped.
+  it('hands the sheet the unfinished items, each with its sets left', () => {
+    const open = vi.fn<(sheet: unknown, config: { data: LogSheetData }) => void>();
+    const t = card([], {}, {}, { open });
+    const warm = suggestion({ exerciseId: 9, kind: 'warmup', sets: 1, ask: bodyweight(10, 10) });
+    const done = suggestion({
+      exerciseId: 4,
+      sets: 1,
+      logged: [{ reps: 8, loadKg: null, holdS: null, distanceM: null }],
+    });
+    const work = suggestion({
+      exerciseId: 5,
+      sets: 3,
+      logged: [{ reps: 8, loadKg: null, holdS: null, distanceM: null }],
+    });
+    t.pacing.set(pacing({ plan: [warm, done, work] }));
+
+    t.openLog(warm);
+
+    const data = open.mock.calls[0]?.[1].data;
+    expect(data?.planPrefills?.map((p) => [p.exerciseId, p.sets])).toEqual([
+      [9, 1],
+      [5, 2],
+    ]);
+    expect(data?.prefill).toBe(data?.planPrefills?.[0]);
+  });
+});
+
+describe('the rep range on a card', () => {
+  it('says the aim, and the count the climb builds to', () => {
+    const t = card();
+    expect(t.aimLine(1, 12)).toBe('aim 1 rep, building to 12');
+    expect(t.aimLine(6, 8)).toBe('aim 6 reps, building to 8');
   });
 });

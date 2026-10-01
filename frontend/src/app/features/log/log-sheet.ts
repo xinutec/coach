@@ -15,12 +15,17 @@ export interface LogPrefill {
   loadKg?: number | null;
   holdS?: number | null;
   distanceM?: number | null;
+  /** Sets of this plan item still to do; when the last one lands, the sheet moves
+   *  on to the next item. Absent off the plan. */
+  sets?: number;
 }
 export interface LogSheetData {
   exercises: Exercise[];
   prefill?: LogPrefill;
-  /** Today's prescriptions, one per planned exercise — switching the sheet to
-   *  a planned movement lands on its numbers; anything else starts blank. */
+  /** Today's unfinished plan items, in plan order: a lift's ramp-in and its work
+   *  sets are two. Switching to a planned movement lands on its first item's
+   *  numbers; anything else starts blank. `prefill`, when it is one of these
+   *  objects, is where the sheet starts in the plan. */
   planPrefills?: LogPrefill[];
   /** Called after each set lands, so the page behind can refresh while the
    *  sheet stays up. */
@@ -65,7 +70,7 @@ export class LogSheet {
    *  almost always one of these — then the rest alphabetically. */
   readonly exercises: Exercise[] = (() => {
     const all = this.data.exercises;
-    const planIds = (this.data.planPrefills ?? []).map((p) => p.exerciseId);
+    const planIds = [...new Set((this.data.planPrefills ?? []).map((p) => p.exerciseId))];
     const planned = planIds
       .map((id) => all.find((e) => e.id === id))
       .filter((e): e is Exercise => e !== undefined);
@@ -93,6 +98,12 @@ export class LogSheet {
   /** Sets logged since the sheet opened — the run this sheet represents. */
   readonly logged = signal(0);
 
+  private readonly plan = this.data.planPrefills ?? [];
+  /** The plan item being logged and the sets each has left: what moves the sheet
+   *  on once an item is done. -1 off the plan. */
+  private cursor = this.data.prefill ? this.plan.indexOf(this.data.prefill) : -1;
+  private readonly left = this.plan.map((p) => p.sets ?? 0);
+
   readonly selected = computed(
     () => this.exercises.find((e) => e.id === this.exerciseId()) ?? null,
   );
@@ -105,16 +116,37 @@ export class LogSheet {
    *  planned movement, blank otherwise. Nothing survives the switch: a stale
    *  value behind a *hidden* field would log invisibly (R2-1). */
   onExercise(id: number): void {
-    this.exerciseId.set(id);
-    this.error.set(null);
-    const p =
+    this.cursor = this.plan.findIndex((x, i) => x.exerciseId === id && (this.left[i] ?? 0) > 0);
+    this.fill(
+      id,
       this.data.prefill?.exerciseId === id
         ? this.data.prefill
-        : this.data.planPrefills?.find((x) => x.exerciseId === id);
+        : (this.plan[this.cursor] ?? this.plan.find((x) => x.exerciseId === id)),
+    );
+  }
+
+  private fill(id: number, p: LogPrefill | undefined): void {
+    this.exerciseId.set(id);
+    this.error.set(null);
     this.reps.set(p?.reps ?? null);
     this.loadKg.set(p?.loadKg ?? null);
     this.holdS.set(p?.holdS ?? null);
     this.distanceM.set(p?.distanceM ?? null);
+  }
+
+  /** A set of the current plan item landed: once it has none left, go to the next
+   *  item that does. A run stays put until its last set; after the last item, the
+   *  sheet stays where it is. */
+  private advance(): void {
+    const cur = this.cursor;
+    if (cur < 0 || this.plan[cur]?.exerciseId !== this.exerciseId()) return;
+    this.left[cur] = (this.left[cur] ?? 0) - 1;
+    if ((this.left[cur] ?? 0) > 0) return;
+    const next = this.plan.findIndex((_, i) => i > cur && (this.left[i] ?? 0) > 0);
+    const p = this.plan[next];
+    if (!p) return;
+    this.cursor = next;
+    this.fill(p.exerciseId, p);
   }
 
   /** `confirmed` re-sends a load the server queried, with the athlete's yes. */
@@ -146,12 +178,13 @@ export class LogSheet {
         confirmLoad: confirmed,
       })
       .subscribe({
-        // Keep the sheet up with the same numbers — the next set of a run is
-        // usually the same prescription. The page behind refreshes underneath.
+        // Keep the sheet up: the next set of a run is the same prescription, and
+        // a finished item hands over to the next. The page behind refreshes underneath.
         next: () => {
           this.logged.update((n) => n + 1);
           this.note.set('');
           this.saving.set(false);
+          this.advance();
           this.data.onLogged?.();
         },
         error: (err: unknown) => {

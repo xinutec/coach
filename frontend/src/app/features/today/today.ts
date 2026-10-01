@@ -305,6 +305,12 @@ export class Today {
     return `${bits.join(' · ')}${repsOnly ? ` ${unit}` : ''}${per}`;
   }
 
+  /** A rep range on a card: the day's aim, and the count that moves it up. "aim 1,
+   *  up to 12 reps" read as a limit rather than where the climb ends. */
+  aimLine(low: number, high: number): string {
+    return `aim ${low} ${repUnit(low)}, building to ${high}`;
+  }
+
   /** The set that beat every earlier one, as the pill says it: "New best: 9 reps". */
   bestSummary(s: Suggestion): string {
     const d = s.newBest;
@@ -418,20 +424,22 @@ export class Today {
    *  ramp-in before the work sets, the work sets after) — so switching the
    *  sheet to a planned movement lands on its prescription instead of
    *  whatever the last movement's fields held. */
-  private planPrefills(): LogPrefill[] {
-    const by = new Map<number, Suggestion>();
+  /** The plan's unfinished items, in order, each with the sets it has left — a
+   *  lift's ramp-in and its work sets are two — keyed by the item they came from. */
+  private planPrefills(): Map<Suggestion, LogPrefill> {
+    const out = new Map<Suggestion, LogPrefill>();
     for (const s of this.pacing()?.plan ?? []) {
-      const cur = by.get(s.exerciseId);
-      if (!cur || (cur.logged.length >= cur.sets && s.logged.length < s.sets))
-        by.set(s.exerciseId, s);
+      if (s.logged.length >= s.sets) continue;
+      out.set(s, {
+        exerciseId: s.exerciseId,
+        reps: askRepLow(s.ask),
+        loadKg: askLoadKg(s.ask),
+        holdS: askHoldS(s.ask),
+        distanceM: askDistanceM(s.ask),
+        sets: s.sets - s.logged.length,
+      });
     }
-    return [...by.values()].map((s) => ({
-      exerciseId: s.exerciseId,
-      reps: askRepLow(s.ask),
-      loadKg: askLoadKg(s.ask),
-      holdS: askHoldS(s.ask),
-      distanceM: askDistanceM(s.ask),
-    }));
+    return out;
   }
 
   /** Open the log sheet, optionally prefilled from a specific plan item. The
@@ -439,15 +447,18 @@ export class Today {
    *  that's almost always the set being logged (and it's changeable). */
   openLog(from?: Suggestion): void {
     const source = from ?? this.nextUp() ?? undefined;
+    const plan = this.planPrefills();
     const data: LogSheetData = {
       exercises: this.exercises(),
-      planPrefills: this.planPrefills(),
+      planPrefills: [...plan.values()],
       // Each set refreshes the plan underneath; the sheet itself stays up
       // for the rest of the run (it never self-dismisses — see LogSheet).
       onLogged: () => this.reloadPacing(),
     };
     if (source) {
-      data.prefill = {
+      // The plan's own entry when the item is unfinished, so the sheet knows where
+      // in the plan it starts; a finished one ("log another") is off the plan.
+      data.prefill = plan.get(source) ?? {
         exerciseId: source.exerciseId,
         reps: askRepLow(source.ask),
         loadKg: askLoadKg(source.ask),
