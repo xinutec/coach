@@ -1609,7 +1609,7 @@ fn off_card(history: &[SetRec], id: ExerciseId, asked: Option<f64>) -> Option<f6
 /// Cover today's need with the kit present: greedy set-cover over the doable
 /// catalog, each chosen exercise prescribed (trusted ability) or assessed
 /// (untrusted), then ordered into a session and led by a warm-up block.
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "each input of the set-cover, named"
 )]

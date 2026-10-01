@@ -416,7 +416,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
 }
 
 /// Insert one specifics row (resolving the equipment by slug) inside a tx.
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "one row's columns, inside the caller's transaction"
 )]

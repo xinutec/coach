@@ -11,7 +11,7 @@ pub fn count(n: usize) -> i32 {
 /// A whole number held as `f64` — already floored or rounded — as an `i32`.
 /// Rust's float-to-int conversion saturates at the bounds and maps NaN to 0, so
 /// there is no undefined value; the fraction is gone by the time it gets here.
-#[allow(
+#[expect(
     clippy::cast_possible_truncation,
     reason = "saturating by definition; callers round first"
 )]
@@ -20,7 +20,7 @@ pub fn whole(x: f64) -> i32 {
 }
 
 /// The same for a size or an index: negative and NaN become 0.
-#[allow(
+#[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "saturating by definition; callers round first"

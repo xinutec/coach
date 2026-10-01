@@ -58,14 +58,14 @@ impl<T: Copy> ByGroup<T> {
 // `ByGroup::iter` or by enumerating the group list these vectors are sized from.
 impl<T> core::ops::Index<GroupIx> for ByGroup<T> {
     type Output = T;
-    #[allow(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
+    #[expect(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
     fn index(&self, i: GroupIx) -> &T {
         &self.0[i.0]
     }
 }
 
 impl<T> core::ops::IndexMut<GroupIx> for ByGroup<T> {
-    #[allow(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
+    #[expect(clippy::indexing_slicing, reason = "GroupIx is in range by provenance")]
     fn index_mut(&mut self, i: GroupIx) -> &mut T {
         &mut self.0[i.0]
     }

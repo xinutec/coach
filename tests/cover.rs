@@ -18,10 +18,6 @@ fn vec_of(v: Vec<f64>) -> ByGroup<f64> {
     b
 }
 
-#[allow(
-    clippy::too_many_arguments,
-    reason = "a fixture builder spelling every knob of the scenario"
-)]
 fn cand(
     id: i64,
     credit: Vec<f64>,
