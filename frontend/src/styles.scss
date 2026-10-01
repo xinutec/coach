@@ -117,6 +117,11 @@ h3 {
   }
 }
 
+// A snackbar sits above the bottom navigation, as the FAB does, not over it.
+.mat-mdc-snack-bar-container.above-nav {
+  margin-bottom: calc(60px + env(safe-area-inset-bottom) + 0.5rem);
+}
+
 // The landscape demo player. The CDK overlay pane lives at body level (outside
 // any component), so its size has to be set globally; the player *inside* it is
 // this app's own markup and is styled in the sheet's stylesheet.

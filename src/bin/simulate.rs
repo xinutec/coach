@@ -858,6 +858,8 @@ async fn main() -> Result<()> {
             today_readiness,
             readiness_history.clone(),
             offers.clone(),
+            // The simulated athlete never says anything hurts.
+            Default::default(),
         );
         let verdict = engine::evaluate(&inp, now);
 

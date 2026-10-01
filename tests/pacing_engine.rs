@@ -177,6 +177,7 @@ fn input(
         readiness: None,
         readiness_history: Default::default(),
         offers: Default::default(),
+        hurts: Default::default(),
     }
 }
 
@@ -3804,10 +3805,11 @@ fn rack(ids: &[i64]) -> BTreeMap<ExerciseId, Vec<f64>> {
         .collect()
 }
 
+/// The work card for `id`, past the warm-up ramp that shares its id.
 fn work_for(out: &PacingNow, id: i64) -> &Suggestion {
     out.plan
         .iter()
-        .find(|s| s.exercise_id == ExerciseId(id))
+        .find(|s| s.exercise_id == ExerciseId(id) && s.kind != SuggestionKind::Warmup)
         .unwrap_or_else(|| panic!("{id} not in {:?}", out.plan))
 }
 
@@ -3907,5 +3909,129 @@ fn a_movement_underway_keeps_its_place_over_an_untried_one() {
         Some(ExerciseId(7)),
         "{:?}",
         out.plan
+    );
+}
+
+// ---- "this hurts" ----
+
+/// A chest ladder: knee push-up (1) → push-up (2) → archer push-up (3), and dips,
+/// which train chest too but sit on no ladder. Dips take the lowest id, so a tie goes
+/// to them.
+fn chest_ladder() -> Vec<ExerciseInfo> {
+    let rung = |id, name: &str, d| ExerciseInfo {
+        family: name.into(),
+        difficulty: Some(d),
+        ..ex(
+            id,
+            name,
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        )
+    };
+    vec![
+        ex(
+            1,
+            "Dip",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        rung(4, "Knee push-up", 1),
+        rung(2, "Push-up", 2),
+        rung(3, "Archer push-up", 3),
+    ]
+}
+
+/// Push-ups underway: three weeks of sessions.
+fn push_up_weeks() -> Vec<SetRec> {
+    [20, 16, 12, 9, 5]
+        .iter()
+        .flat_map(|d| {
+            [
+                bset(2, days_ago(*d), 10),
+                bset(2, days_ago(*d) + Duration::minutes(5), 10),
+            ]
+        })
+        .collect()
+}
+
+fn plan_ids(out: &PacingNow) -> Vec<ExerciseId> {
+    out.plan
+        .iter()
+        .filter(|s| s.kind != SuggestionKind::Warmup)
+        .map(|s| s.exercise_id)
+        .collect()
+}
+
+// A movement that hurts is rested, and so are the harder rungs of its ladder, which
+// load the same thing more. The group's need stays, so something else trains it, and
+// the easier rung is the coach's first choice: the same movement, less of it.
+#[test]
+fn a_movement_that_hurts_rests_and_an_easier_one_takes_its_place() {
+    let out = evaluate(
+        &PacingInput {
+            hurts: BTreeMap::from([(ExerciseId(2), days_ago(1))]),
+            ..input(Mode::Balanced, chest_ladder(), push_up_weeks(), None, None)
+        },
+        now(),
+    );
+    let ids = plan_ids(&out);
+    assert!(!ids.contains(&ExerciseId(2)), "the push-up rests: {ids:?}");
+    assert!(
+        !ids.contains(&ExerciseId(3)),
+        "and its harder rung: {ids:?}"
+    );
+    let at = |id| ids.iter().position(|&x| x == ExerciseId(id));
+    assert!(
+        at(4).is_some_and(|k| at(1).is_none_or(|d| k < d)),
+        "the easier rung is the first choice: {ids:?}"
+    );
+    assert!(
+        out.notices
+            .iter()
+            .any(|n| n.contains("Push-up") && n.contains("hurt")),
+        "{:?}",
+        out.notices
+    );
+}
+
+// Two weeks on, the movement is back, and the first session of it is eased: a set
+// that hurt is not a set to probe past.
+#[test]
+fn after_the_rest_the_movement_returns_eased() {
+    let row = |hurts| PacingInput {
+        groups: back_only(),
+        exercise_loads: owned(),
+        hurts,
+        ..input(
+            Mode::Balanced,
+            vec![barbell_row()],
+            vec![
+                wset(5, days_ago(20), 40.0, 6),
+                wset(5, days_ago(18), 40.0, 6),
+                wset(5, days_ago(16), 40.0, 6),
+            ],
+            None,
+            None,
+        )
+    };
+    let plain = evaluate(&row(BTreeMap::new()), now());
+    let back = evaluate(&row(BTreeMap::from([(ExerciseId(5), days_ago(15))])), now());
+    // Eased is lighter, or fewer reps at the same weight: never more of either.
+    let ask = |o: &PacingNow| {
+        let a = work_for(o, 5).ask;
+        (a.load_kg().unwrap(), a.rep_low().unwrap())
+    };
+    let ((bl, br), (pl, pr)) = (ask(&back), ask(&plain));
+    assert!(
+        bl <= pl && br <= pr && (bl, br) != (pl, pr),
+        "{:?} vs {:?}",
+        ask(&back),
+        ask(&plain)
     );
 }

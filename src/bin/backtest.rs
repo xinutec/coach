@@ -133,12 +133,14 @@ async fn main() -> Result<()> {
             .collect();
         let last_set_at = hist.iter().map(|s| s.logged_at).max();
         // No offers: this replays a history recorded before the coach wrote cards
-        // down, so every movement reads as never-offered rather than never-done.
+        // down, so every movement reads as never-offered rather than never-done. No
+        // hurts either, for the same reason.
         let inp = service::input_from(
             &ctx,
             hist.clone(),
             last_set_at,
             None,
+            Default::default(),
             Default::default(),
             Default::default(),
         );

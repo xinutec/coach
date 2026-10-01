@@ -56,6 +56,8 @@ const WARMUP_MIN_LOAD: f64 = 1.0;
 /// warm-up scales with the session, the heaviest groups get drills, and the tail warms
 /// up through the ramp-ins.
 const WARMUP_SETS_PER_DRILL: i32 = 3;
+/// Days a movement rests after the athlete says it hurt.
+pub const HURT_REST_DAYS: i64 = 14;
 /// A movement done within this many days is underway, and keeps its place in the
 /// session over an untried one; the preference fades to nothing by the second.
 const FAMILIAR_DAYS: f64 = 21.0;
@@ -566,6 +568,10 @@ impl cover::Ranked for Cand<'_> {
 /// The selectable candidates here: the catalog minus warm-up moves, absent kit, and
 /// lifts with no buildable load (which the service names in notices). Also where the
 /// variation ladder (G7) turns both ways, with notes that say so.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "each input of the candidate list, named"
+)]
 fn candidates<'a>(
     input: &'a PacingInput,
     kit: &Kit,
@@ -574,6 +580,7 @@ fn candidates<'a>(
     groups: &Groups,
     history: &[SetRec],
     now: NaiveDateTime,
+    hurts: &Hurts,
 ) -> (Vec<Cand<'a>>, Vec<String>) {
     // A movement underway scores higher, as a coach keeps the lifts an athlete is
     // building on: full credit while done within three weeks, fading to none at six,
@@ -715,8 +722,9 @@ fn candidates<'a>(
         };
         let confidence = ability::confidence_of(abilities, ex.id);
         let sessions = abilities.get(&ex.id).map_or(0, |a| a.sessions_recent);
-        // An outgrown ladder rung isn't selectable — its successor is (below).
-        if stepped_aside.contains(&ex.id) {
+        // An outgrown ladder rung isn't selectable — its successor is (below). Nor is
+        // a movement resting because it hurt.
+        if stepped_aside.contains(&ex.id) || hurts.resting.contains(&ex.id) {
             continue;
         }
         // Confirmation respects recovery as coverage does: scaled by the
@@ -742,7 +750,8 @@ fn candidates<'a>(
         };
         let novel = matches!(confidence, Confidence::None);
         // A movement being confirmed is meant to be repeated, however long ago it began.
-        let familiar = if confirm > 0.0 {
+        // So is one standing in for a movement that hurts.
+        let familiar = if confirm > 0.0 || hurts.easier.contains(&ex.id) {
             1.0
         } else {
             familiarity(ex.id)
@@ -791,6 +800,63 @@ fn rungs<'a>(
             && loadable(y, &input.exercise_loads).is_some())
         .then_some((yd, y))
     })
+}
+
+/// What the athlete's "this hurts" reports mean today.
+#[derive(Default)]
+struct Hurts {
+    /// Not offered: the movement, its family, and the harder rungs of its ladder,
+    /// which load the same thing more.
+    resting: alloc::collections::BTreeSet<ExerciseId>,
+    /// The next rung down from a resting movement: the same movement, less of it, so
+    /// the coach's first choice in its place.
+    easier: alloc::collections::BTreeSet<ExerciseId>,
+    /// Back from a rest and not done since: asked as on an eased day.
+    eased: alloc::collections::BTreeSet<ExerciseId>,
+    notes: Vec<String>,
+}
+
+/// Read the reports against `history` (the sets before this session) at `now`.
+fn hurts(input: &PacingInput, kit: &Kit, history: &[SetRec], now: NaiveDateTime) -> Hurts {
+    let mut out = Hurts::default();
+    for (id, at) in &input.hurts {
+        let Some(ex) = input.exercises.iter().find(|e| e.id == *id) else {
+            continue;
+        };
+        let back = *at + Duration::days(HURT_REST_DAYS);
+        if now < back {
+            out.resting.extend(
+                input
+                    .exercises
+                    .iter()
+                    .filter(|e| e.family == ex.family)
+                    .map(|e| e.id),
+            );
+            if let Some(d) = ex.difficulty {
+                out.resting.extend(
+                    rungs(ex, input, kit)
+                        .filter(|(yd, _)| *yd >= d)
+                        .map(|(_, y)| y.id),
+                );
+                out.easier
+                    .extend(easier_sibling(ex, d, input, kit).map(|e| e.id));
+            }
+            out.notes.push(format!(
+                "Resting {} until {}, since it hurt.",
+                ex.name,
+                back.format("%-d %b")
+            ));
+        } else if !history
+            .iter()
+            .any(|s| s.exercise_id == *id && s.logged_at >= back)
+        {
+            out.eased.insert(*id);
+        }
+    }
+    // A rung that hurts too is no stand-in.
+    let resting = out.resting.clone();
+    out.easier.retain(|id| !resting.contains(id));
+    out
 }
 
 /// The next rung up from `ex` (difficulty `d`): the nearest, not the top — outgrowing
@@ -1355,6 +1421,12 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
 
     // --- cover the need with the kit that's actually here ---
     // No location → we don't know what's doable, and we don't guess: no plan.
+    // Read at `now`, not at the session's start: a movement that hurts mid-session
+    // leaves the card straight away.
+    let hurts = input
+        .kit
+        .as_ref()
+        .map_or_else(Hurts::default, |kit| hurts(input, kit, &planning, now));
     let (mut plan, warmup_gaps, ladder_notes) = match &input.kit {
         Some(kit) => plan_session(
             input,
@@ -1367,6 +1439,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             &ex_by_id,
             &planning,
             plan_at,
+            &hurts,
         ),
         None => (Vec::new(), Vec::new(), Vec::new()),
     };
@@ -1434,6 +1507,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     if !plan.is_empty() {
         notices.extend(ladder_notes);
     }
+    // A rest the athlete asked for is said whether or not there is a session.
+    notices.extend(hurts.notes);
 
     // "Next up" for the nudge + Android trigger is the first *unfinished*
     // training item, not the warm-up that leads the visible plan and not
@@ -1625,9 +1700,12 @@ fn plan_session(
     ex_by_id: &BTreeMap<ExerciseId, &ExerciseInfo>,
     history: &[SetRec],
     now: NaiveDateTime,
+    hurts: &Hurts,
 ) -> (Vec<Suggestion>, Vec<String>, Vec<String>) {
     let skipped = neglected(&input.offers, history);
-    let (cands, ladder_notes) = candidates(input, kit, abilities, residuals, groups, history, now);
+    let (cands, ladder_notes) = candidates(
+        input, kit, abilities, residuals, groups, history, now, hurts,
+    );
     // The first day back after a long break — the same break that starts a new block
     // — measures short of the limit: after months away, a first day of near-maximal
     // tests is a lot.
@@ -1665,7 +1743,7 @@ fn plan_session(
                         mode: input.mode,
                         lift: Lift::of(c.ex),
                     },
-                    advance,
+                    advance && !hurts.eased.contains(&c.ex.id),
                     &feedback,
                 )),
             ),

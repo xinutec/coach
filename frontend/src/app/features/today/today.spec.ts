@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Sheets } from '@xinutec/ui-scaffold';
 import { of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -101,7 +102,11 @@ function pacing(over: Partial<PacingNow> = {}): PacingNow {
  *  verdict is set directly rather than fetched — every test below is about what
  *  the card *does* with a verdict, and routing one through the effect would only
  *  add a way for the test to be about the effect instead. */
-function card(exercises: Exercise[] = []): Today {
+function card(
+  exercises: Exercise[] = [],
+  api: Record<string, unknown> = {},
+  snack: Record<string, unknown> = {},
+): Today {
   TestBed.configureTestingModule({
     providers: [
       {
@@ -113,9 +118,11 @@ function card(exercises: Exercise[] = []): Today {
           pacingNow: () => of(pacing()),
           deleteSet: () => of(undefined),
           exerciseImageUrl: (id: number, v: string) => `/api/exercises/${id}/image?v=${v}`,
+          ...api,
         },
       },
       { provide: Sheets, useValue: { open: vi.fn() } },
+      { provide: MatSnackBar, useValue: { open: vi.fn(), ...snack } },
     ],
   });
   return TestBed.runInInjectionContext(() => new Today());
@@ -605,5 +612,25 @@ describe('a stored pick written by some other version of the app', () => {
     const t = card();
     TestBed.tick();
     expect(t.selectedLocationId()).toBeNull();
+  });
+});
+
+describe('this hurts', () => {
+  // A fact about a movement, not a rating: one tap rests it, and a mis-tap is one
+  // tap to undo.
+  it('rests the movement, re-plans, and takes it back on undo', () => {
+    const reportHurt = vi.fn(() => of(undefined));
+    const takeBackHurt = vi.fn(() => of(undefined));
+    const pacingNow = vi.fn(() => of(pacing()));
+    const open = vi.fn(() => ({ onAction: () => of(undefined) }));
+    const t = card([], { reportHurt, takeBackHurt, pacingNow }, { open });
+    pacingNow.mockClear();
+
+    t.reportHurt(suggestion({ exerciseId: 7, exerciseName: 'Push-up' }));
+
+    expect(reportHurt).toHaveBeenCalledWith(7);
+    expect(open).toHaveBeenCalledWith('Resting Push-up for two weeks', 'Undo', expect.anything());
+    expect(takeBackHurt).toHaveBeenCalledWith(7);
+    expect(pacingNow).toHaveBeenCalledTimes(2);
   });
 });

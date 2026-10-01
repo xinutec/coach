@@ -3,6 +3,7 @@
 //! `service` is the std shell: it assembles the engine input from the DB and
 //! applies the user's timezone.
 
+pub mod hurts;
 pub mod offers;
 pub mod service;
 

@@ -209,6 +209,9 @@
                   {{ isWhyOpen(s.exerciseId) ? 'Hide' : 'Why this?' }}
                 </button>
               }
+              <!-- A fact, not a rating: the movement rests and something easier takes
+                   its place. Quiet, like the reasoning toggle. -->
+              <button type="button" class="why-toggle" (click)="reportHurt(s)">This hurts</button>
             </div>
             @if (s.explanation; as e) {
               @if (isWhyOpen(s.exerciseId)) {

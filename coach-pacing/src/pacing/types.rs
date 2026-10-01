@@ -138,6 +138,9 @@ pub struct PacingInput {
     /// judges neglect; `history` records only what happened, and "offered twenty times,
     /// done zero" is a fact about cards (R6-4).
     pub offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
+    /// When the athlete last said each movement hurt (local time). A fact, not an
+    /// effort rating: the movement rests, and comes back eased.
+    pub hurts: BTreeMap<ExerciseId, NaiveDateTime>,
     /// Readiness on each past training day, for the ledger: an eased, under-recovered
     /// session judged as full-effort would count compliance as failure. A missing day
     /// is judged full-effort.

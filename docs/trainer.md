@@ -50,6 +50,14 @@ form breakdown", so `rir = 0` is true by construction, and working sets progress
 double progression. A missing RPE biases the estimate downward: conservative, never
 permissive.
 
+**"This hurts" is an observation too.** One tap on a card rests that movement for
+two weeks (`HURT_REST_DAYS`), with its family cousins and the harder rungs of its
+ladder, which load the same thing more. The groups' need stays, so the cover fills
+it with something else, and the next rung down is preferred: the same movement,
+less of it. A notice says what is resting and until when. The first session back is
+eased, as on a low-readiness day. It is a fact about a movement, not an effort
+rating, so nothing here asks how hard anything felt.
+
 **The UI is the trainer's voice, not its dashboard.** Today shows only what you need
 to do the next set: one status line, the coach's one sentence, the ordered plan, a
 log button. Engine internals surface on demand ("Why this?"), analysis lives in

@@ -4,6 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { Sheets } from '@xinutec/ui-scaffold';
 import { CoachApi } from '../../coach-api';
@@ -39,6 +40,7 @@ import { LogSheet, type LogPrefill, type LogSheetData } from '../log/log-sheet';
 export class Today {
   private api = inject(CoachApi);
   private sheet = inject(Sheets);
+  private snack = inject(MatSnackBar);
   private exercisesStore = inject(ExercisesStore);
   private locationsStore = inject(LocationsStore);
 
@@ -153,6 +155,24 @@ export class Today {
     this.confirmRemoveSetId.set(null);
     this.api.deleteSet(setId).subscribe({
       next: () => this.reloadPacing(),
+      error: () => this.reloadPacing(),
+    });
+  }
+
+  /** "This hurts": rest the movement and re-plan, with one tap to take it back. */
+  reportHurt(s: Suggestion): void {
+    const reload = { next: () => this.reloadPacing(), error: () => this.reloadPacing() };
+    this.api.reportHurt(s.exerciseId).subscribe({
+      next: () => {
+        this.reloadPacing();
+        this.snack
+          .open(`Resting ${s.exerciseName} for two weeks`, 'Undo', {
+            duration: 8000,
+            panelClass: 'above-nav',
+          })
+          .onAction()
+          .subscribe(() => this.api.takeBackHurt(s.exerciseId).subscribe(reload));
+      },
       error: () => this.reloadPacing(),
     });
   }

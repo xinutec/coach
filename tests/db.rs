@@ -13,8 +13,8 @@ use sqlx::{AssertSqlSafe, MySqlPool};
 use coach::exercise::repo as ex_repo;
 use coach::exercise::types::Metric;
 use coach::location::types::{EquipmentOption, NewLocation};
-use coach::pacing::service;
 use coach::pacing::types::SuggestionKind;
+use coach::pacing::{hurts, service};
 use coach::settings::types::SettingsPatch;
 use coach::workout::repo as workout_repo;
 use coach::workout::types::NewSet;
@@ -332,6 +332,61 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
     assert_eq!(
         workout_repo::list_recent(pool, u, 10).await.unwrap().len(),
         3
+    );
+}
+
+/// "This hurts", through the table and back: the movement leaves the card with a
+/// notice saying so, and taking it back returns it.
+#[tokio::test]
+async fn a_movement_that_hurts_leaves_the_card_until_taken_back() {
+    let pool = &fresh("hurts").await;
+    let u = "test-hurts";
+    let loc = location::repo::create(
+        pool,
+        u,
+        &NewLocation {
+            name: "Test gym".into(),
+            is_default: true,
+            equipment: vec!["pull_up_bar".into()],
+            equipment_options: vec![],
+            plates: vec![],
+            health_place_id: None,
+        },
+    )
+    .await
+    .unwrap();
+    let verdict = || service::now(pool, u, Some(loc.id), None, Default::default());
+    let on_card = |v: &coach::pacing::types::PacingNow, id| {
+        v.plan
+            .iter()
+            .any(|s| s.exercise_id == id && s.kind != SuggestionKind::Warmup)
+    };
+
+    let before = verdict().await.unwrap();
+    let ex = before
+        .plan
+        .iter()
+        .find(|s| s.kind != SuggestionKind::Warmup)
+        .expect("a plan")
+        .exercise_id;
+
+    hurts::record(pool, u, ex, Utc::now().naive_utc())
+        .await
+        .unwrap();
+    let resting = verdict().await.unwrap();
+    assert!(!on_card(&resting, ex), "still on the card");
+    assert!(
+        resting.notices.iter().any(|n| n.starts_with("Resting")),
+        "{:?}",
+        resting.notices
+    );
+
+    hurts::take_back(pool, u, ex, Utc::now().naive_utc() - Duration::days(14))
+        .await
+        .unwrap();
+    assert!(
+        on_card(&verdict().await.unwrap(), ex),
+        "not back after taking it back"
     );
 }
 

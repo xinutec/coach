@@ -88,6 +88,15 @@ export class CoachApi {
     return this.http.delete<void>(`/api/sets/${id}`);
   }
 
+  /** "This hurts": the movement rests, and the next verdict says until when. */
+  reportHurt(exerciseId: number): Observable<void> {
+    return this.http.post<void>(`/api/exercises/${exerciseId}/hurts`, {});
+  }
+  /** Take it back: a mis-tap, or it was fine after all. */
+  takeBackHurt(exerciseId: number): Observable<void> {
+    return this.http.delete<void>(`/api/exercises/${exerciseId}/hurts`);
+  }
+
   settings(): Observable<Settings> {
     return this.http.get<Settings>('/api/settings');
   }

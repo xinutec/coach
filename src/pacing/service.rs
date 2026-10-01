@@ -20,6 +20,7 @@ use crate::settings::types::Mode;
 use crate::workout::repo as workout_repo;
 
 use super::engine;
+use super::hurts;
 use super::offers;
 use super::types::{
     ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
@@ -281,6 +282,7 @@ pub fn input_from(
     readiness: Option<Readiness>,
     readiness_history: BTreeMap<NaiveDate, Readiness>,
     offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
+    hurts: BTreeMap<ExerciseId, NaiveDateTime>,
 ) -> PacingInput {
     PacingInput {
         mode: ctx.mode,
@@ -298,6 +300,7 @@ pub fn input_from(
         readiness,
         readiness_history,
         offers,
+        hurts,
     }
 }
 
@@ -346,6 +349,16 @@ pub async fn now(
     )
     .await?;
 
+    let hurts = hurts::since(
+        pool,
+        user_id,
+        Utc::now().naive_utc() - Duration::weeks(hurts::HURT_WEEKS),
+    )
+    .await?
+    .into_iter()
+    .map(|(ex, at)| (ex, to_local(at)))
+    .collect();
+
     let inp = input_from(
         &ctx,
         history,
@@ -353,6 +366,7 @@ pub async fn now(
         readiness,
         readiness_history,
         offers,
+        hurts,
     );
     let verdict = engine::evaluate(&inp, now_local);
 

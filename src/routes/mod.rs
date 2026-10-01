@@ -4,6 +4,7 @@ pub mod api;
 pub mod auth;
 pub mod equipment;
 pub mod exercises;
+pub mod hurts;
 pub mod locations;
 pub mod muscles;
 pub mod pacing;
@@ -77,6 +78,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/exercises/{id}/image", get(exercises::image))
         .route("/exercises/{id}/loop", get(exercises::demo_loop))
+        .route(
+            "/exercises/{id}/hurts",
+            post(hurts::report).delete(hurts::take_back),
+        )
         .route("/equipment", get(equipment::list))
         .route("/muscles", get(muscles::list))
         // Training locations (equipment inventories you can be "at")
