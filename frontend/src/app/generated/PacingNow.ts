@@ -2,6 +2,7 @@
 import type { GroupBalance } from "./GroupBalance";
 import type { PacingState } from "./PacingState";
 import type { Readiness } from "./Readiness";
+import type { Resting } from "./Resting";
 import type { Suggestion } from "./Suggestion";
 import type { WindowState } from "./WindowState";
 
@@ -40,4 +41,9 @@ plan: Array<Suggestion>,
  * What the athlete should know that isn't a set: kit left out for want of
  * registered weights, warm-up gaps, ladder steps.
  */
-notices: Array<string>, };
+notices: Array<string>, 
+/**
+ * Movements resting because the athlete said they hurt: typed, so the app can
+ * offer to end a rest early.
+ */
+resting: Array<Resting>, };

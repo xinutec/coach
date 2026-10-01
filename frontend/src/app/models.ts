@@ -37,6 +37,7 @@ export * from './generated/Plate';
 export * from './generated/Position';
 export * from './generated/Readiness';
 export * from './generated/Region';
+export * from './generated/Resting';
 export * from './generated/SetId';
 export * from './generated/Settings';
 export * from './generated/TelemetryEvent';

@@ -376,19 +376,21 @@ async fn a_movement_that_hurts_leaves_the_card_until_taken_back() {
         .unwrap();
     let resting = verdict().await.unwrap();
     assert!(!on_card(&resting, ex), "still on the card");
-    assert!(
-        resting.notices.iter().any(|n| n.starts_with("Resting")),
-        "{:?}",
-        resting.notices
+    assert_eq!(
+        resting
+            .resting
+            .iter()
+            .map(|r| r.exercise_id)
+            .collect::<Vec<_>>(),
+        [ex]
     );
 
     hurts::take_back(pool, u, ex, Utc::now().naive_utc() - Duration::days(14))
         .await
         .unwrap();
-    assert!(
-        on_card(&verdict().await.unwrap(), ex),
-        "not back after taking it back"
-    );
+    let back = verdict().await.unwrap();
+    assert!(on_card(&back, ex), "not back after taking it back");
+    assert!(back.resting.is_empty(), "{:?}", back.resting);
 }
 
 /// Each movement's best before today, decoded from real rows: the aggregates are

@@ -14,6 +14,7 @@ import type {
   EstimateSource,
   Explanation,
   PacingNow,
+  Resting,
   Substitution,
   Suggestion,
 } from '../../models';
@@ -173,6 +174,23 @@ export class Today {
           .onAction()
           .subscribe(() => this.api.takeBackHurt(s.exerciseId).subscribe(reload));
       },
+      error: () => this.reloadPacing(),
+    });
+  }
+
+  /** "Resting Push-up until 15 Oct, since it hurt." */
+  restingLine(r: Resting): string {
+    const until = new Date(`${r.until}T00:00:00`).toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+    });
+    return `Resting ${r.exerciseName} until ${until}, since it hurt.`;
+  }
+
+  /** End a rest early: the movement is back on the next verdict. */
+  endRest(r: Resting): void {
+    this.api.takeBackHurt(r.exerciseId).subscribe({
+      next: () => this.reloadPacing(),
       error: () => this.reloadPacing(),
     });
   }

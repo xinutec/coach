@@ -632,4 +632,18 @@ pub struct PacingNow {
     /// What the athlete should know that isn't a set: kit left out for want of
     /// registered weights, warm-up gaps, ladder steps.
     pub notices: Vec<String>,
+    /// Movements resting because the athlete said they hurt: typed, so the app can
+    /// offer to end a rest early.
+    pub resting: Vec<Resting>,
+}
+
+/// A movement resting because the athlete said it hurt, and the day it comes back.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct Resting {
+    pub exercise_id: ExerciseId,
+    pub exercise_name: String,
+    pub until: NaiveDate,
 }

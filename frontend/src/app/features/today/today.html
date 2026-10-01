@@ -278,6 +278,17 @@
   @for (n of p.notices; track n) {
     <p class="notice"><mat-icon>info</mat-icon> {{ n }}</p>
   }
+  <!-- A rest the athlete asked for, with the way out of it: "this hurts" is one
+       tap, so ending the rest early is one tap too. -->
+  @for (r of p.resting; track r.exerciseId) {
+    <p class="notice">
+      <mat-icon>info</mat-icon>
+      <span>
+        {{ restingLine(r) }}
+        <button type="button" class="why-toggle" (click)="endRest(r)">It's fine now</button>
+      </span>
+    </p>
+  }
 } @else if (loading()) {
   <mat-progress-bar mode="indeterminate" />
 }

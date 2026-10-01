@@ -264,6 +264,8 @@ const PACING = {
   notices: [
     "No weights registered here for Kettlebell — I've left its exercises out rather than guess a load.",
   ],
+  // A rest the athlete asked for, with its button to end it early.
+  resting: [{ exerciseId: 12, exerciseName: 'Bulgarian split squat', until: '2026-10-15' }],
 };
 
 // GET /api/exercises/6 — the library sheet's own fetch. The catch-all answers it

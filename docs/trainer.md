@@ -54,8 +54,8 @@ permissive.
 two weeks (`HURT_REST_DAYS`), with its family cousins and the harder rungs of its
 ladder, which load the same thing more. The groups' need stays, so the cover fills
 it with something else, and the next rung down is preferred: the same movement,
-less of it. A notice says what is resting and until when. The first session back is
-eased, as on a low-readiness day. It is a fact about a movement, not an effort
+less of it. A notice says what is resting and until when, with "It's fine now" to end
+the rest early. The first session back is eased, as on a low-readiness day. It is a fact about a movement, not an effort
 rating, so nothing here asks how hard anything felt.
 
 **It says when you've made progress.** A set that beats every earlier one of the

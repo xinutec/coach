@@ -41,6 +41,7 @@ function verdict(groups: GroupBalance[]): PacingNow {
     suggestion: null,
     plan: [],
     notices: [],
+    resting: [],
   };
 }
 

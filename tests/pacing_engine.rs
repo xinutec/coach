@@ -3992,12 +3992,19 @@ fn a_movement_that_hurts_rests_and_an_easier_one_takes_its_place() {
         at(4).is_some_and(|k| at(1).is_none_or(|d| k < d)),
         "the easier rung is the first choice: {ids:?}"
     );
-    assert!(
-        out.notices
-            .iter()
-            .any(|n| n.contains("Push-up") && n.contains("hurt")),
-        "{:?}",
-        out.notices
+    // Said as a rest the athlete can end, not a line of text.
+    let resting: Vec<_> = out
+        .resting
+        .iter()
+        .map(|r| (r.exercise_id, r.exercise_name.as_str(), r.until))
+        .collect();
+    assert_eq!(
+        resting,
+        [(
+            ExerciseId(2),
+            "Push-up",
+            (days_ago(1) + Duration::days(14)).date()
+        )]
     );
 }
 

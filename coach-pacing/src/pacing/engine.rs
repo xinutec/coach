@@ -32,7 +32,7 @@ use super::dose::{
 use super::residual::{self, Residual};
 use super::types::{
     Ask, Band, Blocker, DoneSet, EstimateSource, ExerciseInfo, Explanation, GroupBalance, Kit,
-    PacingInput, PacingNow, PacingState, SetRec, Substitution, Suggestion, SuggestionKind,
+    PacingInput, PacingNow, PacingState, Resting, SetRec, Substitution, Suggestion, SuggestionKind,
     WindowState,
 };
 
@@ -813,7 +813,8 @@ struct Hurts {
     easier: alloc::collections::BTreeSet<ExerciseId>,
     /// Back from a rest and not done since: asked as on an eased day.
     eased: alloc::collections::BTreeSet<ExerciseId>,
-    notes: Vec<String>,
+    /// The movements reported, for the athlete: the cousins rest with them unsaid.
+    reported: Vec<Resting>,
 }
 
 /// Read the reports against `history` (the sets before this session) at `now`.
@@ -841,11 +842,11 @@ fn hurts(input: &PacingInput, kit: &Kit, history: &[SetRec], now: NaiveDateTime)
                 out.easier
                     .extend(easier_sibling(ex, d, input, kit).map(|e| e.id));
             }
-            out.notes.push(format!(
-                "Resting {} until {}, since it hurt.",
-                ex.name,
-                back.format("%-d %b")
-            ));
+            out.reported.push(Resting {
+                exercise_id: ex.id,
+                exercise_name: ex.name.clone(),
+                until: back.date(),
+            });
         } else if !history
             .iter()
             .any(|s| s.exercise_id == *id && s.logged_at >= back)
@@ -1547,8 +1548,6 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     if !plan.is_empty() {
         notices.extend(ladder_notes);
     }
-    // A rest the athlete asked for is said whether or not there is a session.
-    notices.extend(hurts.notes);
 
     // "Next up" for the nudge + Android trigger is the first *unfinished*
     // training item, not the warm-up that leads the visible plan and not
@@ -1709,6 +1708,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         suggestion,
         plan,
         notices,
+        // A rest the athlete asked for is said whether or not there is a session.
+        resting: hurts.reported,
     }
 }
 

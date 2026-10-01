@@ -92,6 +92,7 @@ function pacing(over: Partial<PacingNow> = {}): PacingNow {
     suggestion: null,
     plan: [],
     notices: [],
+    resting: [],
     ...over,
   };
 }
@@ -689,5 +690,23 @@ describe('the rep range on a card', () => {
     const t = card();
     expect(t.aimLine(1, 12)).toBe('aim 1 rep, building to 12');
     expect(t.aimLine(6, 8)).toBe('aim 6 reps, building to 8');
+  });
+});
+
+describe('a rest the athlete asked for', () => {
+  const resting = { exerciseId: 7, exerciseName: 'Push-up', until: '2026-10-15' };
+
+  it('says what is resting and until when', () => {
+    expect(card().restingLine(resting)).toMatch(/^Resting Push-up until .*15.*, since it hurt\.$/);
+  });
+
+  it('ends early on one tap, and re-plans', () => {
+    const takeBackHurt = vi.fn(() => of(undefined));
+    const pacingNow = vi.fn(() => of(pacing()));
+    const t = card([], { takeBackHurt, pacingNow });
+    pacingNow.mockClear();
+    t.endRest(resting);
+    expect(takeBackHurt).toHaveBeenCalledWith(7);
+    expect(pacingNow).toHaveBeenCalledOnce();
   });
 });
