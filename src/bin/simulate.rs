@@ -857,9 +857,11 @@ async fn main() -> Result<()> {
             last_set_at,
             today_readiness,
             readiness_history.clone(),
-            offers.clone(),
-            // The simulated athlete never says anything hurts.
-            Default::default(),
+            // The simulated athlete never says anything hurts, and is never told of a best.
+            service::Record {
+                offers: offers.clone(),
+                ..Default::default()
+            },
         );
         let verdict = engine::evaluate(&inp, now);
 

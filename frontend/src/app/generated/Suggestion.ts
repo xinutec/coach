@@ -36,4 +36,9 @@ substitutedFor: Substitution | null,
  * Why this was chosen (deficit, recovery, ability, readiness). `None` for
  * warm-up items, which are prep rather than a reasoned prescription.
  */
-explanation: Explanation | null, };
+explanation: Explanation | null, 
+/**
+ * Today's strongest set of this movement, when it beat every earlier one by
+ * the movement's own measure.
+ */
+newBest: DoneSet | null, };

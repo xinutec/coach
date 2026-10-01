@@ -15,7 +15,7 @@ use crate::num::{count, whole};
 use crate::prelude::*;
 use alloc::collections::BTreeMap;
 
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 
 use crate::domain::Mode;
 use crate::domain::{EquipmentId, ExerciseId, GroupId};
@@ -1085,6 +1085,7 @@ fn build_warmup(
                 group: group_name.get(&g).cloned().unwrap_or_default(),
                 substituted_for: None,
                 explanation: None,
+                new_best: None,
             },
         ));
     }
@@ -1117,6 +1118,7 @@ fn build_warmup(
             group: w.group.clone(),
             substituted_for: None,
             explanation: None,
+            new_best: None,
         });
     }
 
@@ -1229,6 +1231,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     let mut live_current: BTreeMap<GroupId, f64> = BTreeMap::new();
     let mut live_unrecovered: BTreeMap<GroupId, f64> = BTreeMap::new();
     let mut done_today = 0i32;
+    // The week so far, Monday on: training days and work sets, for the close.
+    let week_start = today - Duration::days(i64::from(today.weekday().num_days_from_monday()));
+    let mut week_days: alloc::collections::BTreeSet<NaiveDate> = Default::default();
+    let mut week_sets = 0i32;
     let mut raw_hist = 0i32;
     let mut first_hist: Option<NaiveDateTime> = None;
     // The weeks *before* the rolling window — the only thing a "this week is a
@@ -1246,6 +1252,10 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         if set.logged_at.date() == today {
             done_today += 1;
+        }
+        if set.logged_at.date() >= week_start {
+            week_days.insert(set.logged_at.date());
+            week_sets += 1;
         }
         let live_age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
@@ -1464,6 +1474,18 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // the session boundary freezes the plan, but warm-ups logged in the afternoon are
     // still done in the evening. A session past midnight counts from its start.
     let day_start = now.date().and_time(NaiveTime::MIN);
+    // Back after a break long enough to start a new block: the weeks away, counted
+    // from the last set before today.
+    let back_after = input
+        .history
+        .iter()
+        .map(|s| s.logged_at)
+        .filter(|t| *t < day_start)
+        .max()
+        .map(|last| now - last)
+        .filter(|gap| *gap > Duration::weeks(ability::BLOCK_GAP_WEEKS))
+        .map(|gap| gap.num_weeks());
+    let trained_today = input.history.iter().any(|s| s.logged_at >= day_start);
     let from = session_start.map_or(day_start, |s| s.min(day_start));
     let mut logged: BTreeMap<ExerciseId, Vec<&SetRec>> = BTreeMap::new();
     for s in &input.history {
@@ -1489,6 +1511,24 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 distance_m: s.distance_m,
             })
             .collect();
+        // Any set of the day counts, the ones a ramp-in took and extras past the card
+        // included; the one named is the furthest past the old best.
+        if item.kind != SuggestionKind::Warmup
+            && let Some(best) = input.bests.get(&item.exercise_id)
+        {
+            item.new_best = input
+                .history
+                .iter()
+                .filter(|s| s.exercise_id == item.exercise_id && s.logged_at >= from)
+                .filter_map(|s| best.margin(s).map(|m| (m, s)))
+                .max_by(|(a, _), (b, _)| a.total_cmp(b))
+                .map(|(_, s)| DoneSet {
+                    reps: s.reps,
+                    load_kg: s.load_kg,
+                    hold_s: s.hold_s,
+                    distance_m: s.distance_m,
+                });
+        }
     }
     // Kit the coach had to leave out — worked out by the service, which knows why.
     // Only worth saying when there's a session for it to be a hole in.
@@ -1593,7 +1633,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             // Every committed item is done: close the session rather than call it a
             // rest day, even after the session gap. `done_today` excludes warm-ups, so
             // a day of only prep closes nothing.
-            "That's the session — nice work.".to_string()
+            close(&plan, back_after.is_some(), week_days.len(), week_sets)
         } else if resting {
             // A rest day the coach chose names its reason, or a vanished plan reads
             // as a broken app. An invitation: the log stays open.
@@ -1640,6 +1680,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     } else {
         String::new()
     };
+    // A return is greeted until its first set.
+    let reason = match back_after {
+        Some(weeks) if !trained_today => {
+            format!("Welcome back — {weeks} weeks since your last session. {reason}")
+        }
+        _ => reason,
+    };
     // Weave the day-state clause in when we're actually suggesting a set to do now.
     let suggesting_now = suggestion.is_some() && has_work && within_window && spacing_ok;
     let reason = match day_note {
@@ -1663,6 +1710,28 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         plan,
         notices,
     }
+}
+
+/// The session's closing line: the bests it set, what the next one builds on after a
+/// return, and the week so far.
+fn close(plan: &[Suggestion], returned: bool, week_days: usize, week_sets: i32) -> String {
+    let mut out = String::from("That's the session — nice work.");
+    let bests = plan.iter().filter(|s| s.new_best.is_some()).count();
+    if bests > 0 {
+        out.push_str(&format!(
+            " {bests} new best{} today.",
+            if bests == 1 { "" } else { "s" }
+        ));
+    }
+    if returned {
+        out.push_str(" Next time builds from today's numbers.");
+    }
+    out.push_str(&format!(
+        " This week: {week_days} session{}, {week_sets} set{}.",
+        if week_days == 1 { "" } else { "s" },
+        if week_sets == 1 { "" } else { "s" }
+    ));
+    out
 }
 
 /// The heaviest weight of the exercise's last session, when the card it was given
@@ -1813,6 +1882,7 @@ fn plan_session(
                 group,
                 substituted_for,
                 explanation,
+                new_best: None,
             },
             {
                 let n = skipped.contains(&c.ex.id);

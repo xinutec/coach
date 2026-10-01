@@ -88,6 +88,11 @@ mat-card {
     background: var(--mat-sys-primary-container);
     color: var(--mat-sys-on-primary-container);
   }
+  // A set today beat every earlier one of the movement.
+  .best-pill {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
 
   // Finished items and warm-ups collapse to `.compact` instead of being dimmed:
   // dimming costs contrast on text that is already `on-surface-variant`, and

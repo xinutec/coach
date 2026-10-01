@@ -10,7 +10,7 @@ use coach::muscle::types::{MuscleRole, Region};
 use coach::pacing::ability::Confidence;
 use coach::pacing::engine::evaluate;
 use coach::pacing::types::{
-    Band, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings,
+    Band, Best, Blocker, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings,
     PacingState, Readiness, SetRec, Suggestion, SuggestionKind, WindowState,
 };
 use coach::settings::types::Mode;
@@ -178,6 +178,7 @@ fn input(
         readiness_history: Default::default(),
         offers: Default::default(),
         hurts: Default::default(),
+        bests: Default::default(),
     }
 }
 
@@ -4033,5 +4034,132 @@ fn after_the_rest_the_movement_returns_eased() {
         "{:?} vs {:?}",
         ask(&back),
         ask(&plain)
+    );
+}
+
+// ---- progress talk ----
+
+/// The row with today's sets and the best before today.
+fn row_today(today: Vec<SetRec>, best: Option<Best>) -> PacingNow {
+    let mut h = vec![
+        wset(5, days_ago(9), 40.0, 6),
+        wset(5, days_ago(6), 40.0, 6),
+        wset(5, days_ago(3), 40.0, 6),
+    ];
+    h.extend(today);
+    evaluate(
+        &PacingInput {
+            groups: back_only(),
+            exercise_loads: owned(),
+            bests: best.map(|b| (ExerciseId(5), b)).into_iter().collect(),
+            ..input(Mode::Balanced, vec![barbell_row()], h, None, None)
+        },
+        now(),
+    )
+}
+
+// A set today that beats every set before it, by the movement's own measure, is
+// said: it is the clearest sign the training works.
+#[test]
+fn a_set_beating_every_earlier_one_is_a_new_best() {
+    let before = Best {
+        e1rm: Some(40.0 * (1.0 + 6.0 / 30.0)),
+        ..Best::default()
+    };
+    let beat = row_today(vec![wset(5, minutes_ago(20), 40.0, 8)], Some(before));
+    assert_eq!(
+        work_for(&beat, 5)
+            .new_best
+            .as_ref()
+            .map(|d| (d.load_kg, d.reps)),
+        Some((Some(40.0), Some(8))),
+        "{:?}",
+        work_for(&beat, 5)
+    );
+    let matched = row_today(vec![wset(5, minutes_ago(20), 40.0, 6)], Some(before));
+    assert!(
+        work_for(&matched, 5).new_best.is_none(),
+        "matching it is not beating it"
+    );
+    let first = row_today(vec![wset(5, minutes_ago(20), 40.0, 8)], None);
+    assert!(
+        work_for(&first, 5).new_best.is_none(),
+        "a first set has nothing to beat"
+    );
+}
+
+#[test]
+fn a_bodyweight_best_is_counted_in_reps() {
+    let h = vec![bset(1, days_ago(3), 10), bset(1, minutes_ago(20), 12)];
+    let out = evaluate(
+        &PacingInput {
+            bests: BTreeMap::from([(
+                ExerciseId(1),
+                Best {
+                    reps: Some(10),
+                    ..Best::default()
+                },
+            )]),
+            ..input(Mode::Balanced, catalog(), h, None, None)
+        },
+        now(),
+    );
+    assert_eq!(
+        work_for(&out, 1).new_best.as_ref().and_then(|d| d.reps),
+        Some(12),
+        "{:?}",
+        out.plan
+    );
+}
+
+// The first day back after a long break opens by saying so, until the first set.
+#[test]
+fn a_return_is_welcomed_until_the_first_set() {
+    let h = vec![set(1, days_ago(70)), set(2, days_ago(70))];
+    let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
+    assert!(
+        out.reason
+            .starts_with("Welcome back — 10 weeks since your last session."),
+        "{:?}",
+        out.reason
+    );
+}
+
+// The session closes with the week's picture.
+#[test]
+fn the_close_gives_the_weeks_picture() {
+    let out = rested_after_training_at(hours_ago(10));
+    assert!(
+        out.reason.contains("This week: 1 session, 15 sets."),
+        "{:?}",
+        out.reason
+    );
+}
+
+// The set named is the day's strongest, even when it came after the card's count:
+// round 9's walk logged 6 then 9 dips against a one-set card, beating a best of 8.
+#[test]
+fn the_best_named_is_the_strongest_set_of_the_day() {
+    let h = vec![
+        bset(1, days_ago(3), 8),
+        bset(1, minutes_ago(30), 6),
+        bset(1, minutes_ago(20), 9),
+    ];
+    let out = evaluate(
+        &PacingInput {
+            bests: BTreeMap::from([(
+                ExerciseId(1),
+                Best {
+                    reps: Some(8),
+                    ..Best::default()
+                },
+            )]),
+            ..input(Mode::Balanced, catalog(), h, None, None)
+        },
+        now(),
+    );
+    assert_eq!(
+        work_for(&out, 1).new_best.as_ref().and_then(|d| d.reps),
+        Some(9)
     );
 }

@@ -58,6 +58,14 @@ less of it. A notice says what is resting and until when. The first session back
 eased, as on a low-readiness day. It is a fact about a movement, not an effort
 rating, so nothing here asks how hard anything felt.
 
+**It says when you've made progress.** A set that beats every earlier one of the
+movement (by the Epley estimate for loaded reps, reps for bodyweight, seconds for a
+hold) is named on its card: "New best: 9 reps". "Earlier" is the whole log, not the
+loaded window, so a return cannot claim a best it has only forgotten. The first day
+back after a long break opens with "Welcome back — N weeks since your last
+session." The session closes with its bests, and the week so far: "This week: 3
+sessions, 24 sets."
+
 **The UI is the trainer's voice, not its dashboard.** Today shows only what you need
 to do the next set: one status line, the coach's one sentence, the ordered plan, a
 log button. Engine internals surface on demand ("Why this?"), analysis lives in

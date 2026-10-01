@@ -483,6 +483,41 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
   await expectNoHorizontalOverflow(page, testInfo);
 });
 
+// A set that beats every earlier one is named on its row, which at phone width
+// already carries a name, a receipt and an action.
+test('today — a new best is named on its finished row @ phone', async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.route('**/api/pacing/now*', (r) =>
+    r.fulfill({
+      json: {
+        ...PACING,
+        plan: [
+          ...PACING.plan,
+          {
+            exerciseId: 7,
+            exerciseName: 'Pull-up (bar)',
+            pattern: 'pull',
+            kind: 'work',
+            sets: 2,
+            logged: [
+              { reps: 6, loadKg: null, holdS: null, distanceM: null },
+              { reps: 7, loadKg: null, holdS: null, distanceM: null },
+            ],
+            ask: { kind: 'bodyweight', repLow: 6, repHigh: 12 },
+            group: 'Lats',
+            substitutedFor: null,
+            newBest: { reps: 7, loadKg: null, holdS: null, distanceM: null },
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto('/today');
+  await page.locator('.suggestion.compact.done .best-pill').waitFor();
+  await expectNoTextOverlaps(page, testInfo);
+  await expectNoHorizontalOverflow(page, testInfo);
+});
+
 // Mid-session the screen must show the work, not the receipts: finished items and
 // warm-ups render as compact rows, so the first unfinished card is above the fold.
 // The question is "what now?", not "what have I done?".

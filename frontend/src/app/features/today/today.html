@@ -84,6 +84,9 @@
                 }
                 <!-- What happened beats what was asked, once there's a what. -->
                 {{ s.logged.length ? loggedSummary(s) : compactDose(s) }}
+                @if (s.newBest) {
+                  <span class="pill best-pill">{{ bestSummary(s) }}</span>
+                }
               </div>
             </div>
             <button
@@ -126,6 +129,9 @@
                      work or a calibration. -->
                   @if (s.kind === 'assess') {
                     <span class="pill assess-pill"><mat-icon>science</mat-icon> Calibrate</span>
+                  }
+                  @if (s.newBest) {
+                    <span class="pill best-pill">{{ bestSummary(s) }}</span>
                   }
                 </div>
                 <h3>

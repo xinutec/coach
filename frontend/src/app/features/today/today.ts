@@ -305,6 +305,17 @@ export class Today {
     return `${bits.join(' · ')}${repsOnly ? ` ${unit}` : ''}${per}`;
   }
 
+  /** The set that beat every earlier one, as the pill says it: "New best: 9 reps". */
+  bestSummary(s: Suggestion): string {
+    const d = s.newBest;
+    if (!d) return '';
+    const per = this.perSide(s.exerciseId) ? ' each side' : '';
+    if (d.loadKg !== null && d.reps !== null) return `New best: ${d.loadKg} kg × ${d.reps}${per}`;
+    if (d.reps !== null) return `New best: ${d.reps} ${repUnit(d.reps)}${per}`;
+    if (d.holdS !== null) return `New best: ${d.holdS}s${per}`;
+    return 'New best';
+  }
+
   /** The dose on a compact row: short enough for one line beside the name.
    *  Only ever the *ask* — once there's something logged, `loggedSummary` says
    *  what happened instead, which is the more useful of the two. */

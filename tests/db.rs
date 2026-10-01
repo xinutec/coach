@@ -7,7 +7,8 @@
 //! `COACH_TEST_DATABASE_URL` in CI. It fails loudly without one rather than skipping,
 //! since a skipped test reports coverage it isn't providing.
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, SubsecRound, Utc};
+use coach_pacing::domain::ExerciseId;
 use sqlx::{AssertSqlSafe, MySqlPool};
 
 use coach::exercise::repo as ex_repo;
@@ -387,6 +388,67 @@ async fn a_movement_that_hurts_leaves_the_card_until_taken_back() {
     assert!(
         on_card(&verdict().await.unwrap(), ex),
         "not back after taking it back"
+    );
+}
+
+/// Each movement's best before today, decoded from real rows: the aggregates are
+/// expressions, whose column types are the server's choice.
+#[tokio::test]
+async fn the_bests_before_today_read_back_from_real_sets() {
+    let pool = &fresh("bests").await;
+    let u = "test-bests";
+    let catalog = ex_repo::list(pool, false).await.unwrap();
+    let of = |m: Metric| {
+        catalog
+            .iter()
+            .find(|e| e.metric == m && !e.warmup)
+            .unwrap()
+            .id
+    };
+    let (lift, reps, hold) = (of(Metric::WeightedReps), of(Metric::Reps), of(Metric::Hold));
+    // Whole seconds, as a DATETIME stores it, so the cut-off below is exact.
+    let at = (Utc::now().naive_utc() - Duration::days(2)).trunc_subsecs(0);
+    let log = |exercise_id, metric, reps, load_kg, hold_s| {
+        let set = NewSet {
+            exercise_id,
+            reps,
+            load_kg,
+            hold_s,
+            distance_m: None,
+            rpe: None,
+            note: None,
+            logged_at: Some(at),
+            confirm_load: None,
+        }
+        .validate(metric)
+        .unwrap();
+        async move { workout_repo::create(pool, u, &set).await }
+    };
+    log(lift, Metric::WeightedReps, Some(6), Some(40.0), None)
+        .await
+        .unwrap();
+    log(lift, Metric::WeightedReps, Some(3), Some(42.0), None)
+        .await
+        .unwrap();
+    log(reps, Metric::Reps, Some(12), None, None).await.unwrap();
+    log(hold, Metric::Hold, None, None, Some(45)).await.unwrap();
+
+    let bests = workout_repo::bests_before(pool, u, Utc::now().naive_utc())
+        .await
+        .unwrap();
+    let e1rm = bests[&ExerciseId(lift)].e1rm.unwrap();
+    assert!(
+        (e1rm - 48.0).abs() < 1e-9,
+        "40 x 6 is the stronger set: {e1rm}"
+    );
+    assert_eq!(bests[&ExerciseId(reps)].reps, Some(12));
+    assert_eq!(bests[&ExerciseId(hold)].hold_s, Some(45));
+    assert!(
+        workout_repo::bests_before(pool, u, at)
+            .await
+            .unwrap()
+            .is_empty(),
+        "a set at the cut-off is not before it"
     );
 }
 

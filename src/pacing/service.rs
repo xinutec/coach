@@ -23,7 +23,7 @@ use super::engine;
 use super::hurts;
 use super::offers;
 use super::types::{
-    ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
+    Best, ExerciseInfo, GroupMeta, Kit, PacingInput, PacingNow, PacingSettings, Readiness, SetRec,
     SuggestionKind,
 };
 use coach_pacing::domain::{EquipmentId, ExerciseId, GroupId, SetId};
@@ -272,6 +272,16 @@ fn kit_notices(
     out
 }
 
+/// What the athlete's record holds besides the sets: the cards offered, the
+/// movements reported hurting, and each movement's best before today. The replay
+/// tools have none of it, and pass the default.
+#[derive(Default)]
+pub struct Record {
+    pub offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
+    pub hurts: BTreeMap<ExerciseId, NaiveDateTime>,
+    pub bests: BTreeMap<ExerciseId, Best>,
+}
+
 /// Combine a context with a (local-tz) history slice + biometric readiness into
 /// an engine input. Clones the catalog/group/inventory so the same context can
 /// drive many verdicts (the back-test replays one per training day).
@@ -281,8 +291,7 @@ pub fn input_from(
     last_set_at: Option<NaiveDateTime>,
     readiness: Option<Readiness>,
     readiness_history: BTreeMap<NaiveDate, Readiness>,
-    offers: BTreeMap<ExerciseId, Vec<NaiveDate>>,
-    hurts: BTreeMap<ExerciseId, NaiveDateTime>,
+    record: Record,
 ) -> PacingInput {
     PacingInput {
         mode: ctx.mode,
@@ -299,8 +308,9 @@ pub fn input_from(
         notices: ctx.notices.clone(),
         readiness,
         readiness_history,
-        offers,
-        hurts,
+        offers: record.offers,
+        hurts: record.hurts,
+        bests: record.bests,
     }
 }
 
@@ -359,14 +369,25 @@ pub async fn now(
     .map(|(ex, at)| (ex, to_local(at)))
     .collect();
 
+    // Bests from before today, over the whole log: the day starts at local midnight.
+    let day_start_utc = ctx
+        .tz
+        .from_local_datetime(&now_local.date().and_time(chrono::NaiveTime::MIN))
+        .earliest()
+        .map_or_else(|| Utc::now().naive_utc(), |t| t.naive_utc());
+    let bests = workout_repo::bests_before(pool, user_id, day_start_utc).await?;
+
     let inp = input_from(
         &ctx,
         history,
         last_set_at,
         readiness,
         readiness_history,
-        offers,
-        hurts,
+        Record {
+            offers,
+            hurts,
+            bests,
+        },
     );
     let verdict = engine::evaluate(&inp, now_local);
 

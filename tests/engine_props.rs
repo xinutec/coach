@@ -147,6 +147,7 @@ fn build_input(mode_i: usize, days_per_week: i32, raw: &[RawSet], owned: &[f64])
         readiness_history: Default::default(),
         offers: Default::default(),
         hurts: Default::default(),
+        bests: Default::default(),
     }
 }
 

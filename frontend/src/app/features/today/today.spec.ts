@@ -53,6 +53,7 @@ function suggestion(over: Partial<Suggestion> = {}): Suggestion {
     group: 'Chest',
     substitutedFor: null,
     explanation: null,
+    newBest: null,
     ...over,
   };
 }
@@ -632,5 +633,21 @@ describe('this hurts', () => {
     expect(open).toHaveBeenCalledWith('Resting Push-up for two weeks', 'Undo', expect.anything());
     expect(takeBackHurt).toHaveBeenCalledWith(7);
     expect(pacingNow).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a new best', () => {
+  // The pill names the set, which need not be the one on the row's receipt: an
+  // extra set past the card's count can be the best of the day.
+  it('names the set that beat every earlier one, in its own measure', () => {
+    const t = card();
+    const set = { reps: null, loadKg: null, holdS: null, distanceM: null };
+    expect(t.bestSummary(suggestion({ newBest: { ...set, reps: 9 } }))).toBe('New best: 9 reps');
+    expect(t.bestSummary(suggestion({ newBest: { ...set, reps: 1 } }))).toBe('New best: 1 rep');
+    expect(t.bestSummary(suggestion({ newBest: { ...set, reps: 8, loadKg: 42.5 } }))).toBe(
+      'New best: 42.5 kg × 8',
+    );
+    expect(t.bestSummary(suggestion({ newBest: { ...set, holdS: 45 } }))).toBe('New best: 45s');
+    expect(t.bestSummary(suggestion())).toBe('');
   });
 });

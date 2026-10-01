@@ -141,6 +141,9 @@ pub struct PacingInput {
     /// When the athlete last said each movement hurt (local time). A fact, not an
     /// effort rating: the movement rests, and comes back eased.
     pub hurts: BTreeMap<ExerciseId, NaiveDateTime>,
+    /// Each movement's best set before today, from the whole log rather than the
+    /// loaded window, so a return cannot claim a best it has only forgotten.
+    pub bests: BTreeMap<ExerciseId, Best>,
     /// Readiness on each past training day, for the ledger: an eased, under-recovered
     /// session judged as full-effort would count compliance as failure. A missing day
     /// is judged full-effort.
@@ -541,6 +544,9 @@ pub struct Suggestion {
     /// Why this was chosen (deficit, recovery, ability, readiness). `None` for
     /// warm-up items, which are prep rather than a reasoned prescription.
     pub explanation: Option<Explanation>,
+    /// Today's strongest set of this movement, when it beat every earlier one by
+    /// the movement's own measure.
+    pub new_best: Option<DoneSet>,
 }
 
 impl Suggestion {
@@ -550,6 +556,30 @@ impl Suggestion {
     /// [`logged`]: Suggestion::logged
     pub fn done(&self) -> i32 {
         crate::num::count(self.logged.len())
+    }
+}
+
+/// A movement's best set, by each measure it can be beaten on: the Epley estimate
+/// for loaded reps (no effort rating), reps for bodyweight, seconds for a hold.
+/// `None` where nothing of that shape was ever logged.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Best {
+    pub e1rm: Option<f64>,
+    pub reps: Option<i32>,
+    pub hold_s: Option<i32>,
+}
+
+impl Best {
+    /// How far `set` goes past this best, in the measure they share; `None` when it
+    /// doesn't, or when there is nothing of its shape to beat.
+    pub fn margin(&self, set: &SetRec) -> Option<f64> {
+        let (now, before) = match (set.load_kg, set.reps, set.hold_s) {
+            (Some(load), Some(reps), _) => (load * (1.0 + f64::from(reps) / 30.0), self.e1rm?),
+            (None, Some(reps), None) => (f64::from(reps), f64::from(self.reps?)),
+            (None, None, Some(hold)) => (f64::from(hold), f64::from(self.hold_s?)),
+            _ => return None,
+        };
+        (now > before + 1e-9).then_some(now - before)
     }
 }
 

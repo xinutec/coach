@@ -1,8 +1,13 @@
 //! Workout-set queries. Soft-deletes (deleted_at) so history stays intact.
 
+use std::collections::BTreeMap;
+
 use anyhow::{Result, anyhow};
 use chrono::NaiveDateTime;
+use coach_pacing::domain::ExerciseId;
 use sqlx::MySqlPool;
+
+use crate::pacing::types::Best;
 
 use super::types::{ValidSet, WorkoutSet};
 
@@ -72,6 +77,51 @@ pub async fn list_since(
     .bind(since)
     .fetch_all(pool)
     .await?)
+}
+
+/// Each movement's best set before `before` (UTC), over the whole log: the Epley
+/// estimate of loaded reps, bodyweight reps, unloaded hold seconds. Casts pin the
+/// types, as an aggregate over an expression decodes as whatever the server picks.
+pub async fn bests_before(
+    pool: &MySqlPool,
+    user_id: &str,
+    before: NaiveDateTime,
+) -> Result<BTreeMap<ExerciseId, Best>> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        exercise_id: i64,
+        e1rm: Option<f64>,
+        reps: Option<i64>,
+        hold_s: Option<i64>,
+    }
+    let rows: Vec<Row> = sqlx::query_as(
+        "SELECT exercise_id, \
+           CAST(MAX(CASE WHEN load_kg IS NOT NULL AND reps IS NOT NULL \
+                    THEN load_kg * (1 + reps / 30) END) AS DOUBLE) AS e1rm, \
+           CAST(MAX(CASE WHEN load_kg IS NULL AND hold_s IS NULL AND distance_m IS NULL \
+                    THEN reps END) AS SIGNED) AS reps, \
+           CAST(MAX(CASE WHEN load_kg IS NULL AND reps IS NULL THEN hold_s END) AS SIGNED) \
+             AS hold_s \
+         FROM workout_sets WHERE user_id = ? AND deleted_at IS NULL AND logged_at < ? \
+         GROUP BY exercise_id",
+    )
+    .bind(user_id)
+    .bind(before)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                ExerciseId(r.exercise_id),
+                Best {
+                    e1rm: r.e1rm,
+                    reps: r.reps.and_then(|n| i32::try_from(n).ok()),
+                    hold_s: r.hold_s.and_then(|n| i32::try_from(n).ok()),
+                },
+            )
+        })
+        .collect())
 }
 
 /// Soft-delete a set. Returns false if nothing matched (wrong user / already gone).
