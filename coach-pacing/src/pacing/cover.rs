@@ -101,7 +101,7 @@ pub struct Candidate {
     pub family: String,
     /// What ONE set pays into each group (role credit × that group's recovery).
     pub credit: ByGroup<f64>,
-    /// Style preference: mode fit + novelty. Scales rank; never qualifies.
+    /// Style preference: mode fit + familiarity. Scales rank; never qualifies.
     pub weight: f64,
     /// A one-time need, in effective sets, to bring a started but unconfirmed movement
     /// to a trusted baseline. Counted only on the set that enters it into the session,

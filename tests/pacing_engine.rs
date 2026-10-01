@@ -223,8 +223,17 @@ fn barbell_row() -> ExerciseInfo {
         Metric::WeightedReps,
         false,
         vec![3],
-        vec![(20, MuscleRole::Primary)],
+        // A main lift: the lats lead, and two more groups work with them.
+        vec![
+            (20, MuscleRole::Primary),
+            (21, MuscleRole::Secondary),
+            (22, MuscleRole::Secondary),
+        ],
     )
+}
+/// The ledger's view of the row: the scheme the engine trains it under.
+fn row_schemes(mode: Mode) -> BTreeMap<ExerciseId, coach::pacing::dose::Scheme> {
+    coach::pacing::dose::schemes(mode, &[barbell_row()])
 }
 fn back_only() -> Vec<GroupMeta> {
     vec![GroupMeta {
@@ -3079,7 +3088,7 @@ fn an_earned_step_is_named_and_is_not_off_the_card() {
 // holds nothing against you.
 #[test]
 fn a_coarse_rack_does_not_manufacture_a_miss() {
-    let h = vec![wset(5, days_ago(2), 5.0, 5)];
+    let h = vec![wset(5, days_ago(2), 5.0, 3)];
     let out = evaluate(
         &PacingInput {
             groups: back_only(),
@@ -3100,8 +3109,8 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     );
     let asked = w.ask.rep_low().expect("a weighted ask carries reps");
     assert!(
-        (6..=10).contains(&asked),
-        "the ask stays inside the Balanced range, got {asked}"
+        (5..=8).contains(&asked),
+        "the ask stays inside a Balanced main lift's range, got {asked}"
     );
 
     let mut done = h;
@@ -3110,9 +3119,14 @@ fn a_coarse_rack_does_not_manufacture_a_miss() {
     // a weight off it, so handing it a different one would judge against a card that
     // was never written.
     let rack = BTreeMap::from([(ExerciseId(5), vec![4.0, 5.0])]);
-    let led = coach::pacing::residual::residuals(&done, Mode::Balanced, &Default::default(), &rack)
-        .remove(&ExerciseId(5))
-        .unwrap_or_default();
+    let led = coach::pacing::residual::residuals(
+        &done,
+        &row_schemes(Mode::Balanced),
+        &Default::default(),
+        &rack,
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 0,
         "doing exactly what was asked, at a weight he owns, is never a failure"
@@ -3166,9 +3180,14 @@ fn comply(mut h: Vec<SetRec>, inp: &PacingInput) -> coach::pacing::residual::Res
         w.ask.load_kg().expect("a weighted lift has a load"),
         w.ask.rep_low().expect("and a rep target"),
     ));
-    coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-        .remove(&ExerciseId(5))
-        .unwrap_or_default()
+    coach::pacing::residual::residuals(
+        &h,
+        &row_schemes(Mode::Strength),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default()
 }
 
 fn strength_row(h: Vec<SetRec>) -> PacingInput {
@@ -3196,10 +3215,14 @@ fn meeting_the_backed_off_ask_rebuilds_instead_of_escalating() {
         wset(5, days_ago(2), 30.0, 5), // a real miss
         wset(5, days_ago(1), 30.0, 5), // and another — the coach eases off
     ];
-    let before =
-        coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-            .remove(&ExerciseId(5))
-            .unwrap_or_default();
+    let before = coach::pacing::residual::residuals(
+        &h,
+        &row_schemes(Mode::Strength),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default();
     assert_eq!(before.consecutive_misses, 2, "two genuine misses");
     assert!(before.wants_back_off() && !before.wants_remeasure());
 
@@ -3244,9 +3267,14 @@ fn falling_short_of_an_eased_ask_still_counts_against_the_estimate() {
         w.ask.load_kg().unwrap(),
         w.ask.rep_low().unwrap() - 2,
     ));
-    let led = coach::pacing::residual::residuals(&h, Mode::Strength, &Default::default(), &owned())
-        .remove(&ExerciseId(5))
-        .unwrap_or_default();
+    let led = coach::pacing::residual::residuals(
+        &h,
+        &row_schemes(Mode::Strength),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 3,
         "a real shortfall still escalates"
@@ -3292,10 +3320,14 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
     ));
 
     // Judged as though it were a full-effort day, this reads as a failure...
-    let blind =
-        coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
-            .remove(&ExerciseId(5))
-            .unwrap_or_default();
+    let blind = coach::pacing::residual::residuals(
+        &done,
+        &row_schemes(Mode::Strength),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default();
     assert_eq!(
         blind.consecutive_misses, 1,
         "precondition: without knowing the day was eased, compliance looks like a miss"
@@ -3303,9 +3335,10 @@ fn an_eased_day_is_not_recorded_as_a_failure() {
 
     // ...but told what the coach knew that morning, it reads as what it was.
     let known = BTreeMap::from([(now().date(), spent)]);
-    let led = coach::pacing::residual::residuals(&done, Mode::Strength, &known, &owned())
-        .remove(&ExerciseId(5))
-        .unwrap_or_default();
+    let led =
+        coach::pacing::residual::residuals(&done, &row_schemes(Mode::Strength), &known, &owned())
+            .remove(&ExerciseId(5))
+            .unwrap_or_default();
     assert_eq!(
         led.outcomes.last().map(|(_, o)| *o),
         Some(coach::pacing::residual::Outcome::Met),
@@ -3337,10 +3370,14 @@ fn an_unknown_days_readiness_is_not_treated_as_an_easing() {
         w.ask.load_kg().unwrap(),
         w.ask.rep_low().unwrap() - 2,
     ));
-    let led =
-        coach::pacing::residual::residuals(&done, Mode::Strength, &Default::default(), &owned())
-            .remove(&ExerciseId(5))
-            .unwrap_or_default();
+    let led = coach::pacing::residual::residuals(
+        &done,
+        &row_schemes(Mode::Strength),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(5))
+    .unwrap_or_default();
     assert_eq!(
         led.consecutive_misses, 1,
         "no biometrics is not an excuse the coach invents on his behalf"
@@ -3726,4 +3763,149 @@ fn a_movement_he_does_reach_is_left_where_it_is() {
     );
     let ids = |o: &PacingNow| o.plan.iter().map(|s| s.exercise_id).collect::<Vec<_>>();
     assert_eq!(ids(&out), ids(&plain), "offered and done is not neglect");
+}
+
+// ---- rep ranges by what the lift is for ----
+
+/// A weighted lift on all three groups, the shape the engine calls a main lift.
+fn compound(id: i64) -> ExerciseInfo {
+    ex(
+        id,
+        "Compound",
+        Pattern::Push,
+        Metric::WeightedReps,
+        false,
+        vec![3],
+        vec![
+            (10, MuscleRole::Primary),
+            (20, MuscleRole::Secondary),
+            (30, MuscleRole::Secondary),
+        ],
+    )
+}
+
+/// A weighted lift on one group: an accessory.
+fn curl(id: i64) -> ExerciseInfo {
+    ex(
+        id,
+        "Curl",
+        Pattern::Pull,
+        Metric::WeightedReps,
+        false,
+        vec![3],
+        vec![(20, MuscleRole::Primary)],
+    )
+}
+
+fn rack(ids: &[i64]) -> BTreeMap<ExerciseId, Vec<f64>> {
+    let loads = owned()[&ExerciseId(5)].clone();
+    ids.iter()
+        .map(|i| (ExerciseId(*i), loads.clone()))
+        .collect()
+}
+
+fn work_for(out: &PacingNow, id: i64) -> &Suggestion {
+    out.plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(id))
+        .unwrap_or_else(|| panic!("{id} not in {:?}", out.plan))
+}
+
+// A ballistic lift loses its point once form goes, which happens long before ten
+// reps: round 8 asked the snatch 2 × 10.
+#[test]
+fn a_power_lift_is_asked_for_a_few_reps() {
+    let snatch = ExerciseInfo {
+        is_power: true,
+        ..compound(41)
+    };
+    let inp = PacingInput {
+        exercise_loads: rack(&[41]),
+        ..input(
+            Mode::Balanced,
+            vec![snatch],
+            vec![wset(41, days_ago(3), 30.0, 5)],
+            None,
+            None,
+        )
+    };
+    let out = evaluate(&inp, now());
+    let ask = work_for(&out, 41).ask;
+    assert_eq!(
+        (ask.rep_low().map(|l| l <= 5), ask.rep_high()),
+        (Some(true), Some(5)),
+        "{ask:?}"
+    );
+}
+
+// A main lift is trained heavy and an accessory light: the same Balanced week
+// asks 5–8 of a compound and 8–15 of an isolation.
+#[test]
+fn a_main_lift_and_an_accessory_get_their_own_ranges() {
+    let inp = PacingInput {
+        exercise_loads: rack(&[41, 42]),
+        ..input(
+            Mode::Balanced,
+            vec![compound(41), curl(42)],
+            vec![
+                wset(41, days_ago(3), 40.0, 6),
+                wset(42, days_ago(3), 30.0, 10),
+            ],
+            None,
+            None,
+        )
+    };
+    let out = evaluate(&inp, now());
+    assert_eq!(work_for(&out, 41).ask.rep_high(), Some(8), "main");
+    assert_eq!(work_for(&out, 42).ask.rep_high(), Some(15), "accessory");
+}
+
+// ---- a steady core of movements ----
+
+// A coach keeps the movements an athlete is building on. Round 8's compliant athlete
+// touched 47 movements in 56 sessions, because a never-done movement out-ranked one
+// done last week for the same need.
+#[test]
+fn a_movement_underway_keeps_its_place_over_an_untried_one() {
+    let chest = |id, name| {
+        ex(
+            id,
+            name,
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        )
+    };
+    // The untried one has the lower id, so a tie would go to it.
+    let history = [16, 12, 9, 5]
+        .iter()
+        .flat_map(|d| {
+            [
+                bset(7, days_ago(*d), 10),
+                bset(7, days_ago(*d) + Duration::minutes(5), 10),
+            ]
+        })
+        .collect();
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            vec![chest(6, "Untried"), chest(7, "Underway")],
+            history,
+            None,
+            None,
+        ),
+        now(),
+    );
+    let first = out
+        .plan
+        .iter()
+        .find(|s| s.kind == SuggestionKind::Work || s.kind == SuggestionKind::Assess);
+    assert_eq!(
+        first.map(|s| s.exercise_id),
+        Some(ExerciseId(7)),
+        "{:?}",
+        out.plan
+    );
 }

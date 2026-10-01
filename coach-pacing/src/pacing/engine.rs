@@ -26,8 +26,8 @@ use super::ability::{self, Ability, Confidence};
 use super::cover::{self, ByGroup, Candidate, GroupIx};
 use super::dose::{
     CARRY_BASE_M, CARRY_BASE_S, CARRY_TOP_M, CARRY_TOP_S, DISTANCE_STEP_M, Dose, HOLD_STEP_S,
-    Inventory, Known, LOW_READINESS_EXTRA_RIR, Measure, RETURN_RESERVE_REPS, RepTarget, load_for,
-    readiness_advances, rep_range, weighted_ask,
+    Inventory, Known, LOW_READINESS_EXTRA_RIR, Lift, Measure, RETURN_RESERVE_REPS, RepTarget,
+    Scheme, load_for, readiness_advances, rep_range, schemes, weighted_ask,
 };
 use super::residual::{self, Residual};
 use super::types::{
@@ -56,11 +56,12 @@ const WARMUP_MIN_LOAD: f64 = 1.0;
 /// warm-up scales with the session, the heaviest groups get drills, and the tail warms
 /// up through the ramp-ins.
 const WARMUP_SETS_PER_DRILL: i32 = 3;
+/// A movement done within this many days is underway, and keeps its place in the
+/// session over an untried one; the preference fades to nothing by the second.
+const FAMILIAR_DAYS: f64 = 21.0;
+const FAMILIAR_FADES_DAYS: f64 = 42.0;
 const WARMUP_MIN_DRILLS: i32 = 3;
 const WARMUP_MAX_DRILLS: i32 = 6;
-/// Non-stabilizer muscle groups at which a movement counts as a compound —
-/// session ordering runs compounds first (see [`tier`]).
-const COMPOUND_BREADTH: usize = 3;
 /// A ramp-in set runs at this fraction of the first heavy lift's working load.
 const RAMP_FRACTION: f64 = 0.5;
 
@@ -285,7 +286,7 @@ fn loadable(ex: &ExerciseInfo, exercise_loads: &BTreeMap<ExerciseId, Vec<f64>>) 
 fn prescribe(
     loaded: &Loaded,
     ability: &Known,
-    mode: Mode,
+    scheme: Scheme,
     advance: bool,
     feedback: &Residual,
 ) -> Dose {
@@ -304,9 +305,9 @@ fn prescribe(
             // they top the range there. The rule lives in `dose`, shared verbatim
             // with the ledger that judges the result, so the two cannot ask for
             // different numbers (R4-1, R5-1, R6-1).
-            let range = rep_range(mode, true);
+            let range = rep_range(scheme, true);
             let (load, low) =
-                weighted_ask(inv, ability.e1rm, feedback.rung, mode, feedback, rested);
+                weighted_ask(inv, ability.e1rm, feedback.rung, scheme, feedback, rested);
             Dose::Weighted {
                 load,
                 reps: RepTarget { low, ..range },
@@ -315,7 +316,7 @@ fn prescribe(
         Loaded::Reps => {
             // Only lever is reps: climb toward the top of the range off the
             // decayed best; hold (no climb) on a low-readiness day.
-            let range = rep_range(mode, false);
+            let range = rep_range(scheme, false);
             let low = match ability.best_reps {
                 Some(best) => {
                     // Probe (+1), consolidate (best), or after two misses ask one fewer
@@ -459,22 +460,15 @@ fn assess(loaded: &Loaded, stale: Option<&Ability>, returning: bool) -> Measure 
 ///
 /// Power leads: a jump or throw is only worth measuring fresh, and a tired calibration
 /// feeds a low number into the ability model. It is checked first because such moves
-/// are often patterned Core. Compound vs isolation goes by *breadth* (groups trained),
-/// not by load: an isolation before its compound pre-fatigues the link the compound
-/// needs.
+/// are often patterned Core.
 fn tier(ex: &ExerciseInfo, neglected: bool) -> Tier {
-    let breadth = ex
-        .groups
-        .iter()
-        .filter(|(_, r)| *r != MuscleRole::Stabilizer)
-        .count();
     let base = if ex.is_power {
         Tier::Power
     } else if ex.is_skill || ex.metric == Metric::Hold {
         Tier::Skill
     } else if ex.pattern == Pattern::Core {
         Tier::Finisher
-    } else if breadth >= COMPOUND_BREADTH {
+    } else if ex.is_compound() {
         Tier::Compound
     } else {
         Tier::Isolation
@@ -581,17 +575,21 @@ fn candidates<'a>(
     history: &[SetRec],
     now: NaiveDateTime,
 ) -> (Vec<Cand<'a>>, Vec<String>) {
-    // Fresher stimulus scores higher (0..1 over ~3 weeks); never-done = max.
-    let recency = |id: ExerciseId| -> f64 {
-        match history
+    // A movement underway scores higher, as a coach keeps the lifts an athlete is
+    // building on: full credit while done within three weeks, fading to none at six,
+    // and none for never-done. New movements still enter where they pay a need nothing
+    // underway pays, and through the ladder.
+    let familiarity = |id: ExerciseId| -> f64 {
+        history
             .iter()
             .filter(|s| s.exercise_id == id)
             .map(|s| s.logged_at)
             .max()
-        {
-            Some(t) => ((now - t).num_hours() as f64 / 24.0).min(21.0) / 21.0,
-            None => 1.0,
-        }
+            .map_or(0.0, |t| {
+                let days = (now - t).num_hours() as f64 / 24.0;
+                ((FAMILIAR_FADES_DAYS - days) / (FAMILIAR_FADES_DAYS - FAMILIAR_DAYS))
+                    .clamp(0.0, 1.0)
+            })
     };
 
     // G7, at High confidence only. Up: a movement at the rep range's ceiling, or
@@ -616,7 +614,13 @@ fn candidates<'a>(
         let Some(d) = ex.difficulty else {
             continue;
         };
-        let range = rep_range(input.mode, false);
+        let range = rep_range(
+            Scheme {
+                mode: input.mode,
+                lift: Lift::of(ex),
+            },
+            false,
+        );
         let is_reps = matches!(loaded, Loaded::Reps);
         let best = abilities.get(&ex.id).and_then(|a| a.best_reps);
         let feedback = residuals.get(&ex.id);
@@ -737,9 +741,12 @@ fn candidates<'a>(
             confirm
         };
         let novel = matches!(confidence, Confidence::None);
-        // Freshness rewards variety, but a movement being confirmed is meant to be
-        // repeated: having just done it must not rank it below never-done ones.
-        let novelty = if confirm > 0.0 { 1.0 } else { recency(ex.id) };
+        // A movement being confirmed is meant to be repeated, however long ago it began.
+        let familiar = if confirm > 0.0 {
+            1.0
+        } else {
+            familiarity(ex.id)
+        };
         cands.push(Cand {
             ex,
             loaded,
@@ -748,7 +755,7 @@ fn candidates<'a>(
                 id: ex.id,
                 family: ex.family.clone(),
                 credit,
-                weight: mode_fit(input.mode, ex) * 2.0 + novelty,
+                weight: mode_fit(input.mode, ex) * 2.0 + familiar,
                 confirm,
                 novel,
                 min,
@@ -1079,14 +1086,8 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         .iter()
         .max_by_key(|s| s.logged_at)
         .and_then(|s| ex_by_id.get(&s.exercise_id).copied());
-    let breadth = |e: &ExerciseInfo| {
-        e.groups
-            .iter()
-            .filter(|(_, r)| *r != MuscleRole::Stabilizer)
-            .count()
-    };
     let rest_hint = match last_ex {
-        Some(e) if breadth(e) >= COMPOUND_BREADTH => "2–3 min",
+        Some(e) if e.is_compound() => "2–3 min",
         _ => "90 s",
     };
     let spacing_ok = last_ex.is_some_and(|e| e.warmup)
@@ -1136,7 +1137,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
     // history, so the engine stays stateless.
     let residuals = residual::residuals(
         &planning,
-        input.mode,
+        &schemes(input.mode, &input.exercises),
         &input.readiness_history,
         &input.exercise_loads,
     );
@@ -1657,7 +1658,16 @@ fn plan_session(
         let (kind, ask) = match Known::of(abilities, residuals, c.ex.id) {
             Some(known) => (
                 SuggestionKind::Work,
-                Ask::from(prescribe(&c.loaded, &known, input.mode, advance, &feedback)),
+                Ask::from(prescribe(
+                    &c.loaded,
+                    &known,
+                    Scheme {
+                        mode: input.mode,
+                        lift: Lift::of(c.ex),
+                    },
+                    advance,
+                    &feedback,
+                )),
             ),
             None => (
                 SuggestionKind::Assess,

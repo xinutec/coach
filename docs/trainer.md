@@ -136,8 +136,13 @@ Four things fall out rather than being special-cased:
   Diminishing returns is the clamp. What remains is a minimum effective dose
   (`MIN_WORK_SETS = 2`): a movement worth setting up for is worth more than one set.
 - **Style ranks but never qualifies.** The gate (`MIN_PAY`) is on need paid down, in
-  physical units; mode-fit and novelty only break ties among movements that all
+  physical units; mode-fit and familiarity only break ties among movements that all
   genuinely need doing.
+- **A steady core.** Familiarity favours a movement done in the last three weeks
+  (fading to nothing by six), so the lifts an athlete is building on keep their
+  place, and each gets practised often enough to progress. A new movement enters
+  where it pays a need nothing underway pays, or up the ladder. There is no stored
+  programme: the core is whatever history says is underway.
 - **One movement per family.** Variations of one movement — the catalog's base name:
   both hamstring-curl entries, the three farmers-walk carries — train the same thing
   the same way, so a session admits one entry per family; the second cousin is
@@ -193,6 +198,14 @@ weighted lift *has* a load and a carry *has* both a weight and a time.
   if that is what it takes. The floor is a style preference; a set you cannot finish
   is not.
 - **Reps:** climb the range off the decayed best.
+
+  **The range depends on what the lift is for** (`dose::Lift`). A power lift (a
+  jump, a throw, a snatch) is asked 3–5 reps in every mode, because its point is
+  lost once form goes. A weighted main lift (a compound: three or more groups
+  working, not core) is trained heavier than an accessory: 5–8 against 8–15 in
+  Balanced, 3–6 against 6–10 in Strength. Bodyweight work keeps one range per mode,
+  as without a load to add its range is already about volume. The ledger judges
+  each lift against the same range, so the two cannot disagree.
 - **Hold:** off the best hold.
 - **Loaded carry:** the same double progression with seconds (or metres) where the
   reps go — climb to the ceiling, then take the next weight you own and reset.

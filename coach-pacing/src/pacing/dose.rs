@@ -17,8 +17,9 @@ use alloc::collections::BTreeMap;
 
 use super::ability::{Ability, Confidence, confidence_of};
 use super::residual::Residual;
+use super::types::ExerciseInfo;
 use crate::domain::ExerciseId;
-use crate::domain::Mode;
+use crate::domain::{Mode, Pattern};
 
 // ---- what a dose looks like ------------------------------------------------
 //
@@ -110,11 +111,11 @@ pub fn weighted_ask(
     inv: &Inventory,
     e1rm: Option<f64>,
     rung: Option<Rung>,
-    mode: Mode,
+    scheme: Scheme,
     feedback: &Residual,
     recovered: bool,
 ) -> (f64, i32) {
-    let range = rep_range(mode, true);
+    let range = rep_range(scheme, true);
     // A miss is not a day to add load on; low readiness says the same for its own
     // reason. `recovered` alone (without the miss-response) is what decides how
     // many reps come *off* the ask — easing twice for one event would double-count.
@@ -167,31 +168,65 @@ pub fn weighted_ask(
     )
 }
 
-/// Rep range for a mode + metric (holds are seconds, handled in `engine::prescribe`).
-pub fn rep_range(mode: Mode, weighted: bool) -> RepTarget {
-    let (low, high) = match mode {
-        Mode::Strength => {
-            if weighted {
-                (3, 6)
-            } else {
-                (5, 8)
-            }
+/// What a lift is for, which decides how many reps it is trained at: a ballistic lift
+/// only while form holds, a main lift heavy, an accessory for volume.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lift {
+    Power,
+    Main,
+    Accessory,
+}
+
+impl Lift {
+    pub fn of(ex: &ExerciseInfo) -> Lift {
+        if ex.is_power {
+            Lift::Power
+        } else if ex.pattern != Pattern::Core && ex.is_compound() {
+            Lift::Main
+        } else {
+            Lift::Accessory
         }
-        Mode::Balanced => {
-            if weighted {
-                (6, 10)
-            } else {
-                (8, 12)
-            }
-        }
-        Mode::Skills => (3, 6),
-        Mode::Conditioning => {
-            if weighted {
-                (12, 20)
-            } else {
-                (15, 25)
-            }
-        }
+    }
+}
+
+/// How a lift's reps are set: the athlete's mode, and what the lift is for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Scheme {
+    pub mode: Mode,
+    pub lift: Lift,
+}
+
+/// Each lift's scheme under `mode`, for the ledger that replays its asks.
+pub fn schemes(mode: Mode, exercises: &[ExerciseInfo]) -> BTreeMap<ExerciseId, Scheme> {
+    exercises
+        .iter()
+        .map(|e| {
+            (
+                e.id,
+                Scheme {
+                    mode,
+                    lift: Lift::of(e),
+                },
+            )
+        })
+        .collect()
+}
+
+/// Rep range for a scheme + metric (holds are seconds, handled in `engine::prescribe`).
+pub fn rep_range(scheme: Scheme, weighted: bool) -> RepTarget {
+    // Bodyweight has no load to make a set heavy, so its range stays about volume for
+    // main lifts and accessories alike.
+    let (low, high) = match (scheme.mode, scheme.lift, weighted) {
+        (_, Lift::Power, _) => (3, 5),
+        (Mode::Strength, Lift::Main, true) => (3, 6),
+        (Mode::Strength, Lift::Accessory, true) => (6, 10),
+        (Mode::Strength, _, false) => (5, 8),
+        (Mode::Balanced, Lift::Main, true) => (5, 8),
+        (Mode::Balanced, Lift::Accessory, true) => (8, 15),
+        (Mode::Balanced, _, false) => (8, 12),
+        (Mode::Skills, _, _) => (3, 6),
+        (Mode::Conditioning, _, true) => (12, 20),
+        (Mode::Conditioning, _, false) => (15, 25),
     };
     RepTarget { low, high }
 }

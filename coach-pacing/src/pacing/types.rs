@@ -46,6 +46,22 @@ pub struct ExerciseInfo {
     pub groups: Vec<(GroupId, MuscleRole)>,
 }
 
+/// Non-stabilizer muscle groups at which a movement counts as a compound: it runs
+/// before isolations, rests longer, and is trained as a main lift.
+const COMPOUND_BREADTH: usize = 3;
+
+impl ExerciseInfo {
+    /// Trains enough groups to be a compound. Breadth, not load: an isolation before
+    /// its compound pre-fatigues the link the compound needs.
+    pub fn is_compound(&self) -> bool {
+        self.groups
+            .iter()
+            .filter(|(_, r)| *r != MuscleRole::Stabilizer)
+            .count()
+            >= COMPOUND_BREADTH
+    }
+}
+
 /// A logged set in the trailing history window. `rpe`, where history has one (the
 /// app never asks), makes the e1RM effort-aware.
 #[derive(Clone)]

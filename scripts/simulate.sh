@@ -37,4 +37,4 @@ echo "Loading $DUMP into dev DB (127.0.0.1:${PORT}) ..." >&2
 mariadb -h127.0.0.1 -P"$PORT" -ucoach -pcoach coach <"$DUMP"
 
 echo "Running simulation ..." >&2
-DATABASE_URL="$URL" nix develop "$ROOT" --command cargo run --quiet --bin simulate
+DATABASE_URL="$URL" nix develop "$ROOT" --command cargo run --quiet --manifest-path "$ROOT/Cargo.toml" --bin simulate

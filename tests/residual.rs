@@ -8,6 +8,9 @@
 
 use chrono::{Duration, NaiveDate, NaiveDateTime};
 
+use std::collections::BTreeMap;
+
+use coach::pacing::dose::{Lift, Scheme};
 use coach::pacing::residual::{Outcome, residuals};
 use coach::pacing::types::SetRec;
 use coach::settings::types::Mode;
@@ -47,10 +50,20 @@ fn owned() -> std::collections::BTreeMap<ExerciseId, Vec<f64>> {
     std::collections::BTreeMap::from([(ExerciseId(1), loads)])
 }
 
+/// Written against a 6–10 range, which is a Strength-mode accessory's.
 fn ledger_for(sets: Vec<SetRec>) -> coach::pacing::residual::Residual {
-    residuals(&sets, Mode::Balanced, &Default::default(), &owned())
-        .remove(&ExerciseId(1))
-        .unwrap_or_default()
+    let scheme = Scheme {
+        mode: Mode::Strength,
+        lift: Lift::Accessory,
+    };
+    residuals(
+        &sets,
+        &BTreeMap::from([(ExerciseId(1), scheme)]),
+        &Default::default(),
+        &owned(),
+    )
+    .remove(&ExerciseId(1))
+    .unwrap_or_default()
 }
 
 #[test]

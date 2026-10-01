@@ -1221,9 +1221,9 @@ leaving early came back the next day. What only looking found:
   "then: Biceps wall stretch". Once the work has begun, an unstarted warm-up stops
   leading, in the engine's sentence and the app's badge alike.
 - **FIXED — "1 reps".**
-- **Open: a power lift gets a hypertrophy rep range.** The snatch was asked 2 × 10:
+- **A power lift got a hypertrophy rep range.** The snatch was asked 2 × 10:
   arithmetically in reach, but a ballistic lift is trained at 3–5 reps, where form
-  holds. Changes prescriptions, so it needs the matrix and the user's view.
+  holds. Fixed in round 9 ([R9-1](#r9-1-every-lift-got-the-same-rep-range--fixed)).
 - **Open, small:** the warm-up's tick looks like "done" before anything is done;
   the sheet stays on a one-set warm-up after it is logged; a first-day-back close
   could say the next session builds from these numbers; "aim 1, up to 12" reads
@@ -1234,3 +1234,61 @@ leaving early came back the next day. What only looking found:
 - **A compliant athlete is believed at about 70% of their ability after eight
   weeks** (underclaim ~30%). Round 7 named this the margin that protects a return;
   the flip side is slow progress. The user's call (2026-09-28): leave it for now.
+
+# Round 9 — train like a coach would
+
+Round 8's walk read like a fair but restless coach: a compliant athlete touched 46
+movements in eight weeks, so each was practised about once a fortnight, and every
+weighted lift climbed the same rep range whether it was a snatch or a curl. Both are
+changed together and judged by one sweep, both arms built from source: today's
+engine against the change.
+
+## R9-1. Every lift got the same rep range — FIXED
+
+The range depended on the mode alone. It now also depends on what the lift is for
+(`dose::Lift`): a power lift 3–5 in every mode, a weighted main lift (a compound,
+not core) 5–8 in Balanced and 3–6 in Strength, a weighted accessory 8–15 and 6–10.
+Bodyweight ranges are unchanged. The ledger judges each lift by the same range.
+
+## R9-2. The coach preferred whatever had not been done lately — FIXED
+
+The style weight that breaks ties between movements paying the same need was a
+*freshness* score: highest for a movement not done in three weeks, or never. So for
+equal need the coach picked something different every day. It is now a
+*familiarity* score: full for a movement done in the last three weeks, fading to
+none by six. New movements still enter where they pay a need nothing underway pays,
+or up the ladder.
+
+## The numbers
+
+Distinct movements trained over eight weeks, missed cards, and the final week's
+underclaim:
+
+| cell | movements | missed cards | underclaim |
+|---|---|---|---|
+| improver, compliant | 46 → **29** | 0 → 1 | 29.2% → 27.8% |
+| improver, partial | 41 → **26** | 0 → 1 | 31.8% → 23.6% |
+| improver, improviser | 47 → **27** | 0 → 2 | 29.0% → 22.5% |
+| improver, layoff | 32 → **28** | 0 → 0 | 34.0% → 29.4% |
+| improver, overachiever | 43 → **25** | 17 → 31 | 8.3% → 5.1% |
+| improver, heavier | 45 → **29** | 24 → 23 | 26.9% → 23.2% |
+| strong, compliant | 51 → **35** | 0 → 2 | 35.9% → 37.0% |
+| plateauer, compliant | 46 → **29** | 14 → 24 | 12.8% → 10.1% |
+| novice, compliant | 48 → **30** | 10 → 10 | 44.4% → 43.5% |
+| injured | 46 → **31** | 17 → 14 | 28.8% → 27.8% |
+
+Underclaim falls in 15 of 20 cells. Overclaim rises in two, by 0.2 points; no
+movement in any cell is believed more than 20% above the truth.
+
+**The extra misses are probes at the limit.** An ablation with the new ranges and
+the old freshness score gave 21 misses for the overachiever and 13 for the plateauer,
+so most of the rise comes from R9-2: a lift done more often is probed more often, and
+these two athletes sit at their true limit, where a probe fails. The longest miss
+streak did not grow in any cell. One shape shows more often now: curls asked 15 at
+8.5 kg, done 14 three sessions running, then the weight steps. The rung keeps the
+ask, and one rep short is within the margin, so it is held rather than backed off.
+
+**About 8% fewer sets.** Fewer one-set measurements of new movements rode on top of
+the day's need (41 → 24 assess cards for the compliant improver); weekly volume per
+group fell by up to 1.5 effective sets (chest 8.3 → 6.9, lats 8.1 → 6.5).
+

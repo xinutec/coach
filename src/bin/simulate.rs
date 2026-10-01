@@ -43,7 +43,7 @@ use coach::health::Recovery as RawRecovery;
 use coach::location::repo as location_repo;
 use coach::muscle::types::MuscleRole;
 use coach::pacing::types::{Ask, PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
-use coach::pacing::{ability, engine, readiness, residual, service};
+use coach::pacing::{ability, dose, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
 use coach_pacing::domain::{ExerciseId, SetId};
 use coach_pacing::num::{natural, whole};
@@ -989,7 +989,12 @@ async fn main() -> Result<()> {
         if d % 7 == 6 {
             let eow = date.and_hms_opt(23, 0, 0).unwrap();
             let est = ability::abilities(&hist, eow);
-            let res = residual::residuals(&hist, ctx.mode, &readiness_history, &inp.exercise_loads);
+            let res = residual::residuals(
+                &hist,
+                &dose::schemes(ctx.mode, &inp.exercises),
+                &readiness_history,
+                &inp.exercise_loads,
+            );
             let mut rows: BTreeMap<String, String> = BTreeMap::new();
             for id in &touched {
                 let name = name_of.get(id).cloned().unwrap_or_else(|| id.to_string());

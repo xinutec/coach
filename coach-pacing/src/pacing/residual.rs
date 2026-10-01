@@ -19,11 +19,10 @@ use chrono::{Duration, NaiveDate, NaiveDateTime};
 use super::ability::{self, Ability};
 use super::dose::{
     self, CARRY_BASE_M, CARRY_BASE_S, CARRY_TOP_M, CARRY_TOP_S, DISTANCE_STEP_M, HOLD_STEP_S,
-    Inventory, Rung, readiness_advances, rep_range, reserve,
+    Inventory, Rung, Scheme, readiness_advances, rep_range, reserve,
 };
 use super::types::{Readiness, SetRec};
 use crate::domain::ExerciseId;
-use crate::domain::Mode;
 
 // ---- tunable heuristics ----------------------------------------------------
 
@@ -148,7 +147,7 @@ impl Residual {
 /// absent from it never grows a [`Rung`].
 pub fn residuals(
     history: &[SetRec],
-    mode: Mode,
+    schemes: &BTreeMap<ExerciseId, Scheme>,
     readiness: &BTreeMap<NaiveDate, Readiness>,
     loads: &BTreeMap<ExerciseId, Vec<f64>>,
 ) -> BTreeMap<ExerciseId, Residual> {
@@ -156,18 +155,20 @@ pub fn residuals(
     for s in history {
         by_ex.entry(s.exercise_id).or_default().push(s);
     }
+    // A lift the catalog no longer lists is never asked for again, so it has no ledger.
     by_ex
         .into_iter()
-        .map(|(id, sets)| {
+        .filter_map(|(id, sets)| {
+            let scheme = *schemes.get(&id)?;
             let inv = loads.get(&id).cloned().and_then(Inventory::new);
-            (id, ledger(&sets, mode, readiness, inv.as_ref()))
+            Some((id, ledger(&sets, scheme, readiness, inv.as_ref())))
         })
         .collect()
 }
 
 fn ledger(
     sets: &[&SetRec],
-    mode: Mode,
+    scheme: Scheme,
     readiness: &BTreeMap<NaiveDate, Readiness>,
     inv: Option<&Inventory>,
 ) -> Residual {
@@ -223,9 +224,9 @@ fn ledger(
         // The weighted ask that morning, from the function that wrote the card: what
         // the session is judged against, and what the next ask climbs from.
         let asked =
-            inv.map(|i| dose::weighted_ask(i, predicted.e1rm, led.rung, mode, &led, recovered));
+            inv.map(|i| dose::weighted_ask(i, predicted.e1rm, led.rung, scheme, &led, recovered));
 
-        if let Some(o) = judge(&predicted, &today, &led, mode, recovered, asked) {
+        if let Some(o) = judge(&predicted, &today, &led, scheme, recovered, asked) {
             led.consecutive_misses = if matches!(o, Outcome::Missed | Outcome::Rout) {
                 led.consecutive_misses + 1
             } else {
@@ -235,7 +236,7 @@ fn ledger(
         }
 
         if let Some(ask) = asked {
-            led.rung = advance_rung(ask, &today, mode);
+            led.rung = advance_rung(ask, &today, scheme);
         }
     }
     led
@@ -245,8 +246,12 @@ fn ledger(
 /// **ask itself**, and the athlete moves it only by doing more at that weight. It never
 /// follows a short session down, or every shortfall would become the next target and
 /// the miss ladder could never escalate (R6-1).
-fn advance_rung((ask_load, ask_reps): (f64, i32), today: &[&SetRec], mode: Mode) -> Option<Rung> {
-    let range = rep_range(mode, true);
+fn advance_rung(
+    (ask_load, ask_reps): (f64, i32),
+    today: &[&SetRec],
+    scheme: Scheme,
+) -> Option<Rung> {
+    let range = rep_range(scheme, true);
     // What the athlete did *at the weight they were sent to*. Work at some other
     // weight says nothing about this rung — a bell picked off the rack because the
     // right one was in use must not drag the coach off it.
@@ -276,7 +281,7 @@ fn judge(
     predicted: &Ability,
     today: &[&SetRec],
     feedback: &Residual,
-    mode: Mode,
+    scheme: Scheme,
     recovered: bool,
     asked_weighted: Option<(f64, i32)>,
 ) -> Option<Outcome> {
@@ -387,7 +392,7 @@ fn judge(
             } else {
                 libm::floor(raw)
             };
-            let asked = whole(aim).clamp(1, rep_range(mode, true).high);
+            let asked = whole(aim).clamp(1, rep_range(scheme, true).high);
             return Some(sized(
                 reps_band(done, asked),
                 load * f64::from(done),
@@ -411,7 +416,7 @@ fn judge(
                 (true, false) => best + 1,
                 (false, false) => best,
             };
-            let asked = aim.clamp(1, rep_range(mode, false).high);
+            let asked = aim.clamp(1, rep_range(scheme, false).high);
             // Reps *are* the volume here — there is no load to weight them by.
             return Some(sized(
                 reps_band(done, asked),

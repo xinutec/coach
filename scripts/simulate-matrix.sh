@@ -90,7 +90,7 @@ for cell in "${CELLS[@]}"; do
   DATABASE_URL="$URL" \
   SIM_ATHLETE="$athlete" SIM_BEHAVIOUR="$behaviour" SIM_RECOVERY="$recovery" \
   SIM_AWAY_DAYS="${away:-1}" \
-    nix develop "$ROOT" --command cargo run --quiet --bin simulate \
+    nix develop "$ROOT" --command cargo run --quiet --manifest-path "$ROOT/Cargo.toml" --bin simulate \
     >"$OUT/$name.txt" 2>"$OUT/$name.err" || {
       echo "    FAILED — see $OUT/$name.err" >&2
       continue
