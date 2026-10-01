@@ -39,8 +39,8 @@
 .player {
   position: relative;
   overflow: hidden;
-  // dev-lint: allow-hardcoded-color letterbox behind a video YouTube renders black in either theme
-  background: #000;
+  // letterbox behind a video YouTube renders black in either theme
+  background: var(--media-bed);
 
   // Turned sideways, the demo takes the screen. The frame just fills it: YouTube
   // letterboxes the video inside whatever box it's handed, against black — which
@@ -84,7 +84,7 @@
     }
     mat-spinner {
       // spinner over a photo, not over a themed surface
-      --mdc-circular-progress-active-indicator-color: #fff;
+      --mdc-circular-progress-active-indicator-color: var(--on-media);
       position: relative;
     }
   }
@@ -102,10 +102,9 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    // dev-lint: allow-hardcoded-color a control over video, which has no theme
-    color: #fff;
-    // dev-lint: allow-hardcoded-color as above — it has to read against the frame
-    background: rgba(0, 0, 0, 0.55);
+    // a control over video, which has no theme
+    color: var(--on-media);
+    background: var(--scrim);
 
     mat-icon {
       font-size: 20px;
@@ -170,10 +169,8 @@
       border-radius: 50%;
       // The badge sits on a photo, not on a themed surface: it has to read against
       // the picture, which doesn't change with the theme.
-      // dev-lint: allow-hardcoded-color glyph on a scrim over the still
-      color: #fff;
-      // dev-lint: allow-hardcoded-color the scrim itself
-      background: rgba(0, 0, 0, 0.55);
+      color: var(--on-media);
+      background: var(--scrim);
     }
   }
 }

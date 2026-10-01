@@ -1,4 +1,6 @@
 // Angular Material 3 theme; orange sets coach apart from the fleet's other apps.
+// The fleet's theme-independent colours: scrims and text over media.
+@use '@xinutec/ui-harness/tokens';
 @use '@angular/material' as mat;
 
 html {
