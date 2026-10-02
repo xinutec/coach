@@ -590,3 +590,19 @@ describe('room to jump and throw', () => {
     expect(p.formRoom()).toBe(false);
   });
 });
+
+describe("a location's plates, as read", () => {
+  // Round 10: the card printed "Plates: [object Object], [object Object] kg" once a
+  // plate became { equipment, loadKg, qty } instead of a number.
+  it('counts each plate, and names kit a plate is pinned to', () => {
+    const p = page();
+    const plate = (loadKg: number, qty: number | null, equipment: string | null = null): Plate => ({
+      equipment,
+      loadKg,
+      qty,
+    });
+    expect(p.plateLine([plate(20, 2), plate(10, 4)])).toBe('2 × 20, 4 × 10 kg');
+    expect(p.plateLine([plate(5, null)])).toBe('5 kg');
+    expect(p.plateLine([plate(1.25, 4, 'dumbbell')])).toBe('4 × 1.25 (Dumbbell) kg');
+  });
+});

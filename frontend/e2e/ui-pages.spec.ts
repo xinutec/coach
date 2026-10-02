@@ -10,6 +10,19 @@ import {
   expectUpInTheBar,
   expectViewportIsPhone,
 } from '@xinutec/ui-harness';
+import type {
+  CurrentLocation,
+  DetectedPlace,
+  Equipment,
+  Exercise,
+  ExerciseDetail,
+  GroupBalance,
+  Location,
+  Me,
+  PacingNow,
+  Settings,
+  WorkoutSet,
+} from '../src/app/models';
 
 /**
  * Layout-measurement checks: render coach's screens against the built bundle with
@@ -44,7 +57,7 @@ test.afterEach(async ({ page }) => {
   expect(leaks, 'a raw value was painted on screen').toEqual([]);
 });
 
-const ME = { userId: 'test', displayName: 'Test User', avatarUrl: '' };
+const ME = { userId: 'test', displayName: 'Test User', avatarUrl: '' } satisfies Me;
 
 const SETTINGS = {
   timezone: 'Europe/London',
@@ -54,7 +67,7 @@ const SETTINGS = {
   mode: 'balanced',
   daysPerWeek: 4,
   emphasis: null,
-};
+} satisfies Settings;
 
 const EXERCISES = [
   {
@@ -65,6 +78,11 @@ const EXERCISES = [
     pattern: 'pull',
     metric: 'reps',
     unilateral: false,
+    skill: false,
+    warmup: false,
+    power: false,
+    implements: 1,
+    difficulty: null,
     isActive: true,
     equipment: ['pull_up_bar'],
     imageVersion: null,
@@ -77,6 +95,11 @@ const EXERCISES = [
     pattern: 'push',
     metric: 'reps',
     unilateral: false,
+    skill: false,
+    warmup: false,
+    power: false,
+    implements: 1,
+    difficulty: null,
     isActive: true,
     equipment: ['gymnastic_rings'],
     imageVersion: null,
@@ -89,18 +112,51 @@ const EXERCISES = [
     pattern: 'legs',
     metric: 'weighted_reps',
     unilateral: false,
+    skill: false,
+    warmup: false,
+    power: false,
+    implements: 1,
+    difficulty: null,
     isActive: true,
     equipment: ['dumbbell'],
     imageVersion: null,
   },
-];
+] satisfies Exercise[];
 
 const EQUIPMENT = [
-  { id: 1, slug: 'pull_up_bar', name: 'Pull-up bar', category: 'rig', loadable: false },
-  { id: 2, slug: 'gymnastic_rings', name: 'Gymnastic rings', category: 'rig', loadable: false },
-  { id: 3, slug: 'dumbbell', name: 'Dumbbell', category: 'free_weight', loadable: false },
-  { id: 4, slug: 'barbell', name: 'Barbell', category: 'free_weight', loadable: true },
-];
+  {
+    id: 1,
+    slug: 'pull_up_bar',
+    name: 'Pull-up bar',
+    category: 'rig',
+    loadable: false,
+    weighted: false,
+  },
+  {
+    id: 2,
+    slug: 'gymnastic_rings',
+    name: 'Gymnastic rings',
+    category: 'rig',
+    loadable: false,
+    weighted: false,
+  },
+  {
+    id: 3,
+    slug: 'dumbbell',
+    name: 'Dumbbell',
+    category: 'free_weight',
+    loadable: false,
+    weighted: true,
+  },
+  {
+    id: 4,
+    slug: 'barbell',
+    name: 'Barbell',
+    category: 'free_weight',
+    loadable: true,
+    weighted: true,
+  },
+] satisfies Equipment[];
 
 const LOCATIONS = [
   {
@@ -110,13 +166,33 @@ const LOCATIONS = [
     roomForPower: true,
     equipment: ['pull_up_bar', 'gymnastic_rings', 'dumbbell', 'barbell'],
     equipmentOptions: [
-      { slug: 'dumbbell', weights: [10, 15, 20], labels: [], barKg: null },
-      { slug: 'barbell', weights: [], labels: [], barKg: 20 },
+      {
+        slug: 'dumbbell',
+        weights: [10, 15, 20],
+        weightQty: [],
+        labels: [],
+        barKg: null,
+        barQty: null,
+        plateSlots: null,
+      },
+      {
+        slug: 'barbell',
+        weights: [],
+        weightQty: [],
+        labels: [],
+        barKg: 20,
+        barQty: null,
+        plateSlots: null,
+      },
     ],
-    plates: [1.25, 2.5, 5, 10, 20],
+    // Pairs only: a plate you own one of is dead weight on a bar.
+    plates: [
+      { equipment: null, loadKg: 20, qty: 2 },
+      { equipment: null, loadKg: 10, qty: 4 },
+    ],
     healthPlaceId: null,
   },
-];
+] satisfies Location[];
 
 // Two days of sets (loggedAt is UTC, no 'Z' — the client appends it).
 const SETS = [
@@ -153,7 +229,7 @@ const SETS = [
     rpe: null,
     note: null,
   },
-];
+] satisfies WorkoutSet[];
 
 // A busy "active" verdict so Today renders fully (status line, reason, the
 // ordered plan, the FAB). `groups` feeds the Balance tab.
@@ -182,7 +258,7 @@ const GROUPS = [
     deficit: 0.33,
     recovering: true,
   },
-];
+] satisfies GroupBalance[];
 const PACING = {
   state: 'active',
   deload: false,
@@ -207,6 +283,8 @@ const PACING = {
     ask: { kind: 'bodyweight', repLow: 5, repHigh: 8 },
     group: 'Chest',
     substitutedFor: null,
+    explanation: null,
+    newBest: null,
   },
   // The ordered session: a warm-up (leads), a work item + a calibration item.
   plan: [
@@ -220,6 +298,8 @@ const PACING = {
       ask: { kind: 'bodyweight', repLow: 8, repHigh: 8 },
       group: 'Shoulders',
       substitutedFor: null,
+      explanation: null,
+      newBest: null,
     },
     {
       exerciseId: 6,
@@ -238,7 +318,13 @@ const PACING = {
         confidence: 'high',
         e1rm: null,
         readiness: 'high',
+        confirming: false,
+        estimateFrom: null,
+        misses: 0,
+        offCardKg: null,
+        steppedFromKg: null,
       },
+      newBest: null,
     },
     {
       exerciseId: 11,
@@ -257,7 +343,13 @@ const PACING = {
         confidence: 'none',
         e1rm: null,
         readiness: 'high',
+        confirming: false,
+        estimateFrom: null,
+        misses: 0,
+        offCardKg: null,
+        steppedFromKg: null,
       },
+      newBest: null,
     },
   ],
   // Kit present but with no registered weights: the coach drops those lifts
@@ -267,7 +359,7 @@ const PACING = {
   ],
   // A rest the athlete asked for, with its button to end it early.
   resting: [{ exerciseId: 12, exerciseName: 'Bulgarian split squat', until: '2026-10-15' }],
-};
+} satisfies PacingNow;
 
 // GET /api/exercises/6 — the library sheet's own fetch. The catch-all answers it
 // with `[]`, which is not an ExerciseDetail, so the sheet needs its own mock.
@@ -286,8 +378,17 @@ const DETAIL = {
   summary: null,
   difficulty: 3,
   imageVersion: null,
+  loopVersion: null,
+  imageCredit: null,
   equipment: [
-    { id: 2, slug: 'gymnastic_rings', name: 'Gymnastic rings', category: 'rig', loadable: false },
+    {
+      id: 2,
+      slug: 'gymnastic_rings',
+      name: 'Gymnastic rings',
+      category: 'rig',
+      loadable: false,
+      weighted: false,
+    },
   ],
   muscles: [
     {
@@ -299,12 +400,13 @@ const DETAIL = {
     },
     { slug: 'triceps', name: 'Triceps', group: 'Triceps', region: 'arms', role: 'secondary' },
   ],
-};
+} satisfies ExerciseDetail;
 
 /** Mock every backend call. Catch-all FIRST — Playwright runs handlers
  *  last-registered-first, so the specific routes below win. */
 async function mockApi(page: Page): Promise<void> {
   await page.route('**/api/**', (r) =>
+    // dev-lint: allow-untyped-mock the catch-all answers GETs no test reads; every route a test reads has its own typed mock below
     r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 204, body: '' }),
   );
   await page.route('**/api/me', (r) => r.fulfill({ json: ME }));
@@ -312,8 +414,12 @@ async function mockApi(page: Page): Promise<void> {
   await page.route('**/api/exercises*', (r) => r.fulfill({ json: EXERCISES }));
   await page.route('**/api/equipment', (r) => r.fulfill({ json: EQUIPMENT }));
   await page.route('**/api/locations', (r) => r.fulfill({ json: LOCATIONS }));
-  await page.route('**/api/places/detected', (r) => r.fulfill({ json: [] }));
-  await page.route('**/api/location/current', (r) => r.fulfill({ json: { locationId: null } }));
+  await page.route('**/api/places/detected', (r) =>
+    r.fulfill({ json: [] satisfies DetectedPlace[] }),
+  );
+  await page.route('**/api/location/current', (r) =>
+    r.fulfill({ json: { locationId: null } satisfies CurrentLocation }),
+  );
   await page.route('**/api/settings', (r) => r.fulfill({ json: SETTINGS }));
 }
 
@@ -348,6 +454,7 @@ test('today — busy composition: clean + all controls reachable @ phone', async
 // An unauthenticated visitor (no session → /api/me 401s) must get a visible way
 // in, not empty chrome: a sign-in card that links to /login (→ Nextcloud OAuth).
 test('signed-out — the sign-in card offers a way in @ phone', async ({ page }, testInfo) => {
+  // dev-lint: allow-untyped-mock a 401's body is never read: the status alone signs the visitor out
   await page.route('**/api/me', (r) => r.fulfill({ status: 401, json: {} }));
   await page.goto('/today');
   const signIn = page.getByRole('link', { name: 'Sign in with Nextcloud' });
@@ -420,7 +527,7 @@ test('exercise sheet — a credited picture and loop render clean @ phone', asyn
           text: 'Anatomy from Z-Anatomy (based on BodyParts3D), CC BY-SA 4.0',
           url: 'https://github.com/Z-Anatomy',
         },
-      },
+      } satisfies ExerciseDetail,
     }),
   );
   await page.goto('/library');
@@ -475,7 +582,7 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
         nudge: false,
         window: 'after',
         reason: "It's late — this rolls to tomorrow.",
-      },
+      } satisfies PacingNow,
     }),
   );
   await page.goto('/today');
@@ -509,10 +616,11 @@ test('today — a new best is named on its finished row @ phone', async ({ page 
             ask: { kind: 'bodyweight', repLow: 6, repHigh: 12 },
             group: 'Lats',
             substitutedFor: null,
+            explanation: null,
             newBest: { reps: 7, loadKg: null, holdS: null, distanceM: null },
           },
         ],
-      },
+      } satisfies PacingNow,
     }),
   );
   await page.goto('/today');
@@ -541,7 +649,7 @@ test('today — mid-session, the next thing to do is on screen @ phone', async (
               ? { ...s, logged: [{ reps: 7, loadKg: null, holdS: null, distanceM: null }] }
               : s,
         ),
-      },
+      } satisfies PacingNow,
     }),
   );
   await page.goto('/today');
@@ -580,7 +688,9 @@ test("today — auto-detected location shows the 'detected' hint @ phone", async
   page,
 }, testInfo) => {
   await mockApi(page);
-  await page.route('**/api/location/current', (r) => r.fulfill({ json: { locationId: 1 } }));
+  await page.route('**/api/location/current', (r) =>
+    r.fulfill({ json: { locationId: 1 } satisfies CurrentLocation }),
+  );
   await page.goto('/today');
   await page.getByText('a bit light', { exact: false }).waitFor();
   await page.locator('.status-line .auto').waitFor();

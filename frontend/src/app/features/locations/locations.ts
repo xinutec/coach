@@ -8,7 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { scaffoldTitle } from '@xinutec/ui-scaffold';
 import { CoachApi } from '../../coach-api';
-import type { Category, Equipment, EquipmentOption, Location } from '../../models';
+import type { Category, Equipment, EquipmentOption, Location, Plate } from '../../models';
 import { EquipmentStore, LocationsStore, PlacesStore } from '../../stores/catalog';
 
 const CATEGORY_LABEL: Record<Category, string> = {
@@ -130,6 +130,16 @@ export class LocationsPage {
   private equipmentNames = computed(() => new Map(this.equipment().map((e) => [e.slug, e.name])));
   equipLabel(slug: string): string {
     return this.equipmentNames().get(slug) ?? slug;
+  }
+
+  /** A location's plates as one line: "2 × 20, 4 × 10 kg". A plate pinned to one piece
+   *  of kit names it; a count of none means plenty (a gym rack). */
+  plateLine(plates: Plate[]): string {
+    const one = (p: Plate): string => {
+      const kit = p.equipment === null ? '' : ` (${this.equipLabel(p.equipment)})`;
+      return `${p.qty === null ? '' : `${p.qty} × `}${p.loadKg}${kit}`;
+    };
+    return `${plates.map(one).join(', ')} kg`;
   }
 
   /** What one piece of kit holds, as one line: "10, 15, 20 kg · 20 kg bar". The

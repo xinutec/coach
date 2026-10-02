@@ -1307,12 +1307,18 @@ finding whether a check should have caught it before fixing it.
 
 ## Found before the first set
 
-- **"Plates: [object Object], [object Object] … kg" on Locations.** The template
-  joins `Plate` objects; `Plate` stopped being a number in 54a892c. The layout
-  harness's rendered-text check exists for exactly this, but its mocked API response
-  is untyped and still has the old shape, so it tested a stale world. A dev-lint rule
-  is being built for that class (typed mocks, dev-lint #1898); the template is left
-  as it is until the rule shows it.
+- **"Plates: [object Object], [object Object] … kg" on Locations — FIXED, and caught
+  by a rule first.** The template joined `Plate` objects; `Plate` stopped being a
+  number in 54a892c. The layout harness's rendered-text check exists for exactly
+  this, but its mocked API responses were untyped and still had the old shape, so
+  it tested a world the app no longer had. dev-lint's DL-E2E-MOCK-UNTYPED now
+  requires every mocked response to be checked against the app's own type. With
+  the locations mock typed, the e2e type-check failed on `plates: [1.25, …]`
+  ("number is not assignable to Plate"); given its real shape, the leak check
+  failed on the rendered "[object Object]". Then the template was fixed
+  (`plateLine`). Typing the rest of the mocks found the same drift in six more:
+  exercises, equipment, group balances, plan items, explanations and the exercise
+  detail had all gained fields the fixtures never had.
 - **"Dumbbell: 5 kg1.5 kg bar".** Three spans side by side, no separator. Not a
   static question; fixed with a test (`optionLine`).
 - **Four movements named after kit they do not list:** battle-rope slam, barbell ab
