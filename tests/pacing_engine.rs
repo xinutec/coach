@@ -4366,3 +4366,40 @@ fn no_power_where_there_is_no_room_for_it() {
     );
     assert_eq!(power_picks(&out), [], "{:?}", plan_ids(&out));
 }
+
+// ---- coming back ----
+
+// A ladder is entered where the athlete stands, as a trainer would: round 10's first
+// day back offered the never-done archer push-up and pistol squat over the push-up
+// done before the break. A harder rung arrives by stepping up, not by novelty.
+#[test]
+fn a_never_done_harder_rung_waits_for_the_easier_one() {
+    let back = vec![
+        bset(2, days_ago(70), 10),
+        bset(2, days_ago(70) + Duration::minutes(5), 10),
+    ];
+    let ids = plan_ids(&evaluate(
+        &input(Mode::Balanced, chest_ladder(), back, None, None),
+        now(),
+    ));
+    assert!(
+        ids.contains(&ExerciseId(2)),
+        "the push-up he knows: {ids:?}"
+    );
+    assert!(
+        !ids.contains(&ExerciseId(3)),
+        "not the archer push-up: {ids:?}"
+    );
+}
+
+#[test]
+fn a_first_ladder_starts_at_its_bottom_rung() {
+    let ids = plan_ids(&evaluate(
+        &input(Mode::Balanced, chest_ladder(), vec![], None, None),
+        now(),
+    ));
+    assert!(
+        !ids.contains(&ExerciseId(2)) && !ids.contains(&ExerciseId(3)),
+        "only the knee push-up of that ladder: {ids:?}"
+    );
+}

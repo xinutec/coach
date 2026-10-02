@@ -1334,6 +1334,21 @@ finding whether a check should have caught it before fixing it.
   Not shipped alone: a coach keeps some power work in the week, just not as the
   leg volume.
 
+## R10-2. The first day back offered rungs never climbed — FIXED
+
+Nine weeks away, the hotel day offered the archer push-up and the pistol squat,
+neither ever done, over the push-up done before the break: any rung could enter as
+novelty if it paid. A never-done rung now waits while an easier one on its ladder is
+doable and not outgrown; the hotel day became leg raises, long lunge, push-up, side
+leg lifts. Swept against the deployed engine: no cell overclaims more (the injured
+athlete +2.0% → 0, novice skipper +0.4% → 0); underclaim moves both ways (strong
+−6.3, novice −4.4; skipper +5.5, layoff +5.2, sandbagger +7.5); a few more sets.
+
+**Not the cause of the thin day:** the cap on new movements was suspected of
+counting movements done before the break. Measured, it does not — after a break an
+estimate is Low, not None — so that change was a no-op and was dropped. The day is
+thin because each calibration is one set and three of four movements are new.
+
 ## R10-1. Power is its own small dose — CHANGED (the user's call, as a trainer does it)
 
 Jumps and throws train speed, not muscle. A power set counts half as volume and in

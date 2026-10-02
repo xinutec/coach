@@ -195,6 +195,11 @@ becomes a need of its own (the same mechanism as confirmation, so it qualifies e
 when the group's volume is covered), and the step is announced until the successor
 has an estimate of its own: "You've outgrown incline push-ups".
 
+A ladder is **entered where the athlete stands**: a never-done rung is not a
+candidate while an easier rung of the same ladder is doable and not outgrown. Harder
+rungs arrive by stepping up, never as novelty. A first ladder starts at its bottom
+rung; a return after a break starts at the rung done before it.
+
 ### 4. Dose — what to actually do
 
 [`pacing/dose.rs`] carries this in types. `Dose` is a sum type per metric, so a
