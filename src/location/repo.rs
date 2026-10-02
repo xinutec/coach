@@ -12,7 +12,7 @@ use coach_pacing::domain::EquipmentId;
 
 macro_rules! loc_cols {
     () => {
-        "l.id, l.name, l.is_default, l.health_place_id, \
+        "l.id, l.name, l.is_default, l.room_for_power, l.health_place_id, \
          (SELECT GROUP_CONCAT(eq.slug ORDER BY eq.name SEPARATOR ',') \
             FROM location_equipment le JOIN equipment eq ON eq.id = le.equipment_id \
             WHERE le.location_id = l.id) AS equipment_csv"
@@ -59,11 +59,13 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<
         clear_default(pool, user_id).await?;
     }
     let res = sqlx::query(
-        "INSERT INTO locations (user_id, name, is_default, health_place_id) VALUES (?, ?, ?, ?)",
+        "INSERT INTO locations (user_id, name, is_default, room_for_power, health_place_id) \
+         VALUES (?, ?, ?, ?, ?)",
     )
     .bind(user_id)
     .bind(&n.name)
     .bind(n.is_default)
+    .bind(n.room_for_power)
     .bind(n.health_place_id)
     .execute(pool)
     .await?;
@@ -92,11 +94,13 @@ pub async fn patch(
         "UPDATE locations SET \
            name = COALESCE(?, name), \
            is_default = COALESCE(?, is_default), \
+           room_for_power = COALESCE(?, room_for_power), \
            updated_at = NOW() \
          WHERE id = ? AND user_id = ?",
     )
     .bind(&p.name)
     .bind(p.is_default)
+    .bind(p.room_for_power)
     .bind(id)
     .bind(user_id)
     .execute(pool)

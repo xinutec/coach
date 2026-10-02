@@ -71,5 +71,15 @@
     "slug": "yoga_ball",
     "name": "Yoga ball",
     "category": "ball"
+  },
+  {
+    "slug": "plyo_box",
+    "name": "Plyo box",
+    "category": "bench"
+  },
+  {
+    "slug": "battle_rope",
+    "name": "Battle rope",
+    "category": "conditioning"
   }
 ]

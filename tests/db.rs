@@ -260,6 +260,7 @@ async fn a_verdict_is_computed_from_a_real_location_and_real_history() {
         &NewLocation {
             name: "Test gym".into(),
             is_default: true,
+            room_for_power: true,
             equipment: vec!["dumbbell".into(), "pull_up_bar".into(), "bench".into()],
             equipment_options: vec![EquipmentOption {
                 slug: "dumbbell".into(),
@@ -348,6 +349,7 @@ async fn a_movement_that_hurts_leaves_the_card_until_taken_back() {
         &NewLocation {
             name: "Test gym".into(),
             is_default: true,
+            room_for_power: true,
             equipment: vec!["pull_up_bar".into()],
             equipment_options: vec![],
             plates: vec![],
@@ -469,6 +471,7 @@ async fn a_cable_stack_carries_a_load() {
         &NewLocation {
             name: "Cable gym".into(),
             is_default: true,
+            room_for_power: true,
             equipment: vec!["cable_machine".into()],
             equipment_options: vec![EquipmentOption {
                 slug: "cable_machine".into(),
@@ -850,6 +853,7 @@ async fn a_wrong_set_can_be_found_from_the_card_and_removed() {
         &NewLocation {
             name: "Test gym".into(),
             is_default: true,
+            room_for_power: true,
             equipment: vec!["dumbbell".into(), "pull_up_bar".into(), "bench".into()],
             equipment_options: vec![EquipmentOption {
                 slug: "dumbbell".into(),

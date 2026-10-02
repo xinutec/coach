@@ -81,6 +81,9 @@ fi
 mkdir -p "$OUT"
 
 echo "Loading $DUMP into dev DB (127.0.0.1:${PORT}) ..." >&2
+# Into an empty database: the dump drops only the tables it carries, so one a newer
+# migration made would survive and make the next migration run fail.
+mariadb -h127.0.0.1 -P"$PORT" -ucoach -pcoach -e 'DROP DATABASE IF EXISTS coach; CREATE DATABASE coach'
 mariadb -h127.0.0.1 -P"$PORT" -ucoach -pcoach coach <"$DUMP"
 
 for cell in "${CELLS[@]}"; do

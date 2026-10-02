@@ -47,6 +47,8 @@ pub struct PacingContext {
     pub groups: Vec<GroupMeta>,
     /// The kit where the athlete is training; `None` only with no location at all.
     pub kit: Option<Kit>,
+    /// Room there to jump or throw (true with no location: nothing says otherwise).
+    pub room_for_power: bool,
     /// Buildable loads per *exercise* (not per equipment — a two-dumbbell movement
     /// gets half the discs). Empty = not loadable here.
     pub exercise_loads: BTreeMap<ExerciseId, Vec<f64>>,
@@ -86,6 +88,12 @@ pub async fn context(
             .await?
             .map(|ids| Kit(ids.into_iter().collect::<BTreeSet<EquipmentId>>())),
         None => None,
+    };
+    let room_for_power = match location {
+        Some(id) => location_repo::get(pool, user_id, id)
+            .await?
+            .is_none_or(|l| l.room_for_power),
+        None => true,
     };
     // The loadable kit here: fixed weights, bars/handles, and the plates that fit
     // each. Raw facts — what's *buildable* depends on how many implements the
@@ -237,6 +245,7 @@ pub async fn context(
         exercises,
         groups,
         kit,
+        room_for_power,
         exercise_loads,
         notices,
         equipment_names,
@@ -311,6 +320,7 @@ pub fn input_from(
         offers: record.offers,
         hurts: record.hurts,
         bests: record.bests,
+        room_for_power: ctx.room_for_power,
     }
 }
 

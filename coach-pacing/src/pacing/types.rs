@@ -144,6 +144,9 @@ pub struct PacingInput {
     /// Each movement's best set before today, from the whole log rather than the
     /// loaded window, so a return cannot claim a best it has only forgotten.
     pub bests: BTreeMap<ExerciseId, Best>,
+    /// Whether there is room here to jump or throw. Where there is not (a hotel
+    /// room), no power movement is offered.
+    pub room_for_power: bool,
     /// Readiness on each past training day, for the ledger: an eased, under-recovered
     /// session judged as full-effort would count compliance as failure. A missing day
     /// is judged full-effort.

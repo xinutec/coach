@@ -126,6 +126,10 @@ const READINESS_REST_BELOW: f64 = 0.15;
 const DEFAULT_WEEKLY_SETS: f64 = 10.0; // literature maintenance→growth anchor
 const SECONDARY_CREDIT: f64 = 0.5; // a synergist (secondary) counts half a set
 const STABILIZER_CREDIT: f64 = 0.25; // an isometric stabilizer counts a quarter
+const POWER_CREDIT: f64 = 0.5; // a ballistic set, far from failure, counts half
+/// Power work is a small, separate dose: this many days a week, each one movement
+/// for a few sets, opening the session.
+const POWER_DAYS_PER_WEEK: usize = 2;
 const EMPHASIS_MULT: f64 = 1.5;
 const DELOAD_RATIO: f64 = 1.6; // last-7d volume this far above avg → auto-deload
 const DELOAD_SCALE: f64 = 0.6;
@@ -149,12 +153,24 @@ fn confirm_need(confidence: Confidence, sessions_recent: i32) -> f64 {
     }
 }
 
-/// What one set of an exercise credits into a group it trains in this role.
+/// What one set of an exercise credits into a group it trains in this role: the
+/// load it puts there, for recovery and the warm-up.
 fn role_credit(role: MuscleRole) -> f64 {
     match role {
         MuscleRole::Primary => 1.0,
         MuscleRole::Secondary => SECONDARY_CREDIT,
         MuscleRole::Stabilizer => STABILIZER_CREDIT,
+    }
+}
+
+/// The same set as volume toward a group's weekly need. A power set counts for
+/// less: three to five jumps or throws are not taken near failure, so they build
+/// less than a working set does, though they load the tissue as fully.
+fn volume_credit(ex: &ExerciseInfo, role: MuscleRole) -> f64 {
+    if ex.is_power {
+        role_credit(role) * POWER_CREDIT
+    } else {
+        role_credit(role)
     }
 }
 
@@ -691,7 +707,7 @@ fn candidates<'a>(
         let mut credit = ByGroup::filled(groups.name.len(), 0.0);
         for (gid, role) in &ex.groups {
             if let Some(&i) = groups.ix.get(gid) {
-                credit[i] = role_credit(*role) * groups.recovery[i];
+                credit[i] = volume_credit(ex, *role) * groups.recovery[i];
             }
         }
         // The item's label is its neediest prime mover (need × credit, primaries only):
@@ -766,6 +782,7 @@ fn candidates<'a>(
                 credit,
                 weight: mode_fit(input.mode, ex) * 2.0 + familiar,
                 confirm,
+                held: false,
                 novel,
                 min,
                 cap,
@@ -773,7 +790,48 @@ fn candidates<'a>(
         });
     }
 
+    // Power is its own small dose, as a trainer gives it: on a power day the session
+    // holds a place for the best-suited power movement (underway first); on any other
+    // day none is offered, so a jump never stands in for the leg work.
+    let (power, mut cands): (Vec<Cand<'a>>, Vec<Cand<'a>>) =
+        cands.into_iter().partition(|c| c.ex.is_power);
+    if power_due(input, history, now)
+        && let Some(mut best) = power.into_iter().max_by(|a, b| {
+            let pays = |c: &Cand<'_>| groups.need.dot(&c.scored.credit);
+            a.scored
+                .weight
+                .total_cmp(&b.scored.weight)
+                .then(pays(a).total_cmp(&pays(b)))
+                .then(b.scored.id.cmp(&a.scored.id))
+        })
+    {
+        best.scored.held = true;
+        cands.push(best);
+    }
+
     (cands, ladder_notes)
+}
+
+/// Whether today is a power day: there is room here, there was no power work
+/// yesterday or earlier today (landings need two days), and the last week has had
+/// fewer than [`POWER_DAYS_PER_WEEK`].
+fn power_due(input: &PacingInput, history: &[SetRec], now: NaiveDateTime) -> bool {
+    let power: alloc::collections::BTreeSet<ExerciseId> = input
+        .exercises
+        .iter()
+        .filter(|e| e.is_power)
+        .map(|e| e.id)
+        .collect();
+    let today = now.date();
+    let days: alloc::collections::BTreeSet<NaiveDate> = history
+        .iter()
+        .filter(|s| power.contains(&s.exercise_id))
+        .map(|s| s.logged_at.date())
+        .filter(|d| *d > today - Duration::days(7))
+        .collect();
+    input.room_for_power
+        && !days.iter().any(|d| *d >= today - Duration::days(1))
+        && days.len() < POWER_DAYS_PER_WEEK
 }
 
 /// Doable variations of `ex` on its ladder: the same pattern, a shared primary
@@ -1260,13 +1318,13 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         let live_age_h = (now - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
-            let credit = role_credit(*role);
             if set.logged_at >= live_roll_cut {
-                *live_current.entry(*g).or_default() += credit;
+                *live_current.entry(*g).or_default() += volume_credit(ex, *role);
             }
             let horizon = region_of.get(g).copied().map_or(48.0, recovery_horizon);
             if live_age_h < horizon {
-                *live_unrecovered.entry(*g).or_default() += credit * (1.0 - live_age_h / horizon);
+                *live_unrecovered.entry(*g).or_default() +=
+                    role_credit(*role) * (1.0 - live_age_h / horizon);
             }
         }
         // Everything below shapes the plan, so it sees only what was true when
@@ -1280,7 +1338,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         }
         let age_h = (plan_at - set.logged_at).num_minutes().max(0) as f64 / 60.0;
         for (g, role) in &ex.groups {
-            let credit = role_credit(*role);
+            let credit = volume_credit(ex, *role);
             if set.logged_at >= hist_cut {
                 *avg_sum.entry(*g).or_default() += credit;
             }
@@ -1293,7 +1351,7 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
             }
             let horizon = region_of.get(g).copied().map_or(48.0, recovery_horizon);
             if age_h < horizon {
-                *unrecovered.entry(*g).or_default() += credit * (1.0 - age_h / horizon);
+                *unrecovered.entry(*g).or_default() += role_credit(*role) * (1.0 - age_h / horizon);
             }
         }
     }

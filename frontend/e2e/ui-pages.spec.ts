@@ -107,6 +107,7 @@ const LOCATIONS = [
     id: 1,
     name: 'Home',
     isDefault: true,
+    roomForPower: true,
     equipment: ['pull_up_bar', 'gymnastic_rings', 'dumbbell', 'barbell'],
     equipmentOptions: [
       { slug: 'dumbbell', weights: [10, 15, 20], labels: [], barKg: null },

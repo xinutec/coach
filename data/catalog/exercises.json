@@ -1676,7 +1676,9 @@
         "role": "secondary"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "barbell"
+    ],
     "image": {
       "file": "ab_rollout_barbell.jpg",
       "type": "image/jpeg"
@@ -3079,7 +3081,9 @@
         "role": "stabilizer"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "battle_rope"
+    ],
     "image": {
       "file": "battle_rope_slam_both_arms.jpg",
       "type": "image/jpeg"
@@ -4907,7 +4911,9 @@
         "role": "secondary"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "medicine_ball"
+    ],
     "image": {
       "file": "med_ball_slam_rotational.jpg",
       "type": "image/jpeg"
@@ -5348,7 +5354,9 @@
         "role": "stabilizer"
       }
     ],
-    "equipment": [],
+    "equipment": [
+      "plyo_box"
+    ],
     "image": {
       "file": "box_jump.jpg",
       "type": "image/jpeg"

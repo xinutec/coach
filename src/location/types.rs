@@ -75,6 +75,8 @@ pub struct Location {
     pub id: i64,
     pub name: String,
     pub is_default: bool,
+    /// Room here to jump or throw; without it the coach offers no power work.
+    pub room_for_power: bool,
     pub equipment: Vec<String>,
     /// Specifics for equipment that has them (weights/band variants/bar weight).
     /// Only equipment with at least one option appears here.
@@ -91,6 +93,7 @@ pub(crate) struct LocationRow {
     pub id: i64,
     pub name: String,
     pub is_default: bool,
+    pub room_for_power: bool,
     pub equipment_csv: Option<String>,
     pub health_place_id: Option<i64>,
 }
@@ -101,6 +104,7 @@ impl From<LocationRow> for Location {
             id: r.id,
             name: r.name,
             is_default: r.is_default,
+            room_for_power: r.room_for_power,
             equipment: r
                 .equipment_csv
                 .filter(|s| !s.is_empty())
@@ -132,6 +136,9 @@ pub struct NewLocation {
     pub name: String,
     #[serde(default)]
     pub is_default: bool,
+    /// Absent means room, as most places to train have it.
+    #[serde(default = "room_by_default")]
+    pub room_for_power: bool,
     #[serde(default)]
     pub equipment: Vec<String>,
     #[serde(default)]
@@ -150,6 +157,7 @@ pub struct NewLocation {
 pub struct LocationPatch {
     pub name: Option<String>,
     pub is_default: Option<bool>,
+    pub room_for_power: Option<bool>,
     /// When present, replaces the whole equipment set.
     pub equipment: Option<Vec<String>>,
     /// When present, replaces all per-equipment specifics (weights/band variants).
@@ -160,4 +168,8 @@ pub struct LocationPatch {
     #[serde(default, deserialize_with = "double_option")]
     #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub health_place_id: Option<Option<i64>>,
+}
+
+fn room_by_default() -> bool {
+    true
 }

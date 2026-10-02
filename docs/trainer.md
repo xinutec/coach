@@ -164,6 +164,15 @@ Four things fall out rather than being special-cased:
   the same way, so a session admits one entry per family; the second cousin is
   redundant stimulus wearing a different label, and its budget goes to whatever else
   still pays.
+- **Power is its own small dose.** Jumps and throws train speed, not muscle, so a
+  power set counts half as volume (three to five ballistic reps are not taken near
+  failure) and in full as load, for recovery and the warm-up. The session holds a
+  place for one power movement on a power day: room at this location, no power work
+  yesterday or earlier today, and fewer than `POWER_DAYS_PER_WEEK` (two) power days in
+  the last week. It enters first, at its minimum dose, so a small budget cannot
+  crowd it out; on any other day no power movement is offered at all. Before this a
+  broad jump out-paid a lunge on four groups and became a hotel room's way to train
+  the legs (round 10).
 
 Only movements that are actually doable are candidates: the kit must be present, and
 a weighted lift must have registered weights at this location. A lift dropped for

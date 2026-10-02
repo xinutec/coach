@@ -33,6 +33,7 @@ fn cand(
         credit: vec_of(credit),
         weight,
         confirm,
+        held: false,
         novel,
         min,
         cap,
@@ -183,4 +184,18 @@ fn a_one_set_calibration_still_fits_a_one_set_remainder() {
             .map(|c| (c.item.id, c.sets))
             .collect::<Vec<_>>()
     );
+}
+
+// A place the session holds (today's power block) is taken first, at its minimum
+// dose: a better-ranked movement would otherwise fill a four-set budget on its own.
+#[test]
+fn a_held_place_enters_before_anything_competes() {
+    let strong = cand(1, vec![1.0, 0.0], 3.0, 0.0, false, 2, 4);
+    let mut held = cand(2, vec![0.0, 0.5], 1.0, 0.0, false, 2, 4);
+    held.held = true;
+    let cands = vec![strong, held];
+    let chosen = select(&cands, &vec_of(vec![10.0, 0.0]), 4, 5);
+    let ids: Vec<_> = chosen.iter().map(|c| (c.item.id, c.sets)).collect();
+    assert_eq!(ids, [(ExerciseId(2), 2), (ExerciseId(1), 2)]);
+    assert!(!chosen[0].confirming, "a held place is not a confirmation");
 }

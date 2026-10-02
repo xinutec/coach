@@ -3,4 +3,4 @@
 /**
  * Broad kit family, for grouping equipment in the UI.
  */
-export type Category = "free_weight" | "band" | "machine" | "ball" | "rig" | "bench";
+export type Category = "free_weight" | "band" | "machine" | "ball" | "rig" | "bench" | "conditioning";

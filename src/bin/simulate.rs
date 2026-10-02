@@ -495,7 +495,12 @@ fn perform(
             rep_low: ask,
             ..
         } => {
-            let load = behaviour.load_used(asked_load, loads);
+            // A bell beyond the athlete's max cannot be lifted once: they put it down
+            // and take the card's. Crediting a rep there logged a max nobody has, and
+            // the coach believed it (round 10: a snatch at 1.24x the truth).
+            let load = Some(behaviour.load_used(asked_load, loads))
+                .filter(|l| reps_at(truth.e1rm, *l) >= 1)
+                .unwrap_or(asked_load);
             let can = reps_at(truth.e1rm, load).max(1);
             let did = behaviour.rep_target(ask).min(can).max(1);
             Performed {
@@ -703,7 +708,11 @@ async fn main() -> Result<()> {
     };
 
     let pool = coach::db::connect(&url).await?;
-    let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
+    // The dump carries prod's schema, which can be behind this code's catalog; and
+    // the catalog is this checkout's, not the working directory's.
+    coach::db::migrate(&pool).await?;
+    let catalog_dir = std::env::var("CATALOG_DIR")
+        .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/data/catalog").into());
     coach::seed::run(&pool, &catalog_dir).await?;
 
     let locations = location_repo::list(&pool, &user).await?;

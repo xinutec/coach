@@ -2,7 +2,7 @@
 import type { EquipmentOption } from "./EquipmentOption";
 import type { Plate } from "./Plate";
 
-export type LocationPatch = { name: string | null, isDefault: boolean | null, 
+export type LocationPatch = { name: string | null, isDefault: boolean | null, roomForPower: boolean | null, 
 /**
  * When present, replaces the whole equipment set.
  */

@@ -46,7 +46,11 @@ async fn main() -> Result<()> {
     // boot), so the back-test always reflects the current catalog — flags,
     // difficulty, and the muscle model — against the prod-dump history, not
     // whatever catalog the dump happened to carry.
-    let catalog_dir = std::env::var("CATALOG_DIR").unwrap_or_else(|_| "data/catalog".into());
+    // The dump carries prod's schema, which can be behind this code's catalog; and
+    // the catalog is this checkout's, not the working directory's.
+    coach::db::migrate(&pool).await?;
+    let catalog_dir = std::env::var("CATALOG_DIR")
+        .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/data/catalog").into());
     coach::seed::run(&pool, &catalog_dir).await?;
 
     // Same assembly as the live verdict — *including the location*. A back-test

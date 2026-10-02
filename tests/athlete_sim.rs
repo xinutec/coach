@@ -143,6 +143,7 @@ fn row_input(history: Vec<SetRec>) -> PacingInput {
         offers: Default::default(),
         hurts: Default::default(),
         bests: Default::default(),
+        room_for_power: true,
     }
 }
 
@@ -454,6 +455,7 @@ fn never_prescribes_unrecovered_work_and_stays_within_budget() {
             offers: Default::default(),
             hurts: Default::default(),
             bests: Default::default(),
+            room_for_power: true,
         };
         let out = evaluate(&input, now);
 

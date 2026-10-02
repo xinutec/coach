@@ -3,7 +3,7 @@ import { of } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CoachApi } from '../../coach-api';
-import type { Equipment, Location, NewLocation, Plate } from '../../models';
+import type { Equipment, EquipmentOption, Location, NewLocation, Plate } from '../../models';
 import { LocationsPage } from './locations';
 
 /** The page where the athlete tells the coach what is in the room.
@@ -50,6 +50,7 @@ function location(over: Partial<Location> = {}): Location {
     id: 1,
     name: 'Home',
     isDefault: true,
+    roomForPower: true,
     equipment: [],
     equipmentOptions: [],
     plates: [],
@@ -551,5 +552,41 @@ describe('removing a location', () => {
     const p = page([loc]);
     p.remove(loc);
     expect(api.deleted).toEqual([9]);
+  });
+});
+
+describe("a location's kit, as read", () => {
+  // Round 10 found "Dumbbell: 5 kg1.5 kg bar": the weights and the bar sat side by
+  // side with nothing between them.
+  it('separates the weights, the bar and the labels', () => {
+    const p = page();
+    const o: EquipmentOption = {
+      slug: 'dumbbell',
+      weights: [5],
+      weightQty: [],
+      labels: [],
+      barKg: 1.5,
+      barQty: null,
+      plateSlots: null,
+    };
+    expect(p.optionLine(o)).toBe('5 kg · 1.5 kg bar');
+    expect(p.optionLine({ ...o, weights: [10, 15], barKg: null })).toBe('10, 15 kg');
+    expect(p.optionLine({ ...o, weights: [], barKg: null, labels: ['black', 'green'] })).toBe(
+      'black, green',
+    );
+  });
+});
+
+describe('room to jump and throw', () => {
+  // A hotel room has the floor but no room for jumps or throws; the coach plans no
+  // power work where this is off. New places have room unless told otherwise.
+  it('defaults to room for a new place and keeps what a place says', () => {
+    const p = page([location({ id: 4, roomForPower: false })]);
+    p.startNew();
+    expect(p.formRoom()).toBe(true);
+    const hotel = p.locations().find((l) => l.id === 4);
+    if (!hotel) throw new Error('fixture missing');
+    p.startEdit(hotel);
+    expect(p.formRoom()).toBe(false);
   });
 });

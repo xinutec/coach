@@ -2,7 +2,11 @@
 import type { EquipmentOption } from "./EquipmentOption";
 import type { Plate } from "./Plate";
 
-export type Location = { id: number, name: string, isDefault: boolean, equipment: Array<string>, 
+export type Location = { id: number, name: string, isDefault: boolean, 
+/**
+ * Room here to jump or throw; without it the coach offers no power work.
+ */
+roomForPower: boolean, equipment: Array<string>, 
 /**
  * Specifics for equipment that has them (weights/band variants/bar weight).
  * Only equipment with at least one option appears here.

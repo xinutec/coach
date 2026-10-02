@@ -108,6 +108,9 @@ pub struct Candidate {
     /// so it opens the gate for a just-trained group without inflating later sets. Zero
     /// for never-done movements (novelty, priced by `credit`) and trusted ones.
     pub confirm: f64,
+    /// The session holds a place for it (today's power block): it enters first, at its
+    /// minimum dose, before anything competes for the budget.
+    pub held: bool,
     /// Never trained: counts against the session's novelty cap.
     pub novel: bool,
     /// Fewest sets to take once this exercise is picked at all: its minimum effective
@@ -162,7 +165,8 @@ pub struct Chosen<'a, T> {
 /// Greedily fill `budget` sets from `cands`, each time taking the set that pays down
 /// the most remaining need; one [`Chosen`] per exercise, in first-picked order. Stops
 /// when nothing clears [`MIN_PAY`]. A pick qualifies on **coverage** (paid down from
-/// `need`) or, on the set that enters it, on its one-time **confirmation** need.
+/// `need`) or, on the set that enters it, on its one-time **confirmation** need. A
+/// [`Candidate::held`] item enters before the rounds begin.
 /// `novelty_cap` bounds never-done movements per session. Ties break to the lower
 /// exercise id.
 pub fn select<'a, T: Ranked>(
@@ -179,6 +183,35 @@ pub fn select<'a, T: Ranked>(
     let mut novel_taken = 0i32;
     // Movement families already in the session — each admits one entry (R3-3).
     let mut families: alloc::collections::BTreeSet<&str> = alloc::collections::BTreeSet::new();
+
+    // A place the session holds is taken first, at the item's minimum dose, so nothing
+    // that ranks higher can crowd it out of a small budget.
+    for (index, item) in cands.iter().enumerate() {
+        let cand = item.candidate();
+        let take = cand.min.min(cand.cap).min(left);
+        if !cand.held
+            || take < 1
+            || (cand.novel && novel_taken >= novelty_cap)
+            || families.contains(cand.family.as_str())
+        {
+            continue;
+        }
+        families.insert(cand.family.as_str());
+        if cand.novel {
+            novel_taken += 1;
+        }
+        picked.push(Chosen {
+            item,
+            index,
+            sets: take,
+            pays: need.dot(&cand.credit),
+            confirming: false,
+        });
+        for _ in 0..take {
+            need.saturating_sub(&cand.credit);
+        }
+        left -= take;
+    }
 
     // The budget bounds the rounds, since every round commits at least one set; as the
     // loop's range, termination doesn't rest on `Candidate::min` being at least 1.
@@ -232,7 +265,6 @@ pub fn select<'a, T: Ranked>(
                     item,
                     cand,
                     cover,
-                    pay,
                     rank,
                 });
             }
@@ -263,7 +295,7 @@ pub fn select<'a, T: Ranked>(
                     index: pick.index,
                     sets: take,
                     pays: pick.cover,
-                    confirming: pick.cover < MIN_PAY && pick.pay >= MIN_PAY,
+                    confirming: pick.cover < MIN_PAY && pick.cover + cand.confirm >= MIN_PAY,
                 });
                 take
             }
@@ -289,9 +321,8 @@ struct Pick<'a, T> {
     cand: &'a Candidate,
     /// What this set pays into the remaining group need.
     cover: f64,
-    /// `cover`, plus the confirmation need on a set that enters the exercise.
-    pay: f64,
-    /// `pay` scaled by style preference — what the round maximises.
+    /// What this set pays, its confirmation need included, scaled by style
+    /// preference — what the round maximises.
     rank: f64,
 }
 

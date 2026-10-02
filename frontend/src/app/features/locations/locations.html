@@ -15,6 +15,12 @@
       Default location
     </mat-slide-toggle>
 
+    <!-- A hotel room has the floor but no room to jump or throw; off, the coach plans
+         no power work here. -->
+    <mat-slide-toggle [ngModel]="formRoom()" (ngModelChange)="formRoom.set($event)">
+      Room to jump and throw
+    </mat-slide-toggle>
+
     @if (detectedPlaces().length) {
       <mat-form-field appearance="outline">
         <mat-label>Auto-select when I'm at</mat-label>
@@ -304,6 +310,9 @@
         @if (loc.isDefault) {
           <span class="pill accent"><mat-icon>star</mat-icon> Default</span>
         }
+        @if (!loc.roomForPower) {
+          <span class="pill">No jumping</span>
+        }
         @if (loc.healthPlaceId !== null) {
           <span class="pill"
             ><mat-icon>my_location</mat-icon> {{ placeLabel(loc.healthPlaceId) }}</span
@@ -328,15 +337,7 @@
       @for (o of loc.equipmentOptions; track o.slug) {
         <div class="spec-view">
           <span class="spec-view-name">{{ equipLabel(o.slug) }}:</span>
-          @if (o.weights.length) {
-            <span>{{ o.weights.join(', ') }} kg</span>
-          }
-          @if (o.barKg !== null) {
-            <span>{{ o.barKg }} kg bar</span>
-          }
-          @if (o.labels.length) {
-            <span>{{ o.labels.join(', ') }}</span>
-          }
+          <span>{{ optionLine(o) }}</span>
         </div>
       }
       @if (loc.plates.length) {

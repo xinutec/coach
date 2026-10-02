@@ -87,6 +87,82 @@ fn every_weighted_lift_declares_kit_that_carries_a_load() {
     );
 }
 
+/// The kit a word in a movement's name means. A word with two answers ("box": a
+/// plyo box or a bench) accepts either.
+const NAMED_KIT: &[(&str, &[&str])] = &[
+    ("barbell", &["barbell"]),
+    ("dumbbell", &["dumbbell"]),
+    ("kettlebell", &["kettlebell"]),
+    ("trap bar", &["trap_bar"]),
+    ("hex bar", &["trap_bar"]),
+    ("cable", &["cable_machine"]),
+    ("med ball", &["medicine_ball"]),
+    ("medicine ball", &["medicine_ball"]),
+    ("rings", &["gymnastic_rings"]),
+    ("parallettes", &["parallettes"]),
+    ("bench", &["bench"]),
+    ("ghd", &["ghd"]),
+    ("band", &["resistance_band"]),
+    ("banded", &["resistance_band"]),
+    ("battle rope", &["battle_rope"]),
+    ("box", &["plyo_box", "bench"]),
+];
+
+/// A movement whose name says what it is done with must list that kit, or the coach
+/// offers it where the kit is absent: round 10 planned battle-rope slams and an ab
+/// rollout on a barbell for a hotel room with nothing in it.
+#[test]
+fn a_movement_named_after_its_kit_lists_that_kit() {
+    // Lower-case words between single spaces, so " box " never matches "boxer".
+    let words = |s: &str| -> String {
+        let lower: String = s
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+            .collect();
+        format!(
+            " {} ",
+            lower.split_whitespace().collect::<Vec<_>>().join(" ")
+        )
+    };
+    let mut missing = Vec::new();
+    for ex in catalog() {
+        let field = |k: &str| ex.get(k).and_then(Value::as_str).unwrap_or("");
+        let name = words(&format!("{} {}", field("name"), field("variation")));
+        let kit: Vec<&str> = ex
+            .get("equipment")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        for (word, any_of) in NAMED_KIT {
+            if name.contains(&format!(" {word} ")) && !any_of.iter().any(|k| kit.contains(k)) {
+                missing.push(format!("{}: says {word:?}, lists {kit:?}", field("slug")));
+            }
+        }
+    }
+    assert!(
+        missing.is_empty(),
+        "movements named after kit they do not list:\n{}",
+        missing.join("\n")
+    );
+}
+
+/// Every answer above is kit the catalog has: a slug nobody declares would make
+/// the movement that needs it unplannable everywhere.
+#[test]
+fn the_kit_a_name_means_exists() {
+    let slugs: Vec<String> = equipment()
+        .iter()
+        .filter_map(|e| Some(e.get("slug")?.as_str()?.to_string()))
+        .collect();
+    let unknown: Vec<&str> = NAMED_KIT
+        .iter()
+        .flat_map(|(_, kit)| kit.iter().copied())
+        .filter(|k| !slugs.iter().any(|s| s == k))
+        .collect();
+    assert!(unknown.is_empty(), "not in equipment.json: {unknown:?}");
+}
+
 fn equipment() -> Vec<Value> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/catalog/equipment.json");
     let bytes = std::fs::read(&path).expect("reading the equipment catalog");

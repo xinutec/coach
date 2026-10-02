@@ -1298,3 +1298,61 @@ ask, and one rep short is within the margin, so it is held rather than backed of
 the day's need (41 → 24 assess cards for the compliant improver); weekly volume per
 group fell by up to 1.5 effective sets (chest 8.3 → 6.9, lats 8.1 → 6.5).
 
+
+# Round 10 — training through the app, for real
+
+The athlete trains; the coach session drives the real app at phone size in a
+logged-in browser and logs what the athlete reports. The aim is to find what is wrong, then ask of each
+finding whether a check should have caught it before fixing it.
+
+## Found before the first set
+
+- **"Plates: [object Object], [object Object] … kg" on Locations.** The template
+  joins `Plate` objects; `Plate` stopped being a number in 54a892c. The layout
+  harness's rendered-text check exists for exactly this, but its mocked API response
+  is untyped and still has the old shape, so it tested a stale world. A dev-lint rule
+  is being built for that class (typed mocks, dev-lint #1898); the template is left
+  as it is until the rule shows it.
+- **"Dumbbell: 5 kg1.5 kg bar".** Three spans side by side, no separator. Not a
+  static question; fixed with a test (`optionLine`).
+- **Four movements named after kit they do not list:** battle-rope slam, barbell ab
+  rollout, rotational med-ball slam, box jump. A hotel room with nothing in it was
+  offered rope slams. Caught now by `tests/catalog.rs`
+  (`a_movement_named_after_its_kit_lists_that_kit`), which named exactly these four
+  and nothing else; battle rope (a new `conditioning` category) and plyo box are kit.
+- **A broad jump stood in for the RDL in the hotel room**, because one set of jumps
+  counted as a full set on four groups. Halving a power set's volume credit fixed
+  the stand-in, but the sweep showed it removed power work almost entirely (35 power
+  sets in eight weeks → 5 for the compliant improver) and moved underclaim up in
+  several cells (improviser 23.3% → 30.0%, ablated against the catalog fix alone).
+  Not shipped alone: a coach keeps some power work in the week, just not as the
+  leg volume.
+
+## R10-1. Power is its own small dose — CHANGED (the user's call, as a trainer does it)
+
+Jumps and throws train speed, not muscle. A power set counts half as volume and in
+full as load (recovery, the warm-up). On a power day (room at the location, none
+yesterday or earlier today, fewer than two in the last week) the session holds a
+place for one power movement, which enters first at its minimum dose; on any other
+day none is offered. A location now says whether there is room to jump and throw;
+the hotel room says no.
+
+Swept against the catalog fix alone. Power work became regular: about 31 sets over
+eight weeks in every cell (two days a week, two sets, the movement already underway),
+where before it was 16–40 depending on how often a jump won the leg volume. Missed
+cards barely move (compliant improver 1 → 2, strong 3 → 0, heavier 22 → 17, novice
+10 → 12). Underclaim rises 2–7 points in most cells: power blocks spend about 7% of
+the sets. Overclaim stays where it was except the injured athlete (+0.4% → +2.0%):
+a reverse fly entered in week 6 with a pre-injury estimate (believed 8 reps, true
+5), the injury class round 7 named; the ledger was backing off after two misses.
+
+**The heavier athlete exposed a simulator bug,** not a coach one: a bell beyond the
+athlete's max was credited one rep, a single nobody can lift, and the coach believed
+it (a snatch at 1.24× the truth). The simulated athlete now puts it down and takes
+the card's weight. Still open in the simulator: a *card* beyond the athlete is also
+credited one rep; it only arises after an overclaim.
+
+- **The sweep tooling had three more ways to measure the wrong thing,** each fixed:
+  the simulator read the catalog from the working directory, not its checkout; it
+  seeded without migrating, so a dump older than the code failed; and the dump was
+  loaded over a database a newer migration had already added tables to.

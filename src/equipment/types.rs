@@ -29,6 +29,8 @@ pub enum Category {
     Ball,
     Rig,
     Bench,
+    /// Kit for conditioning work that is neither a weight nor a frame: battle ropes.
+    Conditioning,
 }
 db_str!(Category {
     FreeWeight => "free_weight",
@@ -37,6 +39,7 @@ db_str!(Category {
     Ball => "ball",
     Rig => "rig",
     Bench => "bench",
+    Conditioning => "conditioning",
 });
 
 /// A piece of equipment.

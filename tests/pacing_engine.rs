@@ -179,6 +179,7 @@ fn input(
         offers: Default::default(),
         hurts: Default::default(),
         bests: Default::default(),
+        room_for_power: true,
     }
 }
 
@@ -4169,4 +4170,199 @@ fn the_best_named_is_the_strongest_set_of_the_day() {
         work_for(&out, 1).new_best.as_ref().and_then(|d| d.reps),
         Some(9)
     );
+}
+
+// ---- what a jump is worth as volume ----
+
+// A set of three to five jumps is not taken near failure, so it builds less muscle
+// than a set of lunges. Round 10's hotel room trained glutes with broad jumps,
+// standing in for an RDL, because a jump set counted as a full set on four groups.
+#[test]
+fn a_lunge_trains_the_legs_before_a_jump_does() {
+    let legs = |id, name: &str, power| ExerciseInfo {
+        is_power: power,
+        ..ex(
+            id,
+            name,
+            Pattern::Legs,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(30, MuscleRole::Primary), (20, MuscleRole::Secondary)],
+        )
+    };
+    // The jump has the lower id, so a tie would go to it.
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            vec![legs(1, "Broad jump", true), legs(2, "Long lunge", false)],
+            vec![],
+            None,
+            None,
+        ),
+        now(),
+    );
+    let ids = plan_ids(&out);
+    let at = |id| ids.iter().position(|&x| x == ExerciseId(id));
+    assert!(
+        at(2).is_some_and(|l| at(1).is_none_or(|j| {
+            // Power leads the session by tier, so compare what each pays.
+            let pays = |i: usize| {
+                out.plan
+                    .iter()
+                    .filter(|s| s.kind != SuggestionKind::Warmup)
+                    .nth(i)
+                    .and_then(|s| s.explanation.as_ref())
+                    .map_or(0.0, |e| e.pays)
+            };
+            pays(l) > pays(j)
+        })),
+        "{:?}",
+        out.plan
+            .iter()
+            .map(|s| (&s.exercise_name, s.explanation.as_ref().map(|e| e.pays)))
+            .collect::<Vec<_>>()
+    );
+}
+
+// ---- power as its own small dose ----
+
+/// Legs, chest and back, each with a working movement underway; two jumps, and a
+/// throw for the chest, which is the power work in the history, so the legs are
+/// fresh and only the power-day rule can keep a jump out.
+fn power_catalog() -> Vec<ExerciseInfo> {
+    let power = |id, name: &str, group| ExerciseInfo {
+        is_power: true,
+        ..ex(
+            id,
+            name,
+            Pattern::Legs,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(group, MuscleRole::Primary)],
+        )
+    };
+    vec![
+        power(1, "Broad jump", 30),
+        power(3, "Squat jump", 30),
+        power(6, "Chest throw", 10),
+        ex(
+            2,
+            "Long lunge",
+            Pattern::Legs,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(30, MuscleRole::Primary)],
+        ),
+        ex(
+            4,
+            "Push-up",
+            Pattern::Push,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(10, MuscleRole::Primary)],
+        ),
+        ex(
+            5,
+            "Ring row",
+            Pattern::Pull,
+            Metric::Reps,
+            false,
+            vec![],
+            vec![(20, MuscleRole::Primary)],
+        ),
+    ]
+}
+
+/// The working movements, trained twice in the last fortnight, plus power sets on
+/// the given days.
+fn power_history(power_days: &[i64]) -> Vec<SetRec> {
+    let mut h: Vec<SetRec> = [12, 8]
+        .iter()
+        .flat_map(|d| [2, 4, 5].map(|id| bset(id, days_ago(*d), 10)))
+        .collect();
+    h.extend(
+        power_days
+            .iter()
+            .flat_map(|d| [bset(6, days_ago(*d), 5), bset(6, days_ago(*d), 5)]),
+    );
+    h
+}
+
+fn power_picks(out: &PacingNow) -> Vec<ExerciseId> {
+    plan_ids(out)
+        .into_iter()
+        .filter(|id| [ExerciseId(1), ExerciseId(3), ExerciseId(6)].contains(id))
+        .collect()
+}
+
+// A trainer puts a short block of jumps or throws at the start of about two sessions
+// a week. With none in the last week, today is one of them: one power movement.
+#[test]
+fn a_power_day_takes_one_power_movement() {
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            power_catalog(),
+            power_history(&[10]),
+            None,
+            None,
+        ),
+        now(),
+    );
+    assert_eq!(power_picks(&out).len(), 1, "{:?}", plan_ids(&out));
+}
+
+// Landings load tendons and joints: never two days running.
+#[test]
+fn no_power_the_day_after_power() {
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            power_catalog(),
+            power_history(&[1]),
+            None,
+            None,
+        ),
+        now(),
+    );
+    assert_eq!(power_picks(&out), [], "{:?}", plan_ids(&out));
+}
+
+// Two power days in the last week is the dose.
+#[test]
+fn no_third_power_day_in_a_week() {
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            power_catalog(),
+            power_history(&[2, 5]),
+            None,
+            None,
+        ),
+        now(),
+    );
+    assert_eq!(power_picks(&out), [], "{:?}", plan_ids(&out));
+}
+
+// A hotel room has no room to jump or throw, so the power day waits.
+#[test]
+fn no_power_where_there_is_no_room_for_it() {
+    let out = evaluate(
+        &PacingInput {
+            room_for_power: false,
+            ..input(
+                Mode::Balanced,
+                power_catalog(),
+                power_history(&[10]),
+                None,
+                None,
+            )
+        },
+        now(),
+    );
+    assert_eq!(power_picks(&out), [], "{:?}", plan_ids(&out));
 }

@@ -2,4 +2,8 @@
 import type { EquipmentOption } from "./EquipmentOption";
 import type { Plate } from "./Plate";
 
-export type NewLocation = { name: string, isDefault: boolean, equipment: Array<string>, equipmentOptions: Array<EquipmentOption>, plates: Array<Plate>, healthPlaceId: number | null, };
+export type NewLocation = { name: string, isDefault: boolean, 
+/**
+ * Absent means room, as most places to train have it.
+ */
+roomForPower: boolean, equipment: Array<string>, equipmentOptions: Array<EquipmentOption>, plates: Array<Plate>, healthPlaceId: number | null, };

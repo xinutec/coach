@@ -8,7 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { scaffoldTitle } from '@xinutec/ui-scaffold';
 import { CoachApi } from '../../coach-api';
-import type { Category, Equipment, Location } from '../../models';
+import type { Category, Equipment, EquipmentOption, Location } from '../../models';
 import { EquipmentStore, LocationsStore, PlacesStore } from '../../stores/catalog';
 
 const CATEGORY_LABEL: Record<Category, string> = {
@@ -17,9 +17,18 @@ const CATEGORY_LABEL: Record<Category, string> = {
   machine: 'Machines',
   ball: 'Balls',
   rig: 'Bars & rings',
-  bench: 'Bench',
+  bench: 'Benches & boxes',
+  conditioning: 'Conditioning',
 };
-const CATEGORY_ORDER: Category[] = ['free_weight', 'rig', 'bench', 'machine', 'band', 'ball'];
+const CATEGORY_ORDER: Category[] = [
+  'free_weight',
+  'rig',
+  'bench',
+  'machine',
+  'band',
+  'ball',
+  'conditioning',
+];
 
 interface EquipmentSpecifics {
   weights: number[];
@@ -77,6 +86,7 @@ export class LocationsPage {
   readonly editingId = signal<number | null>(null);
   readonly formName = signal('');
   readonly formDefault = signal(false);
+  readonly formRoom = signal(true);
   readonly formEquip = signal<Set<string>>(new Set());
   // Per-equipment specifics being edited: slug → owned weights / band variants /
   // bar weight.
@@ -122,10 +132,21 @@ export class LocationsPage {
     return this.equipmentNames().get(slug) ?? slug;
   }
 
+  /** What one piece of kit holds, as one line: "10, 15, 20 kg · 20 kg bar". The
+   *  parts sat side by side as bare spans, which read "5 kg1.5 kg bar". */
+  optionLine(o: EquipmentOption): string {
+    const parts: string[] = [];
+    if (o.weights.length) parts.push(`${o.weights.join(', ')} kg`);
+    if (o.barKg !== null) parts.push(`${o.barKg} kg bar`);
+    if (o.labels.length) parts.push(o.labels.join(', '));
+    return parts.join(' · ');
+  }
+
   startNew(): void {
     this.editingId.set(0);
     this.formName.set('');
     this.formDefault.set(this.locations().length === 0);
+    this.formRoom.set(true);
     this.formEquip.set(new Set());
     this.formOptions.set(new Map());
     this.formPlates.set([]);
@@ -136,6 +157,7 @@ export class LocationsPage {
     this.editingId.set(loc.id);
     this.formName.set(loc.name);
     this.formDefault.set(loc.isDefault);
+    this.formRoom.set(loc.roomForPower);
     this.formEquip.set(new Set(loc.equipment));
     this.formOptions.set(
       new Map(
@@ -383,6 +405,7 @@ export class LocationsPage {
     const body = {
       name: this.formName().trim() || 'Location',
       isDefault: this.formDefault(),
+      roomForPower: this.formRoom(),
       equipment: [...this.formEquip()],
       equipmentOptions,
       plates,
