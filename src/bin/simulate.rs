@@ -42,7 +42,9 @@ use coach::exercise::types::Metric;
 use coach::health::Recovery as RawRecovery;
 use coach::location::repo as location_repo;
 use coach::muscle::types::MuscleRole;
-use coach::pacing::types::{Ask, PacingState, Readiness, SetRec, Suggestion, SuggestionKind};
+use coach::pacing::types::{
+    Ask, DoneSet, PacingState, Readiness, SetRec, Suggestion, SuggestionKind,
+};
 use coach::pacing::{ability, dose, engine, readiness, residual, service};
 use coach::workout::repo as workout_repo;
 use coach_pacing::domain::{ExerciseId, SetId};
@@ -932,18 +934,45 @@ async fn main() -> Result<()> {
                 }
                 touched.insert(s.exercise_id);
                 let truth = athlete.truth(s.exercise_id, opening.get(&s.exercise_id), week);
-                let p = perform(s, truth, inp.exercise_loads.get(&s.exercise_id), behaviour);
-                for _ in 0..s.sets {
+                let loads = inp.exercise_loads.get(&s.exercise_id);
+                let p = perform(s, truth, loads, behaviour);
+                // A calibration's later sets are the back-off the engine asks once the
+                // measurement is in, performed as such; every other card repeats its ask.
+                let back = (s.kind == SuggestionKind::Assess && s.sets > 1)
+                    .then(|| {
+                        let measured = DoneSet {
+                            reps: p.reps,
+                            load_kg: p.load_kg,
+                            hold_s: p.hold_s,
+                            distance_m: p.distance_m,
+                        };
+                        let owned = loads.cloned().and_then(dose::Inventory::new);
+                        engine::back_off(&measured, owned.as_ref())
+                    })
+                    .flatten()
+                    .map(|ask| {
+                        let card = Suggestion {
+                            ask,
+                            kind: SuggestionKind::Work,
+                            ..(*s).clone()
+                        };
+                        perform(&card, truth, loads, behaviour)
+                    });
+                for n in 0..s.sets {
+                    let done = match &back {
+                        Some(b) if n > 0 => b,
+                        _ => &p,
+                    };
                     hist.push(SetRec {
                         // Simulated sets are never written back, so a real row id
                         // would be a fiction; they only need to not collide.
                         id: SetId(-(i64::try_from(sets_logged).unwrap_or(i64::MAX) + 1)),
                         exercise_id: s.exercise_id,
                         logged_at: t,
-                        reps: p.reps,
-                        load_kg: p.load_kg,
-                        hold_s: p.hold_s,
-                        distance_m: p.distance_m,
+                        reps: done.reps,
+                        load_kg: done.load_kg,
+                        hold_s: done.hold_s,
+                        distance_m: done.distance_m,
                         rpe: None,
                     });
                     t += Duration::minutes(SET_GAP_MIN);
@@ -962,7 +991,10 @@ async fn main() -> Result<()> {
                     name,
                     s.group,
                     s.sets,
-                    p.note,
+                    match &back {
+                        Some(b) => format!("{}; then back-off {}", p.note, b.note),
+                        None => p.note.clone(),
+                    },
                     if p.missed { "  MISS" } else { "" }
                 );
             }

@@ -55,8 +55,9 @@ two weeks (`HURT_REST_DAYS`), with its family cousins and the harder rungs of it
 ladder, which load the same thing more. The groups' need stays, so the cover fills
 it with something else, and the next rung down is preferred: the same movement,
 less of it. A notice says what is resting and until when, with "It's fine now" to end
-the rest early. The first session back is eased, as on a low-readiness day. It is a fact about a movement, not an effort
-rating, so nothing here asks how hard anything felt.
+the rest early. The first session back is eased, as on a low-readiness day. It is a
+fact about a movement, not an effort rating, so nothing here asks how hard anything
+felt.
 
 **It says when you've made progress.** A set that beats every earlier one of the
 movement (by the Epley estimate for loaded reps, reps for bodyweight, seconds for a
@@ -143,7 +144,7 @@ budget is a cardinality constraint. Greedy marginal gain — repeatedly take the
 that pays down the most *remaining* need — is (1 − 1/e)-optimal for a monotone
 submodular objective, and deterministic (ties break to the lower exercise id).
 
-Four things fall out rather than being special-cased:
+These fall out rather than being special-cased:
 
 - **Duplicates are unrepresentable.** The accumulator is keyed by exercise, so an
   exercise covering two groups is one item with a count.
@@ -321,6 +322,16 @@ protocol per metric (build up to a hard set of ~5; AMRAP; one max hold; carry it
 log the weight and the seconds). The calibration *is* the training — it is still a
 set for that group — and the next verdict prescribes from it.
 
+**Then work at the level found.** A calibration may earn up to `BACK_OFF_SETS` (two)
+more sets, like any set, when the day's need has room for them: a trainer's test day
+finds the level with one set and then works a couple at it. Once the measurement is
+logged, those sets are work asked **below** it — the same weight (or the nearest
+owned one under it) with the reserve an eased day leaves: two reps fewer, one step
+off a hold or carry, never below one. A maximum is not a floor to climb from (round
+1, R8-1), and the card's shape is still the one committed at the session's start;
+only its numbers come from the set just logged ([`engine::back_off`], which the
+simulator calls too).
+
 ### 5. The session
 
 The plan is ordered by training tier: warm-up → skill and hold work while the
@@ -480,3 +491,4 @@ not a fix.
 [`pacing/dose.rs`]: ../coach-pacing/src/pacing/dose.rs
 [`pacing/cover.rs`]: ../coach-pacing/src/pacing/cover.rs
 [`seed/render.rs`]: ../src/seed/render.rs
+[`engine::back_off`]: ../coach-pacing/src/pacing/engine.rs

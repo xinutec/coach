@@ -469,3 +469,28 @@ describe('when the server queries a surprising load', () => {
     expect(sheet.logged()).toBe(1);
   });
 });
+
+describe('after a measurement lands', () => {
+  // A calibration's later sets are back-off work whose numbers come from the set just
+  // logged, so the sheet takes the card's new numbers once the plan has reloaded.
+  it("takes the card's back-off numbers when it stays on the card", async () => {
+    const planPrefills = [{ exerciseId: 1, sets: 3 }];
+    let reloaded!: () => void;
+    const { sheet } = open({
+      exercises: [exercise(1)],
+      planPrefills,
+      prefill: planPrefills[0],
+      onLogged: () =>
+        new Promise<void>((r) => {
+          reloaded = r;
+        }),
+      prefillFor: () => ({ exerciseId: 1, reps: 6 }),
+    });
+    sheet.reps.set(8);
+    sheet.save();
+    expect(sheet.reps()).toBe(8);
+    reloaded();
+    await Promise.resolve();
+    expect([sheet.exerciseId(), sheet.reps()]).toEqual([1, 6]);
+  });
+});

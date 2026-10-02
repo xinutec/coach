@@ -28,8 +28,12 @@ export interface LogSheetData {
    *  objects, is where the sheet starts in the plan. */
   planPrefills?: LogPrefill[];
   /** Called after each set lands, so the page behind can refresh while the
-   *  sheet stays up. */
-  onLogged?: () => void;
+   *  sheet stays up; resolves once it has. */
+  onLogged?: () => void | Promise<void>;
+  /** The numbers a movement's card asks now. A calibration's later sets are
+   *  back-off work derived from the set just logged, so they exist only after the
+   *  page behind has reloaded. */
+  prefillFor?: (exerciseId: number) => LogPrefill | undefined;
 }
 
 /** The server's `{"error": "..."}` message, read rather than asserted: the ingress
@@ -137,16 +141,17 @@ export class LogSheet {
   /** A set of the current plan item landed: once it has none left, go to the next
    *  item that does. A run stays put until its last set; after the last item, the
    *  sheet stays where it is. */
-  private advance(): void {
+  private advance(): boolean {
     const cur = this.cursor;
-    if (cur < 0 || this.plan[cur]?.exerciseId !== this.exerciseId()) return;
+    if (cur < 0 || this.plan[cur]?.exerciseId !== this.exerciseId()) return false;
     this.left[cur] = (this.left[cur] ?? 0) - 1;
-    if ((this.left[cur] ?? 0) > 0) return;
+    if ((this.left[cur] ?? 0) > 0) return false;
     const next = this.plan.findIndex((_, i) => i > cur && (this.left[i] ?? 0) > 0);
     const p = this.plan[next];
-    if (!p) return;
+    if (!p) return false;
     this.cursor = next;
     this.fill(p.exerciseId, p);
+    return true;
   }
 
   /** `confirmed` re-sends a load the server queried, with the athlete's yes. */
@@ -184,8 +189,16 @@ export class LogSheet {
           this.logged.update((n) => n + 1);
           this.note.set('');
           this.saving.set(false);
-          this.advance();
-          this.data.onLogged?.();
+          const id = this.exerciseId();
+          const moved = this.advance();
+          const reloaded = this.data.onLogged?.();
+          // Staying on the card: take what it asks now, once the page knows.
+          if (!moved && id !== null && reloaded) {
+            void reloaded.then(() => {
+              const p = this.data.prefillFor?.(id);
+              if (p && this.exerciseId() === id) this.fill(id, p);
+            });
+          }
         },
         error: (err: unknown) => {
           this.saving.set(false);

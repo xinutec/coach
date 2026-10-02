@@ -1334,6 +1334,27 @@ finding whether a check should have caught it before fixing it.
   Not shipped alone: a coach keeps some power work in the week, just not as the
   leg volume.
 
+## R10-3. A first day back was measured, not trained — CHANGED (the user's call)
+
+The hotel day after nine weeks was four calibrations of one set each: 4 sets
+against a day budget of 8, because a measurement is one set and three of the four
+movements were new. A trainer's test day finds the level, then works a couple of
+sets at it. A calibration may now earn up to two back-off sets like any other set;
+once the measurement is logged they are work below it (two reps fewer at the same
+or a lighter owned weight, a step off a hold or carry). The hotel day became the same
+four movements in 8 sets.
+
+Swept against the deployed engine: where the catalog is large and the budget full,
+measuring another movement still pays more than a back-off set, so most days barely
+change (the 63-day return: eight one-set calibrations became seven, one with a
+back-off set). Underclaim falls in about two-thirds of cells (layoff 38.1% → 30.0%,
+63-day return 39.7% → 34.4%). One cell overclaims more: the injured athlete in a
+rough week, +0.0% → +1.6%, an overhead press measured on the hurt shoulder from a
+pre-injury estimate in the final week. A back-off set is below its measurement and
+cannot raise a max, so this is which movement was measured when, the class round 7
+named. Round 1's rule that a calibration is "complete after its one measurement"
+is replaced; what it protected, never asking more than was just shown, holds.
+
 ## R10-2. The first day back offered rungs never climbed — FIXED
 
 Nine weeks away, the hotel day offered the archer push-up and the pistol squat,

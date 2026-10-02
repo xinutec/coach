@@ -195,14 +195,25 @@ export class Today {
     });
   }
 
-  reloadPacing(): void {
-    this.api.pacingNow(this.selectedLocationId() ?? undefined).subscribe({
-      next: (p) => {
-        this.pacing.set(p);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+  /** The same reload, resolving once the new verdict is on the page. */
+  reloadPacingNow(): Promise<void> {
+    return new Promise((done) => {
+      this.api.pacingNow(this.selectedLocationId() ?? undefined).subscribe({
+        next: (p) => {
+          this.pacing.set(p);
+          this.loading.set(false);
+          done();
+        },
+        error: () => {
+          this.loading.set(false);
+          done();
+        },
+      });
     });
+  }
+
+  reloadPacing(): void {
+    void this.reloadPacingNow();
   }
 
   onLocationChange(id: number): void {
@@ -471,7 +482,11 @@ export class Today {
       planPrefills: [...plan.values()],
       // Each set refreshes the plan underneath; the sheet itself stays up
       // for the rest of the run (it never self-dismisses — see LogSheet).
-      onLogged: () => this.reloadPacing(),
+      onLogged: () => this.reloadPacingNow(),
+      prefillFor: (id) => {
+        const s = this.pacing()?.plan.find((x) => x.exerciseId === id && x.logged.length < x.sets);
+        return s ? this.planPrefills().get(s) : undefined;
+      },
     };
     if (source) {
       // The plan's own entry when the item is unfinished, so the sheet knows where

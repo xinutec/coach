@@ -56,6 +56,10 @@ const WARMUP_MIN_LOAD: f64 = 1.0;
 /// warm-up scales with the session, the heaviest groups get drills, and the tail warms
 /// up through the ramp-ins.
 const WARMUP_SETS_PER_DRILL: i32 = 3;
+/// Easier sets a calibration may earn after its measurement, as a trainer's test day
+/// finds the level and then works at it. Earned like any set, so a full day leaves
+/// the measurement alone.
+const BACK_OFF_SETS: i32 = 2;
 /// Days a movement rests after the athlete says it hurt.
 pub const HURT_REST_DAYS: i64 = 14;
 /// A movement done within this many days is underway, and keeps its place in the
@@ -273,6 +277,18 @@ enum Loaded {
     /// registered weights means no honest load, so it is never selected.
     WeightedHold(Inventory),
     WeightedDistance(Inventory),
+}
+
+impl Loaded {
+    /// The weights it is built from, for the kinds that carry one.
+    fn inventory(&self) -> Option<&Inventory> {
+        match self {
+            Loaded::Weighted(inv) | Loaded::WeightedHold(inv) | Loaded::WeightedDistance(inv) => {
+                Some(inv)
+            }
+            Loaded::Reps | Loaded::Hold => None,
+        }
+    }
 }
 
 /// The weights this exercise can actually be built with here (the service worked
@@ -734,7 +750,7 @@ fn candidates<'a>(
         // takes its minimum effective dose, and may earn up to the ceiling.
         let (min, cap) = match Known::of(abilities, residuals, ex.id) {
             Some(_) => (MIN_WORK_SETS, MAX_SETS_PER_EXERCISE),
-            None => (1, 1),
+            None => (1, 1 + BACK_OFF_SETS),
         };
         let confidence = ability::confidence_of(abilities, ex.id);
         let sessions = abilities.get(&ex.id).map_or(0, |a| a.sessions_recent);
@@ -1584,6 +1600,21 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
                 distance_m: s.distance_m,
             })
             .collect();
+        // A calibration's sets after its measurement are work, asked below what the
+        // measurement showed. Its numbers come from today's set; the card's shape was
+        // fixed at the session's start.
+        if item.kind == SuggestionKind::Assess
+            && item.sets > 1
+            && let Some(ask) = item.logged.first().and_then(|m| {
+                let owned = ex_by_id
+                    .get(&item.exercise_id)
+                    .and_then(|ex| loadable(ex, &input.exercise_loads));
+                back_off(m, owned.as_ref().and_then(Loaded::inventory))
+            })
+        {
+            item.kind = SuggestionKind::Work;
+            item.ask = ask;
+        }
         // Any set of the day counts, the ones a ramp-in took and extras past the card
         // included; the one named is the furthest past the old best.
         if item.kind != SuggestionKind::Warmup
@@ -1783,6 +1814,56 @@ pub fn evaluate(input: &PacingInput, now: NaiveDateTime) -> PacingNow {
         // A rest the athlete asked for is said whether or not there is a session.
         resting: hurts.reported,
     }
+}
+
+/// The work after a measurement: the same weight with the reserve an eased day leaves
+/// (two reps, one step of a hold or carry), never below one and never above what was
+/// shown — a maximum is not a floor to climb from (R8-1). `None` for a set that
+/// carries nothing to work from.
+pub fn back_off(measured: &DoneSet, owned: Option<&Inventory>) -> Option<Ask> {
+    let reserve = whole(LOW_READINESS_EXTRA_RIR);
+    let fewer = |reps: i32| (reps - reserve).max(1);
+    // A weight you own, at or below the one measured with; the lightest if none is.
+    let weight = |load: f64| match owned {
+        Some(inv) => {
+            let near = inv.snap(load);
+            if near > load + 1e-9 {
+                inv.next_below(near)
+            } else {
+                near
+            }
+        }
+        None => load,
+    };
+    let hold = |secs: i32| (secs - HOLD_STEP_S).max(HOLD_STEP_S);
+    Some(
+        match (
+            measured.load_kg,
+            measured.reps,
+            measured.hold_s,
+            measured.distance_m,
+        ) {
+            (Some(load), Some(reps), _, _) => Ask::Weighted {
+                load_kg: weight(load),
+                rep_low: fewer(reps),
+                rep_high: fewer(reps),
+            },
+            (None, Some(reps), _, _) => Ask::Bodyweight {
+                rep_low: fewer(reps),
+                rep_high: fewer(reps),
+            },
+            (Some(load), None, Some(secs), _) => Ask::WeightedHold {
+                load_kg: weight(load),
+                hold_s: hold(secs),
+            },
+            (Some(load), None, None, Some(metres)) => Ask::WeightedDistance {
+                load_kg: weight(load),
+                distance_m: (metres - DISTANCE_STEP_M).max(DISTANCE_STEP_M),
+            },
+            (None, None, Some(secs), _) => Ask::Hold { hold_s: hold(secs) },
+            _ => return None,
+        },
+    )
 }
 
 /// The session's closing line: the bests it set, what the next one builds on after a

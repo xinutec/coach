@@ -974,10 +974,11 @@ fn yesterdays_sets_are_not_todays_progress() {
 }
 
 #[test]
-fn a_calibration_is_complete_after_its_measurement() {
-    // A never-done movement is measured (one honest AMRAP, logged mid-session).
-    // The plan keeps the card — done, one set of one — and does not turn around
-    // and prescribe more of the movement the athlete just took to form breakdown.
+fn a_calibration_never_asks_more_than_it_measured() {
+    // A never-done movement is measured (one honest AMRAP, logged mid-session). The
+    // card keeps its shape from the session's start, and any sets it has left are
+    // work below the measurement: round 1 saw a max of 4 answered with "5–12", and
+    // R8-1 a max of 5 answered with 6. A maximum is not a floor to climb from.
     let h = vec![bset(2, minutes_ago(30), 6)]; // ring row: first-ever set, today
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     let items: Vec<_> = out
@@ -986,19 +987,12 @@ fn a_calibration_is_complete_after_its_measurement() {
         .filter(|s| s.exercise_id == ExerciseId(2))
         .collect();
     assert_eq!(items.len(), 1, "one card for the measured movement");
-    assert_eq!(
-        items[0].kind,
-        SuggestionKind::Assess,
-        "still the measurement"
-    );
-    assert_eq!(items[0].sets, 1);
-    assert_eq!(items[0].done(), 1, "and it's done");
-    if let Some(sug) = &out.suggestion {
-        assert_ne!(
-            sug.exercise_id,
-            ExerciseId(2),
-            "next up is something unfinished, not the spent calibration"
-        );
+    assert_eq!(items[0].done(), 1, "the measurement is on it");
+    if items[0].sets > 1 {
+        assert_eq!(items[0].kind, SuggestionKind::Work, "{:?}", items[0]);
+        assert_eq!(items[0].ask.rep_high(), Some(4), "{:?}", items[0]);
+    } else {
+        assert_eq!(items[0].kind, SuggestionKind::Assess);
     }
 }
 
@@ -1415,7 +1409,10 @@ fn a_never_done_lift_is_an_assessment_at_the_lightest_owned_weight() {
     };
     let sug = evaluate(&inp, now()).suggestion.unwrap();
     assert_eq!(sug.kind, SuggestionKind::Assess);
-    assert_eq!(sug.sets, 1, "a single calibration set");
+    assert!(
+        sug.sets >= 1,
+        "a calibration set, and any back-off sets the day earns"
+    );
     assert_eq!(sug.ask.load_kg(), Some(10.0));
 }
 
@@ -4378,8 +4375,13 @@ fn a_never_done_harder_rung_waits_for_the_easier_one() {
         bset(2, days_ago(70), 10),
         bset(2, days_ago(70) + Duration::minutes(5), 10),
     ];
+    // The ladder alone, so nothing off it covers the chest first.
+    let ladder: Vec<ExerciseInfo> = chest_ladder()
+        .into_iter()
+        .filter(|e| e.id != ExerciseId(1))
+        .collect();
     let ids = plan_ids(&evaluate(
-        &input(Mode::Balanced, chest_ladder(), back, None, None),
+        &input(Mode::Balanced, ladder, back, None, None),
         now(),
     ));
     assert!(
@@ -4401,5 +4403,106 @@ fn a_first_ladder_starts_at_its_bottom_rung() {
     assert!(
         !ids.contains(&ExerciseId(2)) && !ids.contains(&ExerciseId(3)),
         "only the knee push-up of that ladder: {ids:?}"
+    );
+}
+
+// ---- a measurement, then work at it ----
+
+// A trainer's test day finds the level with one set, then works a couple of easier
+// sets at it. Round 10's first day back was four one-set calibrations: measured,
+// not trained.
+#[test]
+fn a_calibration_earns_back_off_sets_when_the_day_has_room() {
+    let out = evaluate(&input(Mode::Balanced, catalog(), vec![], None, None), now());
+    let assess: Vec<_> = out
+        .plan
+        .iter()
+        .filter(|s| s.kind == SuggestionKind::Assess)
+        .collect();
+    assert!(
+        assess.iter().any(|s| s.sets > 1),
+        "{:?}",
+        assess
+            .iter()
+            .map(|s| (&s.exercise_name, s.sets))
+            .collect::<Vec<_>>()
+    );
+}
+
+// Once the measurement is in, the rest of the card is work below it: the reserve an
+// eased day leaves, never more than was just shown (round 1, R8-1).
+#[test]
+fn after_the_measurement_the_back_off_sets_ask_less_than_it() {
+    let out = evaluate(
+        &input(
+            Mode::Balanced,
+            catalog(),
+            vec![bset(1, minutes_ago(10), 8)],
+            None,
+            None,
+        ),
+        now(),
+    );
+    let card = out
+        .plan
+        .iter()
+        .find(|s| s.exercise_id == ExerciseId(1) && s.kind != SuggestionKind::Warmup)
+        .expect("the measured movement keeps its card");
+    assert!(card.sets > 1, "the card has back-off sets to ask: {card:?}");
+    assert_eq!(card.kind, SuggestionKind::Work, "{card:?}");
+    assert_eq!(card.ask.rep_low(), Some(6), "{card:?}");
+}
+
+#[test]
+fn the_back_off_of_a_weighted_measurement_keeps_its_weight() {
+    use coach::pacing::engine::back_off;
+    let back_off_bare = |m: &DoneSet| back_off(m, None);
+    use coach::pacing::types::{Ask, DoneSet};
+    let set = |reps, load_kg, hold_s, distance_m| DoneSet {
+        reps,
+        load_kg,
+        hold_s,
+        distance_m,
+    };
+    assert_eq!(
+        back_off_bare(&set(Some(5), Some(20.0), None, None)),
+        Some(Ask::Weighted {
+            load_kg: 20.0,
+            rep_low: 3,
+            rep_high: 3
+        })
+    );
+    assert_eq!(
+        back_off_bare(&set(Some(8), None, None, None)),
+        Some(Ask::Bodyweight {
+            rep_low: 6,
+            rep_high: 6
+        })
+    );
+    // One rep is still one rep: never zero, never more than shown.
+    assert_eq!(
+        back_off_bare(&set(Some(1), None, None, None)),
+        Some(Ask::Bodyweight {
+            rep_low: 1,
+            rep_high: 1
+        })
+    );
+    assert_eq!(
+        back_off_bare(&set(None, None, Some(40), None)),
+        Some(Ask::Hold { hold_s: 35 })
+    );
+    assert_eq!(
+        back_off_bare(&set(None, Some(16.0), Some(60), None)),
+        Some(Ask::WeightedHold {
+            load_kg: 16.0,
+            hold_s: 55
+        })
+    );
+    assert_eq!(
+        back_off_bare(&set(None, Some(16.0), None, Some(20))),
+        Some(Ask::WeightedDistance {
+            load_kg: 16.0,
+            distance_m: 15
+        })
     );
 }

@@ -351,7 +351,8 @@ bytes inside the time string. The regression test is the REPORTED MEASUREMENTS
 **In the app.** `exercise_loops` is its own table (migration 0027), so seeding a
 loop cannot touch `exercise_images`. The seeder finds `data/catalog/loops/<slug>.mp4`
 by convention and etag-compares it like an image. `GET /api/exercises/{id}/loop`
-is ETag-cached for a year; `hasLoop` on the detail says whether to ask. The
+is cached as immutable under a versioned URL (`?v=`, the detail's `loopVersion`), which
+also says whether there is a loop to ask for. The
 sheet plays it muted and inline below the hero, `object-fit: contain`, because
 the render is framed on the whole rep and cropping would cut the feet off.
 
@@ -429,8 +430,6 @@ Suns are camera-relative, so the visible surface is lit whatever the view.
 
 - **Props.** No dumbbell, barbell or bench is modelled; a loaded lift renders
   empty-handed.
-- **Layered labelling** for muscles that lie under others (see "What the
-  colouring guarantees").
 
 ## Attribution
 
