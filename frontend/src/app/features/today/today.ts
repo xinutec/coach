@@ -126,6 +126,7 @@ export class Today {
           this.reloadPacing();
         }
       },
+      // dev-lint: allow-ignored-error best-effort: the location picker stays as the user left it
       error: () => {},
     });
   }
