@@ -3,9 +3,8 @@ import { expect, type Page, test } from '@playwright/test';
 // ~/Code/ui-harness). Ships compiled JS, so it loads straight from node_modules.
 import {
   expectBackClosesOverlay,
-  expectNoHorizontalOverflow,
+  expectCleanLayout,
   expectNoOccludedControls,
-  expectNoTextOverlaps,
   expectRecoversFromMissingBundle,
   expectUpInTheBar,
   expectViewportIsPhone,
@@ -446,8 +445,7 @@ test('today — busy composition: clean + all controls reachable @ phone', async
   await page.locator('.add-fab').waitFor();
   // The readiness note arrives inside the coach's one sentence, not a chip.
   await page.getByText('Recovered — good day to push', { exact: false }).waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -460,16 +458,14 @@ test('signed-out — the sign-in card offers a way in @ phone', async ({ page },
   const signIn = page.getByRole('link', { name: 'Sign in with Nextcloud' });
   await signIn.waitFor();
   await expect(signIn).toHaveAttribute('href', '/login');
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
 });
 
 test('settings — clean + reachable @ phone', async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Check for updates' }).waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -478,8 +474,7 @@ test('library — exercise cards render clean @ phone', async ({ page }, testInf
   await page.goto('/library');
   await page.getByRole('heading', { name: 'Exercise library' }).waitFor();
   await page.getByText('Ring dip').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -499,8 +494,7 @@ test('log sheet — the fields the athlete types into render clean @ phone', asy
   // Scoped to the sheet: an open bottom sheet is painted OVER the nav, so the
   // nav's labels sit under an opaque surface. Unscoped, the harness reads that
   // as "Note (optional)" colliding with "Today" — a collision no eye can see.
-  await expectNoTextOverlaps(page, testInfo, SHEET);
-  await expectNoHorizontalOverflow(page, testInfo, SHEET);
+  await expectCleanLayout(page, testInfo, { root: SHEET });
 });
 
 test('exercise sheet — the library detail renders clean @ phone', async ({ page }, testInfo) => {
@@ -509,8 +503,7 @@ test('exercise sheet — the library detail renders clean @ phone', async ({ pag
   await page.goto('/library');
   await page.getByText('Ring dip').click();
   await page.getByText('Pectoralis major').waitFor();
-  await expectNoTextOverlaps(page, testInfo, SHEET);
-  await expectNoHorizontalOverflow(page, testInfo, SHEET);
+  await expectCleanLayout(page, testInfo, { root: SHEET });
 });
 
 test('exercise sheet — a credited picture and loop render clean @ phone', async ({
@@ -534,16 +527,14 @@ test('exercise sheet — a credited picture and loop render clean @ phone', asyn
   await page.getByText('Ring dip').click();
   // One under the picture, one under the loop.
   await expect(page.locator('.credit')).toHaveCount(2);
-  await expectNoTextOverlaps(page, testInfo, SHEET);
-  await expectNoHorizontalOverflow(page, testInfo, SHEET);
+  await expectCleanLayout(page, testInfo, { root: SHEET });
 });
 
 test('locations — location card + kit chips render clean @ phone', async ({ page }, testInfo) => {
   await mockApi(page);
   await page.goto('/locations');
   await page.getByText('Home').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -554,8 +545,7 @@ test('history — collapsible days with year on old dates @ phone', async ({ pag
   // Old dates carry the year; the newest day is expanded so its sets show.
   await page.getByText('2024', { exact: false }).first().waitFor();
   await page.getByText('Ring dip').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -564,8 +554,7 @@ test('balance — muscle-group volume bars render clean @ phone', async ({ page 
   await page.goto('/balance');
   await page.getByRole('heading', { name: 'Balance' }).waitFor();
   await page.getByText('Lats').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -589,8 +578,7 @@ test("today — after the window the plan reads as tomorrow's preview @ phone", 
   await page.getByText('rolls to tomorrow', { exact: false }).waitFor();
   await page.getByRole('heading', { name: "Tomorrow's session" }).waitFor();
   await expect(page.locator('.next-pill')).toHaveCount(0);
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
 });
 
 // A set that beats every earlier one is named on its row, which at phone width
@@ -625,8 +613,7 @@ test('today — a new best is named on its finished row @ phone', async ({ page 
   );
   await page.goto('/today');
   await page.locator('.suggestion.compact.done .best-pill').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
 });
 
 // Mid-session the screen must show the work, not the receipts: finished items and
@@ -678,8 +665,7 @@ test('today — mid-session, the next thing to do is on screen @ phone', async (
   // one — otherwise "what did I do last set?" is a trip to History mid-movement.
   await expect(page.locator('.s-logged')).toHaveText(/7 reps/);
 
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
   await expectNoOccludedControls(page, testInfo);
 });
 
@@ -694,8 +680,7 @@ test("today — auto-detected location shows the 'detected' hint @ phone", async
   await page.goto('/today');
   await page.getByText('a bit light', { exact: false }).waitFor();
   await page.locator('.status-line .auto').waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
 });
 
 test('today — kit with no registered weights is named, not silently dropped @ phone', async ({
@@ -708,8 +693,7 @@ test('today — kit with no registered weights is named, not silently dropped @ 
   await page.goto('/today');
   await page.getByText('a bit light', { exact: false }).waitFor();
   await page.locator('.notice').getByText('Kettlebell', { exact: false }).waitFor();
-  await expectNoTextOverlaps(page, testInfo);
-  await expectNoHorizontalOverflow(page, testInfo);
+  await expectCleanLayout(page, testInfo);
 });
 
 test('locations is reachable from the UI @ phone', async ({ page }) => {
