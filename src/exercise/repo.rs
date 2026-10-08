@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
-use sqlx::MySqlPool;
+use sqlx::{MySqlConnection, MySqlPool};
 
 use super::types::{
     Exercise, ExerciseDetail, ExerciseDetailRow, ExerciseListRow, ExerciseMuscle,
@@ -179,7 +179,10 @@ fn slugify(name: &str) -> String {
     }
 }
 
+/// One transaction: the row, its equipment and its muscles land together. A
+/// slug collision is a statement error, which leaves the transaction usable.
 pub async fn create(pool: &MySqlPool, e: &NewExercise) -> Result<ExerciseDetail> {
+    let mut tx = pool.begin().await?;
     let base = slugify(
         &e.variation
             .as_deref()
@@ -206,18 +209,19 @@ pub async fn create(pool: &MySqlPool, e: &NewExercise) -> Result<ExerciseDetail>
         .bind(&e.cue)
         .bind(&e.demo_url)
         .bind(e.difficulty)
-        .execute(pool)
+        .execute(&mut *tx)
         .await;
         match res {
             Ok(r) => {
                 let id = crate::db::inserted_id(&r)?;
-                set_equipment(pool, id, &e.equipment).await?;
+                set_equipment(&mut tx, id, &e.equipment).await?;
                 let links: Vec<(String, &str)> = e
                     .muscles
                     .iter()
                     .map(|m| (m.slug.clone(), m.role.as_db()))
                     .collect();
-                set_muscles(pool, id, &links).await?;
+                set_muscles(&mut tx, id, &links).await?;
+                tx.commit().await?;
                 return detail(pool, id)
                     .await?
                     .ok_or_else(|| anyhow!("exercise vanished after insert"));
@@ -230,6 +234,7 @@ pub async fn create(pool: &MySqlPool, e: &NewExercise) -> Result<ExerciseDetail>
 }
 
 pub async fn patch(pool: &MySqlPool, id: i64, p: &ExercisePatch) -> Result<Option<ExerciseDetail>> {
+    let mut tx = pool.begin().await?;
     sqlx::query(
         "UPDATE exercises SET \
            name = COALESCE(?, name), \
@@ -258,29 +263,33 @@ pub async fn patch(pool: &MySqlPool, id: i64, p: &ExercisePatch) -> Result<Optio
     .bind(p.difficulty)
     .bind(p.is_active)
     .bind(id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
     if let Some(slugs) = &p.equipment {
-        set_equipment(pool, id, slugs).await?;
+        set_equipment(&mut tx, id, slugs).await?;
     }
     if let Some(links) = &p.muscles {
         let links: Vec<(String, &str)> = links
             .iter()
             .map(|m| (m.slug.clone(), m.role.as_db()))
             .collect();
-        set_muscles(pool, id, &links).await?;
+        set_muscles(&mut tx, id, &links).await?;
     }
+    tx.commit().await?;
     detail(pool, id).await
 }
 
 /// Replace an exercise's equipment set with the given slugs (unknown slugs are
-/// ignored). One transaction.
-pub async fn set_equipment(pool: &MySqlPool, exercise_id: i64, slugs: &[String]) -> Result<()> {
-    let mut tx = pool.begin().await?;
+/// ignored), on the caller's transaction.
+pub async fn set_equipment(
+    conn: &mut MySqlConnection,
+    exercise_id: i64,
+    slugs: &[String],
+) -> Result<()> {
     sqlx::query("DELETE FROM exercise_equipment WHERE exercise_id = ?")
         .bind(exercise_id)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     for slug in slugs {
         sqlx::query(
@@ -289,23 +298,22 @@ pub async fn set_equipment(pool: &MySqlPool, exercise_id: i64, slugs: &[String])
         )
         .bind(exercise_id)
         .bind(slug)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 
-/// Replace an exercise's muscle links with `(slug, role)` pairs.
+/// Replace an exercise's muscle links with `(slug, role)` pairs, on the
+/// caller's transaction.
 pub async fn set_muscles(
-    pool: &MySqlPool,
+    conn: &mut MySqlConnection,
     exercise_id: i64,
     links: &[(String, &str)],
 ) -> Result<()> {
-    let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM exercise_muscle WHERE exercise_id = ?")
         .bind(exercise_id)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     for (slug, role) in links {
         sqlx::query(
@@ -315,10 +323,9 @@ pub async fn set_muscles(
         .bind(exercise_id)
         .bind(role)
         .bind(slug)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 

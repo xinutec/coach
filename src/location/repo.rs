@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
-use sqlx::MySqlPool;
+use sqlx::{MySqlConnection, MySqlPool};
 
 use super::loads;
 use super::types::{EquipmentOption, Location, LocationPatch, LocationRow, NewLocation, Plate};
@@ -54,9 +54,12 @@ pub async fn get(pool: &MySqlPool, user_id: &str, id: i64) -> Result<Option<Loca
     Ok(Some(loc))
 }
 
+/// One transaction: the row, the default it takes over, and its equipment,
+/// options and plates land together.
 pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<Location> {
+    let mut tx = pool.begin().await?;
     if n.is_default {
-        clear_default(pool, user_id).await?;
+        clear_default(&mut tx, user_id).await?;
     }
     let res = sqlx::query(
         "INSERT INTO locations (user_id, name, is_default, room_for_power, health_place_id) \
@@ -67,12 +70,13 @@ pub async fn create(pool: &MySqlPool, user_id: &str, n: &NewLocation) -> Result<
     .bind(n.is_default)
     .bind(n.room_for_power)
     .bind(n.health_place_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
     let id = crate::db::inserted_id(&res)?;
-    set_equipment(pool, id, &n.equipment).await?;
-    set_options(pool, id, &n.equipment_options).await?;
-    set_plates(pool, id, &n.plates).await?;
+    set_equipment(&mut tx, id, &n.equipment).await?;
+    set_options(&mut tx, id, &n.equipment_options).await?;
+    set_plates(&mut tx, id, &n.plates).await?;
+    tx.commit().await?;
     get(pool, user_id, id)
         .await?
         .ok_or_else(|| anyhow!("location vanished after insert"))
@@ -87,8 +91,9 @@ pub async fn patch(
     if get(pool, user_id, id).await?.is_none() {
         return Ok(None);
     }
+    let mut tx = pool.begin().await?;
     if p.is_default == Some(true) {
-        clear_default(pool, user_id).await?;
+        clear_default(&mut tx, user_id).await?;
     }
     sqlx::query(
         "UPDATE locations SET \
@@ -103,7 +108,7 @@ pub async fn patch(
     .bind(p.room_for_power)
     .bind(id)
     .bind(user_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
     // Double-option: only touch the link when the field was present; the inner
     // Option (id or NULL) is written verbatim, so `null` unlinks.
@@ -112,18 +117,19 @@ pub async fn patch(
             .bind(place)
             .bind(id)
             .bind(user_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await?;
     }
     if let Some(slugs) = &p.equipment {
-        set_equipment(pool, id, slugs).await?;
+        set_equipment(&mut tx, id, slugs).await?;
     }
     if let Some(opts) = &p.equipment_options {
-        set_options(pool, id, opts).await?;
+        set_options(&mut tx, id, opts).await?;
     }
     if let Some(plates) = &p.plates {
-        set_plates(pool, id, plates).await?;
+        set_plates(&mut tx, id, plates).await?;
     }
+    tx.commit().await?;
     get(pool, user_id, id).await
 }
 
@@ -293,11 +299,10 @@ async fn plates_wire(pool: &MySqlPool, location_id: i64) -> Result<Vec<Plate>> {
 
 /// Replace a location's plate set. A plate with no `equipment` lands in the shared
 /// pool (the sub-select yields NULL), which is what an Olympic disc is.
-async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[Plate]) -> Result<()> {
-    let mut tx = pool.begin().await?;
+async fn set_plates(conn: &mut MySqlConnection, location_id: i64, plates: &[Plate]) -> Result<()> {
     sqlx::query("DELETE FROM location_plate WHERE location_id = ?")
         .bind(location_id)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     for p in plates {
         sqlx::query(
@@ -308,10 +313,9 @@ async fn set_plates(pool: &MySqlPool, location_id: i64, plates: &[Plate]) -> Res
         .bind(p.equipment.as_deref())
         .bind(p.load_kg)
         .bind(p.qty.map(i32::try_from).transpose()?)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }
 
@@ -362,11 +366,14 @@ async fn load_options(pool: &MySqlPool, location_id: i64) -> Result<Vec<Equipmen
 
 /// Replace a location's per-equipment specifics: fixed weights, band variants,
 /// and each loadable bar's own weight (a 'bar' row). Plates are set separately.
-async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption]) -> Result<()> {
-    let mut tx = pool.begin().await?;
+async fn set_options(
+    conn: &mut MySqlConnection,
+    location_id: i64,
+    opts: &[EquipmentOption],
+) -> Result<()> {
     sqlx::query("DELETE FROM location_equipment_option WHERE location_id = ?")
         .bind(location_id)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     for o in opts {
         for (i, w) in o.weights.iter().enumerate() {
@@ -374,7 +381,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
             // is what decides whether a two-dumbbell movement can use it.
             let qty = o.weight_qty.get(i).copied().filter(|q| *q > 0);
             insert_option(
-                &mut tx,
+                &mut *conn,
                 location_id,
                 &o.slug,
                 None,
@@ -389,7 +396,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
             let label = label.trim();
             if !label.is_empty() {
                 insert_option(
-                    &mut tx,
+                    &mut *conn,
                     location_id,
                     &o.slug,
                     None,
@@ -403,7 +410,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
         }
         if let Some(bar) = o.bar_kg {
             insert_option(
-                &mut tx,
+                &mut *conn,
                 location_id,
                 &o.slug,
                 Some("bar"),
@@ -415,7 +422,6 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
             .await?;
         }
     }
-    tx.commit().await?;
     Ok(())
 }
 
@@ -425,7 +431,7 @@ async fn set_options(pool: &MySqlPool, location_id: i64, opts: &[EquipmentOption
     reason = "one row's columns, inside the caller's transaction"
 )]
 async fn insert_option(
-    tx: &mut sqlx::Transaction<'_, sqlx::MySql>,
+    conn: &mut MySqlConnection,
     location_id: i64,
     slug: &str,
     kind: Option<&str>,
@@ -446,24 +452,27 @@ async fn insert_option(
     .bind(qty.map(i32::try_from).transpose()?)
     .bind(plate_slots.map(i32::try_from).transpose()?)
     .bind(slug)
-    .execute(&mut **tx)
+    .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
-async fn clear_default(pool: &MySqlPool, user_id: &str) -> Result<()> {
+async fn clear_default(conn: &mut MySqlConnection, user_id: &str) -> Result<()> {
     sqlx::query("UPDATE locations SET is_default = 0 WHERE user_id = ? AND deleted_at IS NULL")
         .bind(user_id)
-        .execute(pool)
+        .execute(&mut *conn)
         .await?;
     Ok(())
 }
 
-async fn set_equipment(pool: &MySqlPool, location_id: i64, slugs: &[String]) -> Result<()> {
-    let mut tx = pool.begin().await?;
+async fn set_equipment(
+    conn: &mut MySqlConnection,
+    location_id: i64,
+    slugs: &[String],
+) -> Result<()> {
     sqlx::query("DELETE FROM location_equipment WHERE location_id = ?")
         .bind(location_id)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     for slug in slugs {
         sqlx::query(
@@ -472,9 +481,8 @@ async fn set_equipment(pool: &MySqlPool, location_id: i64, slugs: &[String]) -> 
         )
         .bind(location_id)
         .bind(slug)
-        .execute(&mut *tx)
+        .execute(&mut *conn)
         .await?;
     }
-    tx.commit().await?;
     Ok(())
 }

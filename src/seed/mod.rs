@@ -189,6 +189,8 @@ async fn relink(conn: &mut MySqlConnection, ex: &SeedExercise, id: i64) -> Resul
     Ok(())
 }
 
+// dev-lint: allow-sqlx each upsert is idempotent and the fingerprint is written last, so a
+// boot that dies half-way is finished by the next
 pub async fn run(pool: &MySqlPool, catalog_dir: &str) -> Result<()> {
     let dir = Path::new(catalog_dir);
     let exercises_path = dir.join("exercises.json");
