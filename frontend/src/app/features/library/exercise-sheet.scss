@@ -52,9 +52,8 @@
     border-radius: 0;
 
     .close {
-      // Clear of the notch/rounded corner in landscape.
-      top: max(8px, env(safe-area-inset-top));
-      right: max(8px, env(safe-area-inset-right));
+      top: 8px;
+      right: 8px;
       width: 40px;
       height: 40px;
     }
