@@ -14,16 +14,11 @@
 //! login from a cookie-less browser at all (an Android WebView that has lost its NC
 //! cookie could never sign in again).
 //!
-//! So the pending login travels in a cookie of our own. That binds it to the browser
-//! that started the login, which is the property `state` is there to prove; `state`
-//! is still sent, and still checked whenever NC gives it back. Being self-contained
-//! and signed, it also survives the pod restarting mid-login.
-//!
-//! Residual risk, accepted deliberately: when NC returns an empty `state` the cookie
-//! is the only binding, so a login-CSRF would become possible for someone on the VPN
-//! (coach is served nowhere else) who can land a callback in the victim's browser
-//! inside the 10-minute window. The alternative is a login that cannot be performed
-//! at all.
+//! So the pending login travels in a cookie of our own, bound to the browser that
+//! started it; being self-contained and signed, it also survives the pod restarting
+//! mid-login. An empty `state` is still never trusted (RFC 6749 §10.12: anyone's
+//! code would do): the code is dropped and the browser sent to authorize once more.
+//! Nextcloud has a session by then, so `state` comes back; a second miss is refused.
 
 use chrono::{DateTime, Duration, Utc};
 use rand::Rng;
@@ -45,24 +40,41 @@ pub struct PendingLogin {
     /// Internal path to land on afterwards; allowlist-validated when used.
     pub return_to: Option<String>,
     pub expires_at: DateTime<Utc>,
+    /// Already sent back once for a missing `state`; a second miss is refused.
+    pub retried: bool,
+}
+
+/// What a callback may do with the pending login it carries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Callback {
+    /// `state` matched: exchange the code.
+    Accept(PendingLogin),
+    /// `state` was empty: drop the code and authorize again ([`retry`]).
+    Retry(PendingLogin),
 }
 
 impl PendingLogin {
-    /// `<expiry unix>|<nonce>|<return_to>` — `return_to` last, so a `|` inside a
-    /// query string can't shift the fields.
+    /// `<expiry unix>|<nonce>|<retried 0/1>|<return_to>` — `return_to` last, so a
+    /// `|` inside a query string can't shift the fields.
     fn encode(&self) -> String {
         format!(
-            "{}|{}|{}",
+            "{}|{}|{}|{}",
             self.expires_at.timestamp(),
             self.nonce,
+            u8::from(self.retried),
             self.return_to.as_deref().unwrap_or_default()
         )
     }
 
     fn decode(raw: &str) -> Option<Self> {
-        let mut parts = raw.splitn(3, '|');
+        let mut parts = raw.splitn(4, '|');
         let expires_at = DateTime::from_timestamp(parts.next()?.parse().ok()?, 0)?;
         let nonce = parts.next()?.to_string();
+        let retried = match parts.next()? {
+            "0" => false,
+            "1" => true,
+            _ => return None,
+        };
         let return_to = match parts.next()? {
             "" => None,
             p => Some(p.to_string()),
@@ -71,39 +83,55 @@ impl PendingLogin {
             nonce,
             return_to,
             expires_at,
+            retried,
         })
     }
 }
 
-/// Start a login: a fresh nonce for NC's `state`, plus the signed cookie value that
-/// remembers it.
-pub fn issue(secret: &str, return_to: Option<String>, now: DateTime<Utc>) -> (String, String) {
+fn fresh(
+    secret: &str,
+    return_to: Option<String>,
+    retried: bool,
+    now: DateTime<Utc>,
+) -> (String, String) {
     let mut bytes = [0u8; 24];
     rand::rng().fill_bytes(&mut bytes);
     let pending = PendingLogin {
         nonce: hex::encode(bytes),
         return_to,
         expires_at: now + ttl(),
+        retried,
     };
     (pending.nonce.clone(), sign_value(secret, &pending.encode()))
 }
 
-/// Finish a login: the pending entry if this callback really belongs to it.
-///
-/// `state` is what NC returned — `None`/empty when it was lost through the Login
-/// Flow. Present means it must match; absent means the cookie stands alone.
+/// Start a login: a fresh nonce for NC's `state`, plus the signed cookie value that
+/// remembers it.
+pub fn issue(secret: &str, return_to: Option<String>, now: DateTime<Utc>) -> (String, String) {
+    fresh(secret, return_to, false, now)
+}
+
+/// The second and last attempt after a missing `state`: a new nonce, the same
+/// destination.
+pub fn retry(secret: &str, pending: &PendingLogin, now: DateTime<Utc>) -> (String, String) {
+    fresh(secret, pending.return_to.clone(), true, now)
+}
+
+/// What this callback may do, or `None` if it does not belong to a login this
+/// browser started. A present `state` must match; an empty one (lost through the
+/// Login Flow) earns a retry, once.
 pub fn accept(
     secret: &str,
     cookie: Option<&str>,
     state: Option<&str>,
     now: DateTime<Utc>,
-) -> Option<PendingLogin> {
+) -> Option<Callback> {
     let pending = PendingLogin::decode(&verify_value(secret, cookie?)?)?;
     if pending.expires_at < now {
         return None;
     }
     match state {
-        Some(s) if !s.is_empty() && s != pending.nonce => None,
-        _ => Some(pending),
+        Some(s) if !s.is_empty() => (s == pending.nonce).then_some(Callback::Accept(pending)),
+        _ => (!pending.retried).then_some(Callback::Retry(pending)),
     }
 }

@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::error::AppError;
 use crate::nextcloud::identity;
-use crate::pending_login;
+use crate::pending_login::{self, Callback};
 use crate::session::{COOKIE_NAME, UserSession, create_session, destroy_session};
 use crate::state::AppState;
 
@@ -36,13 +36,18 @@ fn pending_cookie(value: String) -> Cookie<'static> {
         .build()
 }
 
-/// Only allow same-site internal paths as a post-login redirect target.
-/// Rejects `//host` (protocol-relative) and `/\host` — browsers fold `\` to
-/// `/` in special-scheme URLs, so a Location of `/\evil.com` would redirect
-/// off-site.
+/// Same-site paths only, judged where a browser lands: the WHATWG parser drops
+/// tabs and newlines and folds `\` to `/`, so `/\t/host` is `//host`. Returns
+/// the path as that parser resolves it.
 pub fn validate_return_to(return_to: Option<&str>) -> String {
-    match return_to {
-        Some(p) if p.starts_with('/') && !p[1..].starts_with(['/', '\\']) => p.to_string(),
+    let site = url::Url::parse("https://site.invalid/").expect("a fixed URL");
+    match return_to
+        .filter(|p| p.starts_with('/'))
+        .map(|p| site.join(p))
+    {
+        Some(Ok(dest)) if dest.origin() == site.origin() => {
+            dest[url::Position::BeforePath..].to_string()
+        }
         _ => "/".to_string(),
     }
 }
@@ -119,13 +124,27 @@ async fn finish_sign_in(
     jar: CookieJar,
     q: CallbackQuery,
 ) -> Result<(CookieJar, Redirect), AppError> {
-    let pending = pending_login::accept(
+    let pending = match pending_login::accept(
         &app.cfg.session_secret,
         jar.get(pending_login::COOKIE_NAME).map(Cookie::value),
         q.state.as_deref(),
         Utc::now(),
     )
-    .ok_or(AppError::Unauthorized)?;
+    .ok_or(AppError::Unauthorized)?
+    {
+        Callback::Accept(pending) => pending,
+        Callback::Retry(pending) => {
+            // The code is not exchanged: without `state` nothing ties it to this
+            // browser. Nextcloud now has a session, so `state` returns.
+            tracing::info!("login callback without state — authorizing again");
+            let (nonce, cookie) =
+                pending_login::retry(&app.cfg.session_secret, &pending, Utc::now());
+            return Ok((
+                jar.add(pending_cookie(cookie)),
+                Redirect::to(&identity::authorize_url(&app.cfg, &nonce)),
+            ));
+        }
+    };
     let code = q
         .code
         .ok_or_else(|| anyhow!("missing authorization code"))?;
