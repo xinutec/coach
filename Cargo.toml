@@ -45,6 +45,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 # Convert Utc::now() → the user's local tz for the pacing window/weekday logic.
 chrono-tz = "0.10"
 hmac = "0.13"
+subtle = "2"
 sha2 = "0.11"
 hex = "0.4"
 # Renders catalog pictures on the way into the DB (see src/seed/render.rs): the
