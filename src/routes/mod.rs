@@ -112,6 +112,7 @@ pub fn router(state: AppState) -> Router {
     let version = state.cfg.git_sha.clone();
     let mut app = Router::new()
         .route("/healthz", get(|| async { "ok" }))
+        // dev-lint: allow-unauthenticated-route the build sha, so a stale client can see it is stale
         .route("/version", get(move || async move { version }))
         .route("/login", get(auth::login))
         .route("/auth/callback", get(auth::callback))
@@ -120,6 +121,7 @@ pub fn router(state: AppState) -> Router {
 
     // DEV ONLY: mount /dev-login only when DEV_LOGIN_USER is set.
     if state.cfg.dev_login_user.is_some() {
+        // dev-lint: allow-unauthenticated-route dev only: mounted when DEV_LOGIN_USER is set, which no deployed manifest sets
         app = app.route("/dev-login", get(auth::dev_login));
     }
 
