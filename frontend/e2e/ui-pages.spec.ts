@@ -9,6 +9,7 @@ import {
   expectUpInTheBar,
   expectViewportIsPhone,
 } from '@xinutec/ui-harness';
+import { routesFrom, screens } from '@xinutec/ui-harness/routes';
 import type {
   CurrentLocation,
   DetectedPlace,
@@ -420,6 +421,16 @@ async function mockApi(page: Page): Promise<void> {
     r.fulfill({ json: { locationId: null } satisfies CurrentLocation }),
   );
   await page.route('**/api/settings', (r) => r.fulfill({ json: SETTINGS }));
+}
+
+/** Every screen in the route table (`routes.json`), not only those a test opens. */
+for (const { route, url } of screens(routesFrom('e2e/routes.json'), {})) {
+  test(`${route} lays out cleanly @ phone width`, async ({ page }, testInfo) => {
+    await mockApi(page);
+    await page.goto(url);
+    await page.waitForLoadState('networkidle');
+    await expectCleanLayout(page, testInfo);
+  });
 }
 
 test('the suite really runs at phone geometry', async ({ page }) => {

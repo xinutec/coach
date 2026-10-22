@@ -1,0 +1,3 @@
+{
+  "routes": ["/today", "/balance", "/library", "/locations", "/history", "/settings"]
+}
