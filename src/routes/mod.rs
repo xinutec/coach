@@ -45,15 +45,16 @@ fn is_content_hashed(path: &str) -> bool {
 /// the page names the bundle, and an icon, the manifest and the service worker's
 /// files keep their names across builds, so a year of `immutable` pins the old
 /// one on every phone. Without `Cache-Control` a WebView caches heuristically and
-/// runs a build several deploys old. A 404 is never `immutable`: the name would
-/// not be asked for again.
+/// runs a build several deploys old. An error is never `immutable`, or the name is
+/// not asked for again; a 304 keeps what a 200 would say.
 async fn cache_headers(
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let hashed = is_content_hashed(req.uri().path());
     let mut res = next.run(req).await;
-    let value = if hashed && res.status().is_success() {
+    let failed = res.status().is_client_error() || res.status().is_server_error();
+    let value = if hashed && !failed {
         "public, max-age=31536000, immutable"
     } else {
         "no-cache"
