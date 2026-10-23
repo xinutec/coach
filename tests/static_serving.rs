@@ -41,7 +41,7 @@ impl Drop for StaticDir {
     }
 }
 
-async fn get(path: &str) -> (StatusCode, String) {
+async fn get(path: &str) -> (StatusCode, String, String) {
     let dir = StaticDir::new();
     let cfg = Config {
         database_url: "mysql://unused:unused@127.0.0.1:1/unused".into(),
@@ -69,12 +69,29 @@ async fn get(path: &str) -> (StatusCode, String) {
         .get(axum::http::header::CONTENT_TYPE)
         .map(|v| v.to_str().unwrap().to_owned())
         .unwrap_or_default();
-    (status, ct)
+    let cache = res
+        .headers()
+        .get(axum::http::header::CACHE_CONTROL)
+        .map(|v| v.to_str().unwrap().to_owned())
+        .unwrap_or_default();
+    (status, ct, cache)
+}
+
+/// The page names the bundle, so it is asked for again every time — at the root
+/// and at a deep link, which reach it by different paths. With only
+/// `Last-Modified` a WebView keeps it as fresh for a tenth of its age.
+#[tokio::test]
+async fn the_page_is_asked_for_again_every_time() {
+    for path in ["/", "/plan"] {
+        let (status, _, cache) = get(path).await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert_eq!(cache, "no-cache", "{path}");
+    }
 }
 
 #[tokio::test]
 async fn a_missing_asset_is_a_404_and_not_the_page() {
-    let (status, ct) = get("/media/nope.woff2").await;
+    let (status, ct, _) = get("/media/nope.woff2").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(
         !ct.starts_with("text/html"),
@@ -86,7 +103,7 @@ async fn a_missing_asset_is_a_404_and_not_the_page() {
 /// no dot and must still load the shell, or every deep link 404s.
 #[tokio::test]
 async fn a_deep_link_still_gets_the_page() {
-    let (status, ct) = get("/plan").await;
+    let (status, ct, _) = get("/plan").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         ct.starts_with("text/html"),
@@ -97,7 +114,7 @@ async fn a_deep_link_still_gets_the_page() {
 /// And a file that EXISTS is still served as itself.
 #[tokio::test]
 async fn a_real_asset_is_still_served() {
-    let (status, ct) = get("/main-ABC123.js").await;
+    let (status, ct, _) = get("/main-ABC123.js").await;
     assert_eq!(status, StatusCode::OK);
     assert!(
         !ct.starts_with("text/html"),
