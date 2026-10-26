@@ -8,3 +8,5 @@ local.properties
 *.keystore
 captures/
 .cxx/
+# The Kotlin daemon's session state and crash logs.
+.kotlin/
