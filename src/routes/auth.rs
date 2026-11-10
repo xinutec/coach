@@ -14,7 +14,7 @@ use crate::pending_login::{self, Callback};
 use crate::session::{COOKIE_NAME, UserSession, create_session, destroy_session};
 use crate::state::AppState;
 
-fn session_cookie(value: String) -> Cookie<'static> {
+pub(crate) fn session_cookie(value: String) -> Cookie<'static> {
     Cookie::build((COOKIE_NAME, value))
         .path("/")
         .http_only(true)
@@ -195,4 +195,33 @@ pub async fn dev_login(
     };
     let signed = create_session(&app.pool, &app.cfg.session_secret, &user).await?;
     Ok((jar.add(session_cookie(signed)), Redirect::to("/")))
+}
+
+/// Slides a used session (`session::renew`) and sends its cookie back with a
+/// fresh `Max-Age`, so a login lasts a month from its last use.
+pub(crate) async fn renew_session(
+    State(app): State<AppState>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let signed = CookieJar::from_headers(req.headers())
+        .get(COOKIE_NAME)
+        .map(|c| c.value().to_string());
+    let renewed = match &signed {
+        Some(v) => crate::session::renew(&app.pool, &app.cfg.session_secret, v)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "renewing a session failed");
+                false
+            }),
+        None => false,
+    };
+    let mut res = next.run(req).await;
+    if renewed
+        && let Some(v) = signed
+        && let Ok(h) = axum::http::HeaderValue::from_str(&session_cookie(v).to_string())
+    {
+        res.headers_mut().append(header::SET_COOKIE, h);
+    }
+    res
 }

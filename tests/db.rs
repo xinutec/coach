@@ -1084,7 +1084,7 @@ mod sign_in {
 /// Without the slide a login ends a fixed time after sign-in however much it is used.
 #[tokio::test]
 async fn a_used_session_lasts_a_month_from_its_last_use() {
-    use coach::session::{UserSession, create_session, get_session, verify_value};
+    use coach::session::{UserSession, create_session, get_session, renew, verify_value};
     let pool = &fresh("session").await;
     let user = UserSession {
         user_id: "u".into(),
@@ -1102,6 +1102,14 @@ async fn a_used_session_lasts_a_month_from_its_last_use() {
         .await
         .expect("moving the expiry");
 
+    assert!(
+        renew(pool, "k", &signed).await.expect("renewing"),
+        "a used session renews"
+    );
+    assert!(
+        !renew(pool, "k", &signed).await.expect("renewing"),
+        "at most hourly"
+    );
     let got = get_session(pool, "k", &signed).await.expect("reading");
     assert_eq!(got.map(|u| u.user_id).as_deref(), Some("u"));
     let (slid,): (chrono::NaiveDateTime,) =
