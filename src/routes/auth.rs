@@ -20,7 +20,7 @@ fn session_cookie(value: String) -> Cookie<'static> {
         .http_only(true)
         .secure(true)
         .same_site(SameSite::Lax)
-        .max_age(time::Duration::days(7))
+        .max_age(time::Duration::days(400))
         .build()
 }
 

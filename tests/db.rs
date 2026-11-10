@@ -1079,3 +1079,39 @@ mod sign_in {
         assert_removed_at_root(&out, session::COOKIE_NAME);
     }
 }
+
+/// A used session slides: one a day from expiry, read, lasts a month from now.
+/// Without the slide a login ends a fixed time after sign-in however much it is used.
+#[tokio::test]
+async fn a_used_session_lasts_a_month_from_its_last_use() {
+    use coach::session::{UserSession, create_session, get_session, verify_value};
+    let pool = &fresh("session").await;
+    let user = UserSession {
+        user_id: "u".into(),
+        display_name: "U".into(),
+    };
+    let signed = create_session(pool, "k", &user)
+        .await
+        .expect("seating a session");
+    let id = verify_value("k", &signed).expect("signed cookie");
+    let nearly_up = Utc::now().naive_utc() + Duration::days(1);
+    sqlx::query("UPDATE sessions SET expires_at = ? WHERE id = ?")
+        .bind(nearly_up)
+        .bind(&id)
+        .execute(pool)
+        .await
+        .expect("moving the expiry");
+
+    let got = get_session(pool, "k", &signed).await.expect("reading");
+    assert_eq!(got.map(|u| u.user_id).as_deref(), Some("u"));
+    let (slid,): (chrono::NaiveDateTime,) =
+        sqlx::query_as("SELECT expires_at FROM sessions WHERE id = ?")
+            .bind(&id)
+            .fetch_one(pool)
+            .await
+            .expect("the session row");
+    assert!(
+        slid > Utc::now().naive_utc() + Duration::days(29),
+        "used, the session must last a month from now: {slid}"
+    );
+}
