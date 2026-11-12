@@ -1,0 +1,176 @@
+{
+  "ceilings": {
+    "acts": 2,
+    "bootstrap": 0,
+    "by_design": 0,
+    "observer_checks": 0,
+    "observes": 0
+  },
+  "subjects": [
+    {
+      "class": "Acts",
+      "path": "android/deploy.sh",
+      "why": "builds the APK and installs it on a phone over adb: the phone-shells plan's target (automation-model item 14)"
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/fetch-asset.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/floor.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/pose.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/prepare.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/render.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/rigging/gen-body.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/rigging/transfer-rig.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/animate.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/check-pose.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/collide.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/debug-regions.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/label-body.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/plant.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/render-skin.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/skin/try-pose.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/stage.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "render/za.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/add-image.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/backtest.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/check-image-sources.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/check-muscle-map.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/check-query-cache.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/coachctl.py",
+      "why": ""
+    },
+    {
+      "class": "Acts",
+      "path": "scripts/deploy.sh",
+      "why": "rolls coach on isis by hand: a deploy-plan row's target (item 15)"
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/dev-db.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/gen-types.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/prod-dump.sh",
+      "why": "dumps production's database into a local file; reads only"
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/setup-hooks.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/sim-accuracy.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/sim-neglect.py",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/simulate-matrix.sh",
+      "why": ""
+    },
+    {
+      "class": "OutOfScope",
+      "path": "scripts/simulate.sh",
+      "why": ""
+    }
+  ]
+}

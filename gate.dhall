@@ -272,4 +272,5 @@ in  { name = "coach"
       , G.checkTable "../dev-lint"
       , G.devLint "../"
       ]
+      # G.acting "../dev-lint"
     }
