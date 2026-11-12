@@ -223,7 +223,7 @@ in  { name = "coach"
         , timeout_s = 1800
         }
       , {-  The Android app. Toolchain comes from recall's android dev shell,
-            the same one android/deploy.sh uses; a missing shell FAILS this row
+            the same one the shell apps build in; a missing shell FAILS this row
             rather than skipping it, because a gate that skips is a gate that
             lies. The build additionally needs ui-harness — the shared WebView
             shell — checked out beside the repo; app/build.gradle.kts says so in

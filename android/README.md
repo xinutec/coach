@@ -51,8 +51,6 @@ model, not IP):
 
 ```sh
 cd android
-nix develop ~/Code/recall#android --command ./deploy.sh   # build + install to the Pixel 9
-# or just build:
 nix develop ~/Code/recall#android --command ./gradlew :app:assembleDebug
 # → app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -103,6 +101,5 @@ android/
 │   │   ├── BootReceiver.kt                       # re-arm after reboot
 │   │   └── PacingClient.kt · Notifications.kt    # authenticated GET + the reminder
 │   └── res/                                      # launcher icon, theme, notification icon
-├── build.gradle.kts · settings.gradle.kts · gradle/
-└── deploy.sh                                     # build + adb install to the Pixel 9
+└── build.gradle.kts · settings.gradle.kts · gradle/
 ```
