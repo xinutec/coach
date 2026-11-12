@@ -14,7 +14,7 @@ let Class = A.Class
 
 in  { ceilings =
         -- acts: each row names what it becomes (automation-model items 13-15)
-      { acts = 1
+      { acts = 0
       , bootstrap = 0
       , by_design = 0
       , observes = 0
@@ -44,10 +44,6 @@ in  { ceilings =
           , subject "scripts/check-muscle-map.py" Class.OutOfScope ""
           , subject "scripts/check-query-cache.sh" Class.OutOfScope ""
           , subject "scripts/coachctl.py" Class.OutOfScope ""
-          , subject
-              "scripts/deploy.sh"
-              Class.Acts
-              "rolls coach on isis by hand: a deploy-plan row's target (item 15)"
           , subject "scripts/dev-db.sh" Class.OutOfScope ""
           , subject "scripts/gen-types.sh" Class.OutOfScope ""
           , subject

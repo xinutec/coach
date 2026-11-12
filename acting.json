@@ -1,6 +1,6 @@
 {
   "ceilings": {
-    "acts": 1,
+    "acts": 0,
     "bootstrap": 0,
     "by_design": 0,
     "observer_checks": 0,
@@ -121,11 +121,6 @@
       "class": "OutOfScope",
       "path": "scripts/coachctl.py",
       "why": ""
-    },
-    {
-      "class": "Acts",
-      "path": "scripts/deploy.sh",
-      "why": "rolls coach on isis by hand: a deploy-plan row's target (item 15)"
     },
     {
       "class": "OutOfScope",

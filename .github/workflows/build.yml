@@ -11,9 +11,7 @@ on:
     paths-ignore:
       - "**/flake.lock"
       # The render pipeline never affects the app image (render.yml is a separate
-      # manual workflow). Skip the rebuild for it. NOTE: don't add docs/** here —
-      # deploy.sh requires HEAD to have a CI build, so a path-ignored commit at
-      # HEAD is undeployable; keeping docs building preserves that invariant.
+      # manual workflow). Skip the rebuild for it.
       - "render/**"
       - ".github/workflows/render.yml"
   workflow_dispatch: {}

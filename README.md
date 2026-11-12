@@ -118,17 +118,16 @@ Needs the debug Chrome up, signed in once (the profile keeps the session):
 ## Deploy
 
 ```sh
-./scripts/deploy.sh          # commit + push first; it refuses a dirty tree
+kubes/deploy.sh coach   # from the kubes checkout; deploys what is pushed to main
 ```
 
 CI (`.github/workflows/build.yml`, on push to `main`) builds+pushes
 `xinutec/coach:latest`, tagging the image with the commit it was built from.
-`deploy.sh` waits for the CI run **whose head SHA is this commit** (not merely
-the latest run — that returns the *previous* commit's, and restarting on it
-ships the code before yours while reporting success), rolls out, then asks the
-running server `GET /version` and requires it to equal HEAD. A rollout that
-succeeds proves a pod came up, not which image it came up on; `/version` is what
-proves the deploy.
+The deploy plan (coach is one of xinutec-infra's serving rows) waits for the
+CI run **of the pushed commit** (not merely the latest run, which may be the
+previous commit's), rolls out, then requires `GET /version` to answer that
+commit. A rollout that succeeds proves a pod came up, not which image it came
+up on; `/version` is what proves the deploy.
 
 The k8s manifests live in the home monorepo
 (`code/kubes/coach/k8s/`, generated from `dhall/apps/coach.dhall`). First time
