@@ -761,8 +761,7 @@ fn candidates<'a>(
         }
         // A ladder is entered where the athlete stands: a never-done rung waits while
         // an easier one is doable and not outgrown. Harder rungs arrive by stepping up
-        // (`ladder_targets`), never as novelty — round 10's first day back offered the
-        // archer push-up over the push-up done before the break.
+        // (`ladder_targets`), never as novelty.
         let done_before = history.iter().any(|s| s.exercise_id == ex.id);
         if !done_before
             && !ladder_targets.contains(&ex.id)

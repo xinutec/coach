@@ -109,8 +109,7 @@ const NAMED_KIT: &[(&str, &[&str])] = &[
 ];
 
 /// A movement whose name says what it is done with must list that kit, or the coach
-/// offers it where the kit is absent: round 10 planned battle-rope slams and an ab
-/// rollout on a barbell for a hotel room with nothing in it.
+/// offers it where the kit is absent (battle-rope slams in an empty room).
 #[test]
 fn a_movement_named_after_its_kit_lists_that_kit() {
     // Lower-case words between single spaces, so " box " never matches "boxer".

@@ -357,9 +357,8 @@ proptest! {
     // execute it isn't a plan: you'd finish the first movement and be handed a
     // different session for the rest of the hour.
     //
-    // Measured before it was written: over ~290 generated scenarios the verdict
-    // moved every time and the work sequence never did, so this pins observed
-    // behaviour rather than a hoped-for one.
+    // This pins observed behaviour: across generated scenarios the verdict moves
+    // and the work sequence does not.
     #[test]
     fn committing_the_first_item_does_not_rewrite_the_session((m, d, raw, owned) in scenario()) {
         let before = evaluate(&build_input(m, d, &raw, &owned), base());

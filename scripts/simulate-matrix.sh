@@ -66,7 +66,7 @@ CELLS=(
   novice:skipper:untracked
   injured:compliant:roughweek
   strong:overachiever:untracked
-  # a return after nine weeks away, as the real history stood in round 8
+  # a return after nine weeks away
   improver:compliant:untracked:63
   novice:compliant:untracked:63
   improver:overachiever:untracked:63

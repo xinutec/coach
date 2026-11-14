@@ -730,8 +730,8 @@ fn location_substitutes_the_ideal() {
 }
 
 // A doable variation of the ideal means nothing real blocks it: the cover simply
-// preferred another movement, which is no substitution (round 8's "instead of RDL" on
-// a snatch, with the dumbbell RDL right there).
+// preferred another movement, which is no substitution ("instead of RDL" on a snatch,
+// with the dumbbell RDL right there).
 #[test]
 fn no_substitution_is_claimed_while_a_variation_of_the_ideal_is_doable() {
     let row = |id, name: &str, metric, equipment| ExerciseInfo {
@@ -977,8 +977,8 @@ fn yesterdays_sets_are_not_todays_progress() {
 fn a_calibration_never_asks_more_than_it_measured() {
     // A never-done movement is measured (one honest AMRAP, logged mid-session). The
     // card keeps its shape from the session's start, and any sets it has left are
-    // work below the measurement: round 1 saw a max of 4 answered with "5–12", and
-    // R8-1 a max of 5 answered with 6. A maximum is not a floor to climb from.
+    // work below the measurement (R8-1): a max of 4 is never answered with "5–12".
+    // A maximum is not a floor to climb from.
     let h = vec![bset(2, minutes_ago(30), 6)]; // ring row: first-ever set, today
     let out = evaluate(&input(Mode::Balanced, catalog(), h, None, None), now());
     let items: Vec<_> = out
@@ -2388,11 +2388,11 @@ fn the_warmup_preps_the_sessions_heaviest_groups_first() {
 }
 
 // R8-4: the movement that opens the session is warmed up, even when heavier groups
-// would fill the block. Round 8's first day back led with a snatch after three
-// upper-body drills and nothing for the hips.
+// would fill the block: a snatch must not open after three upper-body drills and
+// nothing for the hips.
 #[test]
 fn the_opening_movement_is_warmed_up() {
-    // Day one back, as round 8 met it: six upper-body movements last done months ago
+    // Day one back: six upper-body movements last done months ago
     // (so measured again, one set each, in pairs per group) and a never-done jump,
     // which leads. Three upper groups carry two sets each and fill a three-drill
     // block on load alone; the jump's quads carry one.
@@ -2487,7 +2487,7 @@ fn a_met_target_with_a_card_open_names_the_card() {
 }
 
 // The first day back after a long break measures short of the limit: a first day of
-// near-maximal tests is a lot after months away (round 8, the user's call). Only that
+// near-maximal tests is a lot after months away. Only that
 // day; a movement gone stale in an active week still measures to the limit.
 fn push_up_measure(history: Vec<SetRec>) -> coach::pacing::types::Ask {
     let out = evaluate(
@@ -2510,9 +2510,9 @@ fn a_return_after_a_long_break_measures_short_of_the_limit() {
     );
 }
 
-// The reserve holds however small the last best. Capped to nothing, it sent dips
-// (last best 2) to failure on the one day everything else held back (round 8, walked
-// in the app). The card asks for at least one rep.
+// The reserve holds however small the last best: capped to nothing, dips with a last
+// best of 2 go to failure on the one day everything else holds back. The card asks for
+// at least one rep.
 #[test]
 fn the_return_reserve_holds_on_a_tiny_best() {
     let h = (0..3).map(|d| bset(1, days_ago(70 + d), 2)).collect();
@@ -3009,8 +3009,7 @@ fn a_movement_too_hard_to_build_steps_down_to_an_easier_sibling() {
 }
 
 // Off the card: a session done at another weight than the card's is said, so the card
-// holding reads as a decision rather than a coach that did not notice (round 8's
-// heavier athlete routed at 6 kg four times against a 5 kg card, in silence).
+// holding reads as a decision rather than a coach that did not notice.
 fn row_card(last: SetRec) -> Suggestion {
     let mut h: Vec<SetRec> = [9, 7, 5]
         .iter()
@@ -3813,7 +3812,7 @@ fn work_for(out: &PacingNow, id: i64) -> &Suggestion {
 }
 
 // A ballistic lift loses its point once form goes, which happens long before ten
-// reps: round 8 asked the snatch 2 × 10.
+// reps.
 #[test]
 fn a_power_lift_is_asked_for_a_few_reps() {
     let snatch = ExerciseInfo {
@@ -4142,7 +4141,7 @@ fn the_close_gives_the_weeks_picture() {
 }
 
 // The set named is the day's strongest, even when it came after the card's count:
-// round 9's walk logged 6 then 9 dips against a one-set card, beating a best of 8.
+// 6 then 9 dips against a one-set card beat a best of 8 with the 9.
 #[test]
 fn the_best_named_is_the_strongest_set_of_the_day() {
     let h = vec![
@@ -4366,9 +4365,9 @@ fn no_power_where_there_is_no_room_for_it() {
 
 // ---- coming back ----
 
-// A ladder is entered where the athlete stands, as a trainer would: round 10's first
-// day back offered the never-done archer push-up and pistol squat over the push-up
-// done before the break. A harder rung arrives by stepping up, not by novelty.
+// A ladder is entered where the athlete stands, as a trainer would: the never-done
+// archer push-up waits while the push-up done before the break is doable. A harder
+// rung arrives by stepping up, not by novelty.
 #[test]
 fn a_never_done_harder_rung_waits_for_the_easier_one() {
     let back = vec![
@@ -4430,7 +4429,7 @@ fn a_calibration_earns_back_off_sets_when_the_day_has_room() {
 }
 
 // Once the measurement is in, the rest of the card is work below it: the reserve an
-// eased day leaves, never more than was just shown (round 1, R8-1).
+// eased day leaves, never more than was just shown (R8-1).
 #[test]
 fn after_the_measurement_the_back_off_sets_ask_less_than_it() {
     let out = evaluate(

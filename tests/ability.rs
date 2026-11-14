@@ -377,8 +377,7 @@ fn a_sustained_decline_lowers_the_estimate() {
     );
 }
 
-/// The shape R6-3 actually took in the field test: a bodyweight movement believed
-/// at 7 reps against a true 5, held for fifteen straight sessions.
+/// R6-3 for bodyweight: a movement believed at 7 reps against a true 5.
 #[test]
 fn a_decline_in_bodyweight_reps_is_representable_too() {
     let mut h = vec![bodyweight(2, 14, 12, None)];

@@ -333,7 +333,7 @@ describe('after a set lands', () => {
 
 describe('when the item is done', () => {
   // A warm-up is one set: staying on it after it lands makes the athlete pick
-  // the next movement by hand, every time (round 8's walk). A run of work sets
+  // the next movement by hand, every time. A run of work sets
   // stays put until its last set.
   const plan = [
     { exerciseId: 1, reps: 10, sets: 1 },

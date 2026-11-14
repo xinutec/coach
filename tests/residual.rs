@@ -158,8 +158,7 @@ fn a_probe_is_earned_not_daily() {
 }
 
 // R8-1: a measurement is a max. With only the measuring session behind it, the first
-// work consolidates there; asking one more, for two sets, planned a miss (214 of 334
-// first sessions after an AMRAP, round 8).
+// work consolidates there; asking one more, for two sets, plans a miss.
 #[test]
 fn the_first_work_after_a_measurement_consolidates() {
     let r = ledger_for(vec![wset(0, 40.0, 5)]);
@@ -187,8 +186,8 @@ fn a_long_break_restarts_the_ledger() {
 }
 
 // R8-6: two reps over the ask at the asked weight is a beat. Through Epley it is
-// +5%, inside the margin that absorbs plate rounding for a *different* weight, and
-// round 8's curls done 12 against 10 were scored "met" and held three sessions.
+// +5%, inside the margin that absorbs plate rounding for a *different* weight, so
+// without this rule curls done 12 against 10 score "met" and the ask holds.
 #[test]
 fn reps_over_the_ask_at_its_weight_are_a_beat() {
     let r = ledger_for(vec![wset(0, 40.0, 5), wset(2, 35.0, 12)]);

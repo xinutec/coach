@@ -498,8 +498,8 @@ fn perform(
             ..
         } => {
             // A bell beyond the athlete's max cannot be lifted once: they put it down
-            // and take the card's. Crediting a rep there logged a max nobody has, and
-            // the coach believed it (round 10: a snatch at 1.24x the truth).
+            // and take the card's. Crediting a rep there logs a max nobody has, and
+            // the coach believes it.
             let load = Some(behaviour.load_used(asked_load, loads))
                 .filter(|l| reps_at(truth.e1rm, *l) >= 1)
                 .unwrap_or(asked_load);
