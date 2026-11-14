@@ -207,11 +207,11 @@ table in `poses.json` names the pose, the two things allowed to touch and the
 reason, and applies to the interpolated frames of any sequence whose keys include
 that pose. The rule stays at full strength for every other pose.
 
-- ⚠ **State an exemption at LIMB level.** Which bone pair meets first moves as
+- **State an exemption at LIMB level.** Which bone pair meets first moves as
   the arms do, so a bone-pair entry goes stale mid-animation. A
   `LIMB:clavicle_L` token expands through the skeleton's own child links: *these
   two arms touch*.
-- ⚠ **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
+- **An exemption is not a licence to stop looking.** With arm-vs-arm allowed,
   the render is the only remaining check for that pose. Arms posed symmetrically
   meet head-on at mid-swing; one arm crosses in FRONT of the other.
 
@@ -298,10 +298,10 @@ the arms instead makes them collide with the head. The rig's rest arm points
 sideways, so arms reaching forward along the floor need upper-arm Z as well as
 X (180, ∓60).
 
-⚠ **A hip height is a difference.** "Hips 14.1cm" with the hips flat on the
+**A hip height is a difference.** "Hips 14.1cm" with the hips flat on the
 ground is the mean pelvis vertex of a thick body, not a lift.
 
-⚠ **Judge a floor pose against a floor.** Against plain grey, a body on the
+**Judge a floor pose against a floor.** Against plain grey, a body on the
 ground and one hovering 15cm above it are the same picture. And the views are
 orthographic and horizontal, so a flat *plane* renders edge-on as a one-pixel
 line — present in the scene, invisible in the frame. `floor.py` is a slab with
@@ -378,7 +378,7 @@ the full atlas on isis once exhausted its memory and took production down.
 
 EEVEE is visually indistinguishable here — matte diffuse under two suns, with no
 light transport for path tracing to win at. `COACH_RENDER_ENGINE=EEVEE` selects
-it for stills. ⚠ Timing single-frame invocations says the opposite, because one
+it for stills. Timing single-frame invocations says the opposite, because one
 frame is dominated by loading the blend and EEVEE's one-off GPU setup.
 
 **Determinism:** pinned Blender, fixed seed, fixed light and camera — an unchanged
@@ -386,7 +386,7 @@ pose renders the same image, so an image diff means something.
 
 ## Traps
 
-**⚠⚠ Blender exits 0 when the script crashes.** `blender -b --python x.py` where
+⚠ **Blender exits 0 when the script crashes.** `blender -b --python x.py` where
 `x.py` raises prints the traceback and returns 0; an explicit `sys.exit(1)` is
 honoured. So a green status means "blender ran", never "the check passed". These
 scripts print one line per candidate or pose: count them, or grep for
@@ -439,7 +439,7 @@ on BodyParts3D / Anatomography (CC-BY-SA 2.1 JP). The male figure lives in the
 
 CC-BY-SA requires the credit wherever a derived work is shown. The exercise sheet
 credits it in a line under every loop, and under any picture whose catalog entry
-carries an `image.credit` (`text`, optional `url`). ⚠ **A rendered still gets its
+carries an `image.credit` (`text`, optional `url`). **A rendered still gets its
 credit only from that field** — nothing detects a render — so a new render
 committed to `data/catalog/images/` needs one in `exercises.json`, as
 `heel_toe_rocks` has. A new place that shows a render needs the credit too.

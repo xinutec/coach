@@ -23,7 +23,7 @@ rather than by closed-form levelling. A closed form has to decide WHICH axis
 treating it as fixed rotates a squat by 27.9 degrees, silently, because a squat
 looks plausible at any angle.
 
-⚠ A pose that declares no contacts takes exactly the old path. That is the whole
+A pose that declares no contacts takes exactly the old path. That is the whole
 safety argument for this file: `stand`, `squat` and `hinge_bottom` cannot be
 touched by code they never reach.
 """
@@ -103,7 +103,7 @@ def evaluated(bpy, body):
 
 # Which vertices belong to which contact bone, cached across a run.
 #
-# ⚠ This cache is what makes the solver usable at all. Scanning every vertex and
+# This cache is what makes the solver usable at all. Scanning every vertex and
 # its group memberships in Python costs about a second, and a solve evaluates the
 # pose about a hundred times, for an answer that never changes.
 # Weights do not move when a bone rotates — only positions do.
